@@ -103,7 +103,7 @@ export default function Landing() {
         </motion.div>
         
         <div className="hidden md:flex items-center gap-10">
-          {['Serviços', 'Unidades', 'Processo'].map((item, i) => (
+          {['Serviços', 'Unidades'].map((item, i) => (
             <motion.a 
               key={item}
               initial={{ opacity: 0, y: -10 }}
@@ -128,7 +128,7 @@ export default function Landing() {
               Acesso Restrito
             </Link>
             <a href="#contato" className="px-6 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-              Orçamento Express
+              Orçamento Online
             </a>
           </motion.div>
         </div>
@@ -267,48 +267,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How It Works - Visual Timeline */}
-      <section id="processo" className="py-32 px-8 bg-surface relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center space-y-4 mb-24">
-            <span className="text-[11px] uppercase font-bold tracking-[0.3em] text-primary">Transparência Total</span>
-            <h2 className="text-4xl md:text-5xl font-display font-black text-on-surface uppercase tracking-tight">O Fluxo MDR</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-12 lg:gap-8 relative">
-            {/* Connection Line */}
-            <div className="absolute top-12 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/20 to-transparent hidden lg:block"></div>
-            
-            {[
-              { step: '01', title: 'Check-in Digital', desc: 'Realizamos o diagnóstico preliminar via WhatsApp ou Balcão.', icon: MessageCircle },
-              { step: '02', title: 'Orçamento Tech', desc: 'Análise detalhada de componentes com orçamento fechado, sem surpresas.', icon: ClipboardList },
-              { step: '03', title: 'Hands-On', desc: 'Execução do reparo por técnicos certificados em laboratório próprio.', icon: Wrench },
-              { step: '04', title: 'Quality Check', desc: 'Testes rigorosos de stress e entrega com certificado de garantia.', icon: CheckCircle2 },
-            ].map((item, i) => (
-              <motion.div 
-                key={i} 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.2 }}
-                className="flex flex-col items-center text-center space-y-6 relative"
-              >
-                <div className="w-24 h-24 rounded-full bg-surface-container-high border-2 border-outline-variant group hover:border-primary transition-all flex items-center justify-center relative z-10 shadow-lg">
-                  <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary text-on-primary text-xs font-black flex items-center justify-center">
-                    {item.step}
-                  </div>
-                  <item.icon size={40} className="text-on-surface-variant group-hover:text-primary transition-colors" />
-                </div>
-                <div className="space-y-3">
-                  <h4 className="text-xl font-black text-on-surface uppercase tracking-tight">{item.title}</h4>
-                  <p className="text-sm text-on-surface-variant font-display leading-relaxed px-4">{item.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Units - Visual Cards */}
       <section id="unidades" className="py-32 px-8 bg-surface-container-low/50 border-t border-outline-variant/30 relative">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(75,226,119,0.03)_0%,transparent_70%)] pointer-events-none"></div>
@@ -362,52 +320,36 @@ export default function Landing() {
                 <span className="text-white italic">Online.</span>
               </h2>
               <p className="text-on-surface-variant font-display text-lg tracking-tight leading-relaxed max-w-sm">
-                Vamos resolver o seu problema. Preencha os dados básicos abaixo para receber uma prévia do orçamento. Nosso tempo médio de resposta é de <span className="text-white font-black underline decoration-primary">12 minutos</span>.
+                Vamos resolver o seu problema. Preencha os dados básicos abaixo para receber uma prévia do orçamento.
               </p>
             </div>
 
-            <div className="space-y-8">
-              <div className="flex items-center gap-5 group">
-                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:bg-white group-hover:text-black transition-all">
-                  <Star size={24} fill="currentColor" />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-black tracking-[0.2em] text-primary">Qualidade Garantida</p>
-                  <p className="text-base font-black text-white uppercase tracking-tight">90 dias em todos os reparos</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-5 group">
-                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:bg-white group-hover:text-black transition-all">
-                  <Clock size={24} />
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-black tracking-[0.2em] text-primary">Pronto Atendimento</p>
-                  <p className="text-base font-black text-white uppercase tracking-tight">Seg à Sex: 08:30 - 18:30</p>
-                </div>
-              </div>
-            </div>
+
           </div>
 
           <div className="lg:col-span-3">
             <div className="glass-card p-10 md:p-14 border border-outline-variant/40 rounded-[56px] relative overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.3)]">
               <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/5 blur-[120px] -z-10"></div>
               
-              <div className="space-y-2 mb-10">
-                <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] pl-1">Selecione o seu objetivo:</p>
+              <div className="space-y-4 mb-10">
+                <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] pl-1">Escolha o serviço desejado:</p>
                 <div className="flex p-1 bg-white/5 rounded-[24px] gap-1 border border-white/5">
                   <button 
                     onClick={() => setFormType('assistencia')}
                     className={`flex-1 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${formType === 'assistencia' ? 'bg-white text-black shadow-xl scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
                   >
-                    Assistência
+                    Reparos e Assistência
                   </button>
                   <button 
                     onClick={() => setFormType('venda')}
                     className={`flex-1 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${formType === 'venda' ? 'bg-white text-black shadow-xl scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
                   >
-                    Vendas
+                    Venda de Celular
                   </button>
                 </div>
+                <p className="text-[10px] text-on-surface-variant/60 font-medium italic pl-1">
+                  {formType === 'assistencia' ? '* Preencha os detalhes do seu aparelho para conserto.' : '* Consulte modelos disponíveis e condições de parcelamento.'}
+                </p>
               </div>
 
               <form className="space-y-8">

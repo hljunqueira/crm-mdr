@@ -6,10 +6,13 @@ import {
   Settings, 
   HelpCircle,
   Users,
-  ClipboardList,
-  Package,
+  Smartphone,
+  CreditCard,
+  Bot,
+  TrendingDown,
   TrendingUp,
-  ShieldCheck
+  ShieldCheck,
+  ShoppingBag
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils'; // Fixed path
@@ -17,10 +20,14 @@ import { cn } from '../../lib/utils'; // Fixed path
 export default function Sidebar() {
   const location = useLocation();
 
-  const navItems = [
+  const navItems: { name: string; icon: any; path: string; badge?: number }[] = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { name: 'Clientes', icon: Users, path: '/customers' },
+    { name: 'Estoque', icon: Smartphone, path: '/inventory' },
+    { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
+    { name: 'Financeiro', icon: CreditCard, path: '/finance' },
+    { name: 'WhatsApp', icon: Bot, path: '/automation' },
     { name: 'Leads', icon: UserSearch, path: '/leads' },
-    { name: 'Conversas', icon: MessageSquare, path: '/chat', badge: 3 },
     { name: 'Funil', icon: Filter, path: '/kanban' },
     { name: 'Relatórios', icon: TrendingUp, path: '/reports' },
     { name: 'Configurações', icon: Settings, path: '/settings' },
