@@ -95,7 +95,7 @@ export default function Landing() {
           className="flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shadow-lg shadow-primary/5 overflow-hidden border border-outline-variant/20">
-            <img src="/logo.png" alt="MDR Informática & Celulares" className="w-full h-full object-contain p-1" />
+            <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="w-full h-full object-contain p-1" />
           </div>
           <span className="font-display font-black text-on-surface text-xl tracking-tighter uppercase">
             MDR <span className="text-primary italic">Informática & Celulares</span>
@@ -425,7 +425,7 @@ export default function Landing() {
             <div className="col-span-1 md:col-span-2 space-y-8">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-surface-container border border-outline-variant/30 flex items-center justify-center p-2">
-                  <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+                  <img src="/logo-mdr.png" alt="Logo" className="w-full h-full object-contain" />
                 </div>
                 <span className="font-display font-black text-on-surface text-2xl tracking-tighter uppercase">
                   MDR <span className="text-primary italic">Informática & Celulares</span>
