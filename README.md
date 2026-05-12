@@ -1,22 +1,23 @@
-# MDR Informática & Celulares — CRM
+# CRM MDR — Gestão Inteligente para Assistências e Celulares
 
-Sistema de gestão premium para assistências técnicas e vendas de celulares.
+Sistema premium de gestão desenvolvido para a **MDR Informática & Celulares**, focado em automação de vendas, controle financeiro e integração com WhatsApp.
 
-## Executar Localmente
+## 🚀 Infraestrutura & Links
+O projeto está hospedado em uma VPS dedicada com deploy automático via GitHub Actions.
 
-**Pré-requisitos:** Node.js 18+
+*   **CRM Principal:** [mdrinformaticaecelulares.com.br](http://mdrinformaticaecelulares.com.br)
+*   **Gestão de Infra (Portainer):** [portainer.mdrinformaticaecelulares.com.br](http://portainer.mdrinformaticaecelulares.com.br)
+*   **Automações (n8n):** [n8n.mdrinformaticaecelulares.com.br](http://n8n.mdrinformaticaecelulares.com.br)
+*   **WhatsApp API (Evolution):** [whatsapp.mdrinformaticaecelulares.com.br](http://whatsapp.mdrinformaticaecelulares.com.br)
 
-1. Instalar dependências:
-   ```bash
-   npm install
-   ```
-2. Copiar variáveis de ambiente:
-   ```bash
-   cp .env.example .env.local
-   ```
-3. Executar o servidor:
-   ```bash
-   npm run dev
-   ```
+## 🛠️ Tecnologias
+*   **Frontend:** React + Vite + Tailwind CSS + Framer Motion
+*   **Backend:** Node.js (Express) + Supabase (PostgreSQL)
+*   **Automação:** Edge Functions (Supabase) + Evolution API (WhatsApp)
+*   **DevOps:** Docker, Docker Compose, Caddy (SSL Reverso)
 
-O app será acessível em `http://localhost:3000`.
+## 📦 Como Atualizar
+Basta realizar um `push` para a branch `main`. O GitHub Actions cuidará de atualizar a VPS automaticamente.
+
+---
+Gerado por Antigravity AI para MDR Informática & Celulares.
