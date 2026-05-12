@@ -1,0 +1,20 @@
+# CRM MDR Principal
+mdrinformaticaecelulares.com.br {
+    reverse_proxy app:3000
+    encode gzip
+}
+
+# n8n Automation
+n8n.mdrinformaticaecelulares.com.br {
+    reverse_proxy n8n:5678
+}
+
+# Evolution API (WhatsApp)
+whatsapp.mdrinformaticaecelulares.com.br {
+    reverse_proxy evolution:8080
+}
+
+# Supabase Studio / API
+supabase.mdrinformaticaecelulares.com.br {
+    reverse_proxy kong:8000
+}

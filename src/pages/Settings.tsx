@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { 
   Palette, 
   Globe, 
@@ -6,137 +7,287 @@ import {
   Smartphone, 
   Bell, 
   CreditCard,
-  User 
+  User,
+  Building2,
+  Key,
+  Database,
+  Save,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import { cn } from '@/src/lib/utils';
+import { cn } from '../lib/utils';
+import { useUnitStore } from '../store/useUnitStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { useUI } from '../context/UIContext';
+
+type TabType = 'unit' | 'whatsapp' | 'white-label' | 'notifications';
 
 export default function Settings() {
+  const [activeTab, setActiveTab] = useState<TabType>('unit');
+  const { profile } = useAuthStore();
+  const { unit, fetchUnit, updateUnit, isLoading } = useUnitStore();
+  const { showNotification } = useUI();
+
+  const [formData, setFormData] = useState({
+    name: '',
+    cnpj: '',
+    address: '',
+    phone: '',
+    evolution_api_url: '',
+    evolution_api_key: '',
+    evolution_instance: ''
+  });
+
+  useEffect(() => {
+    if (profile?.unit_id) {
+      fetchUnit(profile.unit_id);
+    }
+  }, [profile?.unit_id, fetchUnit]);
+
+  useEffect(() => {
+    if (unit) {
+      setFormData({
+        name: unit.name || '',
+        cnpj: unit.cnpj || '',
+        address: unit.address || '',
+        phone: unit.phone || '',
+        evolution_api_url: unit.evolution_api_url || '',
+        evolution_api_key: unit.evolution_api_key || '',
+        evolution_instance: unit.evolution_instance || ''
+      });
+    }
+  }, [unit]);
+
+  const handleSave = async () => {
+    if (!profile?.unit_id) return;
+    try {
+      await updateUnit(profile.unit_id, formData);
+      showNotification('success', 'Configurações Salvas', 'Os dados foram atualizados com sucesso.');
+    } catch (error) {
+      showNotification('error', 'Erro ao Salvar', 'Não foi possível atualizar as configurações.');
+    }
+  };
+
+  const menuItems = [
+    { id: 'unit', label: 'Dados da Unidade', icon: Building2 },
+    { id: 'whatsapp', label: 'Integração WhatsApp', icon: MessageCircle },
+    { id: 'white-label', label: 'Identidade Visual', icon: Palette },
+    { id: 'notifications', label: 'Notificações', icon: Bell },
+  ];
+
   return (
-    <div className="p-8 space-y-8 max-w-[1000px] mx-auto">
-      <div>
-        <h2 className="font-display text-2xl font-bold text-on-surface">Configurações</h2>
-        <p className="text-on-surface-variant font-display text-sm tracking-tight">Personalize sua plataforma e gerencie suas integrações.</p>
+    <div className="p-8 pb-24 animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+        <div>
+          <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Configurações</h1>
+          <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gerencie sua rede e integrações</p>
+        </div>
+        <button 
+          onClick={handleSave}
+          className="flex items-center gap-3 bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
+        >
+          <Save size={18} />
+          Salvar Alterações
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <aside className="space-y-1">
-          {[
-            { label: 'Perfil & Conta', icon: User, active: false },
-            { label: 'White-Label', icon: Palette, active: true },
-            { label: 'Canais de Chat', icon: MessageCircle, active: false },
-            { label: 'Notificações', icon: Bell, active: false },
-            { label: 'Planos & Cobrança', icon: CreditCard, active: false },
-            { label: 'Segurança', icon: ShieldCheck, active: false },
-          ].map((item, i) => (
-            <button 
-              key={i}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+        {/* Navigation Sidebar */}
+        <div className="lg:col-span-1 space-y-2">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as TabType)}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-display font-medium transition-all",
-                item.active ? "bg-primary text-on-primary shadow-md shadow-primary/20" : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
+                "w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
+                activeTab === item.id 
+                  ? "bg-white text-black border-white shadow-xl shadow-white/5" 
+                  : "bg-white/[0.02] text-on-surface-variant border-transparent hover:bg-white/5 hover:text-white"
               )}
             >
               <item.icon size={18} />
-              <span>{item.label}</span>
+              {item.label}
             </button>
           ))}
-        </aside>
+        </div>
 
-        <div className="md:col-span-2 space-y-8 pb-12">
-          {/* White Label Section */}
-          <section className="glass-card p-6 border border-outline-variant/30 rounded-3xl space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-outline-variant/30">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <Palette size={20} />
-              </div>
-              <div>
-                <h3 className="font-bold text-on-surface">Identidade Visual (White-Label)</h3>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Customização de Marca</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-on-surface-variant uppercase">Logo da Empresa</label>
-                <div className="border-2 border-dashed border-outline-variant rounded-2xl h-32 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low cursor-pointer transition-all">
-                  <Smartphone className="text-on-surface-variant/40" size={24} />
-                  <span className="text-[10px] font-bold text-on-surface-variant">Upload de Imagem</span>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Cor Primária</label>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary border-2 border-outline-variant shadow-lg group cursor-pointer hover:scale-105 transition-transform flex items-center justify-center">
-                    </div>
-                    <input type="text" value="#D1E0FF" readOnly className="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-xs font-mono" />
+        {/* Content Area */}
+        <div className="lg:col-span-3">
+          <AnimatePresence mode="wait">
+            {activeTab === 'unit' && (
+              <motion.div 
+                key="unit"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <Building2 size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Dados da Unidade</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Informações Jurídicas e Contrato</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Cor de Destaque</label>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-secondary border-2 border-outline-variant shadow-lg cursor-pointer hover:scale-105 transition-transform"></div>
-                    <input type="text" value="#7FB3D5" readOnly className="flex-1 bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-xs font-mono" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome da Loja</label>
+                    <input 
+                      type="text" 
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">CNPJ</label>
+                    <input 
+                      type="text" 
+                      placeholder="00.000.000/0000-00"
+                      value={formData.cnpj}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cnpj: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Endereço Completo</label>
+                    <input 
+                      type="text" 
+                      value={formData.address}
+                      onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Telefone de Contato</label>
+                    <input 
+                      type="text" 
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
+                    />
                   </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            )}
 
-            <div className="space-y-2 pt-4">
-              <label className="text-xs font-bold text-on-surface-variant uppercase">Domínio Customizado</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="ex: crm.suaempresa.com.br"
-                  className="flex-1 bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none"
-                />
-                <button className="px-6 py-2.5 bg-surface-container-highest border border-outline-variant rounded-xl text-xs font-bold hover:bg-outline-variant transition-colors">Vincular</button>
-              </div>
-            </div>
-          </section>
+            {activeTab === 'whatsapp' && (
+              <motion.div 
+                key="whatsapp"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
+                    <MessageCircle size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Integração WhatsApp</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Evolution API v2.0</p>
+                  </div>
+                </div>
 
-          {/* Integrations */}
-          <section className="glass-card p-6 border border-outline-variant/30 rounded-3xl space-y-6">
-             <div className="flex items-center gap-3 pb-4 border-b border-outline-variant/30">
-              <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
-                <Globe size={20} />
-              </div>
-              <div>
-                <h3 className="font-bold text-on-surface">Integrações de API</h3>
-                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Conecte suas ferramentas</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {[
-                { name: 'WhatsApp Web API', desc: 'Integração oficial para envio de mensagens.', connected: true },
-                { name: 'Instagram Direct', desc: 'Sincronize mensagens do direct com o chat.', connected: false },
-                { name: 'Webhooks', desc: 'Receba dados de outros sistemas em tempo real.', connected: false },
-              ].map((integration, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-surface-container-low/50 border border-outline-variant/20 rounded-2xl hover:border-primary/20 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("w-2 h-2 rounded-full", integration.connected ? "bg-emerald-500" : "bg-outline-variant")}></div>
+                <div className="space-y-8">
+                  <div className="p-6 bg-emerald-500/5 rounded-3xl border border-emerald-500/10 flex items-start gap-4">
+                    <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />
                     <div>
-                      <h4 className="text-sm font-bold text-on-surface">{integration.name}</h4>
-                      <p className="text-[10px] text-on-surface-variant">{integration.desc}</p>
+                      <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">Status da Conexão: Ativo</p>
+                      <p className="text-[10px] text-emerald-500/60 font-medium mt-1">Sua instância está conectada e pronta para enviar cobranças automáticas.</p>
                     </div>
                   </div>
-                  <button className={cn(
-                    "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all",
-                    integration.connected ? "bg-error/10 text-error hover:bg-error/20" : "bg-primary text-on-primary hover:opacity-90"
-                  )}>
-                    {integration.connected ? 'Desconectar' : 'Conectar'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
 
-          <div className="flex justify-end gap-3">
-              <button className="px-6 py-2.5 bg-surface-container-low text-on-surface font-bold text-xs rounded-xl hover:bg-surface-container transition-all">Descartar</button>
-              <button className="px-6 py-2.5 bg-primary text-on-primary font-bold text-xs rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Salvar Alterações</button>
-          </div>
+                  <div className="grid grid-cols-1 gap-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">URL da API (Evolution)</label>
+                      <input 
+                        type="text" 
+                        placeholder="https://api.seuserver.com"
+                        value={formData.evolution_api_url}
+                        onChange={(e) => setFormData(prev => ({ ...prev, evolution_api_url: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome da Instância</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: Unidade_Matriz"
+                          value={formData.evolution_instance}
+                          onChange={(e) => setFormData(prev => ({ ...prev, evolution_instance: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">API Key (Global/Instance)</label>
+                        <div className="relative">
+                          <input 
+                            type="password" 
+                            placeholder="••••••••••••••••"
+                            value={formData.evolution_api_key}
+                            onChange={(e) => setFormData(prev => ({ ...prev, evolution_api_key: e.target.value }))}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono pr-12"
+                          />
+                          <Key className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40" size={18} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'white-label' && (
+              <motion.div 
+                key="white-label"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <Palette size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Identidade Visual</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Personalização da Plataforma</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Logo da Unidade</label>
+                    <div className="w-full aspect-video bg-white/5 border-2 border-dashed border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 group hover:border-white/20 transition-all cursor-pointer">
+                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant group-hover:text-white transition-all">
+                        <Smartphone size={24} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant group-hover:text-white transition-all">Upload Logo PNG/SVG</span>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Cor de Destaque</label>
+                      <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <div className="w-10 h-10 rounded-xl bg-primary shadow-lg shadow-primary/20" />
+                        <input type="text" value="#FFFFFF" readOnly className="flex-1 bg-transparent text-[10px] font-mono font-black text-on-surface-variant outline-none" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
   );
 }
+
+// Simple motion proxy to avoid errors if framer-motion is not fully loaded in this context
+const motion = {
+  div: ({ children, className, ...props }: any) => <div className={className} {...props}>{children}</div>
+};
+const AnimatePresence = ({ children }: any) => <>{children}</>;

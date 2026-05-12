@@ -1,8 +1,4 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { UIProvider } from './context/UIContext';
 import AppLayout from './components/layout/AppLayout';
@@ -19,32 +15,40 @@ import Sales from './pages/Sales';
 import Finance from './pages/Finance';
 import Automation from './pages/Automation';
 import Inventory from './pages/Inventory';
+import PrivateRoute from './components/layout/PrivateRoute';
+import { useAuthStore } from './store/useAuthStore';
 
 export default function App() {
+  const initializeAuth = useAuthStore(state => state.initialize);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <Router>
       <UIProvider>
         <Routes>
-        {/* Public Landing Page */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        
-        {/* App protected routes */}
-        <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-        <Route path="/customers" element={<AppLayout><Customers /></AppLayout>} />
-        <Route path="/sales" element={<AppLayout><Sales /></AppLayout>} />
-        <Route path="/inventory" element={<AppLayout><Inventory /></AppLayout>} />
-        <Route path="/finance" element={<AppLayout><Finance /></AppLayout>} />
-        <Route path="/automation" element={<AppLayout><Automation /></AppLayout>} />
-        <Route path="/reports" element={<AppLayout><Reports /></AppLayout>} />
-        <Route path="/leads" element={<AppLayout><Leads /></AppLayout>} />
-        <Route path="/kanban" element={<AppLayout><Kanban /></AppLayout>} />
-        <Route path="/chat" element={<AppLayout><Chat /></AppLayout>} />
-        <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
-        
-        {/* Catch all - Redirect to landing if not authenticated, for now we redirect back home or dashboard */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          
+          {/* App protected routes */}
+          <Route path="/dashboard" element={<PrivateRoute><AppLayout><Dashboard /></AppLayout></PrivateRoute>} />
+          <Route path="/customers" element={<PrivateRoute><AppLayout><Customers /></AppLayout></PrivateRoute>} />
+          <Route path="/sales" element={<PrivateRoute><AppLayout><Sales /></AppLayout></PrivateRoute>} />
+          <Route path="/inventory" element={<PrivateRoute><AppLayout><Inventory /></AppLayout></PrivateRoute>} />
+          <Route path="/finance" element={<PrivateRoute><AppLayout><Finance /></AppLayout></PrivateRoute>} />
+          <Route path="/automation" element={<PrivateRoute><AppLayout><Automation /></AppLayout></PrivateRoute>} />
+          <Route path="/reports" element={<PrivateRoute><AppLayout><Reports /></AppLayout></PrivateRoute>} />
+          <Route path="/leads" element={<PrivateRoute><AppLayout><Leads /></AppLayout></PrivateRoute>} />
+          <Route path="/kanban" element={<PrivateRoute><AppLayout><Kanban /></AppLayout></PrivateRoute>} />
+          <Route path="/chat" element={<PrivateRoute><AppLayout><Chat /></AppLayout></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><AppLayout><Settings /></AppLayout></PrivateRoute>} />
+          
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </UIProvider>
     </Router>
   );

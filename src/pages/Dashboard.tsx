@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { TrendingUp, Users, Smartphone, CreditCard, Activity, AlertCircle, ShoppingBag } from 'lucide-react';
+import React, { useMemo, useEffect } from 'react';
+import { TrendingUp, Users, Smartphone, CreditCard, Activity, AlertCircle, ShoppingBag, Loader2 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart, Pie, Cell 
@@ -7,13 +7,22 @@ import {
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useSaleStore } from '../store/useSaleStore';
 import { useFinanceStore } from '../store/useFinanceStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Dashboard() {
-  const { customers } = useCustomerStore();
-  const { sales } = useSaleStore();
-  const { installments } = useFinanceStore();
+  const { customers, fetchCustomers } = useCustomerStore();
+  const { sales, fetchSales } = useSaleStore();
+  const { installments, fetchInstallments, isLoading: isFinanceLoading } = useFinanceStore();
+  const { profile } = useAuthStore();
 
-  const totalSalesValue = sales.reduce((acc, s) => acc + s.totalValue, 0);
+  useEffect(() => {
+    const unitId = profile?.unit_id || undefined;
+    fetchCustomers(unitId);
+    fetchSales(unitId);
+    fetchInstallments(unitId);
+  }, [profile?.unit_id, fetchCustomers, fetchSales, fetchInstallments]);
+
+  const totalSalesValue = sales.reduce((acc, s) => acc + s.total_value, 0);
   const overdueCount = installments.filter(i => i.status === 'overdue' || i.status === 'blocked').length;
   const overdueRate = installments.length > 0 ? (overdueCount / installments.length * 100).toFixed(1) : '0';
 
@@ -29,13 +38,13 @@ export default function Dashboard() {
       const saleDate = new Date(s.date);
       if (saleDate >= lastWeek) {
         const dayIndex = saleDate.getDay();
-        result[dayIndex].vendas += s.totalValue;
+        result[dayIndex].vendas += s.total_value;
       }
     });
 
     installments.forEach(i => {
       if (i.status === 'paid') {
-        const payDate = new Date(i.dueDate); // Proxy for payment date
+        const payDate = new Date(i.due_date); // Proxy for payment date
         if (payDate >= lastWeek) {
           const dayIndex = payDate.getDay();
           result[dayIndex].pagamentos += i.value;
@@ -43,7 +52,6 @@ export default function Dashboard() {
       }
     });
 
-    // Reorder to start from Monday for display
     return [...result.slice(1), result[0]];
   }, [sales, installments]);
 
@@ -61,7 +69,7 @@ export default function Dashboard() {
           const sd = new Date(s.date);
           return sd.getMonth() === d.getMonth() && sd.getFullYear() === d.getFullYear();
         })
-        .reduce((acc, current) => acc + current.totalValue, 0);
+        .reduce((acc, current) => acc + current.total_value, 0);
       
       result.push({ month: monthName, value });
     }
@@ -72,13 +80,22 @@ export default function Dashboard() {
     const brands = ['iPhone', 'Samsung', 'Motorola', 'Xiaomi', 'Outros'];
     return brands.map(brand => {
       const count = brand === 'Outros' 
-        ? sales.filter(s => !brands.slice(0, 4).some(b => s.deviceModel.toLowerCase().includes(b.toLowerCase()))).length
-        : sales.filter(s => s.deviceModel.toLowerCase().includes(brand.toLowerCase())).length;
+        ? sales.filter(s => !brands.slice(0, 4).some(b => s.device_model.toLowerCase().includes(b.toLowerCase()))).length
+        : sales.filter(s => s.device_model.toLowerCase().includes(brand.toLowerCase())).length;
       return { name: brand, value: count };
     }).filter(b => b.value > 0);
   }, [sales]);
 
   const COLORS = ['#ffffff', '#a3a3a3', '#525252', '#262626', '#404040'];
+
+  if (isFinanceLoading && sales.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-20 gap-4 opacity-40">
+        <Loader2 className="animate-spin" size={48} />
+        <span className="text-[10px] font-black uppercase tracking-widest">Carregando Inteligência...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20 p-8">
@@ -88,22 +105,14 @@ export default function Dashboard() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Painel Executivo</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">MDR Informática & Celulares CRM</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="px-5 py-3 bg-surface-container border border-outline-variant/30 text-[10px] font-black uppercase tracking-widest text-on-surface rounded-xl hover:bg-white/5 transition-colors">
-            Relatórios Financeiros
-          </button>
-          <button className="bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
-            <ShoppingBag size={18} /> Nova Venda
-          </button>
-        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Novos Clientes', value: customers.length.toString(), trend: customers.length > 0 ? '+100%' : '0%', icon: Users, color: 'text-white' },
-          { label: 'Vendas Ativas', value: sales.length.toString(), trend: sales.length > 0 ? '+100%' : '0%', icon: Smartphone, color: 'text-white' },
-          { label: 'Rec. Previsto', value: `R$ ${totalSalesValue.toLocaleString()}`, trend: 'Base', icon: CreditCard, color: 'text-white' },
+          { label: 'Novos Clientes', value: customers.length.toString(), trend: '+100%', icon: Users, color: 'text-white' },
+          { label: 'Vendas Ativas', value: sales.length.toString(), trend: '+100%', icon: Smartphone, color: 'text-white' },
+          { label: 'Rec. Previsto', value: `R$ ${totalSalesValue.toLocaleString('pt-BR')}`, trend: 'Base', icon: CreditCard, color: 'text-white' },
           { label: 'Inadimplência', value: `${overdueRate}%`, trend: overdueCount > 0 ? 'Atenção' : 'Ideal', icon: AlertCircle, color: overdueCount > 0 ? 'text-error' : 'text-primary' },
         ].map((stat, i) => (
           <div key={i} className="glass-card p-8 border border-outline-variant/30 rounded-[32px] group hover:border-white/20 transition-all cursor-default">
@@ -111,9 +120,6 @@ export default function Dashboard() {
               <div className={`bg-white/5 ${stat.color} p-4 rounded-2xl border border-white/10 group-hover:bg-white group-hover:text-black transition-all shadow-inner`}>
                 <stat.icon size={24} />
               </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${stat.trend.includes('+') && stat.label !== 'Inadimplência' ? 'border-primary/20 text-primary' : stat.label === 'Inadimplência' && overdueCount > 0 ? 'border-error/20 text-error' : 'border-white/5 text-on-surface-variant/40'}`}>
-                {stat.trend}
-              </span>
             </div>
             <h3 className="text-on-surface-variant text-[10px] font-black uppercase tracking-widest opacity-60">{stat.label}</h3>
             <p className="text-3xl font-black text-on-surface tracking-tight mt-1">{stat.value}</p>
@@ -183,16 +189,15 @@ export default function Dashboard() {
         <div className="lg:col-span-2 glass-card border border-outline-variant/30 rounded-[40px] overflow-hidden flex flex-col">
           <div className="p-8 border-b border-outline-variant/30 flex items-center justify-between bg-white/[0.02]">
             <h3 className="text-xl font-black text-on-surface uppercase tracking-tight font-display">Alertas de Pagamento</h3>
-            <button className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-colors">Ver todos os atrasos</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/5 border-b border-outline-variant/20">
-                  <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Cliente / Aparelho</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Cliente / Parcela</th>
                   <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Vencimento</th>
                   <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Status</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-right">Valor Parcela</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-right">Valor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/10">
@@ -202,11 +207,11 @@ export default function Dashboard() {
                   .map((row, i) => (
                   <tr key={i} className="hover:bg-white/[0.02] transition-colors cursor-pointer group">
                     <td className="px-8 py-5">
-                      <p className="text-sm font-bold text-on-surface">{row.customerName}</p>
-                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Fatura #{row.id}</p>
+                      <p className="text-sm font-bold text-on-surface">{row.customer_name}</p>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Parcela #{row.id.split('-')[0]}</p>
                     </td>
                     <td className="px-8 py-5">
-                      <p className="text-xs font-black text-on-surface uppercase tracking-widest">{new Date(row.dueDate).toLocaleDateString('pt-BR')}</p>
+                      <p className="text-xs font-black text-on-surface uppercase tracking-widest">{new Date(row.due_date).toLocaleDateString('pt-BR')}</p>
                     </td>
                     <td className="px-8 py-5">
                       <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${

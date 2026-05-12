@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 export interface InventoryItem {
   id: string;
+  unit_id?: string;
   model: string;
   brand: string;
   imei: string;
@@ -12,7 +14,8 @@ export interface InventoryItem {
 
 interface InventoryState {
   inventory: InventoryItem[];
-  fetchInventory: () => Promise<void>;
+  isLoading: boolean;
+  fetchInventory: (unitId?: string) => Promise<void>;
   addItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
   updateItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -20,38 +23,51 @@ interface InventoryState {
 
 export const useInventoryStore = create<InventoryState>()((set) => ({
   inventory: [],
-  fetchInventory: async () => {
+  isLoading: false,
+  fetchInventory: async (unitId) => {
+    set({ isLoading: true });
     try {
-      const response = await fetch('/api/inventory');
-      const data = await response.json();
-      set({ inventory: data });
+      let query = supabase.from('inventory').select('*').order('model');
+      
+      if (unitId) {
+        query = query.eq('unit_id', unitId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      set({ inventory: data || [] });
     } catch (error) {
       console.error('Error fetching inventory:', error);
+    } finally {
+      set({ isLoading: false });
     }
   },
   addItem: async (item) => {
     try {
-      const response = await fetch('/api/inventory', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
-      });
-      const newItem = await response.json();
-      set((state) => ({ inventory: [...state.inventory, newItem] }));
+      const { data, error } = await supabase
+        .from('inventory')
+        .insert([item])
+        .select()
+        .single();
+
+      if (error) throw error;
+      set((state) => ({ inventory: [...state.inventory, data] }));
     } catch (error) {
       console.error('Error adding inventory item:', error);
     }
   },
   updateItem: async (id, updatedFields) => {
     try {
-      const response = await fetch(`/api/inventory/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields),
-      });
-      const updatedItem = await response.json();
+      const { data, error } = await supabase
+        .from('inventory')
+        .update(updatedFields)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
       set((state) => ({
-        inventory: state.inventory.map((i) => i.id === id ? updatedItem : i)
+        inventory: state.inventory.map((i) => i.id === id ? data : i)
       }));
     } catch (error) {
       console.error('Error updating inventory item:', error);
@@ -59,7 +75,12 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
   },
   deleteItem: async (id) => {
     try {
-      await fetch(`/api/inventory/${id}`, { method: 'DELETE' });
+      const { error } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       set((state) => ({
         inventory: state.inventory.filter((i) => i.id !== id)
       }));

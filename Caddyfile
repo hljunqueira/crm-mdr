@@ -1,0 +1,14 @@
+mdrinformaticaecelulares.com.br {
+    reverse_proxy app:3000
+    
+    encode gzip
+    
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000;"
+        # Prevent clickjacking
+        X-Frame-Options DENY
+        # Prevent MIME sniffing
+        X-Content-Type-Options nosniff
+    }
+}

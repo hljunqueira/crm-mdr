@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { Smartphone, Barcode, DollarSign, Save, X, Layers } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../../store/useInventoryStore';
 import { useUI } from '../../context/UIContext';
+import { useAuthStore } from '../../store/useAuthStore';
 
 interface InventoryFormProps {
   item?: InventoryItem;
@@ -9,127 +11,156 @@ interface InventoryFormProps {
 
 export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   const { addItem, updateItem } = useInventoryStore();
-  const { closeModal, showNotification } = useUI();
+  const { showNotification, hideModal } = useUI();
+  const { profile } = useAuthStore();
+
   const [formData, setFormData] = useState({
+    brand: item?.brand || '',
     model: item?.model || '',
-    brand: item?.brand || 'Apple',
     imei: item?.imei || '',
     price: item?.price || 0,
+    cost_price: item?.cost_price || 0,
     condition: item?.condition || 'new',
     status: item?.status || 'available',
+    notes: item?.notes || '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     try {
       if (item) {
         await updateItem(item.id, formData);
-        showNotification('success', 'Produto Atualizado', `${formData.model} foi atualizado com sucesso.`);
+        showNotification('success', 'Item Atualizado');
       } else {
-        await addItem(formData);
-        showNotification('success', 'Produto Adicionado', `${formData.model} foi adicionado ao estoque.`);
+        await addItem({
+          ...formData,
+          unit_id: profile?.unit_id || undefined,
+        });
+        showNotification('success', 'Item Adicionado');
       }
       onSuccess();
-      closeModal();
+      hideModal();
     } catch (error) {
-      showNotification('error', 'Erro', 'Não foi possível salvar o produto.');
+      showNotification('error', 'Erro ao salvar item');
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 ml-1">Modelo</label>
-          <input 
-            type="text" 
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca</label>
+          <input
+            type="text"
             required
-            className="w-full bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50"
-            value={formData.model}
-            onChange={e => setFormData({ ...formData, model: e.target.value })}
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 ml-1">Marca</label>
-          <select 
-            className="w-full bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50"
             value={formData.brand}
-            onChange={e => setFormData({ ...formData, brand: e.target.value })}
-          >
-            <option value="Apple">iPhone</option>
-            <option value="Samsung">Samsung</option>
-            <option value="Motorola">Motorola</option>
-            <option value="Xiaomi">Xiaomi</option>
-            <option value="Outros">Outros</option>
-          </select>
+            onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="Ex: Apple, Samsung"
+          />
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 ml-1">IMEI</label>
-          <input 
-            type="text" 
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo</label>
+          <input
+            type="text"
             required
-            className="w-full bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50"
+            value={formData.model}
+            onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="Ex: iPhone 15 Pro"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+          <input
+            type="text"
+            required
             value={formData.imei}
-            onChange={e => setFormData({ ...formData, imei: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, imei: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="IMEI do aparelho"
           />
         </div>
-        <div className="space-y-1">
-          <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 ml-1">Preço (R$)</label>
-          <input 
-            type="number" 
-            required
-            step="0.01"
-            className="w-full bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50"
-            value={formData.price}
-            onChange={e => setFormData({ ...formData, price: Number(e.target.value) })}
-          />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 ml-1">Condição</label>
-          <select 
-            className="w-full bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50"
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Condição</label>
+          <select
             value={formData.condition}
-            onChange={e => setFormData({ ...formData, condition: e.target.value as any })}
+            onChange={(e) => setFormData({ ...formData, condition: e.target.value as any })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none"
           >
-            <option value="new">Novo</option>
-            <option value="used">Usado</option>
-            <option value="refurbished">Vitrine / Refurbished</option>
+            <option value="new">Novo (Lacre)</option>
+            <option value="used">Usado (Seminovo)</option>
+            <option value="vitrine">Vitrine</option>
           </select>
         </div>
-        <div className="space-y-1">
-          <label className="text-xs font-black uppercase tracking-widest text-on-surface-variant/60 ml-1">Status</label>
-          <select 
-            className="w-full bg-surface-container border border-outline-variant/30 rounded-2xl p-4 text-white focus:outline-none focus:border-primary/50"
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Custo (R$)</label>
+          <input
+            type="number"
+            required
+            value={formData.cost_price}
+            onChange={(e) => setFormData({ ...formData, cost_price: Number(e.target.value) })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="0,00"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
+          <input
+            type="number"
+            required
+            value={formData.price}
+            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="0,00"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status</label>
+          <select
             value={formData.status}
-            onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none"
           >
             <option value="available">Disponível</option>
             <option value="reserved">Reservado</option>
-            <option value="in_repair">Em Reparo</option>
             <option value="sold">Vendido</option>
+            <option value="in_repair">Em Reparo</option>
           </select>
         </div>
       </div>
 
-      <div className="flex gap-3 pt-4">
-        <button 
+      <div className="space-y-2">
+        <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Notas / Detalhes</label>
+        <textarea
+          rows={3}
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none resize-none"
+          placeholder="Cor, saúde da bateria, detalhes de uso..."
+        />
+      </div>
+
+      <div className="flex gap-4 pt-4">
+        <button
           type="button"
-          onClick={closeModal}
-          className="flex-1 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] text-on-surface-variant hover:bg-surface-container-highest transition-all"
+          onClick={() => hideModal()}
+          className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
         >
           Cancelar
         </button>
-        <button 
+        <button
           type="submit"
-          className="flex-[2] bg-primary text-on-primary px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+          className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
         >
-          {item ? 'Salvar Alterações' : 'Adicionar ao Estoque'}
+          <Save size={16} /> {item ? 'Atualizar Produto' : 'Cadastrar Produto'}
         </button>
       </div>
     </form>

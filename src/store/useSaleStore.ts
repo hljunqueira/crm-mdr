@@ -1,56 +1,104 @@
-
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 export interface Sale {
   id: string;
-  customerId: string;
-  customerName: string;
-  deviceModel: string;
+  unit_id?: string;
+  customer_id: string;
+  customer_name?: string;
+  device_model: string;
   imei: string;
-  totalValue: number;
-  downPayment: number;
+  total_value: number;
+  down_payment: number;
   installments: number;
   date: string;
-  status: 'completed' | 'processing' | 'overdue';
+  status: 'completed' | 'processing' | 'overdue' | 'cancelled';
 }
 
 interface SaleState {
   sales: Sale[];
-  fetchSales: () => Promise<void>;
+  isLoading: boolean;
+  fetchSales: (unitId?: string) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id'>) => Promise<void>;
   updateSale: (id: string, sale: Partial<Sale>) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
 }
 
 export const useSaleStore = create<SaleState>()((set) => ({
   sales: [],
-  fetchSales: async () => {
+  isLoading: false,
+  fetchSales: async (unitId) => {
+    set({ isLoading: true });
     try {
-      const response = await fetch('/api/sales');
-      const data = await response.json();
-      set({ sales: data });
+      let query = supabase
+        .from('sales')
+        .select('*, customers(name)')
+        .order('created_at', { ascending: false });
+
+      if (unitId) {
+        query = query.eq('unit_id', unitId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const formattedSales = data.map(sale => ({
+        ...sale,
+        customer_name: sale.customers?.name
+      }));
+
+      set({ sales: formattedSales });
     } catch (error) {
       console.error('Error fetching sales:', error);
+    } finally {
+      set({ isLoading: false });
     }
   },
   addSale: async (sale) => {
     try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sale),
-      });
-      const newSale = await response.json();
-      set((state) => ({ sales: [...state.sales, newSale] }));
+      const { data, error } = await supabase
+        .from('sales')
+        .insert([sale])
+        .select()
+        .single();
+
+      if (error) throw error;
+      set((state) => ({ sales: [data, ...state.sales] }));
     } catch (error) {
       console.error('Error adding sale:', error);
     }
   },
   updateSale: async (id, updatedFields) => {
-    // API logic for updateSale if needed, but the server routes don't have it yet.
-    // Let's just update locally for now or add the route if needed.
-    set((state) => ({
-      sales: state.sales.map((s) => s.id === id ? { ...s, ...updatedFields } : s)
-    }));
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .update(updatedFields)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      set((state) => ({
+        sales: state.sales.map((s) => s.id === id ? { ...s, ...data } : s)
+      }));
+    } catch (error) {
+      console.error('Error updating sale:', error);
+    }
+  },
+  deleteSale: async (id) => {
+    try {
+      const { error } = await supabase
+        .from('sales')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      set((state) => ({
+        sales: state.sales.filter((s) => s.id !== id)
+      }));
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+    }
   },
 }));
 

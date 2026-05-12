@@ -1,58 +1,76 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 export interface Lead {
   id: string;
+  unit_id?: string;
   name: string;
   phone: string;
   email: string;
   message: string;
   status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
-  date: string;
+  created_at?: string;
 }
 
 interface LeadState {
   leads: Lead[];
-  fetchLeads: () => Promise<void>;
-  addLead: (lead: Omit<Lead, 'id' | 'date'>) => Promise<void>;
+  isLoading: boolean;
+  fetchLeads: (unitId?: string) => Promise<void>;
+  addLead: (lead: Omit<Lead, 'id' | 'created_at'>) => Promise<void>;
   updateLead: (id: string, lead: Partial<Lead>) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
 }
 
 export const useLeadStore = create<LeadState>()((set) => ({
   leads: [],
-  fetchLeads: async () => {
+  isLoading: false,
+  fetchLeads: async (unitId) => {
+    set({ isLoading: true });
     try {
-      const response = await fetch('/api/leads');
-      const data = await response.json();
-      set({ leads: data });
+      let query = supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (unitId) {
+        query = query.eq('unit_id', unitId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      set({ leads: data || [] });
     } catch (error) {
       console.error('Error fetching leads:', error);
+    } finally {
+      set({ isLoading: false });
     }
   },
   addLead: async (lead) => {
     try {
-      const leadData = { ...lead, date: new Date().toISOString().split('T')[0] };
-      const response = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(leadData),
-      });
-      const newLead = await response.json();
-      set((state) => ({ leads: [...state.leads, newLead] }));
+      const { data, error } = await supabase
+        .from('leads')
+        .insert([lead])
+        .select()
+        .single();
+
+      if (error) throw error;
+      set((state) => ({ leads: [data, ...state.leads] }));
     } catch (error) {
       console.error('Error adding lead:', error);
     }
   },
   updateLead: async (id, updatedFields) => {
     try {
-      const response = await fetch(`/api/leads/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields),
-      });
-      const updatedLead = await response.json();
+      const { data, error } = await supabase
+        .from('leads')
+        .update(updatedFields)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
       set((state) => ({
-        leads: state.leads.map((l) => l.id === id ? updatedLead : l)
+        leads: state.leads.map((l) => l.id === id ? data : l)
       }));
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -60,7 +78,12 @@ export const useLeadStore = create<LeadState>()((set) => ({
   },
   deleteLead: async (id) => {
     try {
-      await fetch(`/api/leads/${id}`, { method: 'DELETE' });
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       set((state) => ({
         leads: state.leads.filter((l) => l.id !== id)
       }));

@@ -1,46 +1,71 @@
-
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 export interface Installment {
   id: string;
-  customerName: string;
-  saleId: string;
+  unit_id?: string;
+  sale_id: string;
+  customer_id: string;
+  customer_name?: string;
   number: number;
   total: number;
   value: number;
-  dueDate: string;
+  due_date: string;
+  paid_at?: string;
   status: 'paid' | 'pending' | 'overdue' | 'blocked';
 }
 
 interface FinanceState {
   installments: Installment[];
-  fetchInstallments: () => Promise<void>;
+  isLoading: boolean;
+  fetchInstallments: (unitId?: string) => Promise<void>;
   markAsPaid: (id: string) => Promise<void>;
   markAsBlocked: (id: string) => Promise<void>;
-  addInstallments: (newInstallments: Installment[]) => Promise<void>;
+  addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<void>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set) => ({
   installments: [],
-  fetchInstallments: async () => {
+  isLoading: false,
+  fetchInstallments: async (unitId) => {
+    set({ isLoading: true });
     try {
-      const response = await fetch('/api/finance/installments');
-      const data = await response.json();
-      set({ installments: data });
+      let query = supabase
+        .from('installments')
+        .select('*, customers(name)')
+        .order('due_date', { ascending: true });
+
+      if (unitId) {
+        query = query.eq('unit_id', unitId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const formatted = data.map(i => ({
+        ...i,
+        customer_name: i.customers?.name
+      }));
+
+      set({ installments: formatted });
     } catch (error) {
       console.error('Error fetching installments:', error);
+    } finally {
+      set({ isLoading: false });
     }
   },
   markAsPaid: async (id) => {
     try {
-      const response = await fetch(`/api/finance/installments/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'paid' }),
-      });
-      const updated = await response.json();
+      const { data, error } = await supabase
+        .from('installments')
+        .update({ status: 'paid', paid_at: new Date().toISOString().split('T')[0] })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
       set((state) => ({
-        installments: state.installments.map((i) => i.id === id ? updated : i)
+        installments: state.installments.map((i) => i.id === id ? { ...i, ...data } : i)
       }));
     } catch (error) {
       console.error('Error marking as paid:', error);
@@ -48,14 +73,16 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
   },
   markAsBlocked: async (id) => {
     try {
-      const response = await fetch(`/api/finance/installments/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'blocked' }),
-      });
-      const updated = await response.json();
+      const { data, error } = await supabase
+        .from('installments')
+        .update({ status: 'blocked' })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
       set((state) => ({
-        installments: state.installments.map((i) => i.id === id ? updated : i)
+        installments: state.installments.map((i) => i.id === id ? { ...i, ...data } : i)
       }));
     } catch (error) {
       console.error('Error marking as blocked:', error);
@@ -63,14 +90,14 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
   },
   addInstallments: async (newInstallments) => {
     try {
-      const response = await fetch('/api/finance/installments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newInstallments),
-      });
-      const added = await response.json();
+      const { data, error } = await supabase
+        .from('installments')
+        .insert(newInstallments)
+        .select();
+
+      if (error) throw error;
       set((state) => ({
-        installments: [...state.installments, ...added]
+        installments: [...state.installments, ...data]
       }));
     } catch (error) {
       console.error('Error adding installments:', error);

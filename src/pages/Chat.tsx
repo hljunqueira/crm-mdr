@@ -1,240 +1,303 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
-  Search, 
-  Send, 
-  Paperclip, 
-  Smile, 
-  MoreVertical, 
-  Phone, 
-  Video, 
-  CheckCheck, 
-  Plus,
-  User,
-  Instagram,
-  MessageCircle,
-  Mail
+  Search, Send, Paperclip, Smile, MoreVertical, 
+  MessageCircle, Instagram, CheckCheck, Plus, 
+  ChevronLeft, Loader2 
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { useChatStore, Conversation, Message } from '../store/useChatStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Chat() {
-  const [activeChat, setActiveChat] = useState(0);
+  const { 
+    channels, conversations, activeConversation, messages, isLoading,
+    fetchChannels, fetchConversations, fetchMessages, setActiveConversation, 
+    sendMessage, subscribeToMessages 
+  } = useChatStore();
+  const { profile } = useAuthStore();
+  
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [inputText, setInputText] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const contacts = [
-    { id: 0, name: 'Alice Smith', message: 'Tudo bem, aguardo a tela.', time: '10:45', unread: 2, platform: 'WhatsApp', online: true },
-    { id: 1, name: 'Bob Johnson', message: 'Enviei o comprovante.', time: 'Ontem', unread: 0, platform: 'Instagram', online: false },
-    { id: 2, name: 'Carol Williams', message: 'O notebook já está pronto?', time: 'Seg', unread: 0, platform: 'WhatsApp', online: true },
-    { id: 3, name: 'Tech Solutions', message: 'Cotação aprovada.', time: 'Ter', unread: 0, platform: 'Email', online: false },
-  ];
+  // Inicializar canais
+  useEffect(() => {
+    if (profile?.unit_id) {
+      fetchChannels(profile.unit_id);
+    }
+  }, [profile?.unit_id, fetchChannels]);
+
+  // Auto-selecionar primeiro canal
+  useEffect(() => {
+    if (channels.length > 0 && !selectedChannelId) {
+      setSelectedChannelId(channels[0].id);
+    }
+  }, [channels, selectedChannelId]);
+
+  // Carregar conversas quando o canal muda
+  useEffect(() => {
+    if (selectedChannelId) {
+      fetchConversations(selectedChannelId);
+    }
+  }, [selectedChannelId, fetchConversations]);
+
+  // Increver em novas mensagens
+  useEffect(() => {
+    if (activeConversation) {
+      const unsubscribe = subscribeToMessages(activeConversation.id);
+      return () => unsubscribe();
+    }
+  }, [activeConversation, subscribeToMessages]);
+
+  // Scroll para o fim das mensagens
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim() || !activeConversation) return;
+
+    const text = inputText;
+    setInputText('');
+    await sendMessage(activeConversation.id, text);
+  };
+
+  const activeChannel = channels.find(c => c.id === selectedChannelId);
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Contact List */}
-      <div className="w-80 border-r border-outline-variant bg-surface flex flex-col shrink-0">
-        <div className="p-4 border-b border-outline-variant space-y-4">
+    <div className="flex h-full overflow-hidden bg-surface">
+      {/* Sidebar: Channels & Conversations */}
+      <div className="w-[380px] border-r border-outline-variant flex flex-col shrink-0 bg-surface">
+        {/* Header: Channel Selector */}
+        <div className="p-4 border-b border-outline-variant space-y-4 bg-surface-container-low/50">
           <div className="flex items-center justify-between">
-            <h2 className="font-display font-bold text-on-surface">Conversas</h2>
-            <button className="p-2 hover:bg-surface-container rounded-lg text-on-surface-variant transition-colors">
-              <Plus size={18} />
-            </button>
+            <h2 className="font-display font-black text-on-surface uppercase tracking-tight text-xl">Mensagens</h2>
+            <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+              {channels.map(channel => (
+                <button
+                  key={channel.id}
+                  onClick={() => setSelectedChannelId(channel.id)}
+                  title={channel.name}
+                  className={cn(
+                    "p-2 rounded-lg transition-all",
+                    selectedChannelId === channel.id 
+                      ? "bg-white text-black shadow-lg" 
+                      : "text-on-surface-variant hover:text-white"
+                  )}
+                >
+                  {channel.type === 'whatsapp' ? <MessageCircle size={16} /> : <Instagram size={16} />}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" size={16} />
+          
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" size={16} />
             <input 
               type="text" 
-              placeholder="Pesquisar..."
-              className="w-full bg-surface-container-low border border-outline-variant rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:border-primary transition-all font-sans"
+              placeholder="Pesquisar conversas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 border border-outline-variant rounded-2xl pl-10 pr-4 py-3 text-xs focus:outline-none focus:border-white transition-all font-display"
             />
           </div>
         </div>
 
+        {/* Conversation List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {contacts.map((contact, i) => (
-            <div 
-              key={contact.id}
-              onClick={() => setActiveChat(contact.id)}
-              className={cn(
-                "p-4 flex gap-3 cursor-pointer transition-all border-b border-outline-variant/20 hover:bg-surface-container-low relative group",
-                activeChat === contact.id ? "bg-primary-container/30 border-l-4 border-l-primary" : ""
-              )}
-            >
-              <div className="relative">
-                <div className="w-12 h-12 rounded-2xl bg-surface-container-highest border border-outline-variant overflow-hidden">
-                  <img 
-                    src={`https://ui-avatars.com/api/?name=${contact.name}&background=random&color=fff`} 
-                    alt={contact.name} 
-                  />
-                </div>
-                {contact.online && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-surface rounded-full"></span>
+          {isLoading && conversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 gap-3 opacity-40">
+              <Loader2 className="animate-spin" size={24} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Carregando Conversas...</span>
+            </div>
+          ) : conversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-3 opacity-40 text-center px-8">
+              <MessageCircle size={40} className="mb-2" />
+              <p className="text-xs font-bold uppercase tracking-tight">Nenhuma conversa encontrada neste canal.</p>
+            </div>
+          ) : (
+            conversations
+              .filter(c => c.contact_name.toLowerCase().includes(searchTerm.toLowerCase()))
+              .map((conv) => (
+              <div 
+                key={conv.id}
+                onClick={() => setActiveConversation(conv)}
+                className={cn(
+                  "p-5 flex gap-4 cursor-pointer transition-all border-b border-outline-variant/10 relative group hover:bg-white/[0.02]",
+                  activeConversation?.id === conv.id ? "bg-white/[0.05] border-l-4 border-l-white" : ""
                 )}
-                <div className="absolute -top-1 -right-1 bg-surface p-0.5 rounded-lg shadow-sm border border-outline-variant">
-                   {contact.platform === 'WhatsApp' ? <MessageCircle size={10} className="text-[#25D366]" /> : 
-                    contact.platform === 'Instagram' ? <Instagram size={10} className="text-[#E4405F]" /> : 
-                    <Mail size={10} className="text-primary" />}
+              >
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-outline-variant overflow-hidden flex items-center justify-center text-xl font-black uppercase">
+                    {conv.contact_avatar ? (
+                      <img src={conv.contact_avatar} alt={conv.contact_name} className="w-full h-full object-cover" />
+                    ) : (
+                      conv.contact_name.charAt(0)
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-surface p-1 rounded-lg border border-outline-variant shadow-lg">
+                    {activeChannel?.type === 'whatsapp' ? (
+                      <MessageCircle size={10} className="text-[#25D366]" />
+                    ) : (
+                      <Instagram size={10} className="text-[#E4405F]" />
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <h3 className="font-bold text-sm text-on-surface truncate">{contact.name}</h3>
-                  <span className="text-[10px] text-on-surface-variant font-display">{contact.time}</span>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className={cn(
+                      "font-black text-sm truncate uppercase tracking-tight",
+                      conv.unread_count > 0 ? "text-white" : "text-on-surface"
+                    )}>{conv.contact_name}</h3>
+                    <span className="text-[9px] text-on-surface-variant font-bold uppercase">
+                      {conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </span>
+                  </div>
+                  <p className={cn(
+                    "text-xs truncate font-display",
+                    conv.unread_count > 0 ? "text-white font-bold" : "text-on-surface-variant"
+                  )}>
+                    {conv.last_message || 'Inicie uma conversa'}
+                  </p>
                 </div>
-                <p className={cn(
-                  "text-xs truncate font-display",
-                  contact.unread > 0 ? "text-on-surface font-bold" : "text-on-surface-variant"
-                )}>
-                  {contact.message}
-                </p>
+
+                {conv.unread_count > 0 && (
+                  <div className="absolute right-5 bottom-6 bg-white text-black text-[10px] w-5 h-5 flex items-center justify-center rounded-lg font-black shadow-xl">
+                    {conv.unread_count}
+                  </div>
+                )}
               </div>
-              {contact.unread > 0 && (
-                <span className="absolute right-4 bottom-4 bg-primary text-on-primary text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-lg shadow-primary/30">
-                  {contact.unread}
-                </span>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
-      {/* Chat Area */}
+      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-surface relative">
-        {/* Chat Header */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-outline-variant bg-surface/80 backdrop-blur-md z-10 sticky top-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-surface-container-highest border border-outline-variant overflow-hidden">
-              <img 
-                src={`https://ui-avatars.com/api/?name=${contacts[activeChat].name}&background=random&color=fff`} 
-                alt={contacts[activeChat].name} 
-              />
-            </div>
-            <div>
-              <h3 className="font-bold text-on-surface text-sm">{contacts[activeChat].name}</h3>
-              <div className="flex items-center gap-1.5 ">
-                <span className={cn("w-1.5 h-1.5 rounded-full", contacts[activeChat].online ? "bg-emerald-500" : "bg-on-surface-variant")}></span>
-                <span className="text-[10px] text-on-surface-variant uppercase font-bold tracking-tight">
-                  {contacts[activeChat].online ? 'Online' : 'Offline'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button className="p-2.5 hover:bg-surface-container rounded-xl text-on-surface-variant hover:text-primary transition-all">
-              <Phone size={18} />
-            </button>
-            <button className="p-2.5 hover:bg-surface-container rounded-xl text-on-surface-variant hover:text-primary transition-all">
-              <Video size={18} />
-            </button>
-            <div className="w-px h-6 bg-outline-variant mx-1"></div>
-            <button className="p-2.5 hover:bg-surface-container rounded-xl text-on-surface-variant hover:text-primary transition-all">
-              <MoreVertical size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-surface-container-low/30">
-          <div className="flex justify-center">
-            <span className="bg-surface-container-highest/50 px-4 py-1 rounded-full text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">HOJE</span>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex justify-start max-w-[70%]">
-              <div className="bg-surface border border-outline-variant rounded-2xl rounded-tl-none p-4 shadow-sm group">
-                <p className="text-sm text-on-surface leading-relaxed">Olá! Gostaria de saber se o orçamento para a troca da tela do MacBook Pro já está pronto?</p>
-                <div className="flex items-center justify-end gap-1 mt-1 opacity-60">
-                   <span className="text-[9px]">10:30</span>
+        {activeConversation ? (
+          <>
+            {/* Header */}
+            <div className="h-20 flex items-center justify-between px-8 border-b border-outline-variant bg-surface/80 backdrop-blur-xl z-20 sticky top-0">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/5 border border-outline-variant overflow-hidden flex items-center justify-center text-lg font-black uppercase">
+                  {activeConversation.contact_avatar ? (
+                    <img src={activeConversation.contact_avatar} alt={activeConversation.contact_name} className="w-full h-full object-cover" />
+                  ) : (
+                    activeConversation.contact_name.charAt(0)
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-black text-on-surface text-base uppercase tracking-tight">{activeConversation.contact_name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                    <span className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest opacity-60">
+                      Disponível via {activeChannel?.name}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              <div className="flex items-center gap-2">
+                <button className="p-3 hover:bg-white/5 rounded-2xl text-on-surface-variant hover:text-white transition-all border border-transparent hover:border-white/10">
+                  <MoreVertical size={20} />
+                </button>
+              </div>
             </div>
 
-            <div className="flex justify-end max-w-[70%] ml-auto">
-              <div className="bg-primary text-on-primary rounded-2xl rounded-tr-none p-4 shadow-lg shadow-primary/10">
-                <p className="text-sm leading-relaxed">Olá! Sim, já finalizamos a cotação. O valor total fica em R$ 2.450 com peça original e garantia de 1 ano.</p>
-                <div className="flex items-center justify-end gap-1 mt-1 opacity-80">
-                   <span className="text-[9px]">10:32</span>
-                   <CheckCheck size={12} />
+            {/* Messages Container */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-fixed">
+              <div className="flex justify-center mb-8">
+                <span className="bg-white/5 border border-white/10 backdrop-blur-md px-6 py-1.5 rounded-full text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Sessão de Atendimento Iniciada</span>
+              </div>
+
+              {messages.map((msg, i) => (
+                <div 
+                  key={msg.id} 
+                  className={cn(
+                    "flex flex-col gap-1 max-w-[80%]",
+                    msg.direction === 'outbound' ? "ml-auto items-end" : "mr-auto items-start"
+                  )}
+                >
+                  <div className={cn(
+                    "p-4 rounded-3xl text-sm leading-relaxed shadow-2xl relative group transition-all",
+                    msg.direction === 'outbound' 
+                      ? "bg-white text-black rounded-tr-none" 
+                      : "bg-white/5 backdrop-blur-md border border-white/10 text-white rounded-tl-none"
+                  )}>
+                    <p>{msg.text}</p>
+                    <div className={cn(
+                      "flex items-center gap-1.5 mt-2 opacity-40 text-[9px] font-black uppercase tracking-tighter",
+                      msg.direction === 'outbound' ? "justify-end" : "justify-start"
+                    )}>
+                      <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {msg.direction === 'outbound' && (
+                        <CheckCheck size={12} className={cn(msg.status === 'read' ? "text-primary" : "")} />
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
 
-            <div className="flex justify-start max-w-[70%]">
-              <div className="bg-surface border border-outline-variant rounded-2xl rounded-tl-none p-4 shadow-sm">
-                <p className="text-sm text-on-surface leading-relaxed">Tudo bem, aguardo a tela. Pode seguir com o serviço.</p>
-                <div className="flex items-center justify-end gap-1 mt-1 opacity-60">
-                   <span className="text-[9px]">10:45</span>
-                </div>
+            {/* Input Area */}
+            <div className="p-6 bg-surface border-t border-outline-variant">
+              <form onSubmit={handleSendMessage} className="max-w-5xl mx-auto flex items-end gap-4 glass-card p-3 border border-outline-variant/40 rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-white/[0.02]">
+                <button type="button" className="p-3 hover:bg-white/5 rounded-2xl text-on-surface-variant transition-all hover:text-white">
+                  <Smile size={22} />
+                </button>
+                <button type="button" className="p-3 hover:bg-white/5 rounded-2xl text-on-surface-variant transition-all hover:text-white">
+                  <Paperclip size={22} />
+                </button>
+                <textarea 
+                  rows={1}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(e);
+                    }
+                  }}
+                  placeholder="Escreva sua resposta..."
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-display py-3 resize-none max-h-40 text-on-surface placeholder:opacity-30"
+                />
+                <button 
+                  type="submit"
+                  disabled={!inputText.trim()}
+                  className="bg-white text-black p-4 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10 disabled:opacity-50 disabled:scale-100"
+                >
+                  <Send size={22} />
+                </button>
+              </form>
+              <div className="flex items-center justify-center gap-4 mt-4 opacity-30">
+                <span className="text-[8px] font-black uppercase tracking-[0.3em]">Criptografia de Ponta-a-Ponta Ativa</span>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Chat Input */}
-        <div className="p-4 bg-surface border-t border-outline-variant">
-          <div className="max-w-4xl mx-auto flex items-end gap-3 glass-card p-2 border border-outline-variant rounded-2xl">
-            <button className="p-2.5 hover:bg-surface-container rounded-xl text-on-surface-variant transition-all">
-              <Smile size={20} />
-            </button>
-            <button className="p-2.5 hover:bg-surface-container rounded-xl text-on-surface-variant transition-all">
-              <Paperclip size={20} />
-            </button>
-            <textarea 
-              rows={1}
-              placeholder="Digite sua mensagem..."
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-sans py-2 resize-none max-h-32 text-on-surface"
-            ></textarea>
-            <button className="bg-primary text-on-primary p-2.5 rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20">
-              <Send size={20} />
-            </button>
-          </div>
-          <p className="text-[10px] text-center mt-2 text-on-surface-variant/60 font-display">
-            Canal de atendimento via {contacts[activeChat].platform}
-          </p>
-        </div>
-      </div>
-
-      {/* Right Info Panel (Optional) */}
-      <div className="w-72 border-l border-outline-variant bg-surface hidden xl:flex flex-col p-6 overflow-y-auto custom-scrollbar shrink-0">
-        <div className="flex flex-col items-center text-center">
-          <div className="w-24 h-24 rounded-3xl bg-surface-container-highest border-2 border-outline-variant p-1 mb-4">
-             <img 
-                src={`https://ui-avatars.com/api/?name=${contacts[activeChat].name}&background=random&color=fff`} 
-                alt={contacts[activeChat].name} 
-                className="w-full h-full rounded-2xl object-cover"
-              />
-          </div>
-          <h3 className="font-bold text-on-surface text-lg">{contacts[activeChat].name}</h3>
-          <p className="text-xs text-on-surface-variant font-display mb-6">Cliente desde Julho 2023</p>
-          
-          <div className="w-full flex gap-2 mb-8">
-            <button className="flex-1 py-2 bg-surface-container hover:bg-surface-container-highest rounded-xl text-xs font-bold transition-all border border-outline-variant">Perfil</button>
-            <button className="flex-1 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl text-xs font-bold transition-all border border-primary/20">Lead</button>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div>
-            <h4 className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Informações</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant font-display">Fone:</span>
-                <span className="text-xs font-bold text-on-surface">(11) 98888-7777</span>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-20 gap-8">
+            <div className="relative">
+              <div className="w-32 h-32 bg-white/5 rounded-[40px] flex items-center justify-center border border-white/10 shadow-inner relative z-10">
+                <MessageCircle size={48} className="text-white opacity-20" />
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant font-display">Email:</span>
-                <span className="text-xs font-bold text-on-surface truncate ml-4">alice@gmail.com</span>
-              </div>
+              <div className="absolute inset-0 bg-white/5 blur-[80px] -z-10 rounded-full animate-pulse"></div>
+            </div>
+            <div className="space-y-3 max-w-sm">
+              <h3 className="text-2xl font-black text-on-surface uppercase tracking-tight italic">Selecione uma Conversa</h3>
+              <p className="text-sm text-on-surface-variant font-display leading-relaxed opacity-60 uppercase tracking-widest text-[10px]">
+                Escolha um contato ao lado para iniciar o atendimento multi-canal via {activeChannel?.name || 'seu canal'}.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">4 Canais Online</div>
+              <div className="px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Sincronização Ativa</div>
             </div>
           </div>
-
-          <div>
-            <h4 className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Últimas Tags</h4>
-            <div className="flex flex-wrap gap-2">
-              <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded">ORÇAMENTO</span>
-              <span className="px-2 py-0.5 bg-secondary/10 text-secondary text-[10px] font-bold rounded">MACBOOK</span>
-              <span className="px-2 py-0.5 bg-amber-500/10 text-amber-500 text-[10px] font-bold rounded">ALTA PRIORIDADE</span>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

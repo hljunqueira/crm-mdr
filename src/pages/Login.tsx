@@ -1,29 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, ArrowRight, Lock, Mail, AlertCircle, Plus } from 'lucide-react';
+import { Shield, ArrowRight, Lock, Mail, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const signIn = useAuthStore(state => state.signIn);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
 
-    const validCredentials = [
-      { email: 'admin@mdr.com', pass: 'admin123' },
-      { email: 'atendente@mdr.com', pass: 'atendente123' }
-    ];
-
-    const isValid = validCredentials.find(c => c.email === email && c.pass === password);
-
-    if (isValid) {
-      navigate('/dashboard');
-    } else {
-      setError('Credenciais inválidas. Use os dados de demo abaixo.');
+    try {
+      const { error: authError } = await signIn(email, password);
+      if (authError) {
+        setError('E-mail ou senha incorretos.');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError('Ocorreu um erro ao tentar entrar. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -77,7 +81,7 @@ export default function Login() {
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@mdr.com" 
+                  placeholder="seu@email.com" 
                   className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-white focus:ring-4 focus:ring-white/10 transition-all outline-none"
                   required
                 />
@@ -104,46 +108,17 @@ export default function Login() {
 
             <button 
               type="submit"
-              className="w-full py-5 bg-white text-black rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] hover:scale-[1.02] active:scale-95 transition-all text-base flex items-center justify-center gap-3"
+              disabled={isSubmitting}
+              className="w-full py-5 bg-white text-black rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] hover:scale-[1.02] active:scale-95 transition-all text-base flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
             >
-              Entrar <ArrowRight size={18} />
+              {isSubmitting ? 'Entrando...' : 'Entrar'} <ArrowRight size={18} />
             </button>
           </form>
-
-          <div className="mt-10 p-6 bg-white/5 border border-white/5 rounded-3xl space-y-4">
-            <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest text-center">Contas de Demonstração</p>
-            <div className="grid grid-cols-1 gap-3">
-              <button 
-                onClick={() => { setEmail('admin@mdr.com'); setPassword('admin123'); }}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-all group"
-              >
-                <div className="text-left">
-                  <p className="text-[10px] font-black text-white uppercase tracking-tight">Administrador</p>
-                  <p className="text-[9px] text-on-surface-variant font-mono">admin@mdr.com</p>
-                </div>
-                <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Plus size={12} className="text-white" />
-                </div>
-              </button>
-              <button 
-                onClick={() => { setEmail('atendente@mdr.com'); setPassword('atendente123'); }}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-all group"
-              >
-                <div className="text-left">
-                  <p className="text-[10px] font-black text-white uppercase tracking-tight">Atendente</p>
-                  <p className="text-[9px] text-on-surface-variant font-mono">atendente@mdr.com</p>
-                </div>
-                <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Plus size={12} className="text-white" />
-                </div>
-              </button>
-            </div>
-          </div>
 
           <div className="mt-8 pt-8 border-t border-outline-variant/20">
             <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest justify-center">
               <Shield size={12} className="text-on-surface-variant/40" />
-              <span>Conexão Segura AES-256</span>
+              <span>Conexão Segura Supabase SSL</span>
             </div>
           </div>
         </div>

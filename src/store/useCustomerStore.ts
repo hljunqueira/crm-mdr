@@ -1,60 +1,75 @@
-
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 export interface Customer {
   id: string;
+  unit_id?: string;
   name: string;
   cpf: string;
   phone: string;
   address: string;
   status: 'active' | 'overdue' | 'blocked';
-  lastPayment?: string;
-  avatar?: string;
-  photo?: string;
+  last_payment?: string;
+  created_at?: string;
 }
 
 interface CustomerState {
   customers: Customer[];
-  fetchCustomers: () => Promise<void>;
-  addCustomer: (customer: Omit<Customer, 'id'>) => Promise<void>;
+  isLoading: boolean;
+  fetchCustomers: (unitId?: string) => Promise<void>;
+  addCustomer: (customer: Omit<Customer, 'id' | 'created_at'>) => Promise<void>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
 }
 
 export const useCustomerStore = create<CustomerState>()((set) => ({
   customers: [],
-  fetchCustomers: async () => {
+  isLoading: false,
+  fetchCustomers: async (unitId) => {
+    set({ isLoading: true });
     try {
-      const response = await fetch('/api/customers');
-      const data = await response.json();
-      set({ customers: data });
+      let query = supabase.from('customers').select('*').order('name');
+      
+      if (unitId) {
+        query = query.eq('unit_id', unitId);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      set({ customers: data || [] });
     } catch (error) {
       console.error('Error fetching customers:', error);
+    } finally {
+      set({ isLoading: false });
     }
   },
   addCustomer: async (customer) => {
     try {
-      const response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customer),
-      });
-      const newCustomer = await response.json();
-      set((state) => ({ customers: [...state.customers, newCustomer] }));
+      const { data, error } = await supabase
+        .from('customers')
+        .insert([customer])
+        .select()
+        .single();
+
+      if (error) throw error;
+      set((state) => ({ customers: [...state.customers, data] }));
     } catch (error) {
       console.error('Error adding customer:', error);
     }
   },
   updateCustomer: async (id, updatedFields) => {
     try {
-      const response = await fetch(`/api/customers/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields),
-      });
-      const updatedCustomer = await response.json();
+      const { data, error } = await supabase
+        .from('customers')
+        .update(updatedFields)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
       set((state) => ({
-        customers: state.customers.map((c) => c.id === id ? updatedCustomer : c)
+        customers: state.customers.map((c) => c.id === id ? data : c)
       }));
     } catch (error) {
       console.error('Error updating customer:', error);
@@ -62,7 +77,12 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
   },
   deleteCustomer: async (id) => {
     try {
-      await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       set((state) => ({
         customers: state.customers.filter((c) => c.id !== id)
       }));

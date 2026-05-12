@@ -80,11 +80,9 @@ export default function Sidebar() {
           <span className="font-display text-sm tracking-tight">Suporte</span>
         </Link>
         <div className="mt-6 flex items-center gap-3 p-3 bg-surface-container-highest/50 rounded-2xl border border-outline-variant/30">
-          <img 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWBfrEY7gxDFsWWO-RUZRmzc4_V7Rqg-QZYTwRS3aWuOkD_08m35KvUx8vxUJh81o2uVw2PYzl0Oa-CNbPlPu3Ap8CyIBn078n55t_4Ycm_qSfqRWn_rDXzlSjjafjNbQzqXwr84KfS7t_z_bXIhIEBQRk6lsWhq-RcPkQTz0oN7Az26O_QUHqvsA35lkaNIN8TkI7sD-6f7YRarcu-tW91Y_nc00DYVHEwtGrSgs25zMZj5jtwmWcSogRDIUeOtMqrE07fcatjR1j" 
-            alt="Usuário" 
-            className="w-8 h-8 rounded-full border border-primary/20"
-          />
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+            <span className="text-[10px] font-black text-primary uppercase">UA</span>
+          </div>
           <div className="min-w-0">
             <p className="font-display text-xs font-bold text-on-surface truncate">Usuário Admin</p>
             <p className="text-[9px] text-on-surface-variant truncate uppercase tracking-tighter">Super Admin</p>

@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # --- Reverse Proxy ---
+  caddy:
+    image: caddy:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - crm-network
+
+  # --- CRM App ---
+  app:
+    build: .
+    restart: always
+    env_file: .env
+    networks:
+      - crm-network
+
+  # --- n8n ---
+  n8n:
+    image: n8nio/n8n:latest
+    restart: always
+    environment:
+      - N8N_HOST=n8n.mdrinformaticaecelulares.com.br
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://n8n.mdrinformaticaecelulares.com.br/
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - crm-network
+
+  # --- Evolution API ---
+  evolution:
+    image: atendai/evolution-api:latest
+    restart: always
+    environment:
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - SERVER_URL=https://whatsapp.mdrinformaticaecelulares.com.br
+      - AUTH_TOKEN=MDR_SECRET_TOKEN_2024
+      - DEL_INSTANCE_ON_DISCONNECT=false
+    volumes:
+      - evolution_data:/evolution/instances
+    networks:
+      - crm-network
+
+  # --- Postgres (Shared for infra) ---
+  db:
+    image: postgres:15-alphine
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=MDR_DB_PASS_2024
+      - POSTGRES_USER=mdr_user
+      - POSTGRES_DB=infra_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - crm-network
+
+networks:
+  crm-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  n8n_data:
+  evolution_data:
+  db_data:

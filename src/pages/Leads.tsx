@@ -1,35 +1,57 @@
-import React, { useState } from 'react';
-import { Search, Filter, Plus, UserPlus, MoreVertical, Mail, Phone, Calendar, Trash2, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, UserPlus, Mail, Phone, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useLeadStore, Lead } from '../store/useLeadStore';
 import { useUI } from '../context/UIContext';
+import { useAuthStore } from '../store/useAuthStore';
+import LeadForm from '../components/leads/LeadForm';
 
 export default function Leads() {
-  const { leads, deleteLead, updateLead, addLead } = useLeadStore();
-  const { showModal, showNotification } = useUI();
+  const { leads, deleteLead, updateLead, fetchLeads, isLoading } = useLeadStore();
+  const { showModal, showNotification, hideModal } = useUI();
+  const { profile } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchLeads(profile?.unit_id || undefined);
+  }, [profile?.unit_id, fetchLeads]);
 
   const filteredLeads = leads.filter(lead => 
     lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
     lead.phone.includes(searchTerm)
   );
 
   const handleAddLead = () => {
-    // Lead Form would go here
-    showNotification('info', 'Funcionalidade em Breve', 'O formulário de leads está sendo desenvolvido.');
+    showModal({
+      title: 'Cadastrar Novo Lead',
+      children: <LeadForm onSuccess={hideModal} />,
+    });
   };
 
-  const handleDeleteLead = async (id: string) => {
-    if (confirm('Deseja realmente excluir este lead?')) {
-      await deleteLead(id);
-      showNotification('success', 'Lead Removido', 'Lead excluído com sucesso.');
-    }
+  const handleEditLead = (lead: Lead) => {
+    showModal({
+      title: 'Editar Lead',
+      children: <LeadForm initialData={lead} onSuccess={hideModal} />,
+    });
+  };
+
+  const handleDeleteLead = (id: string) => {
+    showModal({
+      title: 'Confirmar Exclusão',
+      children: 'Você tem certeza que deseja remover este lead permanentemente?',
+      confirmText: 'Sim, Excluir',
+      type: 'danger',
+      onConfirm: async () => {
+        await deleteLead(id);
+        showNotification('success', 'Lead Removido');
+      }
+    });
   };
 
   const handleStatusChange = async (lead: Lead, status: Lead['status']) => {
     await updateLead(lead.id, { status });
-    showNotification('success', 'Status Atualizado', `Lead ${lead.name} marcado como ${status}.`);
+    showNotification('success', 'Status Atualizado');
   };
 
   return (
@@ -66,76 +88,94 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* Leads Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        {filteredLeads.map((lead) => (
-          <div 
-            key={lead.id} 
-            className="glass-card p-10 border border-outline-variant/30 rounded-[40px] hover:border-white/30 transition-all group flex flex-col shadow-2xl relative overflow-hidden h-full"
-          >
-            <div className="absolute top-0 right-0 p-6 flex gap-2">
-              <button 
-                onClick={() => handleDeleteLead(lead.id)}
-                className="p-2 text-on-surface-variant hover:text-error transition-colors"
-                title="Excluir"
-              >
-                <Trash2 size={18} />
-              </button>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="glass-card p-10 border border-outline-variant/30 rounded-[40px] animate-pulse">
+              <div className="w-20 h-20 bg-white/5 rounded-[32px] mx-auto mb-6"></div>
+              <div className="h-6 bg-white/5 rounded-lg w-3/4 mx-auto mb-4"></div>
+              <div className="h-4 bg-white/5 rounded-lg w-1/2 mx-auto"></div>
             </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {filteredLeads.map((lead) => (
+            <div 
+              key={lead.id} 
+              className="glass-card p-10 border border-outline-variant/30 rounded-[40px] hover:border-white/30 transition-all group flex flex-col shadow-2xl relative overflow-hidden h-full"
+            >
+              <div className="absolute top-0 right-0 p-6 flex gap-2">
+                <button 
+                  onClick={() => handleEditLead(lead)}
+                  className="p-2 text-on-surface-variant hover:text-white transition-colors"
+                  title="Editar"
+                >
+                  <Edit2 size={18} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteLead(lead.id)}
+                  className="p-2 text-on-surface-variant hover:text-error transition-colors"
+                  title="Excluir"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
 
-            <div className="flex flex-col items-center text-center mb-10">
-              <div className="w-20 h-20 rounded-[32px] bg-white/5 border border-white/10 flex items-center justify-center text-white font-black text-2xl mb-6 shadow-inner group-hover:scale-110 group-hover:bg-white group-hover:text-black transition-all">
-                {lead.name.charAt(0)}
-              </div>
-              <h3 className="text-xl font-black text-on-surface uppercase tracking-tight">{lead.name}</h3>
-              <p className="text-[9px] text-on-surface-variant font-black uppercase tracking-widest mt-2">{new Date(lead.date).toLocaleDateString('pt-BR')}</p>
-            </div>
-
-            <div className="space-y-4 mb-10 pt-10 border-t border-outline-variant/10">
-              <div className="flex items-center gap-4 text-xs text-on-surface-variant justify-center">
-                <Mail size={16} className="text-white/20" />
-                <span className="font-bold">{lead.email}</span>
-              </div>
-              <div className="flex items-center gap-4 text-xs text-on-surface-variant justify-center">
-                <Phone size={16} className="text-white/20" />
-                <span className="font-bold">{lead.phone}</span>
-              </div>
-              {lead.message && (
-                <p className="text-[10px] text-on-surface-variant text-center opacity-70 line-clamp-2 px-4 italic">
-                  "{lead.message}"
+              <div className="flex flex-col items-center text-center mb-10">
+                <div className="w-20 h-20 rounded-[32px] bg-white/5 border border-white/10 flex items-center justify-center text-white font-black text-2xl mb-6 shadow-inner group-hover:scale-110 group-hover:bg-white group-hover:text-black transition-all uppercase">
+                  {lead.name.charAt(0)}
+                </div>
+                <h3 className="text-xl font-black text-on-surface uppercase tracking-tight">{lead.name}</h3>
+                <p className="text-[9px] text-on-surface-variant font-black uppercase tracking-widest mt-2">
+                  {lead.created_at ? new Date(lead.created_at).toLocaleDateString('pt-BR') : 'Sem data'}
                 </p>
-              )}
-            </div>
+              </div>
 
-            <div className="mt-auto pt-8 border-t border-outline-variant/10 flex items-center justify-between">
-              <select 
-                value={lead.status}
-                onChange={(e) => handleStatusChange(lead, e.target.value as any)}
-                className={cn(
-                  "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border bg-transparent focus:outline-none transition-all",
-                  lead.status === 'new' ? 'border-primary/50 text-primary' :
-                  lead.status === 'contacted' ? 'border-warning/50 text-warning' :
-                  lead.status === 'qualified' ? 'border-success/50 text-success' :
-                  'border-white/5 text-on-surface-variant/40'
+              <div className="space-y-4 mb-10 pt-10 border-t border-outline-variant/10">
+                {lead.email && (
+                  <div className="flex items-center gap-4 text-xs text-on-surface-variant justify-center">
+                    <Mail size={16} className="text-white/20" />
+                    <span className="font-bold">{lead.email}</span>
+                  </div>
                 )}
-              >
-                <option value="new" className="bg-surface-container-high">Novo</option>
-                <option value="contacted" className="bg-surface-container-high">Contato</option>
-                <option value="qualified" className="bg-surface-container-high">Qualificado</option>
-                <option value="converted" className="bg-surface-container-high">Convertido</option>
-                <option value="lost" className="bg-surface-container-high">Perdido</option>
-              </select>
-              <button className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all flex items-center gap-2">
-                Abrir <Plus size={14} />
-              </button>
+                <div className="flex items-center gap-4 text-xs text-on-surface-variant justify-center">
+                  <Phone size={16} className="text-white/20" />
+                  <span className="font-bold">{lead.phone}</span>
+                </div>
+                {lead.message && (
+                  <p className="text-[10px] text-on-surface-variant text-center opacity-70 line-clamp-2 px-4 italic mt-4">
+                    "{lead.message}"
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-auto pt-8 border-t border-outline-variant/10 flex items-center justify-between">
+                <select 
+                  value={lead.status}
+                  onChange={(e) => handleStatusChange(lead, e.target.value as any)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border bg-transparent focus:outline-none transition-all",
+                    lead.status === 'new' ? 'border-primary/50 text-primary' :
+                    lead.status === 'contacted' ? 'border-warning/50 text-warning' :
+                    lead.status === 'qualified' ? 'border-success/50 text-success' :
+                    'border-white/5 text-on-surface-variant/40'
+                  )}
+                >
+                  <option value="new" className="bg-surface-container-high">Novo</option>
+                  <option value="contacted" className="bg-surface-container-high">Contato</option>
+                  <option value="qualified" className="bg-surface-container-high">Qualificado</option>
+                  <option value="converted" className="bg-surface-container-high">Convertido</option>
+                  <option value="lost" className="bg-surface-container-high">Perdido</option>
+                </select>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       
-      {/* Pagination Placeholder */}
       <div className="flex items-center justify-between text-sm py-4 border-t border-outline-variant/20 font-display">
-        <span className="text-on-surface-variant">Mostrando {filteredLeads.length} de {leads.length} leads</span>
+        <span className="text-on-surface-variant">Total: {filteredLeads.length} leads</span>
       </div>
     </div>
   );
