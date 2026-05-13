@@ -19,4 +19,23 @@ router.post("/", (req, res) => {
   res.status(201).json(newSale);
 });
 
+router.patch("/:id", (req, res) => {
+  const db = getDb();
+  const index = db.sales.findIndex((s: any) => s.id === req.params.id);
+  if (index !== -1) {
+    db.sales[index] = { ...db.sales[index], ...req.body };
+    saveDb(db);
+    res.json(db.sales[index]);
+  } else {
+    res.status(404).json({ message: "Sale not found" });
+  }
+});
+
+router.delete("/:id", (req, res) => {
+  const db = getDb();
+  db.sales = db.sales.filter((s: any) => s.id !== req.params.id);
+  saveDb(db);
+  res.status(204).send();
+});
+
 export default router;

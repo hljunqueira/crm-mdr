@@ -4,6 +4,12 @@ mdrinformaticaecelulares.com.br {
     encode gzip
 }
 
+# MDR API
+api.mdrinformaticaecelulares.com.br {
+    reverse_proxy app:3000
+    encode gzip
+}
+
 # n8n Automation
 n8n.mdrinformaticaecelulares.com.br {
     reverse_proxy n8n:5678

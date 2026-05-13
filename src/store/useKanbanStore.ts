@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface KanbanColumn {
   id: string;
@@ -35,34 +35,14 @@ export const useKanbanStore = create<KanbanState>()((set) => ({
   columns: [],
   cards: [],
   isLoading: false,
-  fetchKanban: async (unitId) => {
+  fetchKanban: async (_unitId) => {
     set({ isLoading: true });
     try {
-      const { data: cols, error: colErr } = await supabase
-        .from('kanban_columns')
-        .select('*')
-        .order('col_order', { ascending: true });
-
-      if (colErr) throw colErr;
-
-      let cardQuery = supabase
-        .from('kanban_cards')
-        .select('*, customers(name)')
-        .order('card_order', { ascending: true });
-
-      if (unitId) {
-        cardQuery = cardQuery.eq('unit_id', unitId);
-      }
-
-      const { data: cards, error: cardErr } = await cardQuery;
-      if (cardErr) throw cardErr;
-
-      const formattedCards = cards.map(c => ({
-        ...c,
-        customer_name: c.customers?.name
-      }));
-
-      set({ columns: cols, cards: formattedCards });
+      const [cols, cards] = await Promise.all([
+        api.get('/kanban/columns'),
+        api.get('/kanban/cards')
+      ]);
+      set({ columns: cols, cards: cards || [] });
     } catch (error) {
       console.error('Error fetching kanban data:', error);
     } finally {
@@ -71,13 +51,7 @@ export const useKanbanStore = create<KanbanState>()((set) => ({
   },
   addCard: async (card) => {
     try {
-      const { data, error } = await supabase
-        .from('kanban_cards')
-        .insert([card])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.post('/kanban/cards', card);
       set((state) => ({ cards: [...state.cards, data] }));
     } catch (error) {
       console.error('Error adding kanban card:', error);
@@ -85,14 +59,10 @@ export const useKanbanStore = create<KanbanState>()((set) => ({
   },
   moveCard: async (cardId, columnId, order = 0) => {
     try {
-      const { data, error } = await supabase
-        .from('kanban_cards')
-        .update({ column_id: columnId, card_order: order })
-        .eq('id', cardId)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/kanban/cards/${cardId}`, { 
+        column_id: columnId, 
+        card_order: order 
+      });
       set((state) => ({
         cards: state.cards.map((c) => c.id === cardId ? { ...c, ...data } : c)
       }));
@@ -102,14 +72,7 @@ export const useKanbanStore = create<KanbanState>()((set) => ({
   },
   updateCard: async (id, updatedFields) => {
     try {
-      const { data, error } = await supabase
-        .from('kanban_cards')
-        .update(updatedFields)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/kanban/cards/${id}`, updatedFields);
       set((state) => ({
         cards: state.cards.map((c) => c.id === id ? { ...c, ...data } : c)
       }));
@@ -119,12 +82,7 @@ export const useKanbanStore = create<KanbanState>()((set) => ({
   },
   deleteCard: async (id) => {
     try {
-      const { error } = await supabase
-        .from('kanban_cards')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/kanban/cards/${id}`);
       set((state) => ({
         cards: state.cards.filter((c) => c.id !== id)
       }));

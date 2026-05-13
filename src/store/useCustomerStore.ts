@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface Customer {
   id: string;
@@ -25,18 +25,10 @@ interface CustomerState {
 export const useCustomerStore = create<CustomerState>()((set) => ({
   customers: [],
   isLoading: false,
-  fetchCustomers: async (unitId) => {
+  fetchCustomers: async (_unitId) => {
     set({ isLoading: true });
     try {
-      let query = supabase.from('customers').select('*').order('name');
-      
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-
-      const { data, error } = await query;
-      
-      if (error) throw error;
+      const data = await api.get('/customers');
       set({ customers: data || [] });
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -46,13 +38,7 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
   },
   addCustomer: async (customer) => {
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .insert([customer])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.post('/customers', customer);
       set((state) => ({ customers: [...state.customers, data] }));
     } catch (error) {
       console.error('Error adding customer:', error);
@@ -60,14 +46,7 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
   },
   updateCustomer: async (id, updatedFields) => {
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .update(updatedFields)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/customers/${id}`, updatedFields);
       set((state) => ({
         customers: state.customers.map((c) => c.id === id ? data : c)
       }));
@@ -77,12 +56,7 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
   },
   deleteCustomer: async (id) => {
     try {
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/customers/${id}`);
       set((state) => ({
         customers: state.customers.filter((c) => c.id !== id)
       }));

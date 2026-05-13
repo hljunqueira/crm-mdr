@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import cors from "cors";
 
 // Routes
 import customerRoutes from "./server/routes/customers.js";
@@ -11,6 +12,7 @@ import financeRoutes from "./server/routes/finance.js";
 import leadRoutes from "./server/routes/leads.js";
 import kanbanRoutes from "./server/routes/kanban.js";
 import inventoryRoutes from "./server/routes/inventory.js";
+import unitsRoutes from "./server/routes/units.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +22,16 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(cors());
+
+  // API Health Check / Root
+  app.get("/api", (req, res) => {
+    res.json({ 
+      message: "MDR Informática e Celulares - API",
+      version: "1.0.0",
+      status: "online"
+    });
+  });
 
   // API Routes
   app.use("/api/customers", customerRoutes);
@@ -28,6 +40,7 @@ async function startServer() {
   app.use("/api/leads", leadRoutes);
   app.use("/api/kanban", kanbanRoutes);
   app.use("/api/inventory", inventoryRoutes);
+  app.use("/api/units", unitsRoutes);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

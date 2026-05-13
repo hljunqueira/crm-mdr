@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface InventoryItem {
   id: string;
@@ -8,8 +8,10 @@ export interface InventoryItem {
   brand: string;
   imei: string;
   price: number;
-  condition: 'new' | 'used' | 'refurbished';
+  cost_price: number;
+  condition: 'new' | 'used' | 'refurbished' | 'vitrine';
   status: 'available' | 'sold' | 'reserved' | 'in_repair';
+  notes?: string;
 }
 
 interface InventoryState {
@@ -24,17 +26,10 @@ interface InventoryState {
 export const useInventoryStore = create<InventoryState>()((set) => ({
   inventory: [],
   isLoading: false,
-  fetchInventory: async (unitId) => {
+  fetchInventory: async (_unitId) => {
     set({ isLoading: true });
     try {
-      let query = supabase.from('inventory').select('*').order('model');
-      
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const data = await api.get('/inventory');
       set({ inventory: data || [] });
     } catch (error) {
       console.error('Error fetching inventory:', error);
@@ -44,13 +39,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
   },
   addItem: async (item) => {
     try {
-      const { data, error } = await supabase
-        .from('inventory')
-        .insert([item])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.post('/inventory', item);
       set((state) => ({ inventory: [...state.inventory, data] }));
     } catch (error) {
       console.error('Error adding inventory item:', error);
@@ -58,14 +47,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
   },
   updateItem: async (id, updatedFields) => {
     try {
-      const { data, error } = await supabase
-        .from('inventory')
-        .update(updatedFields)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/inventory/${id}`, updatedFields);
       set((state) => ({
         inventory: state.inventory.map((i) => i.id === id ? data : i)
       }));
@@ -75,12 +57,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
   },
   deleteItem: async (id) => {
     try {
-      const { error } = await supabase
-        .from('inventory')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/inventory/${id}`);
       set((state) => ({
         inventory: state.inventory.filter((i) => i.id !== id)
       }));

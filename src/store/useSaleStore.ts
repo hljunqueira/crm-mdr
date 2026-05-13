@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface Sale {
   id: string;
@@ -27,27 +27,11 @@ interface SaleState {
 export const useSaleStore = create<SaleState>()((set) => ({
   sales: [],
   isLoading: false,
-  fetchSales: async (unitId) => {
+  fetchSales: async (_unitId) => {
     set({ isLoading: true });
     try {
-      let query = supabase
-        .from('sales')
-        .select('*, customers(name)')
-        .order('created_at', { ascending: false });
-
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const formattedSales = data.map(sale => ({
-        ...sale,
-        customer_name: sale.customers?.name
-      }));
-
-      set({ sales: formattedSales });
+      const data = await api.get('/sales');
+      set({ sales: data || [] });
     } catch (error) {
       console.error('Error fetching sales:', error);
     } finally {
@@ -56,13 +40,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
   },
   addSale: async (sale) => {
     try {
-      const { data, error } = await supabase
-        .from('sales')
-        .insert([sale])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.post('/sales', sale);
       set((state) => ({ sales: [data, ...state.sales] }));
     } catch (error) {
       console.error('Error adding sale:', error);
@@ -70,14 +48,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
   },
   updateSale: async (id, updatedFields) => {
     try {
-      const { data, error } = await supabase
-        .from('sales')
-        .update(updatedFields)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/sales/${id}`, updatedFields);
       set((state) => ({
         sales: state.sales.map((s) => s.id === id ? { ...s, ...data } : s)
       }));
@@ -87,12 +58,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
   },
   deleteSale: async (id) => {
     try {
-      const { error } = await supabase
-        .from('sales')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/sales/${id}`);
       set((state) => ({
         sales: state.sales.filter((s) => s.id !== id)
       }));

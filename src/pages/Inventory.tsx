@@ -17,6 +17,7 @@ import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import InventoryForm from '../components/inventory/InventoryForm';
+import { cn } from '../lib/utils';
 
 export default function Inventory() {
   const { inventory, deleteItem, fetchInventory, isLoading } = useInventoryStore();

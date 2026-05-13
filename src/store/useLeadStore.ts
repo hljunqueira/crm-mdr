@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface Lead {
   id: string;
@@ -24,20 +24,10 @@ interface LeadState {
 export const useLeadStore = create<LeadState>()((set) => ({
   leads: [],
   isLoading: false,
-  fetchLeads: async (unitId) => {
+  fetchLeads: async (_unitId) => {
     set({ isLoading: true });
     try {
-      let query = supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const data = await api.get('/leads');
       set({ leads: data || [] });
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -47,13 +37,7 @@ export const useLeadStore = create<LeadState>()((set) => ({
   },
   addLead: async (lead) => {
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .insert([lead])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.post('/leads', lead);
       set((state) => ({ leads: [data, ...state.leads] }));
     } catch (error) {
       console.error('Error adding lead:', error);
@@ -61,14 +45,7 @@ export const useLeadStore = create<LeadState>()((set) => ({
   },
   updateLead: async (id, updatedFields) => {
     try {
-      const { data, error } = await supabase
-        .from('leads')
-        .update(updatedFields)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/leads/${id}`, updatedFields);
       set((state) => ({
         leads: state.leads.map((l) => l.id === id ? data : l)
       }));
@@ -78,12 +55,7 @@ export const useLeadStore = create<LeadState>()((set) => ({
   },
   deleteLead: async (id) => {
     try {
-      const { error } = await supabase
-        .from('leads')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/leads/${id}`);
       set((state) => ({
         leads: state.leads.filter((l) => l.id !== id)
       }));

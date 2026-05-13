@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface Unit {
   id: string;
@@ -25,13 +25,7 @@ export const useUnitStore = create<UnitState>()((set) => ({
   fetchUnit: async (id) => {
     set({ isLoading: true });
     try {
-      const { data, error } = await supabase
-        .from('units')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (error) throw error;
+      const data = await api.get(`/units/${id}`);
       set({ unit: data });
     } catch (error) {
       console.error('Error fetching unit:', error);
@@ -41,14 +35,7 @@ export const useUnitStore = create<UnitState>()((set) => ({
   },
   updateUnit: async (id, updates) => {
     try {
-      const { data, error } = await supabase
-        .from('units')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
+      const data = await api.patch(`/units/${id}`, updates);
       set({ unit: data });
     } catch (error) {
       console.error('Error updating unit:', error);

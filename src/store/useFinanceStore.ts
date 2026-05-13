@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export interface Installment {
   id: string;
@@ -27,27 +27,11 @@ interface FinanceState {
 export const useFinanceStore = create<FinanceState>()((set) => ({
   installments: [],
   isLoading: false,
-  fetchInstallments: async (unitId) => {
+  fetchInstallments: async (_unitId) => {
     set({ isLoading: true });
     try {
-      let query = supabase
-        .from('installments')
-        .select('*, customers(name)')
-        .order('due_date', { ascending: true });
-
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const formatted = data.map(i => ({
-        ...i,
-        customer_name: i.customers?.name
-      }));
-
-      set({ installments: formatted });
+      const data = await api.get('/finance/installments');
+      set({ installments: data || [] });
     } catch (error) {
       console.error('Error fetching installments:', error);
     } finally {
@@ -56,14 +40,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
   },
   markAsPaid: async (id) => {
     try {
-      const { data, error } = await supabase
-        .from('installments')
-        .update({ status: 'paid', paid_at: new Date().toISOString().split('T')[0] })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/finance/installments/${id}`, { 
+        status: 'paid', 
+        paid_at: new Date().toISOString().split('T')[0] 
+      });
       set((state) => ({
         installments: state.installments.map((i) => i.id === id ? { ...i, ...data } : i)
       }));
@@ -73,14 +53,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
   },
   markAsBlocked: async (id) => {
     try {
-      const { data, error } = await supabase
-        .from('installments')
-        .update({ status: 'blocked' })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await api.patch(`/finance/installments/${id}`, { status: 'blocked' });
       set((state) => ({
         installments: state.installments.map((i) => i.id === id ? { ...i, ...data } : i)
       }));
@@ -90,14 +63,9 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
   },
   addInstallments: async (newInstallments) => {
     try {
-      const { data, error } = await supabase
-        .from('installments')
-        .insert(newInstallments)
-        .select();
-
-      if (error) throw error;
+      const data = await api.post('/finance/installments', newInstallments);
       set((state) => ({
-        installments: [...state.installments, ...data]
+        installments: [...state.installments, ...(Array.isArray(data) ? data : [data])]
       }));
     } catch (error) {
       console.error('Error adding installments:', error);

@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { 
-  ArrowRight, 
-  Shield, 
-  Zap, 
-  Smartphone, 
-  Laptop, 
-  Battery, 
-  Monitor, 
-  Wrench, 
-  Clock, 
-  MessageCircle, 
+import {
+  ArrowRight,
+  Shield,
+  Zap,
+  Smartphone,
+  Laptop,
+  Battery,
+  Monitor,
+  Wrench,
+  Clock,
+  MessageCircle,
   MapPin,
   ChevronRight,
   ClipboardList,
@@ -24,44 +24,44 @@ import { motion } from 'motion/react';
 export default function Landing() {
   const [formType, setFormType] = useState<'assistencia' | 'venda'>('assistencia');
   const services = [
-    { 
-      title: 'Vendas de Celulares', 
-      icon: ShoppingBag, 
+    {
+      title: 'Vendas de Celulares',
+      icon: ShoppingBag,
       desc: 'Os melhores lançamentos Apple e Android, novos e seminovos com garantia e procedência.',
       gridSpan: 'md:col-span-2',
       color: 'text-white'
     },
-    { 
-      title: 'Celulares & Tablets', 
-      icon: Smartphone, 
+    {
+      title: 'Celulares & Tablets',
+      icon: Smartphone,
       desc: 'Conserto especializado para iPhones e Androids com peças originais e agilidade.',
       gridSpan: 'md:col-span-1',
       color: 'text-primary'
     },
-    { 
-      title: 'Telas & Displays', 
-      icon: Monitor, 
+    {
+      title: 'Telas & Displays',
+      icon: Monitor,
       desc: 'Troca imediata de telas com vedação original e garantia.',
       gridSpan: 'md:col-span-1',
       color: 'text-secondary'
     },
-    { 
-      title: 'Notebooks', 
-      icon: Laptop, 
+    {
+      title: 'Notebooks',
+      icon: Laptop,
       desc: 'Reparos em hardware Mac e Windows, limpeza e refrigeração.',
       gridSpan: 'md:col-span-1',
       color: 'text-tertiary'
     },
-    { 
-      title: 'Baterias Premium', 
-      icon: Battery, 
+    {
+      title: 'Baterias Premium',
+      icon: Battery,
       desc: 'Substituição por baterias de alta performance com ciclos garantidos.',
       gridSpan: 'md:col-span-1',
       color: 'text-primary'
     },
-    { 
-      title: 'Upgrades SSD', 
-      icon: HardDrive, 
+    {
+      title: 'Upgrades SSD',
+      icon: HardDrive,
       desc: 'Deixe seu computador até 10x mais rápido com nossos kits de upgrade.',
       gridSpan: 'md:col-span-1',
       color: 'text-secondary'
@@ -69,27 +69,27 @@ export default function Landing() {
   ];
 
   const units = [
-    { 
-      name: 'MDR Arroio do Silva', 
-      address: 'Av. Getúlio Vargas, Centro - Balneário Arroio do Silva, SC', 
-      img: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=2070&auto=format&fit=crop',
-      phone: '(48) 99222-2222'
+    {
+      name: 'MDR Celulares - Matriz',
+      address: 'Av. Salmi Paladini, 1541 - Sala 01 - Centro, Balneário Arroio do Silva - SC, 88914-000',
+      img: '/Matriz.png',
+      phone: '(48) 3522-0000'
     },
-    { 
-      name: 'MDR Gaivota', 
-      address: 'Av. Beira Mar, Centro - Balneário Gaivota, SC', 
-      img: 'https://images.unsplash.com/photo-1597872200370-499de4623c0a?q=80&w=2132&auto=format&fit=crop',
-      phone: '(48) 98888-8888'
+    {
+      name: 'MDR Celulares - Filial',
+      address: 'Esquina com Espírito Santo - Rod. Interpraias, Balneário Gaivota - SC, 88955-000',
+      img: '/filial.png',
+      phone: '(48) 3522-0001'
     }
   ];
 
   return (
     <div className="min-h-screen bg-surface flex flex-col font-sans overflow-x-hidden selection:bg-primary selection:text-on-primary">
       <div className="fixed inset-0 tech-grid-pattern opacity-5 pointer-events-none z-0"></div>
-      
+
       {/* Navigation */}
       <nav className="h-20 px-8 flex items-center justify-between border-b border-outline-variant/30 backdrop-blur-xl sticky top-0 z-[100]">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3"
@@ -99,24 +99,24 @@ export default function Landing() {
             MDR <span className="text-primary italic">Informática & Celulares</span>
           </span>
         </motion.div>
-        
+
         <div className="hidden md:flex items-center gap-10">
           {['Serviços', 'Unidades'].map((item, i) => (
-            <motion.a 
+            <motion.a
               key={item}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              href={`#${item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')}`} 
+              href={`#${item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')}`}
               className="text-[11px] uppercase font-bold tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors relative group"
             >
               {item}
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full"></span>
             </motion.a>
           ))}
-          
+
           <div className="h-6 w-px bg-outline-variant/30 mx-2"></div>
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -137,7 +137,7 @@ export default function Landing() {
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10">
           <div className="space-y-10">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-surface-container-high border border-outline-variant/40 text-[10px] font-black text-primary tracking-[0.2em] uppercase"
@@ -145,8 +145,8 @@ export default function Landing() {
               <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
               Sua tecnologia em boas mãos
             </motion.div>
-            
-            <motion.h1 
+
+            <motion.h1
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -155,18 +155,18 @@ export default function Landing() {
               Vendas & <br />
               <span className="text-primary italic">Assistência</span>
             </motion.h1>
-            
-            <motion.p 
+
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               className="text-on-surface-variant font-display text-xl tracking-tight max-w-xl leading-relaxed"
             >
-              Venda de smartphones novos e seminovos, além de assistência certificada Apple e Samsung. 
+              Venda de smartphones novos e seminovos, além de assistência certificada Apple e Samsung.
               Tecnologia de ponta com a confiança que você já conhece.
             </motion.p>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
@@ -182,7 +182,7 @@ export default function Landing() {
               </button>
             </motion.div>
 
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
@@ -203,23 +203,23 @@ export default function Landing() {
             </motion.div>
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, ease: 'easeOut' }}
             className="relative"
           >
             <div className="relative glass-card border border-outline-variant/40 rounded-[48px] overflow-hidden aspect-square shadow-[0_32px_80px_rgba(0,0,0,0.4)] group">
-              <img 
-                src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=2070&auto=format&fit=crop" 
+              <img
+                src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=2070&auto=format&fit=crop"
                 alt="Reparo iPhone"
                 className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent opacity-60"></div>
-              
+
               {/* Status Bar UI */}
               <div className="absolute bottom-10 left-10 right-10 h-2 bg-white/10 rounded-full overflow-hidden">
-                <motion.div 
+                <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: '85%' }}
                   transition={{ delay: 1, duration: 2 }}
@@ -246,8 +246,8 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {services.map((service, i) => (
-              <motion.div 
-                key={i} 
+              <motion.div
+                key={i}
                 whileHover={{ y: -5 }}
                 className={`glass-card p-10 border border-outline-variant/30 rounded-[32px] hover:border-primary/50 transition-all group flex flex-col items-start ${service.gridSpan}`}
               >
@@ -276,8 +276,8 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             {units.map((unit, i) => (
-              <motion.div 
-                key={i} 
+              <motion.div
+                key={i}
                 whileHover={{ scale: 1.01 }}
                 className="glass-card overflow-hidden border border-outline-variant/30 rounded-[40px] group flex flex-col shadow-2xl"
               >
@@ -294,12 +294,12 @@ export default function Landing() {
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-4">
-                     <button className="w-full py-4 bg-primary text-on-primary rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:brightness-110 transition-all">
-                       <MapPin size={18} /> Rota no Maps
-                     </button>
-                     <button className="w-full py-4 border border-outline-variant text-on-surface rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-3">
-                       <MessageCircle size={18} className="text-[#25D366]" /> Contato Direto
-                     </button>
+                    <button className="w-full py-4 bg-primary text-on-primary rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:brightness-110 transition-all">
+                      <MapPin size={18} /> Rota no Maps
+                    </button>
+                    <button className="w-full py-4 border border-outline-variant text-on-surface rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-3">
+                      <MessageCircle size={18} className="text-[#25D366]" /> Contato Direto
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -328,17 +328,17 @@ export default function Landing() {
           <div className="lg:col-span-3">
             <div className="glass-card p-10 md:p-14 border border-outline-variant/40 rounded-[56px] relative overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.3)]">
               <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/5 blur-[120px] -z-10"></div>
-              
+
               <div className="space-y-4 mb-10">
                 <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] pl-1">Escolha o serviço desejado:</p>
                 <div className="flex p-1 bg-white/5 rounded-[24px] gap-1 border border-white/5">
-                  <button 
+                  <button
                     onClick={() => setFormType('assistencia')}
                     className={`flex-1 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${formType === 'assistencia' ? 'bg-white text-black shadow-xl scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
                   >
                     Reparos e Assistência
                   </button>
-                  <button 
+                  <button
                     onClick={() => setFormType('venda')}
                     className={`flex-1 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${formType === 'venda' ? 'bg-white text-black shadow-xl scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
                   >
@@ -361,25 +361,24 @@ export default function Landing() {
                     <input type="tel" placeholder="(00) 00000-0000" className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Ponto de Atendimento</label>
                     <select className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer">
                       <option>Escolha a melhor unidade</option>
-                      <option>Araranguá (Matriz)</option>
-                      <option>Arroio do Silva</option>
-                      <option>Gaivota</option>
+                      <option>Balneário Arroio do Silva (Matriz)</option>
+                      <option>Balneário Gaivota (Filial)</option>
                     </select>
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
                       {formType === 'assistencia' ? 'Equipamento' : 'Preferência de Modelo'}
                     </label>
-                    <input 
-                      type="text" 
-                      placeholder={formType === 'assistencia' ? 'Ex: Macbook Pro 2020' : 'Ex: iPhone 14 Pro Max'} 
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                    <input
+                      type="text"
+                      placeholder={formType === 'assistencia' ? 'Ex: Macbook Pro 2020' : 'Ex: iPhone 14 Pro Max'}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
                     />
                   </div>
                 </div>
@@ -431,12 +430,12 @@ export default function Landing() {
                 Redefinindo o padrão de assistência técnica com tecnologia, precisão e respeito ao cliente.
               </p>
               <div className="flex items-center gap-6">
-                 {['Instagram', 'Facebook', 'WhatsApp'].map(social => (
-                   <a key={social} href="#" className="text-[10px] uppercase font-black tracking-widest text-primary hover:text-white transition-colors">{social}</a>
-                 ))}
+                {['Instagram', 'Facebook', 'WhatsApp'].map(social => (
+                  <a key={social} href="#" className="text-[10px] uppercase font-black tracking-widest text-primary hover:text-white transition-colors">{social}</a>
+                ))}
               </div>
             </div>
-            
+
             <div className="space-y-6">
               <h5 className="text-[10px] uppercase font-black tracking-[0.3em] text-on-surface opacity-40">Navegação</h5>
               <ul className="space-y-4">
@@ -455,9 +454,9 @@ export default function Landing() {
               </ul>
             </div>
           </div>
-          
+
           <div className="pt-12 border-t border-outline-variant/10 flex flex-col md:flex-row justify-between items-center gap-8 text-[9px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">
-            <p>© 2024 MDR Informática & Celulares - Araranguá / Baln. Arroio do Silva / Gaivota</p>
+            <p>© 2026 MDR Informática & Celulares - Balneário Arroio do Silva / Balneário Gaivota</p>
             <div className="flex items-center gap-10">
               <div className="flex items-center gap-2">
                 <Shield size={12} className="text-primary" />
