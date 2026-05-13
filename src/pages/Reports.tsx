@@ -88,9 +88,9 @@ export default function Reports() {
           <div className="w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
             <Briefcase size={32} className="text-primary" />
           </div>
-          <h3 className="text-2xl font-black text-on-surface uppercase tracking-tight">Insights de Março</h3>
+          <h3 className="text-2xl font-black text-on-surface uppercase tracking-tight">Insights de Performance</h3>
           <p className="text-on-surface-variant font-display text-sm leading-relaxed max-w-xs">
-            Sua conversão de vendas aumentou 15% após a automatização das mensagens de lembrete de vencimento.
+            Acompanhe o crescimento da sua empresa através de dados reais e automatizações inteligentes.
           </p>
           <button className="mt-4 px-8 py-3 border border-outline-variant text-[11px] font-black uppercase tracking-widest text-on-surface rounded-xl hover:bg-white/5 transition-all">
             Análise Avançada

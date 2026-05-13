@@ -23,6 +23,9 @@ import { motion } from 'motion/react';
 
 export default function Landing() {
   const [formType, setFormType] = useState<'assistencia' | 'venda'>('assistencia');
+  const [selectedService, setSelectedService] = useState<any | null>(null);
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+
   const services = [
     {
       title: 'Vendas de Celulares',
@@ -169,16 +172,22 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="flex flex-col sm:flex-row items-center gap-5 pt-6"
             >
-              <a href="#contato" className="w-full sm:w-auto px-10 py-5 bg-primary text-on-primary rounded-2xl text-lg font-black uppercase tracking-widest shadow-2xl shadow-primary/40 flex items-center justify-center gap-4 hover:scale-105 transition-all group">
-                Solicitar Orçamento
-                <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
-              </a>
-              <button className="w-full sm:w-auto px-10 py-5 bg-surface-container-low border border-outline-variant/50 text-on-surface rounded-2xl text-lg font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-4 group">
-                <MessageCircle size={24} className="text-[#25D366] group-hover:scale-110 transition-transform" />
-                WhatsApp
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-5 pt-6">
+                <a href="#contato" className="w-full sm:w-auto px-10 py-5 bg-primary text-on-primary rounded-2xl text-lg font-black uppercase tracking-widest shadow-2xl shadow-primary/40 flex items-center justify-center gap-4 hover:scale-105 transition-all group">
+                  Solicitar Orçamento
+                  <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                </a>
+                <button 
+                  onClick={() => setShowWhatsappModal(true)}
+                  className="w-full sm:w-auto px-10 py-5 bg-surface-container-low border border-outline-variant/50 text-on-surface rounded-2xl text-lg font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-4 group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center shadow-[0_0_15px_rgba(37,211,102,0.4)]">
+                    <MessageCircle size={20} className="text-white fill-white" />
+                  </div>
+                  WhatsApp
+                </button>
+              </div>
             </motion.div>
 
             <motion.div
@@ -255,7 +264,10 @@ export default function Landing() {
                 </div>
                 <h3 className="text-2xl font-display font-black text-on-surface mb-4 tracking-tight uppercase">{service.title}</h3>
                 <p className="text-on-surface-variant text-base font-display leading-relaxed mb-6">{service.desc}</p>
-                <button className="mt-auto flex items-center gap-3 text-xs font-black uppercase tracking-widest text-primary group-hover:gap-4 transition-all group-hover:text-white">
+                <button 
+                  onClick={() => setSelectedService(service)}
+                  className="mt-auto flex items-center gap-3 text-xs font-black uppercase tracking-widest text-primary group-hover:gap-4 transition-all group-hover:text-white"
+                >
                   Ver Detalhes <ChevronRight size={16} />
                 </button>
               </motion.div>
@@ -263,6 +275,110 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Service Detail Modal */}
+      {selectedService && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-surface/90 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="relative glass-card w-full max-w-4xl border border-outline-variant/40 rounded-[48px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <button 
+              onClick={() => setSelectedService(null)}
+              className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-surface-container border border-outline-variant/40 flex items-center justify-center text-on-surface hover:bg-white/10 transition-all"
+            >
+              <Zap size={20} className="rotate-45" />
+            </button>
+            
+            <div className="grid md:grid-cols-2">
+              <div className="h-64 md:h-auto overflow-hidden">
+                <img 
+                  src={
+                    selectedService.title.includes('Vendas') ? 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1780&auto=format&fit=crop' :
+                    selectedService.title.includes('Celulares') ? 'https://images.unsplash.com/photo-1597740985671-2a8a3b80502e?q=80&w=1887&auto=format&fit=crop' :
+                    selectedService.title.includes('Telas') ? 'https://images.unsplash.com/photo-1551650975-87deedd944c3?q=80&w=1974&auto=format&fit=crop' :
+                    'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=2070&auto=format&fit=crop'
+                  } 
+                  alt={selectedService.title} 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="p-10 md:p-16 space-y-8">
+                <div className={`w-16 h-16 rounded-2xl bg-surface-container-highest flex items-center justify-center ${selectedService.color} border border-outline-variant/30`}>
+                  <selectedService.icon size={32} />
+                </div>
+                <div className="space-y-4">
+                  <h3 className="text-4xl font-display font-black text-on-surface uppercase tracking-tight leading-none">{selectedService.title}</h3>
+                  <p className="text-on-surface-variant font-display text-lg leading-relaxed">{selectedService.desc}</p>
+                </div>
+                <div className="pt-6 border-t border-outline-variant/20">
+                  <button 
+                    onClick={() => { setSelectedService(null); setShowWhatsappModal(true); }}
+                    className="w-full py-4 bg-primary text-on-primary rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:scale-105 transition-all"
+                  >
+                    <MessageCircle size={18} className="fill-white" /> Orçamento via WhatsApp
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Unit Selector Modal */}
+      {showWhatsappModal && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className="relative glass-card w-full max-w-lg border border-outline-variant/40 rounded-[48px] p-10 md:p-14 space-y-10 shadow-2xl animate-in zoom-in-95 duration-300">
+            <button 
+              onClick={() => setShowWhatsappModal(false)}
+              className="absolute top-6 right-6 w-12 h-12 rounded-full bg-surface-container border border-outline-variant/40 flex items-center justify-center text-on-surface hover:bg-white/10 transition-all"
+            >
+              <Zap size={20} className="rotate-45" />
+            </button>
+
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 bg-[#25D366] rounded-3xl flex items-center justify-center mx-auto shadow-[0_15px_40px_rgba(37,211,102,0.4)] mb-6">
+                <MessageCircle size={40} className="text-white fill-white" />
+              </div>
+              <h3 className="text-3xl font-display font-black text-on-surface uppercase tracking-tight">Fale Conosco</h3>
+              <p className="text-on-surface-variant font-display">Escolha a unidade que deseja falar agora pelo WhatsApp:</p>
+            </div>
+
+            <div className="grid gap-4">
+              <a 
+                href="https://wa.me/5548999362282" 
+                target="_blank" 
+                className="group flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-[28px] hover:bg-white/10 hover:border-primary/50 transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-primary border border-outline-variant/30">
+                    <MapPin size={24} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Unidade Matriz</p>
+                    <p className="text-lg font-black text-on-surface uppercase tracking-tight">Arroio do Silva</p>
+                  </div>
+                </div>
+                <ChevronRight size={24} className="text-on-surface-variant group-hover:text-white group-hover:translate-x-2 transition-all" />
+              </a>
+
+              <a 
+                href="https://wa.me/5548996545259" 
+                target="_blank" 
+                className="group flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-[28px] hover:bg-white/10 hover:border-primary/50 transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-secondary border border-outline-variant/30">
+                    <MapPin size={24} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary mb-1">Unidade Filial</p>
+                    <p className="text-lg font-black text-on-surface uppercase tracking-tight">Balneário Gaivota</p>
+                  </div>
+                </div>
+                <ChevronRight size={24} className="text-on-surface-variant group-hover:text-white group-hover:translate-x-2 transition-all" />
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Units - Visual Cards */}
       <section id="unidades" className="py-32 px-8 bg-surface-container-low/50 border-t border-outline-variant/30 relative">
@@ -296,7 +412,10 @@ export default function Landing() {
                     <button className="w-full py-4 bg-primary text-on-primary rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 flex items-center justify-center gap-3 hover:brightness-110 transition-all">
                       <MapPin size={18} /> Rota no Maps
                     </button>
-                    <button className="w-full py-4 border border-outline-variant text-on-surface rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-3">
+                    <button 
+                      onClick={() => setShowWhatsappModal(true)}
+                      className="w-full py-4 border border-outline-variant text-on-surface rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-3"
+                    >
                       <MessageCircle size={18} className="text-[#25D366]" /> Contato Direto
                     </button>
                   </div>
