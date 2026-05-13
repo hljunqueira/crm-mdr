@@ -44,12 +44,12 @@ export default function Login() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-10 space-y-4">
-          <Link to="/" className="inline-flex items-center gap-3">
+          <a href="https://mdrinformaticaecelulares.com.br" className="inline-flex items-center gap-3">
             <img src="/logo-mdr.png" alt="Logo" className="h-24 w-auto object-contain drop-shadow-2xl" />
             <span className="font-display font-black text-on-surface text-2xl tracking-tighter uppercase">
               MDR <span className="text-white italic">Informática & Celulares</span>
             </span>
-          </Link>
+          </a>
           <div className="pt-4">
             <h1 className="text-2xl font-black text-on-surface uppercase tracking-tight">Acesso Restrito</h1>
             <p className="text-on-surface-variant text-sm font-display uppercase tracking-widest mt-1 opacity-60">Painel de Administração</p>
@@ -114,16 +114,15 @@ export default function Login() {
           </form>
 
           <div className="mt-8 pt-8 border-t border-outline-variant/20">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-widest justify-center">
-              <Shield size={12} className="text-on-surface-variant/40" />
-              <span>Conexão Segura Supabase SSL</span>
-            </div>
+            <a href="https://mdrinformaticaecelulares.com.br" className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/40 hover:text-white uppercase tracking-widest justify-center transition-colors">
+              <span>← Voltar ao site</span>
+            </a>
           </div>
         </div>
 
 
         <p className="mt-10 text-center text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.3em]">
-          © 2024 MDR Informática & Celulares • Todos os direitos reservados.
+          ©2026 MDR Informática & Celulares • Todos os direitos reservados.
         </p>
       </motion.div>
     </div>
