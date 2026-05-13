@@ -5,8 +5,12 @@
 CREATE TABLE IF NOT EXISTS stores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
+    cnpj TEXT,
     address TEXT,
     phone TEXT,
+    evolution_api_url TEXT,
+    evolution_api_key TEXT,
+    evolution_instance TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -17,7 +21,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     store_id UUID REFERENCES stores(id),
     full_name TEXT,
     avatar_url TEXT,
-    role TEXT DEFAULT 'staff' CHECK (role IN ('admin', 'staff', 'technician')),
+    role TEXT DEFAULT 'attendant' CHECK (role IN ('admin', 'attendant', 'technician')),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
