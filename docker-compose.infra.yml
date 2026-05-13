@@ -48,6 +48,9 @@ services:
       - SERVER_URL=https://whatsapp.mdrinformaticaecelulares.com.br
       - AUTH_TOKEN=MDR_SECRET_TOKEN_2024
       - DEL_INSTANCE_ON_DISCONNECT=false
+      - DATABASE_ENABLED=true
+      - DATABASE_CONNECTION_URI=postgresql://mdr_user:MDR_DB_PASS_2024@db:5432/infra_db?schema=public
+      - DATABASE_PROVIDER=postgresql
     volumes:
       - evolution_data:/evolution/instances
     networks:
@@ -55,7 +58,7 @@ services:
 
   # --- Postgres (Shared for infra) ---
   db:
-    image: postgres:15-alphine
+    image: postgres:15-alpine
     restart: always
     environment:
       - POSTGRES_PASSWORD=MDR_DB_PASS_2024
