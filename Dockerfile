@@ -23,4 +23,5 @@ RUN npm install --omit=dev && npm install -g tsx
 
 EXPOSE 3000
 
+ENV NODE_ENV=production
 CMD ["tsx", "server.ts"]
