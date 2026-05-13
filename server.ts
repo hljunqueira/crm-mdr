@@ -25,11 +25,16 @@ async function startServer() {
   app.use(cors());
 
   // API Health Check / Root
-  app.get("/api", (req, res) => {
+  app.get("/api/health", (req, res) => {
     res.json({ 
       message: "MDR Informática e Celulares - API",
       version: "1.0.0",
-      status: "online"
+      status: "online",
+      env: process.env.NODE_ENV,
+      supabase: {
+        url: process.env.VITE_SUPABASE_URL ? "Configured" : "Missing",
+        key: process.env.VITE_SUPABASE_ANON_KEY ? "Configured" : "Missing"
+      }
     });
   });
 

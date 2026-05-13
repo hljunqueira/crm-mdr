@@ -7,7 +7,11 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL or Anon Key missing in environment variables.');
+  console.warn('⚠️ Supabase URL or Anon Key missing in environment variables. Database operations will fail.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Ensure we don't pass empty strings to createClient if they are missing
+// as it might throw an error depending on the version.
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : {} as any; // Fallback to empty object to prevent crash
