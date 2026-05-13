@@ -117,14 +117,14 @@ const initialData = {
       name: 'MDR Celulares - Matriz',
       cnpj: '12.345.678/0001-90',
       address: 'Av. Salmi Paladini, 1541 - Sala 01 - Centro, Balneário Arroio do Silva - SC, 88914-000',
-      phone: '(48) 3522-0000'
+      phone: '(48) 99936-2282'
     },
     {
       id: '2',
       name: 'MDR Celulares - Filial',
       cnpj: '12.345.678/0002-80',
       address: 'Esquina com Espírito Santo - Rod. Interpraias, Balneário Gaivota - SC, 88955-000',
-      phone: '(48) 3522-0001'
+      phone: '(48) 99654-5259'
     }
   ]
 };

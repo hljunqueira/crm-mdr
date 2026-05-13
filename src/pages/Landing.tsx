@@ -27,42 +27,42 @@ export default function Landing() {
     {
       title: 'Vendas de Celulares',
       icon: ShoppingBag,
-      desc: 'Os melhores lançamentos Apple e Android, novos e seminovos com garantia e procedência.',
+      desc: 'Os melhores lançamentos Apple e Android, novos e seminovos com garantia, procedência e as melhores condições do mercado.',
       gridSpan: 'md:col-span-2',
       color: 'text-white'
     },
     {
       title: 'Celulares & Tablets',
       icon: Smartphone,
-      desc: 'Conserto especializado para iPhones e Androids com peças originais e agilidade.',
+      desc: 'Conserto especializado para todas as marcas e modelos, com peças de alta qualidade e rapidez no atendimento.',
       gridSpan: 'md:col-span-1',
       color: 'text-primary'
     },
     {
       title: 'Telas & Displays',
       icon: Monitor,
-      desc: 'Troca imediata de telas com vedação original e garantia.',
+      desc: 'Troca de telas e displays com tecnologia de ponta, mantendo a sensibilidade e brilho original do seu aparelho.',
       gridSpan: 'md:col-span-1',
       color: 'text-secondary'
     },
     {
       title: 'Notebooks',
       icon: Laptop,
-      desc: 'Reparos em hardware Mac e Windows, limpeza e refrigeração.',
+      desc: 'Manutenção completa em hardware e software para Mac e Windows, incluindo reparos em placa-mãe.',
       gridSpan: 'md:col-span-1',
       color: 'text-tertiary'
     },
     {
       title: 'Baterias Premium',
       icon: Battery,
-      desc: 'Substituição por baterias de alta performance com ciclos garantidos.',
+      desc: 'Substituição de baterias com células de alta densidade para maior autonomia e segurança do seu dispositivo.',
       gridSpan: 'md:col-span-1',
       color: 'text-primary'
     },
     {
       title: 'Upgrades SSD',
       icon: HardDrive,
-      desc: 'Deixe seu computador até 10x mais rápido com nossos kits de upgrade.',
+      desc: 'Potencialize seu computador com SSDs de última geração, garantindo inicialização rápida e fluidez total.',
       gridSpan: 'md:col-span-1',
       color: 'text-secondary'
     }
@@ -73,13 +73,13 @@ export default function Landing() {
       name: 'MDR Celulares - Matriz',
       address: 'Av. Salmi Paladini, 1541 - Sala 01 - Centro, Balneário Arroio do Silva - SC, 88914-000',
       img: '/Matriz.png',
-      phone: '(48) 3522-0000'
+      phone: '(48) 99936-2282'
     },
     {
       name: 'MDR Celulares - Filial',
       address: 'Esquina com Espírito Santo - Rod. Interpraias, Balneário Gaivota - SC, 88955-000',
       img: '/filial.png',
-      phone: '(48) 3522-0001'
+      phone: '(48) 99654-5259'
     }
   ];
 
@@ -162,8 +162,7 @@ export default function Landing() {
               transition={{ delay: 0.3 }}
               className="text-on-surface-variant font-display text-xl tracking-tight max-w-xl leading-relaxed"
             >
-              Venda de smartphones novos e seminovos, além de assistência certificada Apple e Samsung.
-              Tecnologia de ponta com a confiança que você já conhece.
+              Venda de smartphones novos e seminovos, além de assistência a todos celulares. Tecnologia de ponta com a confiança que você já conhece.
             </motion.p>
 
             <motion.div
@@ -282,7 +281,7 @@ export default function Landing() {
                 className="glass-card overflow-hidden border border-outline-variant/30 rounded-[40px] group flex flex-col shadow-2xl"
               >
                 <div className="h-80 overflow-hidden relative">
-                  <img src={unit.img} alt={unit.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 grayscale-[0.8] group-hover:grayscale-0" />
+                  <img src={unit.img} alt={unit.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
                 </div>
                 <div className="p-10 space-y-10">
@@ -445,13 +444,6 @@ export default function Landing() {
               </ul>
             </div>
 
-            <div className="space-y-6">
-              <h5 className="text-[10px] uppercase font-black tracking-[0.3em] text-on-surface opacity-40">Jurídico</h5>
-              <ul className="space-y-4">
-                {['Termos de Uso', 'Privacidade', 'Código de Ética', 'Ouvidoria'].map(item => (
-                  <li key={item}><a href="#" className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors">{item}</a></li>
-                ))}
-              </ul>
             </div>
           </div>
 
