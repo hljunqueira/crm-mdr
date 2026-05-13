@@ -1,40 +1,52 @@
 import { Router } from "express";
-import { getDb, saveDb } from "../storage.js";
+import { supabase } from "../lib/supabase.js";
 
 const router = Router();
 
-router.get("/", (req, res) => {
-  const db = getDb();
-  res.json(db.sales);
+// Get all sales
+router.get("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('sales')
+    .select('*, customers(name), profiles(full_name)')
+    .order('created_at', { ascending: false });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.post("/", (req, res) => {
-  const db = getDb();
-  const newSale = {
-    ...req.body,
-    id: `S-${Math.floor(1000 + Math.random() * 9000)}`
-  };
-  db.sales.push(newSale);
-  saveDb(db);
-  res.status(201).json(newSale);
+// Create sale
+router.post("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('sales')
+    .insert([req.body])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-router.patch("/:id", (req, res) => {
-  const db = getDb();
-  const index = db.sales.findIndex((s: any) => s.id === req.params.id);
-  if (index !== -1) {
-    db.sales[index] = { ...db.sales[index], ...req.body };
-    saveDb(db);
-    res.json(db.sales[index]);
-  } else {
-    res.status(404).json({ message: "Sale not found" });
-  }
+// Update sale
+router.patch("/:id", async (req, res) => {
+  const { data, error } = await supabase
+    .from('sales')
+    .update(req.body)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(404).json({ error: error.message });
+  res.json(data);
 });
 
-router.delete("/:id", (req, res) => {
-  const db = getDb();
-  db.sales = db.sales.filter((s: any) => s.id !== req.params.id);
-  saveDb(db);
+// Delete sale
+router.delete("/:id", async (req, res) => {
+  const { error } = await supabase
+    .from('sales')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });
 

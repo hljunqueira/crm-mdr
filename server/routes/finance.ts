@@ -1,35 +1,42 @@
 import { Router } from "express";
-import { getDb, saveDb } from "../storage.js";
+import { supabase } from "../lib/supabase.js";
 
 const router = Router();
 
-router.get("/installments", (req, res) => {
-  const db = getDb();
-  res.json(db.installments);
+// Get all installments
+router.get("/installments", async (req, res) => {
+  const { data, error } = await supabase
+    .from('installments')
+    .select('*, sales(*, customers(name))')
+    .order('due_date', { ascending: true });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.post("/installments", (req, res) => {
-  const db = getDb();
-  const newInstallments = req.body; // Expects an array
-  if (Array.isArray(newInstallments)) {
-    db.installments.push(...newInstallments);
-  } else {
-    db.installments.push(newInstallments);
-  }
-  saveDb(db);
-  res.status(201).json(newInstallments);
+// Create installments
+router.post("/installments", async (req, res) => {
+  const installments = Array.isArray(req.body) ? req.body : [req.body];
+  const { data, error } = await supabase
+    .from('installments')
+    .insert(installments)
+    .select();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-router.patch("/installments/:id", (req, res) => {
-  const db = getDb();
-  const index = db.installments.findIndex((i: any) => i.id === req.params.id);
-  if (index !== -1) {
-    db.installments[index] = { ...db.installments[index], ...req.body };
-    saveDb(db);
-    res.json(db.installments[index]);
-  } else {
-    res.status(404).json({ message: "Installment not found" });
-  }
+// Update installment
+router.patch("/installments/:id", async (req, res) => {
+  const { data, error } = await supabase
+    .from('installments')
+    .update(req.body)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(404).json({ error: error.message });
+  res.json(data);
 });
 
 export default router;

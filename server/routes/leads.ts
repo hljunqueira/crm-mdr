@@ -1,40 +1,52 @@
 import { Router } from "express";
-import { getDb, saveDb } from "../storage.js";
+import { supabase } from "../lib/supabase.js";
 
 const router = Router();
 
-router.get("/", (req, res) => {
-  const db = getDb();
-  res.json(db.leads);
+// Get all leads
+router.get("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('leads')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.post("/", (req, res) => {
-  const db = getDb();
-  const newLead = {
-    ...req.body,
-    id: `L-${Math.floor(1000 + Math.random() * 9000)}`
-  };
-  db.leads.push(newLead);
-  saveDb(db);
-  res.status(201).json(newLead);
+// Create lead
+router.post("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('leads')
+    .insert([req.body])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-router.patch("/:id", (req, res) => {
-  const db = getDb();
-  const index = db.leads.findIndex((l: any) => l.id === req.params.id);
-  if (index !== -1) {
-    db.leads[index] = { ...db.leads[index], ...req.body };
-    saveDb(db);
-    res.json(db.leads[index]);
-  } else {
-    res.status(404).json({ message: "Lead not found" });
-  }
+// Update lead
+router.patch("/:id", async (req, res) => {
+  const { data, error } = await supabase
+    .from('leads')
+    .update(req.body)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(404).json({ error: error.message });
+  res.json(data);
 });
 
-router.delete("/:id", (req, res) => {
-  const db = getDb();
-  db.leads = db.leads.filter((l: any) => l.id !== req.params.id);
-  saveDb(db);
+// Delete lead
+router.delete("/:id", async (req, res) => {
+  const { error } = await supabase
+    .from('leads')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });
 

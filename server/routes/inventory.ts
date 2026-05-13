@@ -1,40 +1,52 @@
 import { Router } from "express";
-import { getDb, saveDb } from "../storage.js";
+import { supabase } from "../lib/supabase.js";
 
 const router = Router();
 
-router.get("/", (req, res) => {
-  const db = getDb();
-  res.json(db.inventory);
+// Get all inventory (devices)
+router.get("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('*, stores(name)')
+    .order('model');
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-router.post("/", (req, res) => {
-  const db = getDb();
-  const newItem = {
-    ...req.body,
-    id: `D-${Math.floor(1000 + Math.random() * 9000)}`
-  };
-  db.inventory.push(newItem);
-  saveDb(db);
-  res.status(201).json(newItem);
+// Create item
+router.post("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('devices')
+    .insert([req.body])
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
 });
 
-router.patch("/:id", (req, res) => {
-  const db = getDb();
-  const index = db.inventory.findIndex((i: any) => i.id === req.params.id);
-  if (index !== -1) {
-    db.inventory[index] = { ...db.inventory[index], ...req.body };
-    saveDb(db);
-    res.json(db.inventory[index]);
-  } else {
-    res.status(404).json({ message: "Item not found" });
-  }
+// Update item
+router.patch("/:id", async (req, res) => {
+  const { data, error } = await supabase
+    .from('devices')
+    .update(req.body)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(404).json({ error: error.message });
+  res.json(data);
 });
 
-router.delete("/:id", (req, res) => {
-  const db = getDb();
-  db.inventory = db.inventory.filter((i: any) => i.id !== req.params.id);
-  saveDb(db);
+// Delete item
+router.delete("/:id", async (req, res) => {
+  const { error } = await supabase
+    .from('devices')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (error) return res.status(500).json({ error: error.message });
   res.status(204).send();
 });
 
