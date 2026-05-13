@@ -444,7 +444,6 @@ export default function Landing() {
               </ul>
             </div>
 
-            </div>
           </div>
 
           <div className="pt-12 border-t border-outline-variant/10 flex flex-col md:flex-row justify-between items-center gap-8 text-[9px] font-black text-on-surface-variant/40 uppercase tracking-[0.4em]">

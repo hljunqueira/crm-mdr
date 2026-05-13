@@ -11,7 +11,7 @@ export default function Reports() {
   const { sales } = useSaleStore();
   const { installments } = useFinanceStore();
 
-  const totalSalesValue = sales.reduce((acc, s) => acc + s.totalValue, 0);
+  const totalSalesValue = sales.reduce((acc, s) => acc + s.total_value, 0);
   const totalPaid = installments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0);
   
   const reportStats = [
