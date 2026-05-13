@@ -94,9 +94,7 @@ export default function Landing() {
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-3"
         >
-          <div className="w-14 h-14 rounded-2xl bg-surface-container flex items-center justify-center shadow-xl shadow-primary/5 overflow-hidden border border-outline-variant/20 p-1.5">
-            <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="w-full h-full object-contain" />
-          </div>
+          <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="h-16 w-auto object-contain" />
           <span className="font-display font-black text-on-surface text-xl tracking-tighter uppercase">
             MDR <span className="text-primary italic">Informática & Celulares</span>
           </span>
@@ -424,9 +422,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-16">
             <div className="col-span-1 md:col-span-2 space-y-8">
               <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-3xl bg-surface-container border border-outline-variant/30 flex items-center justify-center p-3 shadow-2xl">
-                  <img src="/logo-mdr.png" alt="Logo" className="w-full h-full object-contain" />
-                </div>
+                <img src="/logo-mdr.png" alt="Logo" className="h-24 w-auto object-contain" />
                 <span className="font-display font-black text-on-surface text-2xl tracking-tighter uppercase">
                   MDR <span className="text-primary italic">Informática & Celulares</span>
                 </span>

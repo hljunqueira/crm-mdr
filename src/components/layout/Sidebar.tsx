@@ -36,9 +36,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30">
       <div className="px-6 mb-8 flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-surface flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden p-1">
-          <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="w-full h-full object-contain" />
-        </div>
+        <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="h-14 w-auto object-contain" />
         <div>
           <h1 className="font-display font-bold text-primary text-xl leading-none">MDR</h1>
           <p className="font-display text-[10px] text-on-surface-variant uppercase tracking-widest mt-1 opacity-70">Informática & Celulares</p>

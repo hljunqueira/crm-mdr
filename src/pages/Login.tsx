@@ -45,9 +45,7 @@ export default function Login() {
       >
         <div className="text-center mb-10 space-y-4">
           <Link to="/" className="inline-flex items-center gap-3">
-            <div className="w-20 h-20 rounded-3xl bg-surface-container border border-outline-variant/30 flex items-center justify-center p-3 shadow-2xl">
-              <img src="/logo-mdr.png" alt="Logo" className="w-full h-full object-contain" />
-            </div>
+            <img src="/logo-mdr.png" alt="Logo" className="h-24 w-auto object-contain drop-shadow-2xl" />
             <span className="font-display font-black text-on-surface text-2xl tracking-tighter uppercase">
               MDR <span className="text-white italic">Informática & Celulares</span>
             </span>
