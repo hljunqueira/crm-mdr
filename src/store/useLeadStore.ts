@@ -6,7 +6,7 @@ export interface Lead {
   unit_id?: string;
   name: string;
   phone: string;
-  email: string;
+  email?: string;
   message: string;
   status: 'new' | 'contacted' | 'qualified' | 'converted' | 'lost';
   created_at?: string;
