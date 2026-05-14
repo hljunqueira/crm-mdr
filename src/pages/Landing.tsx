@@ -130,11 +130,11 @@ export default function Landing() {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-3"
+          className="flex items-center gap-2 md:gap-3"
         >
-          <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="h-16 w-auto object-contain" />
-          <span className="font-display font-black text-on-surface text-xl tracking-tighter uppercase">
-            MDR <span className="text-primary italic">Informática & Celulares</span>
+          <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="h-10 md:h-16 w-auto object-contain" />
+          <span className="font-display font-black text-on-surface text-base md:text-xl tracking-tighter uppercase leading-none">
+            MDR <span className="hidden sm:inline text-primary italic">Informática & Celulares</span>
           </span>
         </motion.div>
 
@@ -171,7 +171,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section id="inicio" className="relative pt-32 pb-40 px-8 overflow-hidden">
+      <section id="inicio" className="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 md:px-8 overflow-hidden">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10">
           <div className="space-y-10">
@@ -180,7 +180,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-6xl md:text-8xl font-display font-black text-on-surface tracking-tight leading-[0.85] uppercase"
+              className="text-5xl sm:text-6xl md:text-8xl font-display font-black text-on-surface tracking-tighter leading-[0.9] uppercase"
             >
               Vendas & <br />
               <span className="text-primary italic">Assistência</span>
@@ -190,7 +190,7 @@ export default function Landing() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="text-on-surface-variant font-display text-xl tracking-tight max-w-xl leading-relaxed"
+              className="text-on-surface-variant font-display text-base sm:text-xl tracking-tight max-w-xl leading-relaxed opacity-80"
             >
               Venda de smartphones novos e seminovos, além de assistência a todos celulares. Tecnologia de ponta com a confiança que você já conhece.
             </motion.p>
@@ -223,19 +223,19 @@ export default function Landing() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-              className="flex items-center gap-8 pt-8 border-t border-outline-variant/20"
+              className="grid grid-cols-3 gap-6 pt-8 border-t border-outline-variant/20"
             >
               <div className="flex flex-col">
-                <span className="text-2xl font-black text-on-surface">15+</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Anos de XP</span>
+                <span className="text-xl sm:text-2xl font-black text-on-surface">15+</span>
+                <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Anos de XP</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-2xl font-black text-on-surface">50k+</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Reparos Realizados</span>
+                <span className="text-xl sm:text-2xl font-black text-on-surface">50k+</span>
+                <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Reparos</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-2xl font-black text-on-surface">4.9</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Google Rating</span>
+                <span className="text-xl sm:text-2xl font-black text-on-surface">4.9</span>
+                <span className="text-[8px] sm:text-[10px] uppercase font-bold tracking-widest text-on-surface-variant">Google</span>
               </div>
             </motion.div>
           </div>
