@@ -10,7 +10,7 @@ interface AutomationState {
   setQrCode: (qr: string | null) => void;
   
   fetchConnectionStatus: (url: string, key: string, instance: string) => Promise<void>;
-  fetchQRCode: (url: string, key: string, instance: string, friendlyName: string, unitId: string) => Promise<void>;
+  fetchQRCode: (url: string, key: string, instance: string, friendlyName: string, unitId: string, type: 'whatsapp' | 'instagram') => Promise<void>;
   logout: (url: string, key: string, instance: string) => Promise<void>;
 }
 
@@ -23,9 +23,12 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   setQrCode: (qr) => set({ qrCode: qr }),
 
   fetchConnectionStatus: async (url, key, instance) => {
+    const apiUrl = url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+    const apiKey = key || 'MDR_SECRET_TOKEN_2024';
+
     try {
-      const response = await fetch(`${url}/instance/connectionState/${instance}`, {
-        headers: { 'apikey': key }
+      const response = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
+        headers: { 'apikey': apiKey }
       });
       const data = await response.json();
       set({ 
@@ -38,31 +41,35 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     }
   },
 
-  fetchQRCode: async (url, key, instance, friendlyName, unitId) => {
-    set({ connectionStatus: 'connecting' });
+  fetchQRCode: async (url, key, instance, friendlyName, unitId, type) => {
+    const apiUrl = url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+    const apiKey = key || 'MDR_SECRET_TOKEN_2024';
+    const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
+
+    set({ connectionStatus: 'connecting', instanceName: finalInstanceName });
     try {
       // 1. Criar a instância com Webhook configurado
       const webhookUrl = `https://api.mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
       
-      const createResponse = await fetch(`${url}/instance/create`, {
+      await fetch(`${apiUrl}/instance/create`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'apikey': key 
+          'apikey': apiKey 
         },
         body: JSON.stringify({
-          instanceName: instance,
-          token: key,
-          qrcode: true
+          instanceName: finalInstanceName,
+          token: apiKey,
+          qrcode: type === 'whatsapp'
         })
       });
       
       // 2. Configurar Webhooks
-      await fetch(`${url}/webhook/set/${instance}`, {
+      await fetch(`${apiUrl}/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'apikey': key 
+          'apikey': apiKey 
         },
         body: JSON.stringify({
           url: webhookUrl,
@@ -75,26 +82,26 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       const { data: existingChannel } = await supabase
         .from('channels')
         .select('id')
-        .eq('instance_name', instance)
+        .eq('instance_name', finalInstanceName)
         .single();
 
       if (!existingChannel) {
         await supabase.from('channels').insert([{
           unit_id: unitId,
           name: friendlyName,
-          type: 'whatsapp',
-          instance_name: instance,
+          type: type,
+          instance_name: finalInstanceName,
           status: 'connecting'
         }]);
       }
 
       // 4. Obter QR Code
-      const response = await fetch(`${url}/instance/connect/${instance}`, {
-        headers: { 'apikey': key }
+      const response = await fetch(`${apiUrl}/instance/connect/${finalInstanceName}`, {
+        headers: { 'apikey': apiKey }
       });
       const data = await response.json();
       if (data.base64) {
-        set({ qrCode: data.base64, connectionStatus: 'disconnected', instanceName: instance });
+        set({ qrCode: data.base64, connectionStatus: 'disconnected', instanceName: finalInstanceName });
       }
     } catch (error) {
       console.error('Error in instance setup:', error);
@@ -103,10 +110,13 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   },
 
   logout: async (url, key, instance) => {
+    const apiUrl = url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+    const apiKey = key || 'MDR_SECRET_TOKEN_2024';
+
     try {
-      await fetch(`${url}/instance/logout/${instance}`, {
+      await fetch(`${apiUrl}/instance/logout/${instance}`, {
         method: 'DELETE',
-        headers: { 'apikey': key }
+        headers: { 'apikey': apiKey }
       });
       set({ connectionStatus: 'disconnected', qrCode: null });
     } catch (error) {

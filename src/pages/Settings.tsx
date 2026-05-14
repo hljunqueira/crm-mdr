@@ -19,26 +19,21 @@ import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUI } from '../context/UIContext';
-import { useAutomationStore } from '../store/useAutomationStore';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabType = 'unit' | 'whatsapp' | 'white-label' | 'notifications';
+type TabType = 'unit' | 'white-label' | 'notifications';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
   const { profile } = useAuthStore();
   const { unit, fetchUnit, updateUnit, isLoading } = useUnitStore();
   const { showNotification } = useUI();
-  const { connectionStatus, fetchConnectionStatus } = useAutomationStore();
 
   const [formData, setFormData] = useState({
     name: '',
     cnpj: '',
     address: '',
-    phone: '',
-    evolution_api_url: '',
-    evolution_api_key: '',
-    evolution_instance: ''
+    phone: ''
   });
 
   useEffect(() => {
@@ -47,11 +42,6 @@ export default function Settings() {
     }
   }, [profile?.unit_id, fetchUnit]);
 
-  useEffect(() => {
-    if (unit?.evolution_api_url && unit?.evolution_api_key && unit?.evolution_instance) {
-      fetchConnectionStatus(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
-    }
-  }, [unit, fetchConnectionStatus]);
 
   useEffect(() => {
     if (unit) {
@@ -59,10 +49,7 @@ export default function Settings() {
         name: unit.name || '',
         cnpj: unit.cnpj || '',
         address: unit.address || '',
-        phone: unit.phone || '',
-        evolution_api_url: unit.evolution_api_url || '',
-        evolution_api_key: unit.evolution_api_key || '',
-        evolution_instance: unit.evolution_instance || ''
+        phone: unit.phone || ''
       });
     }
   }, [unit]);
@@ -79,7 +66,6 @@ export default function Settings() {
 
   const menuItems = [
     { id: 'unit', label: 'Dados da Unidade', icon: Building2 },
-    { id: 'whatsapp', label: 'Integração WhatsApp', icon: MessageCircle },
     { id: 'white-label', label: 'Identidade Visual', icon: Palette },
     { id: 'notifications', label: 'Notificações', icon: Bell },
   ];
@@ -182,91 +168,6 @@ export default function Settings() {
               </motion.div>
             )}
 
-            {activeTab === 'whatsapp' && (
-              <motion.div 
-                key="whatsapp"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
-              >
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20">
-                    <MessageCircle size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Integração WhatsApp</h2>
-                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Evolution API v2.0</p>
-                  </div>
-                </div>
-
-                <div className="space-y-8">
-                  <div className={cn(
-                    "p-6 rounded-3xl border flex items-start gap-4 transition-all",
-                    connectionStatus === 'connected' ? "bg-emerald-500/5 border-emerald-500/10" : "bg-error/5 border-error/10"
-                  )}>
-                    {connectionStatus === 'connected' ? (
-                      <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />
-                    ) : (
-                      <AlertCircle className="text-error shrink-0" size={20} />
-                    )}
-                    <div>
-                      <p className={cn(
-                        "text-xs font-black uppercase tracking-widest",
-                        connectionStatus === 'connected' ? "text-emerald-500" : "text-error"
-                      )}>
-                        Status da Conexão: {connectionStatus === 'connected' ? 'Ativo' : 'Desconectado'}
-                      </p>
-                      <p className={cn(
-                        "text-[10px] font-medium mt-1",
-                        connectionStatus === 'connected' ? "text-emerald-500/60" : "text-error/60"
-                      )}>
-                        {connectionStatus === 'connected' 
-                          ? 'Sua instância está conectada e pronta para enviar cobranças automáticas.' 
-                          : 'A instância está offline. Verifique as credenciais ou gere um novo QR Code na página de Automação.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-8">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">URL da API (Evolution)</label>
-                      <input 
-                        type="text" 
-                        placeholder="https://api.seuserver.com"
-                        value={formData.evolution_api_url}
-                        onChange={(e) => setFormData(prev => ({ ...prev, evolution_api_url: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome da Instância</label>
-                        <input 
-                          type="text" 
-                          placeholder="Ex: Unidade_Matriz"
-                          value={formData.evolution_instance}
-                          onChange={(e) => setFormData(prev => ({ ...prev, evolution_instance: e.target.value }))}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">API Key (Global/Instance)</label>
-                        <div className="relative">
-                          <input 
-                            type="password" 
-                            placeholder="••••••••••••••••"
-                            value={formData.evolution_api_key}
-                            onChange={(e) => setFormData(prev => ({ ...prev, evolution_api_key: e.target.value }))}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono pr-12"
-                          />
-                          <Key className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-40" size={18} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
 
             {activeTab === 'white-label' && (
               <motion.div 
