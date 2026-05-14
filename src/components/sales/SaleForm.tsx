@@ -130,6 +130,8 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
         imei: formData.imei,
         total_value: finalValue,
         down_payment: formData.down_payment,
+        service_fee: feeValue,
+        original_price: formData.total_value,
         installments: formData.installments,
         date: new Date().toISOString().split('T')[0],
         status: 'completed'

@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS stores (
     evolution_api_url TEXT,
     evolution_api_key TEXT,
     evolution_instance TEXT,
+    logo_url TEXT,
+    theme_color TEXT DEFAULT '#4BE277',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -70,6 +72,8 @@ CREATE TABLE IF NOT EXISTS sales (
     total_value DECIMAL(12, 2) NOT NULL,
     down_payment DECIMAL(12, 2) DEFAULT 0,
     installments_count INTEGER DEFAULT 1,
+    service_fee DECIMAL(12, 2) DEFAULT 0,
+    original_price DECIMAL(12, 2) DEFAULT 0,
     sale_date DATE DEFAULT CURRENT_DATE,
     status TEXT DEFAULT 'completed' CHECK (status IN ('completed', 'cancelled', 'refunded')),
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -208,7 +212,10 @@ CREATE INDEX idx_sales_customer_id ON sales(customer_id);
 CREATE INDEX idx_repair_orders_customer_id ON repair_orders(customer_id);
 CREATE INDEX idx_customers_cpf ON customers(cpf);
 CREATE INDEX idx_deals_column ON deals(column_id);
-CREATE INDEX idx_chat_messages_conv ON chat_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conv ON chat_messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date);
+CREATE INDEX IF NOT EXISTS idx_installments_due ON installments(due_date);
+CREATE INDEX IF NOT EXISTS idx_devices_model ON devices(model);
 
 -- 12. TRIGGERS for updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -223,3 +230,34 @@ CREATE TRIGGER update_profiles_modtime BEFORE UPDATE ON profiles FOR EACH ROW EX
 CREATE TRIGGER update_customers_modtime BEFORE UPDATE ON customers FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_deals_modtime BEFORE UPDATE ON deals FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 CREATE TRIGGER update_automation_settings_modtime BEFORE UPDATE ON automation_settings FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- 13. AUTOMATION TRIGGERS
+-- Automatic inventory status update when a sale is recorded
+CREATE OR REPLACE FUNCTION handle_new_sale_inventory()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.device_id IS NOT NULL THEN
+        UPDATE devices SET status = 'sold' WHERE id = NEW.device_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_on_sale_update_inventory
+AFTER INSERT ON sales
+FOR EACH ROW EXECUTE PROCEDURE handle_new_sale_inventory();
+
+-- Automatic customer status update when installment is overdue
+CREATE OR REPLACE FUNCTION update_customer_overdue_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE customers SET status = 'overdue' 
+    WHERE id = (SELECT customer_id FROM sales WHERE id = NEW.sale_id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_on_installment_overdue
+AFTER UPDATE OF status ON installments
+FOR EACH ROW WHEN (NEW.status = 'overdue')
+EXECUTE PROCEDURE update_customer_overdue_status();

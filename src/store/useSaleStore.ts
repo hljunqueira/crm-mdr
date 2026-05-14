@@ -10,6 +10,8 @@ export interface Sale {
   imei: string;
   total_value: number;
   down_payment: number;
+  service_fee?: number;
+  original_price?: number;
   installments: number;
   date: string;
   status: 'completed' | 'processing' | 'overdue' | 'cancelled';
