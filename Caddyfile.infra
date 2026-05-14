@@ -22,7 +22,7 @@ whatsapp.mdrinformaticaecelulares.com.br {
 
 # Supabase Studio / API
 supabase.mdrinformaticaecelulares.com.br {
-    reverse_proxy kong:8000 {
+    reverse_proxy supabase-kong:8000 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
     }
