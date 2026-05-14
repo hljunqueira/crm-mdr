@@ -59,10 +59,25 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
+  // MDR Fee Logic from Commercial Conditions
+  const feePercentage = useMemo(() => {
+    const price = formData.total_value;
+    const hasDownPayment = formData.down_payment > 0;
+    
+    if (price <= 0) return 0;
+    if (price <= 2000) return hasDownPayment ? 0.05 : 0.08;
+    if (price <= 3000) return hasDownPayment ? 0.08 : 0.10;
+    if (price <= 3500) return 0.15;
+    return 0.18;
+  }, [formData.total_value, formData.down_payment]);
+
+  const feeValue = formData.total_value * feePercentage;
+  const finalValue = formData.total_value + feeValue;
+
   const installmentValue = useMemo(() => {
-    const financed = formData.total_value - formData.down_payment;
+    const financed = finalValue - formData.down_payment;
     return financed > 0 ? financed / formData.installments : 0;
-  }, [formData.total_value, formData.down_payment, formData.installments]);
+  }, [finalValue, formData.down_payment, formData.installments]);
 
   const generatedInstallments = useMemo(() => {
     if (!formData.customer_id || formData.total_value <= 0) return [];
@@ -100,7 +115,7 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
         customer_id: formData.customer_id,
         device_model: formData.device_model,
         imei: formData.imei,
-        total_value: formData.total_value,
+        total_value: finalValue,
         down_payment: formData.down_payment,
         installments: formData.installments,
         date: new Date().toISOString().split('T')[0],
@@ -240,15 +255,42 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
       {/* Preview Section */}
       {generatedInstallments.length > 0 && (
-        <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo do Contrato</h4>
-            <div className="text-right">
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest">Valor da Parcela</p>
-              <p className="text-lg font-black text-white font-mono">R$ {installmentValue.toFixed(2)}</p>
+        <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
+          <div className="flex items-center justify-between pb-6 border-b border-white/5">
+            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação</h4>
+            <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">Taxas MDR Aplicadas</span>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base</p>
+              <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Taxa de Serviço ({Math.round(feePercentage * 100)}%)</p>
+              <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Final</p>
+              <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Plano de {formData.installments}x</p>
+              <p className="text-xl font-black text-white font-mono">R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada</p>
+              <p className="text-sm font-black text-on-surface-variant font-mono">R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
             {generatedInstallments.slice(0, 4).map((inst, i) => (
               <div key={i} className="bg-white/5 p-3 rounded-2xl border border-white/5 text-center">
                 <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}</p>
