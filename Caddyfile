@@ -4,7 +4,7 @@
 
 # --- CRM App ---
 mdrinformaticaecelulares.com.br, api.mdrinformaticaecelulares.com.br {
-    reverse_proxy crm-mdr-app-1:3000
+    reverse_proxy infra-app-1:3000
     encode gzip
     header {
         Strict-Transport-Security "max-age=31536000;"
@@ -27,12 +27,12 @@ studio.mdrinformaticaecelulares.com.br {
 
 # --- n8n ---
 n8n.mdrinformaticaecelulares.com.br {
-    reverse_proxy crm-mdr-n8n-1:5678
+    reverse_proxy infra-n8n-1:5678
     encode gzip
 }
 
 # --- Evolution API ---
 whatsapp.mdrinformaticaecelulares.com.br {
-    reverse_proxy crm-mdr-evolution-1:8080
+    reverse_proxy infra-evolution-1:8080
     encode gzip
 }

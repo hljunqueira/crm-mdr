@@ -15,6 +15,7 @@ services:
     networks:
       - crm-network
       - supabase_default
+      - infra_crm-network
 
   # --- CRM App ---
   app:
@@ -74,6 +75,8 @@ networks:
   crm-network:
     driver: bridge
   supabase_default:
+    external: true
+  infra_crm-network:
     external: true
 
 volumes:
