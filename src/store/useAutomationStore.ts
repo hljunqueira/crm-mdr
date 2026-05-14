@@ -76,13 +76,13 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
       // 3. Salvar Canal no Banco de Dados
       const { data: existingChannel } = await supabase
-        .from('channels')
+        .from('automation_channels')
         .select('id')
         .eq('instance_name', finalInstanceName)
         .single();
-
+      
       if (!existingChannel) {
-        await supabase.from('channels').insert([{
+        await supabase.from('automation_channels').insert([{
           unit_id: unitId,
           name: friendlyName,
           type: type,
