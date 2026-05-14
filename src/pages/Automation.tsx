@@ -20,6 +20,7 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useUI } from '../context/UIContext';
 import { useUnitStore } from '../store/useUnitStore';
 import { useAutomationStore } from '../store/useAutomationStore';
+import { cn } from '../lib/utils';
 
 export default function Automation() {
   const { installments } = useFinanceStore();
