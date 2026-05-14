@@ -52,19 +52,17 @@ export default function Kanban() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20 h-full flex flex-col">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Funil de Vendas</h1>
-          <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Oportunidades</p>
+          <h1 className="text-3xl font-display font-black text-on-surface uppercase tracking-tight">Funil de Vendas</h1>
+          <p className="text-on-surface-variant font-display tracking-tight mt-1 opacity-70">Gestão de Oportunidades</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => handleAddCard(columns[0]?.id)}
-            className="bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all"
-          >
-            <Plus size={18} /> Novo Negócio
-          </button>
-        </div>
+        <button 
+          onClick={() => handleAddCard(columns[0]?.id)}
+          className="flex items-center gap-3 bg-primary text-on-primary px-6 py-3 rounded-2xl font-display font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
+        >
+          <Plus size={18} /> Novo Negócio
+        </button>
       </div>
 
       {isLoading ? (
