@@ -95,10 +95,6 @@ export default function Finance() {
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Recebíveis</p>
         </div>
         <div className="flex gap-4">
-          <button className="flex items-center gap-3 bg-white/5 border border-white/10 text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">
-            <CreditCard size={18} className="text-primary" />
-            PIX Integrado
-          </button>
         </div>
       </div>
 
