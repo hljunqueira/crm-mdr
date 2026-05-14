@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save } from 'lucide-react';
+import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
 import { useSaleStore } from '../../store/useSaleStore';
@@ -7,6 +7,9 @@ import { useFinanceStore, Installment } from '../../store/useFinanceStore';
 import { useInventoryStore } from '../../store/useInventoryStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUnitStore } from '../../store/useUnitStore';
+import { printElement } from '../../lib/utils';
+import ContractPrint from './ContractPrint';
 
 interface SaleFormProps {
   onSuccess: () => void;
@@ -20,6 +23,9 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const { inventory, updateItem } = useInventoryStore();
   const { showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
+  const { unit } = useUnitStore();
+
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -135,12 +141,57 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       }
       
       showNotification('success', 'Venda Registrada');
-      onSuccess();
-      hideModal();
+      setIsSuccess(true);
+      // Removed automatic onCancel/hideModal to show the success view
     } catch (error) {
       showNotification('error', 'Erro ao registrar venda');
     }
   };
+
+  if (isSuccess && selectedCustomer) {
+    return (
+      <div className="text-center py-12 space-y-8 animate-in zoom-in duration-500">
+        <div className="w-24 h-24 bg-success/10 rounded-[32px] flex items-center justify-center mx-auto border border-success/20 text-success">
+          <CheckCircle2 size={48} />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-3xl font-black text-white uppercase tracking-tight">Venda Realizada!</h2>
+          <p className="text-on-surface-variant font-display">O registro foi concluído e o estoque atualizado.</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 max-w-sm mx-auto">
+          <button 
+            onClick={() => printElement('sale-contract')}
+            className="w-full py-5 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
+          >
+            <FileText size={20} />
+            Imprimir Contrato
+          </button>
+          
+          <button 
+            onClick={() => {
+              onSuccess();
+              hideModal();
+            }}
+            className="w-full py-5 bg-white/5 border border-white/10 text-on-surface-variant rounded-2xl font-black uppercase tracking-widest text-xs hover:text-white transition-all"
+          >
+            Fechar e Voltar
+          </button>
+        </div>
+
+        {/* Hidden Printable Component */}
+        <ContractPrint 
+          sale={{
+            ...formData,
+            date: formData.first_due_date,
+            total_value: finalValue
+          }}
+          customer={selectedCustomer}
+          unit={unit || { name: 'MDR Informática' }}
+        />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
