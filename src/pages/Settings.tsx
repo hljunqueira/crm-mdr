@@ -19,6 +19,8 @@ import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUI } from '../context/UIContext';
+import { useAutomationStore } from '../store/useAutomationStore';
+import { motion, AnimatePresence } from 'motion/react';
 
 type TabType = 'unit' | 'whatsapp' | 'white-label' | 'notifications';
 
@@ -27,6 +29,7 @@ export default function Settings() {
   const { profile } = useAuthStore();
   const { unit, fetchUnit, updateUnit, isLoading } = useUnitStore();
   const { showNotification } = useUI();
+  const { connectionStatus, fetchConnectionStatus } = useAutomationStore();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -43,6 +46,12 @@ export default function Settings() {
       fetchUnit(profile.unit_id);
     }
   }, [profile?.unit_id, fetchUnit]);
+
+  useEffect(() => {
+    if (unit?.evolution_api_url && unit?.evolution_api_key && unit?.evolution_instance) {
+      fetchConnectionStatus(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
+    }
+  }, [unit, fetchConnectionStatus]);
 
   useEffect(() => {
     if (unit) {
@@ -191,11 +200,30 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-8">
-                  <div className="p-6 bg-emerald-500/5 rounded-3xl border border-emerald-500/10 flex items-start gap-4">
-                    <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />
+                  <div className={cn(
+                    "p-6 rounded-3xl border flex items-start gap-4 transition-all",
+                    connectionStatus === 'connected' ? "bg-emerald-500/5 border-emerald-500/10" : "bg-error/5 border-error/10"
+                  )}>
+                    {connectionStatus === 'connected' ? (
+                      <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />
+                    ) : (
+                      <AlertCircle className="text-error shrink-0" size={20} />
+                    )}
                     <div>
-                      <p className="text-xs font-black text-emerald-500 uppercase tracking-widest">Status da Conexão: Ativo</p>
-                      <p className="text-[10px] text-emerald-500/60 font-medium mt-1">Sua instância está conectada e pronta para enviar cobranças automáticas.</p>
+                      <p className={cn(
+                        "text-xs font-black uppercase tracking-widest",
+                        connectionStatus === 'connected' ? "text-emerald-500" : "text-error"
+                      )}>
+                        Status da Conexão: {connectionStatus === 'connected' ? 'Ativo' : 'Desconectado'}
+                      </p>
+                      <p className={cn(
+                        "text-[10px] font-medium mt-1",
+                        connectionStatus === 'connected' ? "text-emerald-500/60" : "text-error/60"
+                      )}>
+                        {connectionStatus === 'connected' 
+                          ? 'Sua instância está conectada e pronta para enviar cobranças automáticas.' 
+                          : 'A instância está offline. Verifique as credenciais ou gere um novo QR Code na página de Automação.'}
+                      </p>
                     </div>
                   </div>
 
@@ -286,8 +314,3 @@ export default function Settings() {
   );
 }
 
-// Simple motion proxy to avoid errors if framer-motion is not fully loaded in this context
-const motion = {
-  div: ({ children, className, ...props }: any) => <div className={className} {...props}>{children}</div>
-};
-const AnimatePresence = ({ children }: any) => <>{children}</>;
