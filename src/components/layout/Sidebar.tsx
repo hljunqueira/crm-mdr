@@ -12,13 +12,16 @@ import {
   TrendingDown,
   TrendingUp,
   ShieldCheck,
-  ShoppingBag
+  ShoppingBag,
+  LogOut
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils'; // Fixed path
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function Sidebar() {
   const location = useLocation();
+  const { signOut } = useAuthStore();
 
   const navItems: { name: string; icon: any; path: string; badge?: number }[] = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -70,13 +73,13 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto px-6 pt-6 border-t border-outline-variant/30">
-        <Link 
-          to="/support" 
-          className="flex items-center gap-3 py-2 text-on-surface-variant hover:text-on-surface transition-colors"
+        <button 
+          onClick={() => signOut()} 
+          className="flex items-center gap-3 py-2 text-on-surface-variant hover:text-error transition-colors w-full text-left"
         >
-          <HelpCircle size={20} />
-          <span className="font-display text-sm tracking-tight">Suporte</span>
-        </Link>
+          <LogOut size={20} />
+          <span className="font-display text-sm tracking-tight">Sair do Sistema</span>
+        </button>
       </div>
     </aside>
   );
