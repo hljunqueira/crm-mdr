@@ -29,6 +29,7 @@ export default function Automation() {
   const { 
     connectionStatus, qrCode, fetchConnectionStatus, fetchQRCode, logout 
   } = useAutomationStore();
+  const [friendlyName, setFriendlyName] = React.useState('WhatsApp Principal');
 
   React.useEffect(() => {
     if (unit?.evolution_api_url && unit?.evolution_api_key && unit?.evolution_instance) {
@@ -41,7 +42,7 @@ export default function Automation() {
       showNotification('warning', 'Configuração Faltando', 'Por favor, configure os dados da Evolution API nas Configurações da Unidade.');
       return;
     }
-    fetchQRCode(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
+    fetchQRCode(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance, friendlyName, unit.id);
     showNotification('info', 'Integração WhatsApp', 'Gerando QR Code...');
   };
 
@@ -141,6 +142,18 @@ export default function Automation() {
                 <p className="text-on-surface font-display text-sm tracking-tight leading-relaxed opacity-80 max-w-md">
                   Conecte sua conta do WhatsApp para que o MDR Celulares possa gerenciar as cobranças por você. Utilizamos criptografia de ponta a ponta para garantir a segurança dos seus dados.
                 </p>
+                
+                <div className="mt-6 max-w-xs">
+                  <label className="text-[10px] font-black text-primary uppercase tracking-widest mb-2 block">Nome do Canal no Chat</label>
+                  <input 
+                    type="text" 
+                    value={friendlyName}
+                    onChange={(e) => setFriendlyName(e.target.value)}
+                    placeholder="Ex: WhatsApp Vendas"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all text-white font-sans"
+                  />
+                </div>
+
                 <div className="flex gap-4 mt-6">
                   {connectionStatus === 'connected' ? (
                     <button 

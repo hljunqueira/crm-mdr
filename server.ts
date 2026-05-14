@@ -13,6 +13,7 @@ import leadRoutes from "./server/routes/leads.js";
 import kanbanRoutes from "./server/routes/kanban.js";
 import inventoryRoutes from "./server/routes/inventory.js";
 import unitsRoutes from "./server/routes/units.js";
+import webhookRoutes from "./server/routes/webhooks.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,7 @@ async function startServer() {
   app.use("/api/kanban", kanbanRoutes);
   app.use("/api/inventory", inventoryRoutes);
   app.use("/api/units", unitsRoutes);
+  app.use("/api/webhooks", webhookRoutes);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
