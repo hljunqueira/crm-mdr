@@ -41,14 +41,11 @@ export default function Login() {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        className="w-full max-w-lg"
       >
         <div className="text-center mb-10 space-y-4">
-          <a href="https://mdrinformaticaecelulares.com.br" className="inline-flex items-center gap-3">
-            <img src="/logo-mdr.png" alt="Logo" className="h-24 w-auto object-contain drop-shadow-2xl" />
-            <span className="font-display font-black text-on-surface text-2xl tracking-tighter uppercase">
-              MDR <span className="text-white italic">Informática & Celulares</span>
-            </span>
+          <a href="https://mdrinformaticaecelulares.com.br" className="inline-flex justify-center w-full">
+            <img src="/logo-mdr.png" alt="Logo" className="h-32 w-auto object-contain drop-shadow-2xl" />
           </a>
           <div className="pt-4">
             <h1 className="text-2xl font-black text-on-surface uppercase tracking-tight">Acesso Restrito</h1>
