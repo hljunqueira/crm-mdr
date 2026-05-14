@@ -16,15 +16,7 @@ export default function TopBar() {
       </div>
 
       <div className="flex items-center gap-6 ml-8">
-        <div className="flex items-center gap-3">
-          <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative group">
-            <Bell size={20} className="text-on-surface-variant group-hover:text-primary transition-colors" />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-error rounded-full border-2 border-surface animate-pulse"></span>
-          </button>
-          <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors group">
-            <Grid size={20} className="text-on-surface-variant group-hover:text-primary transition-colors" />
-          </button>
-        </div>
+        <div className="h-8 w-px bg-outline-variant"></div>
 
         <div className="h-8 w-px bg-outline-variant"></div>
 

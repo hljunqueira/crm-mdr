@@ -293,8 +293,12 @@ export default function Chat() {
               </p>
             </div>
             <div className="flex gap-4">
-              <div className="px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">4 Canais Online</div>
-              <div className="px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Sincronização Ativa</div>
+              <div className="px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                {channels.length} {channels.length === 1 ? 'Canal' : 'Canais'} Configurados
+              </div>
+              <div className="px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
+                {channels.some(c => c.status === 'connected') ? 'Sincronização Ativa' : 'Aguardando Conexão'}
+              </div>
             </div>
           </div>
         )}
