@@ -14,6 +14,7 @@ services:
       - caddy_config:/config
     networks:
       - crm-network
+      - supabase_default
 
   # --- CRM App ---
   app:
@@ -72,6 +73,8 @@ services:
 networks:
   crm-network:
     driver: bridge
+  supabase_default:
+    external: true
 
 volumes:
   caddy_data:

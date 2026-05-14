@@ -1,8 +1,11 @@
-mdrinformaticaecelulares.com.br {
-    reverse_proxy app:3000
-    
+{
+    email admin@mdrinformaticaecelulares.com.br
+}
+
+# --- CRM App ---
+mdrinformaticaecelulares.com.br, api.mdrinformaticaecelulares.com.br {
+    reverse_proxy crm-mdr-app-1:3000
     encode gzip
-    
     header {
         Strict-Transport-Security "max-age=31536000;"
         X-Frame-Options DENY
@@ -10,7 +13,26 @@ mdrinformaticaecelulares.com.br {
     }
 }
 
-api.mdrinformaticaecelulares.com.br {
-    reverse_proxy app:3000
+# --- Supabase API (Kong) ---
+supabase.mdrinformaticaecelulares.com.br {
+    reverse_proxy supabase-kong:8000
+    encode gzip
+}
+
+# --- Supabase Dashboard (Studio) ---
+studio.mdrinformaticaecelulares.com.br {
+    reverse_proxy supabase-studio:3000
+    encode gzip
+}
+
+# --- n8n ---
+n8n.mdrinformaticaecelulares.com.br {
+    reverse_proxy crm-mdr-n8n-1:5678
+    encode gzip
+}
+
+# --- Evolution API ---
+whatsapp.mdrinformaticaecelulares.com.br {
+    reverse_proxy crm-mdr-evolution-1:8080
     encode gzip
 }
