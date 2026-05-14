@@ -29,11 +29,12 @@ export default function Reports() {
 
   const totalSalesValue = sales.reduce((acc, s) => acc + s.total_value, 0);
   const totalPaid = installments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0);
+  const totalFees = sales.reduce((acc, s) => acc + (s.service_fee || 0), 0);
   
   const reportStats = [
-    { label: 'Receita Total', value: `R$ ${totalSalesValue.toLocaleString()}`, trend: '+12%', color: 'text-white' },
-    { label: 'Recebido', value: `R$ ${totalPaid.toLocaleString()}`, trend: '+8%', color: 'text-white' },
-    { label: 'Clientes Ativos', value: customers.length.toString(), trend: '+18%', color: 'text-white' },
+    { label: 'Faturamento Total', value: `R$ ${totalSalesValue.toLocaleString()}`, trend: '+12%', color: 'text-white' },
+    { label: 'Ganhos em Taxas', value: `R$ ${totalFees.toLocaleString()}`, trend: '+15%', color: 'text-primary' },
+    { label: 'Recebido (Caixa)', value: `R$ ${totalPaid.toLocaleString()}`, trend: '+8%', color: 'text-white' },
     { label: 'Aparelhos Vendidos', value: sales.length.toString(), trend: '+5%', color: 'text-on-surface-variant' },
   ];
 
