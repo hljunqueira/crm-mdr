@@ -54,8 +54,8 @@ export default function KanbanCardForm({ initialData, columnId, onSuccess }: Kan
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 gap-6">
-        <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Título da Oportunidade</label>
           <input
             type="text"
@@ -67,33 +67,32 @@ export default function KanbanCardForm({ initialData, columnId, onSuccess }: Kan
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Estimado</label>
-            <input
-              type="number"
-              required
-              value={formData.value}
-              onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
-              placeholder="0,00"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Prioridade</label>
-            <select
-              value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none appearance-none"
-            >
-              <option value="Alta">Alta</option>
-              <option value="Media">Média</option>
-              <option value="Baixa">Baixa</option>
-            </select>
-          </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Estimado</label>
+          <input
+            type="number"
+            required
+            value={formData.value}
+            onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+            placeholder="0,00"
+          />
         </div>
 
         <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Prioridade</label>
+          <select
+            value={formData.priority}
+            onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none appearance-none"
+          >
+            <option value="Alta">Alta</option>
+            <option value="Media">Média</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </div>
+
+        <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Vincular Cliente (Opcional)</label>
           <select
             value={formData.customer_id}
@@ -107,10 +106,10 @@ export default function KanbanCardForm({ initialData, columnId, onSuccess }: Kan
           </select>
         </div>
 
-        <div className="space-y-2">
+        <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Observações / Notas</label>
           <textarea
-            rows={3}
+            rows={2}
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"

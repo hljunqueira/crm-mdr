@@ -45,19 +45,19 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-2">
-        <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Completo</label>
-        <input 
-          type="text" 
-          required
-          placeholder="Ex: João da Silva"
-          value={formData.name}
-          onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
-          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-        />
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Completo</label>
+          <input 
+            type="text" 
+            required
+            placeholder="Ex: João da Silva"
+            value={formData.name}
+            onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+          />
+        </div>
+
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF</label>
           <input 
@@ -80,17 +80,17 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Endereço</label>
-        <input 
-          type="text" 
-          placeholder="Rua, Número, Bairro, Cidade - UF"
-          value={formData.address}
-          onChange={(e) => setFormData(p => ({ ...p, address: e.target.value }))}
-          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-        />
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Endereço</label>
+          <input 
+            type="text" 
+            placeholder="Rua, Número, Bairro, Cidade - UF"
+            value={formData.address}
+            onChange={(e) => setFormData(p => ({ ...p, address: e.target.value }))}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+          />
+        </div>
       </div>
 
       <div className="flex gap-4 pt-4">
