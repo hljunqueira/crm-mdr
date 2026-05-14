@@ -45,7 +45,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         instanceName: finalInstanceName,
         token: finalInstanceName,
         qrcode: type === 'whatsapp',
-        integration: type === 'whatsapp' ? 'baileys' : 'instagram'
+        integration: type === 'whatsapp' ? 'WHATSAPP-BAILEYS' : 'INSTAGRAM'
       };
 
       console.log('Enviando payload para criação de instância:', payload);
