@@ -84,7 +84,7 @@ export default function Automation() {
 
   const fetchChannels = async (unitId: string) => {
     const { data } = await supabase
-      .from('channels')
+      .from('automation_channels')
       .select('*')
       .eq('unit_id', unitId);
     if (data) setChannels(data);
@@ -111,7 +111,7 @@ export default function Automation() {
 
   const handleDeleteChannel = async (id: string) => {
     if (confirm('Deseja realmente remover este canal?')) {
-      await supabase.from('channels').delete().eq('id', id);
+      await supabase.from('automation_channels').delete().eq('id', id);
       const currentUnitId = selectedUnitId || unit?.id;
       if (currentUnitId) fetchChannels(currentUnitId);
       showNotification('success', 'Canal Removido', 'O canal foi removido com sucesso.');
