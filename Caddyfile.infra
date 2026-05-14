@@ -22,30 +22,5 @@ whatsapp.mdrinformaticaecelulares.com.br {
 
 # Supabase Studio / API
 supabase.mdrinformaticaecelulares.com.br {
-    reverse_proxy supabase-kong:8000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-    }
-    
-    header {
-        Access-Control-Allow-Origin https://mdrinformaticaecelulares.com.br
-        Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization, apikey, x-client-info"
-        Access-Control-Allow-Credentials true
-        defer
-    }
-
-    # Handle preflight OPTIONS requests
-    @options {
-        method OPTIONS
-    }
-    handle @options {
-        header {
-            Access-Control-Allow-Origin https://mdrinformaticaecelulares.com.br
-            Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-            Access-Control-Allow-Headers "Content-Type, Authorization, apikey, x-client-info"
-            Access-Control-Allow-Credentials true
-        }
-        respond "" 204
-    }
+    reverse_proxy supabase-kong:8000
 }
