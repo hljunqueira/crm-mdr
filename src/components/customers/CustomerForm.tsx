@@ -3,6 +3,7 @@ import { User, CreditCard, Phone, MapPin, Save, X } from 'lucide-react';
 import { useCustomerStore, Customer } from '../../store/useCustomerStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
+import { formatCPF, formatPhone } from '../../lib/utils';
 
 interface CustomerFormProps {
   initialData?: Customer;
@@ -65,7 +66,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             required
             placeholder="000.000.000-00"
             value={formData.cpf}
-            onChange={(e) => setFormData(p => ({ ...p, cpf: e.target.value }))}
+            onChange={(e) => setFormData(p => ({ ...p, cpf: formatCPF(e.target.value) }))}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
         </div>
@@ -76,7 +77,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             required
             placeholder="(00) 00000-0000"
             value={formData.phone}
-            onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))}
+            onChange={(e) => setFormData(p => ({ ...p, phone: formatPhone(e.target.value) }))}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
         </div>

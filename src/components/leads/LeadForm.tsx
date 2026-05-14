@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLeadStore, Lead } from '../../store/useLeadStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUI } from '../../context/UIContext';
+import { formatPhone } from '../../lib/utils';
 
 interface LeadFormProps {
   initialData?: Lead;
@@ -62,7 +63,7 @@ export default function LeadForm({ initialData, onSuccess }: LeadFormProps) {
             type="text"
             required
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
             placeholder="(00) 00000-0000"
           />

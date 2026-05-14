@@ -20,10 +20,41 @@ import {
   ShoppingBag
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useLeadStore } from '../store/useLeadStore';
+import { useUI } from '../context/UIContext';
+import { formatPhone } from '../lib/utils';
+import React from 'react';
 
 export default function Landing() {
-  const [formType, setFormType] = useState<'assistencia' | 'venda'>('assistencia');
+  const { addLead } = useLeadStore();
+  const { showNotification } = useUI();
+  const [activeFaq, setActiveFaq] = React.useState<number | null>(null);
+  const [formType, setFormType] = React.useState<'assistencia' | 'venda'>('assistencia');
+  
+  const [formData, setFormData] = React.useState({
+    name: '',
+    phone: '',
+    device: '',
+    message: '',
+    unit: 'Arroio do Silva'
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addLead({
+        name: formData.name,
+        phone: formData.phone,
+        message: `[${formType.toUpperCase()}] Aparelho: ${formData.device} | Unidade: ${formData.unit} | Mensagem: ${formData.message}`,
+        status: 'new'
+      });
+      showNotification('success', 'Solicitação Enviada', 'Em breve entraremos em contato via WhatsApp!');
+      setFormData({ name: '', phone: '', device: '', message: '', unit: 'Arroio do Silva' });
+    } catch (error) {
+      showNotification('error', 'Erro ao Enviar', 'Tente novamente em instantes.');
+    }
+  };
   const [selectedService, setSelectedService] = useState<any | null>(null);
   const [selectedUnitImage, setSelectedUnitImage] = useState<string | null>(null);
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
@@ -512,25 +543,42 @@ export default function Landing() {
                 </p>
               </div>
 
-              <form className="space-y-8">
+              <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Identificação</label>
-                    <input type="text" placeholder="Como podemos te chamar?" className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" />
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Como podemos te chamar?" 
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                    />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">WhatsApp / Telefone</label>
-                    <input type="tel" placeholder="(00) 00000-0000" className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" />
+                    <input 
+                      type="tel" 
+                      required
+                      placeholder="(00) 00000-0000" 
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Ponto de Atendimento</label>
-                    <select className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer">
-                      <option>Escolha a melhor unidade</option>
-                      <option>Balneário Arroio do Silva (Matriz)</option>
-                      <option>Balneário Gaivota (Filial)</option>
+                    <select 
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="Arroio do Silva">Balneário Arroio do Silva (Matriz)</option>
+                      <option value="Gaivota">Balneário Gaivota (Filial)</option>
                     </select>
                   </div>
                   <div className="space-y-3">
@@ -539,7 +587,10 @@ export default function Landing() {
                     </label>
                     <input
                       type="text"
+                      required
                       placeholder={formType === 'assistencia' ? 'Ex: Macbook Pro 2020' : 'Ex: iPhone 14 Pro Max'}
+                      value={formData.device}
+                      onChange={(e) => setFormData({ ...formData, device: e.target.value })}
                       className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
                     />
                   </div>
@@ -548,15 +599,33 @@ export default function Landing() {
                 {formType === 'assistencia' ? (
                   <div className="space-y-3 animate-in fade-in duration-500">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Relato Técnico</label>
-                    <textarea rows={5} placeholder="O que está acontecendo com seu dispositivo?" className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"></textarea>
+                    <textarea 
+                      rows={5} 
+                      placeholder="O que está acontecendo com seu dispositivo?" 
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
+                    ></textarea>
                   </div>
                 ) : (
                   <div className="space-y-6 animate-in fade-in duration-500">
                     <div className="space-y-3">
                       <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Estado de Interesse</label>
                       <div className="grid grid-cols-2 gap-4">
-                        <button type="button" className="py-4 border border-outline-variant/50 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all">Novo Lacrado</button>
-                        <button type="button" className="py-4 border border-outline-variant/50 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-primary transition-all">Seminovo Premium</button>
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({ ...formData, message: 'Interesse em Novo Lacrado' })}
+                          className={`py-4 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.message === 'Interesse em Novo Lacrado' ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant/50 hover:border-primary'}`}
+                        >
+                          Novo Lacrado
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setFormData({ ...formData, message: 'Interesse em Seminovo Premium' })}
+                          className={`py-4 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.message === 'Interesse em Seminovo Premium' ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant/50 hover:border-primary'}`}
+                        >
+                          Seminovo Premium
+                        </button>
                       </div>
                     </div>
                     <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl">
@@ -568,7 +637,10 @@ export default function Landing() {
                   </div>
                 )}
 
-                <button className="w-full py-6 bg-primary text-on-primary rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-xl">
+                <button 
+                  type="submit"
+                  className="w-full py-6 bg-primary text-on-primary rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-xl"
+                >
                   {formType === 'assistencia' ? 'Iniciar Diagnóstico' : 'Receber Catálogo'}
                 </button>
               </form>

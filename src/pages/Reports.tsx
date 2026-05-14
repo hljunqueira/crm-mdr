@@ -2,6 +2,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { TrendingUp, DollarSign, Users, Briefcase, Calendar, ChevronDown, Download, BarChart2 } from 'lucide-react';
+import { exportToCSV } from '../lib/utils';
+import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useSaleStore } from '../store/useSaleStore';
 import { useFinanceStore } from '../store/useFinanceStore';
@@ -10,6 +12,20 @@ export default function Reports() {
   const { customers } = useCustomerStore();
   const { sales } = useSaleStore();
   const { installments } = useFinanceStore();
+  const { showNotification } = useUI();
+  
+  const handleExport = () => {
+    if (sales.length === 0) {
+      showNotification('warning', 'Sem Dados', 'Não há vendas para exportar no momento.');
+      return;
+    }
+    exportToCSV(sales, 'relatorio_vendas_mdr');
+    showNotification('success', 'Exportação Concluída', 'O arquivo CSV foi gerado com sucesso.');
+  };
+
+  const handleAdvancedAnalysis = () => {
+    showNotification('info', 'Análise Avançada', 'O motor de IA está processando as tendências do seu negócio...');
+  };
 
   const totalSalesValue = sales.reduce((acc, s) => acc + s.total_value, 0);
   const totalPaid = installments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0);
@@ -32,8 +48,11 @@ export default function Reports() {
           <button className="px-5 py-3 bg-surface-container border border-outline-variant/30 text-xs font-black uppercase tracking-widest text-on-surface rounded-xl hover:bg-white/5 transition-colors flex items-center gap-2">
             <Calendar size={16} /> Últimos 30 dias <ChevronDown size={14} />
           </button>
-          <button className="bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all">
-            <Download size={18} /> Exportar
+          <button 
+            onClick={handleExport}
+            className="bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all"
+          >
+            <Download size={18} /> Exportar CSV
           </button>
         </div>
       </div>
@@ -96,7 +115,10 @@ export default function Reports() {
           <p className="text-on-surface-variant font-display text-sm leading-relaxed max-w-xs">
             Acompanhe o crescimento da sua empresa através de dados reais e automatizações inteligentes.
           </p>
-          <button className="mt-4 px-8 py-3 border border-outline-variant text-[11px] font-black uppercase tracking-widest text-on-surface rounded-xl hover:bg-white/5 transition-all">
+          <button 
+            onClick={handleAdvancedAnalysis}
+            className="mt-4 px-8 py-3 border border-outline-variant text-[11px] font-black uppercase tracking-widest text-on-surface rounded-xl hover:bg-white/5 transition-all"
+          >
             Análise Avançada
           </button>
         </div>
