@@ -171,14 +171,22 @@ export default function Automation() {
             </div>
             <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
               <div className="flex-1">
-                <h2 className="text-2xl font-display font-black text-primary uppercase tracking-tight mb-2 italic">Integração WhatsApp CRM</h2>
+                <h2 className="text-2xl font-display font-black text-primary uppercase tracking-tight mb-2 italic">
+                  Integração {channelType === 'whatsapp' ? 'WhatsApp' : 'Instagram'} CRM
+                </h2>
                 <p className="text-on-surface font-display text-sm tracking-tight leading-relaxed opacity-80 max-w-md">
-                  Conecte sua conta do WhatsApp para que o MDR Celulares possa gerenciar as cobranças por você. Utilizamos criptografia de ponta a ponta para garantir a segurança dos seus dados.
+                  {channelType === 'whatsapp' 
+                    ? 'Conecte sua conta do WhatsApp para que o MDR Celulares possa gerenciar as cobranças por você. Utilizamos criptografia de ponta a ponta para garantir a segurança dos seus dados.'
+                    : 'Conecte seu perfil do Instagram para centralizar o atendimento e responder seus clientes diretamente pelo nosso Chat Multi-canal.'}
                 </p>
                 
                 <div className="flex gap-4 mt-8">
                   <button 
-                    onClick={() => setChannelType('whatsapp')}
+                    onClick={() => {
+                      setChannelType('whatsapp');
+                      setFriendlyName('Whatsapp Loja MDR - ARROIO');
+                      setInstanceNameInput('mdr_arroio_zap');
+                    }}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all",
                       channelType === 'whatsapp' ? "bg-primary/10 border-primary text-primary" : "bg-white/5 border-white/10 text-on-surface-variant opacity-60"
@@ -188,7 +196,11 @@ export default function Automation() {
                     <span className="text-[10px] font-black uppercase tracking-widest">WhatsApp</span>
                   </button>
                   <button 
-                    onClick={() => setChannelType('instagram')}
+                    onClick={() => {
+                      setChannelType('instagram');
+                      setFriendlyName('Instagram Loja MDR - ARROIO');
+                      setInstanceNameInput('mdr_arroio_insta');
+                    }}
                     className={cn(
                       "flex-1 flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all",
                       channelType === 'instagram' ? "bg-primary/10 border-primary text-primary" : "bg-white/5 border-white/10 text-on-surface-variant opacity-60"
@@ -228,14 +240,14 @@ export default function Automation() {
                       onClick={handleLogout}
                       className="px-8 py-3 bg-error text-white rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-all"
                     >
-                      Desconectar WhatsApp
+                      Desconectar {channelType === 'whatsapp' ? 'WhatsApp' : 'Instagram'}
                     </button>
                   ) : (
                     <button 
                       onClick={handleSetupInstance}
                       className="px-8 py-3 bg-primary text-on-primary rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-all"
                     >
-                      {qrCode ? 'Gerar Novo QR Code' : 'Conectar WhatsApp'}
+                      {qrCode ? 'Gerar Novo QR Code' : `Conectar ${channelType === 'whatsapp' ? 'WhatsApp' : 'Instagram'}`}
                     </button>
                   )}
                   <button className="px-8 py-3 bg-white/5 border border-white/10 text-white rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">

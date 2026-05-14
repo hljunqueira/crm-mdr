@@ -22,14 +22,9 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setQrCode: (qr) => set({ qrCode: qr }),
 
-  fetchConnectionStatus: async (url, key, instance) => {
-    const apiUrl = url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
-    const apiKey = key || 'MDR_SECRET_TOKEN_2024';
-
+  fetchConnectionStatus: async (_url, _key, instance) => {
     try {
-      const response = await fetch(`${apiUrl}/instance/connectionState/${instance}`, {
-        headers: { 'apikey': apiKey }
-      });
+      const response = await fetch(`/api/evolution/instance/connectionState/${instance}`);
       const data = await response.json();
       set({ 
         connectionStatus: data.instance?.state === 'open' ? 'connected' : 'disconnected',
@@ -41,44 +36,26 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     }
   },
 
-  fetchQRCode: async (url, key, instance, friendlyName, unitId, type) => {
-    const apiUrl = (url || 'https://whatsapp.mdrinformaticaecelulares.com.br').replace(/\/$/, '');
-    const apiKey = key || 'MDR_SECRET_TOKEN_2024';
+  fetchQRCode: async (_url, _key, instance, friendlyName, unitId, type) => {
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
-
     set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
     
     try {
-      console.log(`Starting connection for ${finalInstanceName} at ${apiUrl}`);
-      
       // 1. Criar a instância
-      const createRes = await fetch(`${apiUrl}/instance/create`, {
+      const createRes = await fetch(`/api/evolution/instance/create`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'apikey': apiKey 
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instanceName: finalInstanceName,
-          token: apiKey,
           qrcode: type === 'whatsapp'
         })
       });
 
-      if (!createRes.ok) {
-        const errData = await createRes.json();
-        console.warn('Instance creation notice:', errData.message);
-        // Prosseguimos mesmo se já existir
-      }
-
       // 2. Configurar Webhooks
       const webhookUrl = `https://api.mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
-      await fetch(`${apiUrl}/webhook/set/${finalInstanceName}`, {
+      await fetch(`/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'apikey': apiKey 
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: webhookUrl,
           enabled: true,
@@ -105,9 +82,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
       // 4. Obter QR Code (Apenas se for WhatsApp)
       if (type === 'whatsapp') {
-        const response = await fetch(`${apiUrl}/instance/connect/${finalInstanceName}`, {
-          headers: { 'apikey': apiKey }
-        });
+        const response = await fetch(`/api/evolution/instance/connect/${finalInstanceName}`);
         const data = await response.json();
         
         if (data.base64) {
@@ -116,7 +91,6 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           set({ connectionStatus: 'connected', qrCode: null });
         }
       } else {
-        // Fluxo Instagram (Geralmente login direto no Manager por enquanto)
         set({ connectionStatus: 'disconnected' });
       }
     } catch (error) {
@@ -125,14 +99,10 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     }
   },
 
-  logout: async (url, key, instance) => {
-    const apiUrl = url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
-    const apiKey = key || 'MDR_SECRET_TOKEN_2024';
-
+  logout: async (_url, _key, instance) => {
     try {
-      await fetch(`${apiUrl}/instance/logout/${instance}`, {
-        method: 'DELETE',
-        headers: { 'apikey': apiKey }
+      await fetch(`/api/evolution/instance/logout/${instance}`, {
+        method: 'DELETE'
       });
       set({ connectionStatus: 'disconnected', qrCode: null });
     } catch (error) {
