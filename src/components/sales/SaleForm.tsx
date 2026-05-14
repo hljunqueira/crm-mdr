@@ -29,7 +29,8 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     total_value: 0,
     down_payment: 0,
     installments: 12,
-    first_due_date: new Date().toISOString().split('T')[0]
+    first_due_date: new Date().toISOString().split('T')[0],
+    service_fee: 0 // New field for manual override
   });
 
   const availableDevices = useMemo(() => 
@@ -60,7 +61,7 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
   // MDR Fee Logic from Commercial Conditions
-  const feePercentage = useMemo(() => {
+  const suggestedFee = useMemo(() => {
     const price = formData.total_value;
     const hasDownPayment = formData.down_payment > 0;
     
@@ -71,6 +72,12 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     return 0.18;
   }, [formData.total_value, formData.down_payment]);
 
+  // Update manual fee when price changes significantly if it was 0 or same as previous suggested
+  React.useEffect(() => {
+    setFormData(prev => ({ ...prev, service_fee: suggestedFee * 100 }));
+  }, [suggestedFee]);
+
+  const feePercentage = formData.service_fee / 100;
   const feeValue = formData.total_value * feePercentage;
   const finalValue = formData.total_value + feeValue;
 
@@ -270,7 +277,20 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
               <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Taxa de Serviço ({Math.round(feePercentage * 100)}%)</p>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Taxa de Serviço (%)</p>
+              <div className="relative group">
+                <input 
+                  type="number"
+                  step="0.1"
+                  value={formData.service_fee}
+                  onChange={(e) => setFormData(prev => ({ ...prev, service_fee: Number(e.target.value) }))}
+                  className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-black text-primary font-mono focus:border-primary outline-none transition-all"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-primary/40 pointer-events-none group-focus-within:opacity-0 transition-opacity">%</span>
+              </div>
+            </div>
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Acréscimo (R$)</p>
               <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>
