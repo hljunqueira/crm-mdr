@@ -32,7 +32,7 @@ router.post('/evolution', async (req, res) => {
     // 2. Encontrar ou criar a conversa
     let { data: conversation } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, unread_count')
       .eq('channel_id', channel.id)
       .eq('contact_phone', remoteJid)
       .single();
