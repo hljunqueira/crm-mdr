@@ -28,17 +28,9 @@ export default function TopBar() {
 
         <div className="h-8 w-px bg-outline-variant"></div>
 
-        <div className="flex items-center gap-3 pl-2 group cursor-pointer">
+        <div className="flex items-center gap-3 pl-2 group cursor-default">
           <div className="text-right hidden sm:block">
             <p className="font-display text-sm font-bold text-on-surface">Admin MDR</p>
-            <p className="font-display text-[10px] text-primary uppercase tracking-widest">Online</p>
-          </div>
-          <div className="w-10 h-10 rounded-full border-2 border-outline-variant p-0.5 group-hover:border-primary transition-all">
-            <img 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOYD0Cp84qN_AQ0MK62kv3kzcjZLTlEidY2kkZdcdg0wXlrD02VTCkZJWTvI-jAFSuh0Wl2IjqGyNFJ6pGqN5YaeHmjvIBuVIHqKh_9S8AJxKL7dqsd4Vz9gIIXzbzDB3t0BB1c5XPw1_4PhTmmcjvK8WtGieSb6LqOlYLxA0XDEUQ5CVxCZUYHgsA-0CYL2mK-GGsZWgqqi5Gscd64JRnzp1G1-OUmTbk-TMfsF-u8TRx47rVqQ6xwPuf7ZKkblr7FQw6X4f5L3YF" 
-              alt="Avatar" 
-              className="w-full h-full rounded-full object-cover"
-            />
           </div>
         </div>
       </div>
