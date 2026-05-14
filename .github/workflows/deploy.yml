@@ -28,8 +28,8 @@ jobs:
             # cp .env.example .env 
             
             # Reconstrói apenas o container da aplicação no docker-compose da infra
-            cd /root/infra
-            docker-compose up -d --build app
+            cd /root/crm-mdr
+            docker compose -f docker-compose.infra.yml up -d --build app
             
             # Limpa imagens antigas para economizar espaço
             docker image prune -f
