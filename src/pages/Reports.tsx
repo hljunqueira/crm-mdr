@@ -58,29 +58,33 @@ export default function Reports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="glass-card p-10 border border-outline-variant/30 rounded-[40px] space-y-8">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-black text-on-surface uppercase tracking-tight">Vendas por Unidade</h3>
+            <h3 className="text-xl font-black text-on-surface uppercase tracking-tight">Modelos Mais Vendidos</h3>
             <BarChart2 size={20} className="text-on-surface-variant" />
           </div>
           <div className="space-y-6">
-            {[
-              { name: 'Balneário Arroio do Silva', value: 85, color: 'bg-primary' },
-              { name: 'Gaivota', value: 58, color: 'bg-white/40' },
-              { name: 'Araranguá', value: 32, color: 'bg-white/10' },
-            ].map((item, i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex justify-between text-[11px] font-black uppercase tracking-widest">
-                  <span className="text-on-surface-variant">{item.name}</span>
-                  <span className="text-on-surface">{item.value}%</span>
+            {sales.length === 0 ? (
+               <p className="text-xs text-on-surface-variant font-display opacity-50">Nenhuma venda registrada ainda.</p>
+            ) : (() => {
+              const counts: Record<string, number> = {};
+              sales.forEach(s => counts[s.device_model] = (counts[s.device_model] || 0) + 1);
+              const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+              const colors = ['bg-primary', 'bg-white/40', 'bg-white/10'];
+              return sorted.map((item, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="flex justify-between text-[11px] font-black uppercase tracking-widest">
+                    <span className="text-on-surface-variant">{item[0]}</span>
+                    <span className="text-on-surface">{Math.round((item[1] / sales.length) * 100)}%</span>
+                  </div>
+                  <div className="h-2 bg-surface-container rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      whileInView={{ width: `${Math.round((item[1] / sales.length) * 100)}%` }}
+                      className={`h-full ${colors[i]} rounded-full`} 
+                    />
+                  </div>
                 </div>
-                <div className="h-2 bg-surface-container rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${item.value}%` }}
-                    className={`h-full ${item.color} rounded-full`} 
-                  />
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
 

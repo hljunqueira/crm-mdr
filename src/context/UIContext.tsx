@@ -42,6 +42,14 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     }, 5000);
   }, []);
 
+  React.useEffect(() => {
+    const handleApiError = (e: any) => {
+      showNotification('error', 'Falha no Sistema', e.detail || 'Ocorreu um erro inesperado.');
+    };
+    window.addEventListener('api-error', handleApiError);
+    return () => window.removeEventListener('api-error', handleApiError);
+  }, [showNotification]);
+
   const showModal = useCallback((props: ModalProps) => {
     setModal(props);
   }, []);

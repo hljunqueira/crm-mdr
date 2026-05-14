@@ -154,6 +154,12 @@ export default function Finance() {
               <Loader2 className="animate-spin" size={32} />
               <span className="text-[10px] font-black uppercase tracking-widest">Sincronizando Financeiro...</span>
             </div>
+          ) : filteredInstallments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50">
+              <CreditCard size={48} className="text-on-surface-variant mb-2 opacity-20" />
+              <p className="text-sm font-display font-bold text-on-surface-variant uppercase tracking-widest">Nenhuma parcela encontrada</p>
+              <p className="text-[10px] font-display text-on-surface-variant opacity-70">A lista de parcelas está vazia ou a busca não encontrou resultados.</p>
+            </div>
           ) : (
             <table className="w-full">
               <thead>

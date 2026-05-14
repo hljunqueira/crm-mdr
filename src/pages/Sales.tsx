@@ -165,6 +165,12 @@ export default function Sales() {
               <Loader2 className="animate-spin" size={32} />
               <span className="text-[10px] font-black uppercase tracking-widest">Sincronizando Vendas...</span>
             </div>
+          ) : filteredSales.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50">
+              <ShoppingBag size={48} className="text-on-surface-variant mb-2 opacity-20" />
+              <p className="text-sm font-display font-bold text-on-surface-variant uppercase tracking-widest">Nenhuma venda encontrada</p>
+              <p className="text-[10px] font-display text-on-surface-variant opacity-70">Nenhuma venda corresponde aos seus critérios de busca ou sua lista está vazia.</p>
+            </div>
           ) : (
             <table className="w-full">
               <thead>

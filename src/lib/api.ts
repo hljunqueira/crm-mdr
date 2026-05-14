@@ -11,7 +11,9 @@ async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'API Error' }));
-    throw new Error(error.message || 'API Error');
+    const errorMessage = error.error || error.message || 'Erro de comunicação com o servidor.';
+    window.dispatchEvent(new CustomEvent('api-error', { detail: errorMessage }));
+    throw new Error(errorMessage);
   }
 
   if (response.status === 204) return null;

@@ -76,6 +76,12 @@ export default function Kanban() {
              </div>
            ))}
         </div>
+      ) : columns.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-20 gap-4 opacity-50 bg-white/[0.02] border border-outline-variant/30 rounded-[40px]">
+          <MessageSquare size={48} className="text-on-surface-variant mb-2 opacity-20" />
+          <p className="text-sm font-display font-bold text-on-surface-variant uppercase tracking-widest">Nenhuma etapa encontrada</p>
+          <p className="text-[10px] font-display text-on-surface-variant opacity-70">O funil de vendas não possui colunas cadastradas.</p>
+        </div>
       ) : (
         <div className="flex-1 overflow-x-auto pb-6 custom-scrollbar scroll-smooth">
           <div className="flex gap-8 h-full min-w-max p-1">
@@ -129,8 +135,8 @@ export default function Kanban() {
                       
                       <div className="flex items-center justify-between mt-auto pt-6 border-t border-outline-variant/10">
                         <div className="flex items-center gap-2 text-on-surface-variant/40 group-hover:text-white transition-colors">
-                          <MessageSquare size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">0</span>
+                           <MessageSquare size={14} />
+                           <span className="text-[10px] font-black uppercase tracking-widest">0</span>
                         </div>
                         <span className="font-black text-white text-sm tracking-tight">R$ {card.value.toLocaleString('pt-BR')}</span>
                       </div>

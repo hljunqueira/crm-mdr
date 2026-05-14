@@ -98,6 +98,12 @@ export default function Leads() {
             </div>
           ))}
         </div>
+      ) : filteredLeads.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50 bg-white/[0.02] border border-outline-variant/30 rounded-[40px]">
+          <UserPlus size={48} className="text-on-surface-variant mb-2 opacity-20" />
+          <p className="text-sm font-display font-bold text-on-surface-variant uppercase tracking-widest">Nenhum lead encontrado</p>
+          <p className="text-[10px] font-display text-on-surface-variant opacity-70">Sua lista de leads está vazia no momento.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {filteredLeads.map((lead) => (
