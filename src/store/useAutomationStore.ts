@@ -62,17 +62,20 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         throw new Error(`Erro na criação: ${err}`);
       }
 
-      // 2. Configurar Webhooks
-      const webhookUrl = `https://api.mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
+      // 2. Configurar Webhooks (Formato Evolution v2.2.3)
+      const webhookUrl = `https://mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: webhookUrl,
-          enabled: true,
-          events: ["MESSAGES_UPSERT"]
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            webhookByEvents: false,
+            events: ["messages.upsert", "qrcode.updated", "connection.update"]
+          }
         })
-      });
+      }).catch(err => console.warn('Erro ao setar webhook:', err));
 
       // 3. Salvar Canal no Banco de Dados
       const { data: existingChannel } = await supabase
