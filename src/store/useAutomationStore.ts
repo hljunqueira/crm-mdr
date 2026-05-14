@@ -24,7 +24,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
   fetchConnectionStatus: async (_url, _key, instance) => {
     try {
-      const response = await fetch(`/api/evolution/instance/connectionState/${instance}`);
+      const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${instance}`);
       const data = await response.json();
       set({ 
         connectionStatus: data.instance?.state === 'open' ? 'connected' : 'disconnected',
@@ -42,7 +42,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     
     try {
       // 1. Criar a instância
-      const createRes = await fetch(`/api/evolution/instance/create`, {
+      const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -51,9 +51,14 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         })
       });
 
+      if (!createRes.ok) {
+        const err = await createRes.text();
+        throw new Error(`Erro na criação: ${err}`);
+      }
+
       // 2. Configurar Webhooks
       const webhookUrl = `https://api.mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
-      await fetch(`/api/evolution/webhook/set/${finalInstanceName}`, {
+      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -82,7 +87,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
       // 4. Obter QR Code (Apenas se for WhatsApp)
       if (type === 'whatsapp') {
-        const response = await fetch(`/api/evolution/instance/connect/${finalInstanceName}`);
+        const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`);
         const data = await response.json();
         
         if (data.base64) {
@@ -93,15 +98,16 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       } else {
         set({ connectionStatus: 'disconnected' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in instance setup:', error);
+      alert('Erro na conexão: ' + error.message);
       set({ connectionStatus: 'disconnected' });
     }
   },
 
   logout: async (_url, _key, instance) => {
     try {
-      await fetch(`/api/evolution/instance/logout/${instance}`, {
+      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/logout/${instance}`, {
         method: 'DELETE'
       });
       set({ connectionStatus: 'disconnected', qrCode: null });
