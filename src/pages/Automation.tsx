@@ -18,15 +18,37 @@ import {
 import { motion } from 'motion/react';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useUI } from '../context/UIContext';
+import { useUnitStore } from '../store/useUnitStore';
+import { useAutomationStore } from '../store/useAutomationStore';
 
 export default function Automation() {
   const { installments } = useFinanceStore();
   const { showNotification } = useUI();
+  const { unit } = useUnitStore();
+  const { 
+    connectionStatus, qrCode, fetchConnectionStatus, fetchQRCode, logout 
+  } = useAutomationStore();
 
-  const blockedCount = installments.filter(i => i.status === 'blocked').length;
+  React.useEffect(() => {
+    if (unit?.evolution_api_url && unit?.evolution_api_key && unit?.evolution_instance) {
+      fetchConnectionStatus(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
+    }
+  }, [unit, fetchConnectionStatus]);
 
   const handleSetupInstance = () => {
-    showNotification('info', 'Integração WhatsApp', 'O gerador de QR Code para conexão está sendo carregado...');
+    if (!unit?.evolution_api_url || !unit?.evolution_api_key || !unit?.evolution_instance) {
+      showNotification('warning', 'Configuração Faltando', 'Por favor, configure os dados da Evolution API nas Configurações da Unidade.');
+      return;
+    }
+    fetchQRCode(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
+    showNotification('info', 'Integração WhatsApp', 'Gerando QR Code...');
+  };
+
+  const handleLogout = () => {
+    if (unit?.evolution_api_url && unit?.evolution_api_key && unit?.evolution_instance) {
+      logout(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
+      showNotification('info', 'WhatsApp', 'Desconectando instância...');
+    }
   };
 
   const automations: any[] = [];
@@ -56,8 +78,16 @@ export default function Automation() {
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-xl font-display font-black text-on-surface uppercase tracking-tight">Fluxos Ativos</h2>
               <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <span className="text-[9px] font-black text-primary uppercase tracking-widest leading-none">Motor de Automação Online</span>
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full animate-pulse",
+                  connectionStatus === 'connected' ? "bg-primary" : "bg-error"
+                )} />
+                <span className={cn(
+                  "text-[9px] font-black uppercase tracking-widest leading-none",
+                  connectionStatus === 'connected' ? "text-primary" : "text-error"
+                )}>
+                  {connectionStatus === 'connected' ? 'WhatsApp Online' : 'WhatsApp Offline'}
+                </span>
               </div>
             </div>
 
@@ -109,23 +139,42 @@ export default function Automation() {
                   Conecte sua conta do WhatsApp para que o MDR Celulares possa gerenciar as cobranças por você. Utilizamos criptografia de ponta a ponta para garantir a segurança dos seus dados.
                 </p>
                 <div className="flex gap-4 mt-6">
-                  <button 
-                    onClick={handleSetupInstance}
-                    className="px-8 py-3 bg-primary text-on-primary rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-all"
-                  >
-                    Configurar Instância
-                  </button>
+                  {connectionStatus === 'connected' ? (
+                    <button 
+                      onClick={handleLogout}
+                      className="px-8 py-3 bg-error text-white rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-all"
+                    >
+                      Desconectar WhatsApp
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={handleSetupInstance}
+                      className="px-8 py-3 bg-primary text-on-primary rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:scale-105 transition-all"
+                    >
+                      {qrCode ? 'Gerar Novo QR Code' : 'Conectar WhatsApp'}
+                    </button>
+                  )}
                   <button className="px-8 py-3 bg-white/5 border border-white/10 text-white rounded-2xl font-display font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">
                     Tutorial de Conexão
                   </button>
                 </div>
               </div>
-              <div className="w-48 h-48 bg-white/5 rounded-[40px] flex flex-col items-center justify-center border border-white/10 shadow-2xl relative">
-                <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary animate-bounce">
-                  <Play size={14} fill="currentColor" />
-                </div>
-                <Zap size={64} className="text-primary mb-4 animate-pulse" />
-                <p className="text-[10px] font-black text-white uppercase tracking-widest">Escaneie o QR Code</p>
+              <div className="w-48 h-48 bg-white/5 rounded-[40px] flex flex-col items-center justify-center border border-white/10 shadow-2xl relative overflow-hidden group">
+                {connectionStatus === 'connected' ? (
+                  <div className="flex flex-col items-center text-center p-4">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-3">
+                      <CheckCircle2 size={32} />
+                    </div>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Conectado</p>
+                  </div>
+                ) : qrCode ? (
+                  <img src={qrCode} alt="QR Code WhatsApp" className="w-full h-full p-4" />
+                ) : (
+                  <>
+                    <Zap size={64} className="text-primary mb-4 animate-pulse" />
+                    <p className="text-[10px] font-black text-white uppercase tracking-widest">Aguardando...</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
