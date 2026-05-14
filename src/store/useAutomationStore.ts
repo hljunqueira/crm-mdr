@@ -41,16 +41,20 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
     
     try {
+      const payload = {
+        instanceName: finalInstanceName,
+        token: finalInstanceName,
+        qrcode: type === 'whatsapp',
+        integration: type === 'whatsapp' ? 'baileys' : 'instagram'
+      };
+
+      console.log('Enviando payload para criação de instância:', payload);
+
       // 1. Criar a instância
       const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instanceName: finalInstanceName,
-          token: finalInstanceName, // Adicionado token obrigatório em algumas versões v2
-          qrcode: type === 'whatsapp',
-          integration: type === 'whatsapp' ? 'WHATSAPP' : 'INSTAGRAM'
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!createRes.ok) {
