@@ -52,6 +52,8 @@ export default function Automation() {
     }
   };
 
+  const blockedCount = installments.filter(i => i.status === 'blocked').length;
+
   const automations: any[] = [];
 
   return (
