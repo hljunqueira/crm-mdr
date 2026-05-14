@@ -26,8 +26,9 @@ type TabType = 'unit' | 'white-label' | 'notifications';
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
   const { profile } = useAuthStore();
-  const { unit, fetchUnit, updateUnit, isLoading } = useUnitStore();
+  const { unit, units, fetchUnit, fetchAllUnits, updateUnit, isLoading } = useUnitStore();
   const { showNotification } = useUI();
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -39,37 +40,51 @@ export default function Settings() {
   });
 
   useEffect(() => {
-    if (profile?.unit_id) {
+    if (profile?.role === 'admin') {
+      fetchAllUnits();
+    } else if (profile?.unit_id) {
       fetchUnit(profile.unit_id);
     }
-  }, [profile?.unit_id, fetchUnit]);
+  }, [profile, fetchUnit, fetchAllUnits]);
 
-
+  // Ao carregar a lista ou a unidade inicial, seleciona a primeira
   useEffect(() => {
-    if (unit) {
+    if (!selectedUnitId) {
+      if (profile?.role === 'admin' && units.length > 0) {
+        setSelectedUnitId(units[0].id);
+      } else if (unit) {
+        setSelectedUnitId(unit.id);
+      }
+    }
+  }, [units, unit, profile, selectedUnitId]);
+
+  // Carrega os dados da unidade selecionada no form
+  useEffect(() => {
+    const currentUnit = units.find(u => u.id === selectedUnitId) || unit;
+    if (currentUnit && currentUnit.id === selectedUnitId) {
       setFormData({
-        name: unit.name || '',
-        cnpj: unit.cnpj || '',
-        address: unit.address || '',
-        phone: unit.phone || '',
-        contract_terms: unit.contract_terms || '',
-        warranty_terms: unit.warranty_terms || ''
+        name: currentUnit.name || '',
+        cnpj: currentUnit.cnpj || '',
+        address: currentUnit.address || '',
+        phone: currentUnit.phone || '',
+        contract_terms: currentUnit.contract_terms || '',
+        warranty_terms: currentUnit.warranty_terms || ''
       });
     }
-  }, [unit]);
+  }, [selectedUnitId, units, unit]);
 
   const handleSave = async () => {
-    if (!profile?.unit_id) return;
+    if (!selectedUnitId) return;
     try {
-      await updateUnit(profile.unit_id, formData);
-      showNotification('success', 'Configurações Salvas', 'Os dados foram atualizados com sucesso.');
+      await updateUnit(selectedUnitId, formData);
+      showNotification('success', 'Configurações Salvas', 'Os dados da unidade foram atualizados com sucesso.');
     } catch (error) {
       showNotification('error', 'Erro ao Salvar', 'Não foi possível atualizar as configurações.');
     }
   };
 
   const menuItems = [
-    { id: 'unit', label: 'Dados da Unidade', icon: Building2 },
+    { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
     { id: 'white-label', label: 'Identidade Visual', icon: Palette },
     { id: 'notifications', label: 'Notificações', icon: Bell },
   ];
@@ -83,7 +98,8 @@ export default function Settings() {
         </div>
         <button 
           onClick={handleSave}
-          className="flex items-center gap-3 bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
+          disabled={!selectedUnitId}
+          className="flex items-center gap-3 bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5 disabled:opacity-50"
         >
           <Save size={18} />
           Salvar Alterações
@@ -120,15 +136,37 @@ export default function Settings() {
                 animate={{ opacity: 1, x: 0 }}
                 className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
               >
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                    <Building2 size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Dados da Unidade</h2>
-                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Informações Jurídicas e Contrato</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                      <Building2 size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Gerenciar Unidades</h2>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Selecione a loja para editar os dados</p>
+                    </div>
                   </div>
                 </div>
+
+                {/* Lista de Unidades para Admin */}
+                {profile?.role === 'admin' && units.length > 0 && (
+                  <div className="flex flex-wrap gap-4 mb-10 p-2 bg-white/5 rounded-[32px] border border-white/10">
+                    {units.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedUnitId(u.id)}
+                        className={cn(
+                          "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
+                          selectedUnitId === u.id 
+                            ? "bg-white text-black shadow-lg shadow-white/5" 
+                            : "text-on-surface-variant hover:text-white"
+                        )}
+                      >
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-2">

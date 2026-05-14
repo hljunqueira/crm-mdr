@@ -16,13 +16,16 @@ export interface Unit {
 
 interface UnitState {
   unit: Unit | null;
+  units: Unit[];
   isLoading: boolean;
   fetchUnit: (id: string) => Promise<void>;
+  fetchAllUnits: () => Promise<void>;
   updateUnit: (id: string, updates: Partial<Unit>) => Promise<void>;
 }
 
 export const useUnitStore = create<UnitState>()((set) => ({
   unit: null,
+  units: [],
   isLoading: false,
   fetchUnit: async (id) => {
     set({ isLoading: true });
@@ -35,10 +38,25 @@ export const useUnitStore = create<UnitState>()((set) => ({
       set({ isLoading: false });
     }
   },
+  fetchAllUnits: async () => {
+    set({ isLoading: true });
+    try {
+      const data = await api.get('/units');
+      set({ units: data });
+    } catch (error) {
+      console.error('Error fetching all units:', error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
   updateUnit: async (id, updates) => {
     try {
       const data = await api.patch(`/units/${id}`, updates);
       set({ unit: data });
+      // Atualiza a lista também
+      set(state => ({
+        units: state.units.map(u => u.id === id ? data : u)
+      }));
     } catch (error) {
       console.error('Error updating unit:', error);
     }
