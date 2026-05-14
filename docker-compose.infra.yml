@@ -50,6 +50,7 @@ services:
       - SERVER_URL=https://whatsapp.mdrinformaticaecelulares.com.br
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=MDR_SECRET_TOKEN_2024
+      - MANAGER_TOKEN=MDR_SECRET_TOKEN_2024
       - DEL_INSTANCE_ON_DISCONNECT=false
       - DATABASE_ENABLED=true
       - DATABASE_CONNECTION_URI=postgresql://mdr_user:MDR_DB_PASS_2024@db:5432/infra_db?schema=public
