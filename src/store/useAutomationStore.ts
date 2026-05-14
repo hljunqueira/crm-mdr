@@ -47,6 +47,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instanceName: finalInstanceName,
+          token: finalInstanceName, // Adicionado token obrigatório em algumas versões v2
           qrcode: type === 'whatsapp',
           integration: type === 'whatsapp' ? 'WHATSAPP' : 'INSTAGRAM'
         })
