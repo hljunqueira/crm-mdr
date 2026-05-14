@@ -42,16 +42,17 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   },
 
   fetchQRCode: async (url, key, instance, friendlyName, unitId, type) => {
-    const apiUrl = url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+    const apiUrl = (url || 'https://whatsapp.mdrinformaticaecelulares.com.br').replace(/\/$/, '');
     const apiKey = key || 'MDR_SECRET_TOKEN_2024';
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
 
-    set({ connectionStatus: 'connecting', instanceName: finalInstanceName });
+    set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
+    
     try {
-      // 1. Criar a instância com Webhook configurado
-      const webhookUrl = `https://api.mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
+      console.log(`Starting connection for ${finalInstanceName} at ${apiUrl}`);
       
-      await fetch(`${apiUrl}/instance/create`, {
+      // 1. Criar a instância
+      const createRes = await fetch(`${apiUrl}/instance/create`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -63,8 +64,15 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           qrcode: type === 'whatsapp'
         })
       });
-      
+
+      if (!createRes.ok) {
+        const errData = await createRes.json();
+        console.warn('Instance creation notice:', errData.message);
+        // Prosseguimos mesmo se já existir
+      }
+
       // 2. Configurar Webhooks
+      const webhookUrl = `https://api.mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
       await fetch(`${apiUrl}/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: { 
@@ -78,7 +86,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         })
       });
 
-      // 3. Salvar Canal no Banco de Dados se não existir
+      // 3. Salvar Canal no Banco de Dados
       const { data: existingChannel } = await supabase
         .from('channels')
         .select('id')
@@ -95,13 +103,21 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         }]);
       }
 
-      // 4. Obter QR Code
-      const response = await fetch(`${apiUrl}/instance/connect/${finalInstanceName}`, {
-        headers: { 'apikey': apiKey }
-      });
-      const data = await response.json();
-      if (data.base64) {
-        set({ qrCode: data.base64, connectionStatus: 'disconnected', instanceName: finalInstanceName });
+      // 4. Obter QR Code (Apenas se for WhatsApp)
+      if (type === 'whatsapp') {
+        const response = await fetch(`${apiUrl}/instance/connect/${finalInstanceName}`, {
+          headers: { 'apikey': apiKey }
+        });
+        const data = await response.json();
+        
+        if (data.base64) {
+          set({ qrCode: data.base64, connectionStatus: 'disconnected' });
+        } else if (data.instance?.state === 'open') {
+          set({ connectionStatus: 'connected', qrCode: null });
+        }
+      } else {
+        // Fluxo Instagram (Geralmente login direto no Manager por enquanto)
+        set({ connectionStatus: 'disconnected' });
       }
     } catch (error) {
       console.error('Error in instance setup:', error);

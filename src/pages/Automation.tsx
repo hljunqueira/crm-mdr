@@ -95,16 +95,6 @@ export default function Automation() {
           <h1 className="text-3xl font-display font-black text-on-surface uppercase tracking-tight">WhatsApp & Automação</h1>
           <p className="text-on-surface-variant font-display tracking-tight mt-1 opacity-70">Mensagens automáticas, lembretes e bloqueios</p>
         </div>
-        <div className="flex gap-4">
-          <button className="flex items-center gap-3 bg-white/5 border border-white/10 text-white px-6 py-3 rounded-2xl font-display font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all">
-            <History size={18} />
-            Logs de Envio
-          </button>
-          <button className="flex items-center gap-3 bg-primary text-on-primary px-6 py-3 rounded-2xl font-display font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20">
-            <Plus size={18} />
-            Nova Automação
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-8">
