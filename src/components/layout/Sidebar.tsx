@@ -73,13 +73,13 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto px-6 pt-6 border-t border-outline-variant/30">
+      <div className="mt-auto px-3 py-4 border-t border-outline-variant/10">
         <button 
           onClick={() => signOut()} 
-          className="flex items-center gap-3 py-2 text-on-surface-variant hover:text-error transition-colors w-full text-left"
+          className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all duration-200 w-full group"
         >
-          <LogOut size={20} />
-          <span className="font-display text-sm tracking-tight">Sair do Sistema</span>
+          <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
+          <span className="font-display text-sm font-bold tracking-tight uppercase">Sair do Sistema</span>
         </button>
       </div>
     </aside>
