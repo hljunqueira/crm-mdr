@@ -33,7 +33,9 @@ export default function Settings() {
     name: '',
     cnpj: '',
     address: '',
-    phone: ''
+    phone: '',
+    contract_terms: '',
+    warranty_terms: ''
   });
 
   useEffect(() => {
@@ -49,7 +51,9 @@ export default function Settings() {
         name: unit.name || '',
         cnpj: unit.cnpj || '',
         address: unit.address || '',
-        phone: unit.phone || ''
+        phone: unit.phone || '',
+        contract_terms: unit.contract_terms || '',
+        warranty_terms: unit.warranty_terms || ''
       });
     }
   }, [unit]);
@@ -162,6 +166,36 @@ export default function Settings() {
                       value={formData.phone}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-8 border-t border-white/5 space-y-8">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck size={16} className="text-primary" />
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Termos de Garantia</label>
+                    </div>
+                    <textarea 
+                      rows={4}
+                      value={formData.warranty_terms}
+                      onChange={(e) => setFormData(prev => ({ ...prev, warranty_terms: e.target.value }))}
+                      placeholder="Descreva aqui os termos de garantia padrão para os aparelhos..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Database size={16} className="text-primary" />
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Cláusulas do Contrato</label>
+                    </div>
+                    <textarea 
+                      rows={6}
+                      value={formData.contract_terms}
+                      onChange={(e) => setFormData(prev => ({ ...prev, contract_terms: e.target.value }))}
+                      placeholder="Insira aqui as cláusulas do contrato de venda e financiamento..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed text-xs opacity-80"
                     />
                   </div>
                 </div>

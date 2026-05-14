@@ -22,6 +22,8 @@ interface ContractPrintProps {
     cnpj?: string;
     address?: string;
     phone?: string;
+    contract_terms?: string;
+    warranty_terms?: string;
   };
 }
 
@@ -78,31 +80,30 @@ export default function ContractPrint({ sale, customer, unit }: ContractPrintPro
       </div>
 
       <div className="section">
-        <h2>5. Propriedade e Risco</h2>
-        <p>• O celular continua sendo propriedade do Vendedor até a quitação total.</p>
-        <p>• O Comprador assume responsabilidade por perda, roubo ou danos após a entrega.</p>
-        <p>• O Vendedor não se responsabiliza por garantia após <strong>90 dias</strong>, exceto garantia do fabricante se for novo.</p>
+        <h2>5. Garantia e Termos Adicionais</h2>
+        {unit.warranty_terms ? (
+          <p className="whitespace-pre-line">{unit.warranty_terms}</p>
+        ) : (
+          <>
+            <p>• O celular continua sendo propriedade do Vendedor até a quitação total.</p>
+            <p>• O Comprador assume responsabilidade por perda, roubo ou danos após a entrega.</p>
+            <p>• O Vendedor não se responsabiliza por garantia após <strong>90 dias</strong>, exceto garantia do fabricante se for novo.</p>
+          </>
+        )}
       </div>
 
       <div className="section">
-        <h2>6. Obrigações do Comprador</h2>
-        <p>• Efetuar os pagamentos nas datas combinadas.</p>
-        <p>• Não vender, penhorar ou transferir o celular antes da quitação.</p>
-        <p>• Comunicar ao Vendedor mudança de endereço/telefone em até 5 dias.</p>
-      </div>
-
-      <div className="section">
-        <h2>7. Obrigações do Vendedor</h2>
-        <p>• Entregar o aparelho nas condições descritas.</p>
-        <p>• Fornecer recibo de pagamento a cada parcela.</p>
-      </div>
-
-      <div className="section">
-        <h2>8. Rescisão</h2>
-        <p>Se o Comprador ficar inadimplente e não pagar após notificação, o Vendedor poderá:</p>
-        <p>1. Retomar o aparelho, OU</p>
-        <p>2. Cobrar judicialmente o saldo restante.</p>
-        <p>Valores já pagos não serão devolvidos, podendo ser retidos como taxa de uso/aluguel.</p>
+        <h2>6. Cláusulas Adicionais e Rescisão</h2>
+        {unit.contract_terms ? (
+          <p className="whitespace-pre-line text-xs">{unit.contract_terms}</p>
+        ) : (
+          <>
+            <p>• Efetuar os pagamentos nas datas combinadas.</p>
+            <p>• Não vender, penhorar ou transferir o celular antes da quitação.</p>
+            <p>• Se o Comprador ficar inadimplente e não pagar após notificação, o Vendedor poderá retomar o aparelho ou cobrar judicialmente o saldo restante.</p>
+            <p>• Valores já pagos não serão devolvidos, podendo ser retidos como taxa de uso/aluguel.</p>
+          </>
+        )}
       </div>
 
       <div className="footer">
@@ -116,17 +117,6 @@ export default function ContractPrint({ sale, customer, unit }: ContractPrintPro
           <div className="signature-line">
             Comprador: {customer.name}
             <br />Data: {today}
-          </div>
-        </div>
-
-        <div className="signature-box">
-          <div className="signature-line">
-            Testemunha 1
-            <br />CPF: ____________________
-          </div>
-          <div className="signature-line">
-            Testemunha 2
-            <br />CPF: ____________________
           </div>
         </div>
       </div>

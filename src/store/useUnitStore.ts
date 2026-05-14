@@ -10,6 +10,8 @@ export interface Unit {
   evolution_api_url?: string;
   evolution_api_key?: string;
   evolution_instance?: string;
+  contract_terms?: string;
+  warranty_terms?: string;
 }
 
 interface UnitState {
