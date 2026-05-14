@@ -29,48 +29,7 @@ export default function Automation() {
     showNotification('info', 'Integração WhatsApp', 'O gerador de QR Code para conexão está sendo carregado...');
   };
 
-  const automations = [
-    {
-      id: 1,
-      name: 'Lembrete Antecipado',
-      desc: 'Envia mensagem automática 3 dias antes do vencimento.',
-      trigger: '3 dias antes',
-      status: 'active',
-      count: 142
-    },
-    {
-      id: 2,
-      name: 'Aviso de Vencimento',
-      desc: 'Envia mensagem automática no dia do vencimento com link PIX.',
-      trigger: 'No dia',
-      status: 'active',
-      count: 85
-    },
-    {
-      id: 3,
-      name: 'Alerta de Atraso',
-      desc: 'Primeira cobrança após 5 dias de atraso.',
-      trigger: '5 dias atrasado',
-      status: 'active',
-      count: 12
-    },
-    {
-      id: 4,
-      name: 'Bloqueio Automático',
-      desc: 'Bloqueia o dispositivo remotamente após 10 dias de atraso.',
-      trigger: '10 dias atrasado',
-      status: 'paused',
-      count: 5
-    },
-    {
-      id: 5,
-      name: 'Confirmação de Pagamento',
-      desc: 'Agradecimento e envio do recibo digital.',
-      trigger: 'Pagamento confirmado',
-      status: 'active',
-      count: 312
-    }
-  ];
+  const automations: any[] = [];
 
   return (
     <div className="p-8">
@@ -179,15 +138,8 @@ export default function Automation() {
               Atividade Recente
             </h2>
             <div className="space-y-6">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                  <div>
-                    <p className="text-xs font-display font-black text-on-surface uppercase tracking-tight">Lembrete enviado para Henrique</p>
-                    <p className="text-[10px] text-on-surface-variant font-mono mt-0.5">14:32 • Sucesso no envio</p>
-                  </div>
-                </div>
-              ))}
+              {/* Vazio até a integração real */}
+              <p className="text-xs text-on-surface-variant font-display opacity-50">Nenhuma atividade recente encontrada.</p>
             </div>
             <button className="w-full py-4 bg-surface-container-highest/50 hover:bg-surface-container-highest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface rounded-2xl text-[10px] font-black uppercase tracking-widest mt-8 transition-all">
               Ver Histórico Completo

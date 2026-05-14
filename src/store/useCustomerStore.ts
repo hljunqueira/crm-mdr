@@ -39,7 +39,9 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
   addCustomer: async (customer) => {
     try {
       const data = await api.post('/customers', customer);
-      set((state) => ({ customers: [...state.customers, data] }));
+      if (data) {
+        set((state) => ({ customers: [...state.customers, data] }));
+      }
     } catch (error) {
       console.error('Error adding customer:', error);
     }
