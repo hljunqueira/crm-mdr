@@ -30,6 +30,7 @@ export default function Sidebar() {
     { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
     { name: 'Financeiro', icon: CreditCard, path: '/finance' },
     { name: 'WhatsApp', icon: Bot, path: '/automation' },
+    { name: 'Chat Multi-canal', icon: MessageSquare, path: '/chat' },
     { name: 'Leads', icon: UserSearch, path: '/leads' },
     { name: 'Funil', icon: Filter, path: '/kanban' },
     { name: 'Relatórios', icon: TrendingUp, path: '/reports' },
