@@ -3,6 +3,17 @@ import { supabase } from "../lib/supabase.js";
 
 const router = Router();
 
+// Get all units
+router.get("/", async (req, res) => {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('*')
+    .order('name');
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 // Get unit by ID
 router.get("/:id", async (req, res) => {
   const { data, error } = await supabase
@@ -12,7 +23,7 @@ router.get("/:id", async (req, res) => {
     .single();
   
   if (error || !data) {
-    return res.json({ id: req.params.id, name: "MDR Informática & Celulares" });
+    return res.status(404).json({ error: "Unidade não encontrada" });
   }
   res.json(data);
 });
