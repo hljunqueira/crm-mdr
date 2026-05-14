@@ -24,13 +24,15 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useUI } from '../context/UIContext';
 import { useUnitStore } from '../store/useUnitStore';
 import { useAutomationStore } from '../store/useAutomationStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 export default function Automation() {
   const { installments } = useFinanceStore();
   const { showNotification } = useUI();
-  const { unit } = useUnitStore();
+  const { profile } = useAuthStore();
+  const { unit, fetchUnit, isLoading: unitLoading } = useUnitStore();
   const { 
     connectionStatus, qrCode, fetchConnectionStatus, fetchQRCode, logout 
   } = useAutomationStore();
@@ -39,13 +41,23 @@ export default function Automation() {
   const [channelType, setChannelType] = React.useState<'whatsapp' | 'instagram'>('whatsapp');
 
   React.useEffect(() => {
-    if (unit?.evolution_api_url && unit?.evolution_api_key && unit?.evolution_instance) {
-      fetchConnectionStatus(unit.evolution_api_url, unit.evolution_api_key, unit.evolution_instance);
+    if (profile?.unit_id && !unit) {
+      fetchUnit(profile.unit_id);
+    }
+  }, [profile?.unit_id, unit, fetchUnit]);
+
+  React.useEffect(() => {
+    if (unit?.evolution_instance) {
+      fetchConnectionStatus('', '', unit.evolution_instance);
     }
   }, [unit, fetchConnectionStatus]);
 
   const handleSetupInstance = () => {
-    if (!unit?.id) return;
+    console.log('Botão clicado. Unit:', unit?.id);
+    if (!unit?.id) {
+      showNotification('error', 'Erro', 'Unidade não identificada. Recarregue a página.');
+      return;
+    }
     
     // Usar credenciais globais se não estiverem na unit
     const apiUrl = unit.evolution_api_url || 'https://whatsapp.mdrinformaticaecelulares.com.br';
