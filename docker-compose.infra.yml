@@ -40,6 +40,13 @@ services:
     networks:
       - crm-network
 
+  # --- Redis ---
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - crm-network
+
   # --- Evolution API ---
   evolution:
     image: atendai/evolution-api:latest
@@ -48,6 +55,7 @@ services:
       - SERVER_TYPE=http
       - SERVER_PORT=8080
       - SERVER_URL=https://whatsapp.mdrinformaticaecelulares.com.br
+      - CORS_ORIGIN=*
       - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=MDR_SECRET_TOKEN_2024
       - MANAGER_TOKEN=MDR_SECRET_TOKEN_2024
@@ -56,12 +64,18 @@ services:
       - DATABASE_ENABLED=true
       - DATABASE_CONNECTION_URI=postgresql://mdr_user:MDR_DB_PASS_2024@db:5432/infra_db?schema=public
       - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_CLIENT=postgresql
       - DATABASE_SAVE_DATA_HISTORY_MESSAGES=false
       - DATABASE_SAVE_DATA_CHATS=false
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379
       - CONFIG_SESSION_PHONE_VERSION=2.3000.1032750324
       - WA_VERSION=2.3000.1032750324
     volumes:
       - evolution_data:/evolution/instances
+    depends_on:
+      - db
+      - redis
     networks:
       - crm-network
 
