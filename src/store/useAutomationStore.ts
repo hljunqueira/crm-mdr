@@ -88,7 +88,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         body: JSON.stringify({
           url: `https://mdrinformaticaecelulares.com.br/api/webhooks/evolution`,
           enabled: true,
-          webhook_by_events: false,
+          webhook_by_events: true,
           events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
         })
       }).catch(err => console.warn('Erro ao setar webhook:', err));
@@ -110,14 +110,15 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       // 5. Buscar QR Code com polling (tentar até 5 vezes)
       if (type === 'whatsapp') {
         let attempts = 0;
-        const maxAttempts = 5;
+        const maxAttempts = 15; // Aumentado para 30 segundos total
 
         while (attempts < maxAttempts) {
-          console.log(`Buscando QR Code... Tentativa ${attempts + 1}`);
+          console.log(`Buscando QR Code... Tentativa ${attempts + 1}/${maxAttempts}`);
           const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
             headers: { 'apikey': EVOLUTION_API_KEY }
           });
           const qrData = await qrRes.json();
+          console.log('Dados recebidos:', qrData);
 
           if (qrData.qrcode?.base64) {
             set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
