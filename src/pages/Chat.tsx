@@ -12,7 +12,7 @@ export default function Chat() {
   const { 
     channels, conversations, activeConversation, messages, isLoading,
     fetchChannels, fetchConversations, fetchMessages, setActiveConversation, 
-    sendMessage, subscribeToMessages 
+    sendMessage, subscribeToMessages, startNewConversation 
   } = useChatStore();
   const { profile } = useAuthStore();
   
@@ -21,12 +21,14 @@ export default function Chat() {
   const [searchTerm, setSearchTerm] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [newChatName, setNewChatName] = useState('');
+  const [newChatPhone, setNewChatPhone] = useState('');
+
   // Inicializar canais
   useEffect(() => {
-    if (profile?.unit_id || profile?.role === 'admin') {
-      fetchChannels(profile?.unit_id);
-    }
-  }, [profile?.unit_id, profile?.role, fetchChannels]);
+    fetchChannels();
+  }, [fetchChannels]);
 
   // Auto-selecionar primeiro canal
   useEffect(() => {
@@ -55,6 +57,16 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleStartNewChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedChannelId || !newChatName || !newChatPhone) return;
+
+    await startNewConversation(selectedChannelId, newChatName, newChatPhone);
+    setShowNewChatModal(false);
+    setNewChatName('');
+    setNewChatPhone('');
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !activeConversation) return;
@@ -74,22 +86,31 @@ export default function Chat() {
         <div className="p-4 border-b border-outline-variant space-y-4 bg-surface-container-low/50">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-black text-on-surface uppercase tracking-tight text-xl">Mensagens</h2>
-            <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
-              {channels.map(channel => (
-                <button
-                  key={channel.id}
-                  onClick={() => setSelectedChannelId(channel.id)}
-                  title={channel.name}
-                  className={cn(
-                    "p-2 rounded-lg transition-all",
-                    selectedChannelId === channel.id 
-                      ? "bg-white text-black shadow-lg" 
-                      : "text-on-surface-variant hover:text-white"
-                  )}
-                >
-                  {channel.type === 'whatsapp' ? <MessageCircle size={16} /> : <Instagram size={16} />}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowNewChatModal(true)}
+                className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-black transition-all border border-primary/20"
+                title="Nova Conversa"
+              >
+                <Plus size={18} />
+              </button>
+              <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                {channels.map(channel => (
+                  <button
+                    key={channel.id}
+                    onClick={() => setSelectedChannelId(channel.id)}
+                    title={channel.name}
+                    className={cn(
+                      "p-2 rounded-lg transition-all",
+                      selectedChannelId === channel.id 
+                        ? "bg-white text-black shadow-lg" 
+                        : "text-on-surface-variant hover:text-white"
+                    )}
+                  >
+                    {channel.type === 'whatsapp' ? <MessageCircle size={16} /> : <Instagram size={16} />}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           
@@ -104,6 +125,43 @@ export default function Chat() {
             />
           </div>
         </div>
+
+        {/* Modal Nova Conversa */}
+        {showNewChatModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-surface-container-high p-8 rounded-[40px] border border-white/10 shadow-2xl relative">
+              <button onClick={() => setShowNewChatModal(false)} className="absolute top-6 right-6 opacity-40 hover:opacity-100"><Plus className="rotate-45" /></button>
+              <h2 className="text-xl font-display font-black text-white uppercase mb-6">Iniciar Novo Chat</h2>
+              <form onSubmit={handleStartNewChat} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Nome do Cliente</label>
+                  <input 
+                    type="text" 
+                    value={newChatName} 
+                    onChange={e => setNewChatName(e.target.value)}
+                    placeholder="Ex: João Silva"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary outline-none transition-all"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">WhatsApp (com DDD)</label>
+                  <input 
+                    type="text" 
+                    value={newChatPhone} 
+                    onChange={e => setNewChatPhone(e.target.value)}
+                    placeholder="Ex: 51988887777"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                    required
+                  />
+                </div>
+                <button type="submit" className="w-full py-4 bg-primary text-black rounded-2xl font-black uppercase tracking-widest text-[11px] hover:scale-105 transition-all">
+                  Iniciar Conversa
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Conversation List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">

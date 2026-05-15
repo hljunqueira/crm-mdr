@@ -7,6 +7,7 @@ export interface Channel {
   name: string;
   type: 'whatsapp' | 'instagram';
   status: 'connected' | 'disconnected' | 'connecting';
+  instance_name: string;
   last_sync?: string;
 }
 
@@ -39,11 +40,12 @@ interface ChatState {
   messages: Message[];
   isLoading: boolean;
   
-  fetchChannels: (unitId: string) => Promise<void>;
+  fetchChannels: (unitId?: string) => Promise<void>;
   fetchConversations: (channelId: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversation: Conversation | null) => void;
   sendMessage: (conversationId: string, text: string) => Promise<void>;
+  startNewConversation: (channelId: string, contactName: string, contactPhone: string) => Promise<void>;
   subscribeToMessages: (conversationId: string) => () => void;
 }
 
@@ -55,28 +57,16 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   isLoading: false,
 
   fetchChannels: async (unitId) => {
-    console.log('[ChatStore] Fetching channels for unitId:', unitId);
     set({ isLoading: true });
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('automation_channels')
         .select('*');
       
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error('[ChatStore] Error fetching channels:', error);
-        throw error;
-      }
-      
-      console.log('[ChatStore] Channels received:', data);
+      if (error) throw error;
       set({ channels: data || [] });
     } catch (error) {
-      console.error('[ChatStore] Catch error:', error);
+      console.error('[ChatStore] Error fetching channels:', error);
     } finally {
       set({ isLoading: false });
     }
@@ -122,8 +112,62 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     }
   },
 
-  sendMessage: async (conversationId, text) => {
+  startNewConversation: async (channelId, contactName, contactPhone) => {
+    set({ isLoading: true });
     try {
+      // 1. Limpar telefone (remover caracteres não numéricos)
+      const cleanPhone = contactPhone.replace(/\D/g, '');
+      
+      // 2. Verificar se já existe
+      const { data: existing } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('channel_id', channelId)
+        .eq('contact_phone', cleanPhone)
+        .maybeSingle();
+
+      if (existing) {
+        get().setActiveConversation(existing);
+        return;
+      }
+
+      // 3. Criar nova conversa
+      const { data: newConv, error } = await supabase
+        .from('conversations')
+        .insert([{
+          channel_id: channelId,
+          contact_name: contactName,
+          contact_phone: cleanPhone,
+          unread_count: 0,
+          last_message: 'Iniciando conversa...',
+          last_message_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      set((state) => ({ 
+        conversations: [newConv, ...state.conversations],
+        activeConversation: newConv,
+        messages: []
+      }));
+
+    } catch (error) {
+      console.error('Error starting new conversation:', error);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  sendMessage: async (conversationId, text) => {
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const channel = get().channels.find(c => c.id === conv?.channel_id);
+    
+    if (!conv || !channel) return;
+
+    try {
+      // 1. Salvar localmente no Supabase
       const newMessage = {
         conversation_id: conversationId,
         text,
@@ -139,20 +183,35 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         .single();
 
       if (error) throw error;
-      
-      // Update local messages state
       set((state) => ({ messages: [...state.messages, data] }));
-      
-      // Update last message in conversation
-      const { error: convErr } = await supabase
+
+      // 2. Disparar via Evolution API
+      const instance = channel.instance_name;
+      const remoteJid = conv.contact_phone?.includes('@') 
+        ? conv.contact_phone 
+        : `${conv.contact_phone}@s.whatsapp.net`;
+
+      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/message/sendText/${instance}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'MDR_SECRET_TOKEN_2024'
+        },
+        body: JSON.stringify({
+          number: remoteJid,
+          text: text,
+          linkPreview: true
+        })
+      });
+
+      // 3. Atualizar última mensagem
+      await supabase
         .from('conversations')
         .update({ 
           last_message: text, 
           last_message_at: new Date().toISOString() 
         })
         .eq('id', conversationId);
-        
-      if (convErr) console.error('Error updating conversation last message:', convErr);
 
     } catch (error) {
       console.error('Error sending message:', error);
