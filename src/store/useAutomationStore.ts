@@ -46,19 +46,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
 
     try {
-      // 1. Tentar deletar se já existir (Reset)
-      try {
-        await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/delete/${finalInstanceName}`, {
-          method: 'DELETE',
-          headers: { 'apikey': EVOLUTION_API_KEY }
-        });
-        // Aguardar um pouco para a Evolution processar a deleção
-        await new Promise(r => setTimeout(r, 1000));
-      } catch (e) {
-        console.log('Instance did not exist, proceeding to create...');
-      }
-
-      // 2. Criar a instância
+      // 1. Criar a instância (Sem delete prévio para evitar 404)
       const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
         method: 'POST',
         headers: {
@@ -74,11 +62,14 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       });
 
       if (!createRes.ok) {
-        const err = await createRes.text();
-        throw new Error(`Erro na criação: ${err}`);
+        const err = await createRes.json();
+        // Se já existe, apenas ignoramos o erro e tentamos conectar
+        if (!err.message?.includes('already exists')) {
+          throw new Error(`Erro na criação: ${err.message || 'Erro desconhecido'}`);
+        }
       }
 
-      // 3. Configurar Webhooks (Padrão 2.2.3 Manual)
+      // 2. Configurar Webhooks para o n8n (Passo separado)
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: {
@@ -86,12 +77,12 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           'apikey': EVOLUTION_API_KEY
         },
         body: JSON.stringify({
-          url: `https://mdrinformaticaecelulares.com.br/api/webhooks/evolution`,
+          url: `https://n8n.mdrinformaticaecelulares.com.br/webhook/crm-automation`,
           enabled: true,
-          webhook_by_events: true,
+          webhook_by_events: false,
           events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
         })
-      }).catch(err => console.warn('Erro ao setar webhook:', err));
+      }).catch(err => console.warn('Erro ao setar webhook (não fatal):', err));
 
       // 4. Salvar no Supabase (com tratamento de erro para não bloquear)
       try {
