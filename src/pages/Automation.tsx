@@ -325,6 +325,7 @@ export default function Automation() {
 
               <div className="w-64 h-64 bg-black/40 rounded-[60px] flex flex-col items-center justify-center border border-white/10 shadow-[0_0_50px_rgba(255,255,255,0.05)] relative overflow-hidden group/qr">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover/qr:opacity-100 transition-opacity duration-700" />
+                
                 {connectionStatus === 'connected' ? (
                   <motion.div 
                     initial={{ scale: 0.8, opacity: 0 }}
@@ -337,21 +338,26 @@ export default function Automation() {
                     <p className="text-[12px] font-black text-primary uppercase tracking-[0.3em]">Conectado</p>
                     <p className="text-[9px] text-on-surface-variant uppercase mt-2 opacity-60">Pronto para uso</p>
                   </motion.div>
-                ) : qrCode ? (
-                  <motion.div 
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="w-full h-full p-6 relative z-10"
-                  >
-                    <img src={qrCode} alt="QR Code WhatsApp" className="w-full h-full object-contain rounded-2xl bg-white p-2" />
-                  </motion.div>
+                ) : connectionStatus === 'qrcode' && qrCode ? (
+                  <div className="flex flex-col items-center relative z-10">
+                    <div className="bg-white p-3 rounded-xl shadow-2xl mb-4 w-48 h-48 flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={qrCode.startsWith('data:image') ? qrCode : `data:image/png;base64,${qrCode}`} 
+                        alt="WhatsApp QR Code" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <p className="text-white/60 text-[10px] font-black uppercase tracking-widest animate-pulse">Escaneie o QR Code</p>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center relative z-10">
                     <div className="relative">
                       <Zap size={80} className="text-primary mb-6 animate-pulse" />
                       <div className="absolute inset-0 bg-primary/20 blur-2xl animate-pulse -z-10" />
                     </div>
-                    <p className="text-[11px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Aguardando...</p>
+                    <p className="text-[11px] font-black text-white uppercase tracking-[0.4em] animate-pulse">
+                      {connectionStatus === 'connecting' ? 'Gerando...' : 'Aguardando...'}
+                    </p>
                   </div>
                 )}
               </div>
