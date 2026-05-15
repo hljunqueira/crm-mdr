@@ -1,7 +1,7 @@
 import express from 'express';
 
 const router = express.Router();
-const EVOLUTION_URL = 'http://evolution:8080';
+const EVOLUTION_URL = 'https://whatsapp.mdrinformaticaecelulares.com.br';
 const GLOBAL_API_KEY = 'MDR_SECRET_TOKEN_2024';
 
 // Proxy para chamadas da Evolution API
