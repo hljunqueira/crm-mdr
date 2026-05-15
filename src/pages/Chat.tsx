@@ -23,10 +23,10 @@ export default function Chat() {
 
   // Inicializar canais
   useEffect(() => {
-    if (profile?.unit_id) {
-      fetchChannels(profile.unit_id);
+    if (profile?.unit_id || profile?.role === 'admin') {
+      fetchChannels(profile?.unit_id);
     }
-  }, [profile?.unit_id, fetchChannels]);
+  }, [profile?.unit_id, profile?.role, fetchChannels]);
 
   // Auto-selecionar primeiro canal
   useEffect(() => {
