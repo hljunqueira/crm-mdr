@@ -53,6 +53,13 @@ export default function Automation() {
       setLoading(false);
     };
     init();
+
+    // Inscrição em tempo real para status
+    const unsubscribe = subscribeToChannels(() => {
+      fetchChannels();
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const fetchChannels = async () => {
@@ -304,7 +311,7 @@ export default function Automation() {
                 onClick={handleSetup}
                 className="w-full py-5 bg-primary text-black rounded-2xl font-display font-black uppercase tracking-widest text-[11px] hover:scale-[1.02] transition-all flex items-center justify-center gap-3 mt-4"
               >
-                Gerar QR Code
+                {showSetupModal === 'whatsapp' ? 'Gerar QR Code' : 'Conectar Instagram'}
               </button>
             </div>
           </motion.div>

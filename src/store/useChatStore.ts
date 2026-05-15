@@ -47,6 +47,7 @@ interface ChatState {
   sendMessage: (conversationId: string, text: string) => Promise<void>;
   startNewConversation: (channelId: string, contactName: string, contactPhone: string) => Promise<void>;
   subscribeToMessages: (conversationId: string) => () => void;
+  subscribeToConversations: (channelId: string, onUpdate: () => void) => () => void;
 }
 
 export const useChatStore = create<ChatState>()((set, get) => ({
@@ -236,6 +237,28 @@ export const useChatStore = create<ChatState>()((set, get) => ({
             if (state.messages.find(m => m.id === newMessage.id)) return state;
             return { messages: [...state.messages, newMessage] };
           });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  subscribeToConversations: (channelId, onUpdate) => {
+    const channel = supabase
+      .channel(`public:conversations:channel_id=eq.${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `channel_id=eq.${channelId}`,
+        },
+        () => {
+          onUpdate();
         }
       )
       .subscribe();

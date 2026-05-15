@@ -41,8 +41,13 @@ export default function Chat() {
   useEffect(() => {
     if (selectedChannelId) {
       fetchConversations(selectedChannelId);
+      
+      const unsubscribe = subscribeToConversations(selectedChannelId, () => {
+        fetchConversations(selectedChannelId);
+      });
+      return () => unsubscribe();
     }
-  }, [selectedChannelId, fetchConversations]);
+  }, [selectedChannelId, fetchConversations, subscribeToConversations]);
 
   // Increver em novas mensagens
   useEffect(() => {

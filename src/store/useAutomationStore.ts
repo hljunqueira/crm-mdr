@@ -16,6 +16,7 @@ interface AutomationState {
   fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram', credentials?: { user?: string; pass?: string }, onCreated?: () => void) => Promise<void>;
   logout: (instance: string) => Promise<void>;
   deleteInstance: (instance: string) => Promise<void>;
+  subscribeToChannels: (onUpdate: () => void) => () => void;
 }
 
 const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
@@ -88,7 +89,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           instanceName: finalInstanceName,
           token: finalInstanceName,
           qrcode: type === 'whatsapp',
-          integration: type === 'whatsapp' ? 'WHATSAPP-BAILEYS' : 'INSTAGRAM'
+          integration: type === 'whatsapp' ? 'WHATSAPP-BAILEYS' : 'instagram'
         })
       });
 
@@ -214,5 +215,23 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     } catch (error) {
       console.error('Error deleting instance:', error);
     }
+  },
+
+  subscribeToChannels: (onUpdate) => {
+    const channel = supabase
+      .channel('automation_channels_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'automation_channels' },
+        (payload) => {
+          console.log('[AutomationStore] Realtime update:', payload);
+          onUpdate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 }));
