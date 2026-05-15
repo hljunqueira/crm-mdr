@@ -227,7 +227,7 @@ export default function Automation() {
       <footer className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 opacity-40">
         <div className="flex items-center gap-3">
           <ShieldAlert size={16} />
-          <p className="text-[9px] font-bold uppercase tracking-widest">Ambiente de Conexão Criptografada via SSL & Redis</p>
+          <p className="text-[9px] font-bold uppercase tracking-widest">Ambiente de Conexão</p>
         </div>
         <div className="flex items-center gap-6">
           <button className="text-[9px] font-black uppercase tracking-widest hover:text-primary transition-all">Documentação API</button>
