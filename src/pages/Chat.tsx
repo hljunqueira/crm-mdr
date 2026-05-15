@@ -12,7 +12,7 @@ export default function Chat() {
   const { 
     channels, conversations, activeConversation, messages, isLoading,
     fetchChannels, fetchConversations, fetchMessages, setActiveConversation, 
-    sendMessage, subscribeToMessages, startNewConversation 
+    sendMessage, subscribeToMessages, startNewConversation, subscribeToConversations 
   } = useChatStore();
   const { profile } = useAuthStore();
   
