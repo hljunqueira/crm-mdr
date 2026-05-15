@@ -58,7 +58,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set({ isLoading: true });
     try {
       const { data, error } = await supabase
-        .from('channels')
+        .from('automation_channels')
         .select('*')
         .eq('unit_id', unitId);
       if (error) throw error;
