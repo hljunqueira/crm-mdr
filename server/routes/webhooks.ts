@@ -7,19 +7,33 @@ const router = express.Router();
 router.post('/evolution', async (req, res) => {
   const { event, instance, data } = req.body;
 
-  if (event !== 'messages.upsert') {
+  // Evolution v2 usa MESSAGES_UPSERT ou messages.upsert
+  const isMessage = event === 'MESSAGES_UPSERT' || event === 'messages.upsert';
+  
+  if (!isMessage) {
     return res.status(200).send('Event ignored');
   }
 
   try {
-    const remoteJid = data.key.remoteJid;
-    const isFromMe = data.key.fromMe;
-    const contactName = data.pushName || remoteJid.split('@')[0];
-    const messageText = data.message?.conversation || data.message?.extendedTextMessage?.text || 'Mídia/Outro';
+    // Na v2 as mensagens podem vir em data.message ou data (depende da config)
+    const messageData = data.message || data;
+    if (!messageData?.key) return res.status(200).send('No message key');
+
+    const remoteJid = messageData.key.remoteJid;
+    const isFromMe = messageData.key.fromMe;
+    const contactName = messageData.pushName || remoteJid.split('@')[0];
     
-    // 1. Encontrar o canal (pela instância)
+    // Extrair texto (suporta v1 e v2)
+    const messageText = 
+      messageData.message?.conversation || 
+      messageData.message?.extendedTextMessage?.text || 
+      messageData.conversation || 
+      messageData.text || 
+      'Mídia/Outro';
+    
+    // 1. Encontrar o canal (pela instância) na tabela correta
     const { data: channel } = await supabase
-      .from('channels')
+      .from('automation_channels')
       .select('id')
       .eq('instance_name', instance)
       .single();
