@@ -30,7 +30,7 @@ import { supabase } from '../lib/supabase';
 
 export default function Automation() {
   const { profile } = useAuthStore();
-  const { showNotification } = useUI();
+  const { showNotification, showModal, hideModal } = useUI();
   const { unit, units, fetchUnit, fetchAllUnits } = useUnitStore();
   const { 
     connectionStatus, qrCode, fetchConnectionStatus, fetchQRCode, logout, deleteInstance
@@ -110,17 +110,24 @@ export default function Automation() {
   };
 
   const handleDeleteChannel = async (channel: any) => {
-    if (confirm(`Deseja realmente remover o canal "${channel.name}"?`)) {
-      // 1. Deletar na Evolution
-      await deleteInstance(channel.instance_name);
-      
-      // 2. Deletar no Supabase
-      await supabase.from('automation_channels').delete().eq('id', channel.id);
-      
-      const currentUnitId = selectedUnitId || unit?.id;
-      if (currentUnitId) fetchChannels(currentUnitId);
-      showNotification('success', 'Canal Removido', 'O canal foi removido do CRM e da Evolution.');
-    }
+    showModal({
+      title: 'Remover Canal',
+      children: `Deseja realmente remover o canal "${channel.name}"? Esta ação excluirá a instância na Evolution API e no CRM.`,
+      type: 'danger',
+      confirmText: 'Excluir',
+      onConfirm: async () => {
+        // 1. Deletar na Evolution
+        await deleteInstance(channel.instance_name);
+        
+        // 2. Deletar no Supabase
+        await supabase.from('automation_channels').delete().eq('id', channel.id);
+        
+        const currentUnitId = selectedUnitId || unit?.id;
+        if (currentUnitId) fetchChannels(currentUnitId);
+        showNotification('success', 'Canal Removido', 'O canal foi removido do CRM e da Evolution.');
+        hideModal();
+      }
+    });
   };
 
   return (
