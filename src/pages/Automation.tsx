@@ -33,7 +33,7 @@ export default function Automation() {
   const { showNotification } = useUI();
   const { units, fetchAllUnits } = useUnitStore();
   const {
-    channelStatuses, syncAllChannels, fetchQRCode, logout, deleteInstance
+    channelStatuses, syncAllChannels, fetchQRCode, logout, deleteInstance, subscribeToChannels
   } = useAutomationStore();
 
   const [friendlyName, setFriendlyName] = React.useState('');
