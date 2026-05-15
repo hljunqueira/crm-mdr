@@ -123,8 +123,9 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           const qrData = await qrRes.json();
           console.log('Resposta Evolution:', JSON.stringify(qrData, null, 2));
 
-          if (qrData.qrcode?.base64) {
-            set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
+          const base64 = qrData.base64 || qrData.qrcode?.base64;
+          if (base64) {
+            set({ qrCode: base64, connectionStatus: 'qrcode' });
             return; // Sucesso
           } else if (qrData.instance?.state === 'open') {
             set({ connectionStatus: 'connected', qrCode: null });
