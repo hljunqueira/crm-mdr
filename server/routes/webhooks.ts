@@ -6,15 +6,19 @@ const router = express.Router();
 // Webhook para receber mensagens da Evolution API
 router.post('/evolution', async (req, res) => {
   const { event, instance, data } = req.body;
+  
+  console.log(`[Webhook] Event: ${event} | Instance: ${instance}`);
 
   // Evolution v2 usa MESSAGES_UPSERT ou messages.upsert
   const isMessage = event === 'MESSAGES_UPSERT' || event === 'messages.upsert';
   
   if (!isMessage) {
+    console.log(`[Webhook] Event ignored: ${event}`);
     return res.status(200).send('Event ignored');
   }
 
   try {
+    console.log(`[Webhook] Processing message from ${instance}...`);
     // Na v2 as mensagens podem vir em data.message ou data (depende da config)
     const messageData = data.message || data;
     if (!messageData?.key) return res.status(200).send('No message key');
