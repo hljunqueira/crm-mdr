@@ -6,33 +6,27 @@ const GLOBAL_API_KEY = 'MDR_SECRET_TOKEN_2024';
 
 // Proxy para chamadas da Evolution API
 router.all('/*', async (req, res) => {
-  const targetPath = req.params[0] || '';
-  const url = `${EVOLUTION_URL}/${targetPath}`;
-
-  console.log(`[Proxy] ${req.method} ${url}`);
-
+  const targetPath = req.params[0];
+  const targetUrl = `http://evolution:8080/${targetPath}`;
+  
   try {
-    const options: any = {
+    const queryParams = new URLSearchParams(req.query as any).toString();
+    const finalUrl = queryParams ? `${targetUrl}?${queryParams}` : targetUrl;
+
+    const response = await fetch(finalUrl, {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
-        'apikey': GLOBAL_API_KEY
-      }
-    };
-
-    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
-      options.body = JSON.stringify(req.body);
-      console.log(`[Proxy] Body:`, options.body);
-    }
-
-    const response = await fetch(url, options);
-    console.log(`[Proxy] Response Status: ${response.status}`);
+        'apikey': 'MDR_SECRET_TOKEN_2024'
+      },
+      body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
+    });
 
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (error) {
-    console.error(`[Proxy] Error for ${url}:`, error);
-    res.status(500).json({ error: 'Proxy failed', message: error.message });
+    console.error(`Evolution Proxy Error (${targetUrl}):`, error);
+    res.status(500).json({ error: 'Erro na comunicação com Evolution API' });
   }
 });
 
