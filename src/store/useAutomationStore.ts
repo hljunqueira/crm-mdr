@@ -107,10 +107,13 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         console.warn('DB Error (ignorado para mostrar o QR):', dbErr);
       }
 
-      // 5. Buscar QR Code com polling (tentar até 5 vezes)
+      // Aguardar a instância estabilizar antes de pedir o QR
+      await new Promise(r => setTimeout(r, 3000));
+
+      // 5. Buscar QR Code com polling (tentar até 30 vezes - 1 minuto)
       if (type === 'whatsapp') {
         let attempts = 0;
-        const maxAttempts = 15; // Aumentado para 30 segundos total
+        const maxAttempts = 30; 
 
         while (attempts < maxAttempts) {
           console.log(`Buscando QR Code... Tentativa ${attempts + 1}/${maxAttempts}`);
@@ -118,7 +121,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
             headers: { 'apikey': EVOLUTION_API_KEY }
           });
           const qrData = await qrRes.json();
-          console.log('Dados recebidos:', qrData);
+          console.log('Resposta Evolution:', JSON.stringify(qrData, null, 2));
 
           if (qrData.qrcode?.base64) {
             set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
