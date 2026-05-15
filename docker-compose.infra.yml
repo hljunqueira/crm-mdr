@@ -67,7 +67,10 @@ services:
       - DATABASE_SAVE_DATA_HISTORY_MESSAGES=false
       - DATABASE_SAVE_DATA_CHATS=false
       - REDIS_ENABLED=true
-      - REDIS_URI=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PREFIX=EVO
       - CONFIG_SESSION_PHONE_VERSION=2.3000.1032750324
       - WA_VERSION=2.3000.1032750324
     volumes:
