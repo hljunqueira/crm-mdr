@@ -27,6 +27,9 @@ router.all('/*', async (req, res) => {
 
     console.log(`[Proxy] Response: ${response.status}`);
     const data = await response.json();
+    if (!response.ok) {
+      console.error(`Evolution API Error (${targetUrl}):`, JSON.stringify(data));
+    }
     res.status(response.status).json(data);
   } catch (error) {
     console.error(`Evolution Proxy Error (${targetUrl}):`, error);

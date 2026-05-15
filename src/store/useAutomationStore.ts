@@ -55,9 +55,8 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         },
         body: JSON.stringify({
           instanceName: finalInstanceName,
-          token: finalInstanceName,
-          qrcode: type === 'whatsapp',
-          integration: type === 'whatsapp' ? 'WHATSAPP-BAILEYS' : 'INSTAGRAM'
+          token: EVOLUTION_API_KEY,
+          qrcode: true
         })
       });
 
