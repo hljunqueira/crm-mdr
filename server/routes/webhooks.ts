@@ -18,34 +18,65 @@ router.post('/evolution', async (req, res) => {
   }
 
   try {
-    console.log(`[Webhook] Processing message from ${instance}...`);
-    // Na v2 as mensagens podem vir em data.message ou data (depende da config)
+    // Evolution API v2 pode aninhar em data.message ou mandar direto em data
     const messageData = data.message || data;
-    if (!messageData?.key) return res.status(200).send('No message key');
-
-    const remoteJid = messageData.key.remoteJid;
-    const isFromMe = messageData.key.fromMe;
-    const contactName = messageData.pushName || remoteJid.split('@')[0];
     
-    // Extrair texto (suporta v1 e v2)
+    // Log para depuração do formato real
+    console.log('[Webhook] Message Data structure:', JSON.stringify(messageData).substring(0, 500));
+
+    // Na v2, a key pode estar dentro de messageData ou no topo de data
+    const key = messageData.key || data.key;
+    if (!key) {
+      console.warn('[Webhook] No key found in payload');
+      return res.status(200).send('No message key');
+    }
+
+    const remoteJid = key.remoteJid;
+    const isFromMe = key.fromMe;
+    const contactName = data.pushName || messageData.pushName || remoteJid.split('@')[0];
+    
+    // Extrair texto (suporta múltiplos formatos da v2)
     const messageText = 
       messageData.message?.conversation || 
       messageData.message?.extendedTextMessage?.text || 
       messageData.conversation || 
       messageData.text || 
+      messageData.content ||
       'Mídia/Outro';
+
+    console.log(`[Webhook] From: ${contactName} (${remoteJid}) | Text: ${messageText}`);
     
-    // 1. Encontrar o canal (pela instância) na tabela correta
-    const { data: channel } = await supabase
+    // 1. Encontrar o canal na automation_channels
+    const { data: autoChannel, error: channelErr } = await supabase
       .from('automation_channels')
-      .select('id')
+      .select('*')
       .eq('instance_name', instance)
       .single();
 
-    if (!channel) {
-      console.warn(`Webhook received for unknown instance: ${instance}`);
+    if (channelErr || !autoChannel) {
+      console.warn(`[Webhook] Channel not found in automation_channels: ${instance}`);
       return res.status(200).send('Channel not found');
     }
+
+    // FIX: Garantir que o canal existe na tabela 'channels' (para satisfazer a FK da tabela conversations)
+    const { data: legacyChannel } = await supabase
+      .from('channels')
+      .select('id')
+      .eq('id', autoChannel.id)
+      .single();
+
+    if (!legacyChannel) {
+      console.log(`[Webhook] Mirroring channel to legacy table for FK compatibility: ${autoChannel.id}`);
+      await supabase.from('channels').upsert([{
+        id: autoChannel.id,
+        name: autoChannel.name,
+        type: 'whatsapp',
+        status: 'connected'
+      }]);
+    }
+
+    const channel = autoChannel;
+    console.log(`[Webhook] Channel ready: ${channel.id}`);
 
     // 2. Encontrar ou criar a conversa
     let { data: conversation } = await supabase
