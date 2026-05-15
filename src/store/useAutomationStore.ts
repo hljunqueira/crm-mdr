@@ -46,7 +46,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
 
     try {
-      // 1. Criar a instância (Sem delete prévio para evitar 404)
+      // 1. Criar a instância
       const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
         method: 'POST',
         headers: {
@@ -63,13 +63,12 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
       if (!createRes.ok) {
         const err = await createRes.json();
-        // Se já existe, apenas ignoramos o erro e tentamos conectar
         if (!err.message?.includes('already exists')) {
           throw new Error(`Erro na criação: ${err.message || 'Erro desconhecido'}`);
         }
       }
 
-      // 2. Configurar Webhooks para o n8n (Passo separado)
+      // 2. Configurar Webhooks para o n8n
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: {
@@ -84,7 +83,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         })
       }).catch(err => console.warn('Erro ao setar webhook (não fatal):', err));
 
-      // 4. Salvar no Supabase (com tratamento de erro para não bloquear)
+      // 4. Salvar no Supabase
       try {
         await supabase.from('automation_channels').upsert({
           unit_id: unitId,
@@ -95,13 +94,12 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           updated_at: new Date().toISOString()
         }, { onConflict: 'instance_name' });
       } catch (dbErr) {
-        console.warn('DB Error (ignorado para mostrar o QR):', dbErr);
+        console.warn('DB Error:', dbErr);
       }
 
-      // Aguardar a instância estabilizar (Motores v2 precisam de mais tempo)
       await new Promise(r => setTimeout(r, 5000));
 
-      // 5. Buscar QR Code com polling (tentar até 30 vezes - 1 minuto)
+      // 5. Buscar QR Code com polling
       if (type === 'whatsapp') {
         let attempts = 0;
         const maxAttempts = 30; 
@@ -125,7 +123,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
             set({ connectionStatus: 'connected', qrCode: null });
             console.log('Conexão estabelecida com sucesso!');
-            return; 
+            return;
           }
 
           if (base64) {
@@ -135,7 +133,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           } else {
             await new Promise(r => setTimeout(r, 2000));
           }
-          
+
           attempts++;
         }
 
