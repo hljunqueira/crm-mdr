@@ -124,18 +124,28 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           console.log('Resposta Evolution:', JSON.stringify(qrData, null, 2));
 
           const base64 = qrData.base64 || qrData.qrcode?.base64;
-          if (base64) {
-            set({ qrCode: base64, connectionStatus: 'qrcode' });
-            return; // Sucesso
-          } else if (qrData.instance?.state === 'open') {
+          const state = qrData.instance?.state || qrData.state || qrData.status;
+
+          if (state === 'open') {
+            // Persistir no banco que está conectado
+            await supabase.from('automation_channels')
+              .update({ status: 'connected' })
+              .eq('instance_name', finalInstanceName);
+
             set({ connectionStatus: 'connected', qrCode: null });
-            return; // Já conectado
+            console.log('Conexão estabelecida com sucesso!');
+            return; 
           }
 
-          attempts++;
-          if (attempts < maxAttempts) {
-            await new Promise(r => setTimeout(r, 2000)); // Esperar 2 segundos antes de tentar de novo
+          if (base64) {
+            set({ qrCode: base64, connectionStatus: 'qrcode' });
+            // Se já temos o QR, não precisamos correr tanto no loop
+            await new Promise(r => setTimeout(r, 2000));
+          } else {
+            await new Promise(r => setTimeout(r, 2000));
           }
+          
+          attempts++;
         }
 
         throw new Error('O QR Code demorou muito para ser gerado. Tente atualizar a página.');
