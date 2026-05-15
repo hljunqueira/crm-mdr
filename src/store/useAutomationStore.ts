@@ -68,7 +68,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         }
       }
 
-      // 2. Configurar Webhooks para o n8n
+      // 2. Configurar Webhooks para o App Interno
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: {
@@ -76,10 +76,12 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           'apikey': EVOLUTION_API_KEY
         },
         body: JSON.stringify({
-          url: `https://n8n.mdrinformaticaecelulares.com.br/webhook/crm-automation`,
-          enabled: true,
-          webhook_by_events: true,
-          events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
+          webhook: {
+            url: `http://app:3000/api/webhooks/evolution`,
+            enabled: true,
+            webhookByEvents: true,
+            events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
+          }
         })
       }).catch(err => console.warn('Erro ao setar webhook (não fatal):', err));
 
