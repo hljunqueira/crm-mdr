@@ -16,7 +16,8 @@ router.all('/*', async (req, res) => {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
-        'apikey': GLOBAL_API_KEY
+        'apikey': GLOBAL_API_KEY,
+        'apiKey': GLOBAL_API_KEY
       }
     };
 
