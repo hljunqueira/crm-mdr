@@ -25,9 +25,9 @@ rm $ARCHIVE_NAME
 
 echo "Reconstruindo containers..."
 if docker compose version >/dev/null 2>&1; then
-    docker compose up -d --build --force-recreate
+    docker compose -f docker-compose.infra.yml up -d --build --force-recreate
 else
-    docker-compose up -d --build --force-recreate
+    docker-compose -f docker-compose.infra.yml up -d --build --force-recreate
 fi
 
 docker image prune -f

@@ -5,10 +5,10 @@ interface AutomationState {
   connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode';
   qrCode: string | null;
   instanceName: string | null;
-  
+
   setConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode') => void;
   setQrCode: (qr: string | null) => void;
-  
+
   fetchConnectionStatus: (instance: string) => Promise<void>;
   fetchQRCode: (instance: string, friendlyName: string, unitId: string, type: 'whatsapp' | 'instagram') => Promise<void>;
   logout: (instance: string) => Promise<void>;
@@ -31,7 +31,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         headers: { 'apikey': EVOLUTION_API_KEY }
       });
       const data = await response.json();
-      set({ 
+      set({
         connectionStatus: data.instance?.state === 'open' ? 'connected' : 'disconnected',
         instanceName: instance
       });
@@ -44,7 +44,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   fetchQRCode: async (instance, friendlyName, unitId, type) => {
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
     set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
-    
+
     try {
       // 1. Tentar deletar se já existir (Reset)
       try {
@@ -54,14 +54,14 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         });
         // Aguardar um pouco para a Evolution processar a deleção
         await new Promise(r => setTimeout(r, 1000));
-      } catch (e) { 
+      } catch (e) {
         console.log('Instance did not exist, proceeding to create...');
       }
 
       // 2. Criar a instância
       const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'apikey': EVOLUTION_API_KEY
         },
@@ -81,7 +81,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       // 3. Configurar Webhooks (Padrão 2.2.3 Manual)
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'apikey': EVOLUTION_API_KEY
         },
@@ -111,14 +111,14 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       if (type === 'whatsapp') {
         let attempts = 0;
         const maxAttempts = 5;
-        
+
         while (attempts < maxAttempts) {
           console.log(`Buscando QR Code... Tentativa ${attempts + 1}`);
           const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
             headers: { 'apikey': EVOLUTION_API_KEY }
           });
           const qrData = await qrRes.json();
-          
+
           if (qrData.qrcode?.base64) {
             set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
             return; // Sucesso
@@ -126,13 +126,13 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
             set({ connectionStatus: 'connected', qrCode: null });
             return; // Já conectado
           }
-          
+
           attempts++;
           if (attempts < maxAttempts) {
             await new Promise(r => setTimeout(r, 2000)); // Esperar 2 segundos antes de tentar de novo
           }
         }
-        
+
         throw new Error('O QR Code demorou muito para ser gerado. Tente atualizar a página.');
       } else {
         set({ connectionStatus: 'disconnected' });
