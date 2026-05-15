@@ -15,7 +15,6 @@ services:
     networks:
       - crm-network
       - supabase_default
-      - infra_crm-network
 
   # --- CRM App ---
   app:
