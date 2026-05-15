@@ -55,16 +55,23 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   isLoading: false,
 
   fetchChannels: async (unitId) => {
+    console.log('[ChatStore] Fetching channels for unitId:', unitId);
     set({ isLoading: true });
     try {
       const { data, error } = await supabase
         .from('automation_channels')
         .select('*')
         .eq('unit_id', unitId);
-      if (error) throw error;
+      
+      if (error) {
+        console.error('[ChatStore] Error fetching channels:', error);
+        throw error;
+      }
+      
+      console.log('[ChatStore] Channels received:', data);
       set({ channels: data || [] });
     } catch (error) {
-      console.error('Error fetching channels:', error);
+      console.error('[ChatStore] Catch error:', error);
     } finally {
       set({ isLoading: false });
     }

@@ -51,6 +51,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   initialize: async () => {
     const { data: { session } } = await supabase.auth.getSession();
+    console.log('[AuthStore] Initializing session:', session?.user?.email);
     
     if (session) {
       const { data: profileData } = await supabase
@@ -59,10 +60,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
         .eq('id', session.user.id)
         .single();
         
+      console.log('[AuthStore] Profile data from DB:', profileData);
+
       const profile = profileData ? {
         ...profileData,
         unit_id: profileData.store_id // Mapear store_id para unit_id
       } : null;
+
+      console.log('[AuthStore] Final mapped profile:', profile);
 
       set({ session, user: session.user, profile, isLoading: false });
     } else {
