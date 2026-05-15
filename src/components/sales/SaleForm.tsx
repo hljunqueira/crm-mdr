@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
-import { useSaleStore } from '../../store/useSaleStore';
-import { useFinanceStore, Installment } from '../../store/useFinanceStore';
+import { useSaleStore, Sale } from '../../store/useSaleStore';
+import { useFinanceStore } from '../../store/useFinanceStore';
 import { useInventoryStore } from '../../store/useInventoryStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -14,11 +14,12 @@ import ContractPrint from './ContractPrint';
 interface SaleFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  initialData?: Sale;
 }
 
-export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
+export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormProps) {
   const { customers } = useCustomerStore();
-  const { addSale } = useSaleStore();
+  const { addSale, updateSale } = useSaleStore();
   const { addInstallments } = useFinanceStore();
   const { inventory, updateItem } = useInventoryStore();
   const { showNotification, hideModal } = useUI();
@@ -28,15 +29,19 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [isSuccess, setIsSuccess] = useState(false);
 
   const [formData, setFormData] = useState({
-    customer_id: '',
+    customer_id: initialData?.customer_id || '',
     device_id: '',
-    device_model: '',
-    imei: '',
-    total_value: 0,
-    down_payment: 0,
-    installments: 12,
-    first_due_date: new Date().toISOString().split('T')[0],
-    service_fee: 0 // New field for manual override
+    device_model: initialData?.device_model || '',
+    imei: initialData?.imei || '',
+    total_value: initialData?.original_price || initialData?.total_value || 0,
+    down_payment: initialData?.down_payment || 0,
+    installments: initialData?.installments || 12,
+    first_due_date: initialData?.date || new Date().toISOString().split('T')[0],
+    device_color: initialData?.device_color || '',
+    accessories: initialData?.accessories || '',
+    service_fee: initialData?.service_fee && (initialData?.original_price || initialData?.total_value) 
+      ? (initialData.service_fee / (initialData.original_price || initialData.total_value) * 100) 
+      : 0
   });
 
   const availableDevices = useMemo(() => 
@@ -80,8 +85,10 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
 
   // Update manual fee when price changes significantly if it was 0 or same as previous suggested
   React.useEffect(() => {
-    setFormData(prev => ({ ...prev, service_fee: suggestedFee * 100 }));
-  }, [suggestedFee]);
+    if (!initialData) {
+      setFormData(prev => ({ ...prev, service_fee: suggestedFee * 100 }));
+    }
+  }, [suggestedFee, initialData]);
 
   const feePercentage = formData.service_fee / 100;
   const feeValue = formData.total_value * feePercentage;
@@ -122,31 +129,68 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     }
 
     try {
-      // 1. Add Sale
-      await addSale({
-        unit_id: profile?.unit_id || undefined,
-        customer_id: formData.customer_id,
-        device_model: formData.device_model,
-        imei: formData.imei,
-        total_value: finalValue,
-        down_payment: formData.down_payment,
-        service_fee: feeValue,
-        original_price: formData.total_value,
-        installments: formData.installments,
-        date: new Date().toISOString().split('T')[0],
-        status: 'completed'
-      });
+      if (initialData) {
+        // Update existing sale
+        await updateSale(initialData.id, {
+          customer_id: formData.customer_id,
+          device_model: formData.device_model,
+          imei: formData.imei,
+          total_value: finalValue,
+          down_payment: formData.down_payment,
+          service_fee: feeValue,
+          original_price: formData.total_value,
+          installments: formData.installments,
+          date: formData.first_due_date,
+          device_color: formData.device_color,
+          accessories: formData.accessories,
+        });
+        
+        showNotification('success', 'Venda Atualizada');
+        onSuccess();
+      } else {
+        // Create new sale
+        const newSale: any = await addSale({
+          unit_id: profile?.unit_id || undefined,
+          customer_id: formData.customer_id,
+          customer_name: selectedCustomer?.name,
+          device_model: formData.device_model,
+          imei: formData.imei,
+          total_value: finalValue,
+          down_payment: formData.down_payment,
+          service_fee: feeValue,
+          original_price: formData.total_value,
+          installments: formData.installments,
+          date: formData.first_due_date,
+          device_color: formData.device_color,
+          accessories: formData.accessories,
+          status: 'completed'
+        });
 
-      // 2. Mark Device as Sold if applicable
-      if (formData.device_id) {
-        await updateItem(formData.device_id, { status: 'sold' });
+        // 2. Mark Device as Sold if applicable
+        if (formData.device_id) {
+          await updateItem(formData.device_id, { status: 'sold' });
+        }
+
+        // 3. Create Installments
+        if (newSale?.id && formData.installments > 0) {
+          const installmentsToCreate = generatedInstallments.map(inst => ({
+            unit_id: profile?.unit_id || undefined,
+            sale_id: newSale.id,
+            customer_id: formData.customer_id,
+            number: inst.number,
+            total: inst.total,
+            value: inst.value,
+            due_date: inst.dueDate,
+            status: 'pending' as const
+          }));
+          await addInstallments(installmentsToCreate);
+        }
+        
+        showNotification('success', 'Venda Registrada');
+        setIsSuccess(true);
       }
-      
-      showNotification('success', 'Venda Registrada');
-      setIsSuccess(true);
-      // Removed automatic onCancel/hideModal to show the success view
     } catch (error) {
-      showNotification('error', 'Erro ao registrar venda');
+      showNotification('error', initialData ? 'Erro ao atualizar venda' : 'Erro ao registrar venda');
     }
   };
 
@@ -311,6 +355,28 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
         </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cor do Aparelho</label>
+          <input 
+            type="text" 
+            placeholder="Ex: Titânio Natural"
+            value={formData.device_color}
+            onChange={(e) => setFormData(prev => ({ ...prev, device_color: e.target.value }))}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>
+          <input 
+            type="text" 
+            placeholder="Ex: Cabo, Carregador, Capinha"
+            value={formData.accessories}
+            onChange={(e) => setFormData(prev => ({ ...prev, accessories: e.target.value }))}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+          />
+        </div>
       </div>
 
       {/* Preview Section */}
@@ -382,11 +448,11 @@ export default function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
         >
           Cancelar
         </button>
-        <button 
+          <button 
           type="submit"
           className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
         >
-          <Save size={16} /> Finalizar Venda
+          <Save size={16} /> {initialData ? 'Atualizar Venda' : 'Finalizar Venda'}
         </button>
       </div>
     </form>

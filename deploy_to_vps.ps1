@@ -3,11 +3,12 @@ $SSH_USER = "root"
 $SSH_HOST = "mdrinformaticaecelulares.com.br"
 $SSH_KEY = "~/.ssh/vps_supabase"
 $REMOTE_PATH = "/root/crm-mdr"
-$ARCHIVE_NAME = "project.tar.gz"
+$ARCHIVE_NAME = "deploy_package.tar.gz"
 
 # 1. Criar arquivo comprimido excluindo o que não é necessário
-Write-Host "--- Compactando arquivos (ignorando node_modules e .git) ---" -ForegroundColor Cyan
-tar --exclude='node_modules' --exclude='.git' --exclude='dist' -czf $ARCHIVE_NAME .
+# Forçando a inclusão do .env explicitamente
+Write-Host "--- Compactando arquivos (incluindo .env) ---" -ForegroundColor Cyan
+tar --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude=$ARCHIVE_NAME -czf $ARCHIVE_NAME . .env
 
 # 2. Enviar para a VPS
 Write-Host "--- Enviando para a VPS via SCP ---" -ForegroundColor Cyan
@@ -17,31 +18,21 @@ scp -i $SSH_KEY $ARCHIVE_NAME "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
 Write-Host "--- Executando Deploy na VPS ---" -ForegroundColor Cyan
 $REMOTE_COMMANDS = @"
 cd $REMOTE_PATH
+# Limpa src e dist antigos para garantir que o código novo seja soberano
+rm -rf src dist
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
-# Limpeza de containers antigos com prefixo 'infra-' (se existirem)
-echo "Limpando containers órfãos..."
-docker ps -a --filter "name=infra-" -q | xargs -r docker rm -f
-
-# Garantir que redes externas existam
-docker network create supabase_default 2>/dev/null || true
-docker network create infra_crm-network 2>/dev/null || true
-
-# Deploy com Docker
-echo "Reconstruindo container 'app'..."
-# Tenta usar docker compose (moderno) ou docker-compose (legado)
+echo "Reconstruindo containers..."
 if docker compose version >/dev/null 2>&1; then
-    docker compose -f docker-compose.infra.yml up -d --build app
+    docker compose up -d --build --force-recreate
 else
-    docker-compose -f docker-compose.infra.yml up -d --build app
+    docker-compose up -d --build --force-recreate
 fi
 
-# Limpeza de imagens antigas
 docker image prune -f
-
-echo "Status do container 'app':"
-docker ps | grep app
+echo "Status dos containers:"
+docker ps --format 'table {{.Names}}\t{{.Status}}' | grep crm-mdr
 
 echo "Deploy finalizado com sucesso!"
 "@
@@ -49,5 +40,5 @@ echo "Deploy finalizado com sucesso!"
 ssh -i $SSH_KEY "${SSH_USER}@${SSH_HOST}" $REMOTE_COMMANDS
 
 # 4. Limpeza local
-Remove-Item $ARCHIVE_NAME
+if (Test-Path $ARCHIVE_NAME) { Remove-Item $ARCHIVE_NAME }
 Write-Host "--- Concluído! ---" -ForegroundColor Green

@@ -33,6 +33,8 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
         <div className="mt-2 pl-4">
           <p>• <strong>Modelo:</strong> {sale.device_model}</p>
           <p>• <strong>IMEI:</strong> {sale.imei}</p>
+          <p>• <strong>Cor:</strong> {sale.device_color || 'N/A'}</p>
+          <p>• <strong>Acessórios:</strong> {sale.accessories || 'Nenhum'}</p>
           <p>• <strong>Data da Venda:</strong> {new Date(sale.date).toLocaleDateString('pt-BR')}</p>
         </div>
       </section>

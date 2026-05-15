@@ -25,10 +25,13 @@ services:
       - app
     networks:
       - crm-network
+      - supabase_default
 
 networks:
   crm-network:
     driver: bridge
+  supabase_default:
+    external: true
 
 volumes:
   caddy_data:

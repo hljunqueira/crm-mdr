@@ -10,6 +10,8 @@ interface ContractPrintProps {
     installments: number;
     date: string;
     service_fee?: number;
+    device_color?: string;
+    accessories?: string;
   };
   customer: {
     name: string;
@@ -58,8 +60,8 @@ export default function ContractPrint({ sale, customer, unit }: ContractPrintPro
         <h2>2. Produto</h2>
         <p><strong>Aparelho:</strong> <span className="data-field">{sale.device_model}</span></p>
         <p><strong>IMEI:</strong> <span className="data-field">{sale.imei}</span></p>
-        <p><strong>Cor:</strong> <span className="data-field">____________________</span></p>
-        <p><strong>Estado:</strong> <span className="data-field">Novo/Seminovo</span> | <strong>Acessórios:</strong> <span className="data-field">____________________</span></p>
+        <p><strong>Cor:</strong> <span className="data-field">{sale.device_color || '____________________'}</span></p>
+        <p><strong>Estado:</strong> <span className="data-field">Novo/Seminovo</span> | <strong>Acessórios:</strong> <span className="data-field">{sale.accessories || '____________________'}</span></p>
         <p><strong>Avarias no ato da venda:</strong> <span className="data-field">________________________________________</span></p>
       </div>
 

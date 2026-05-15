@@ -2,17 +2,20 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
 interface AutomationState {
-  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'loading';
+  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode';
   qrCode: string | null;
   instanceName: string | null;
   
-  setConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting' | 'loading') => void;
+  setConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode') => void;
   setQrCode: (qr: string | null) => void;
   
-  fetchConnectionStatus: (url: string, key: string, instance: string) => Promise<void>;
-  fetchQRCode: (url: string, key: string, instance: string, friendlyName: string, unitId: string, type: 'whatsapp' | 'instagram') => Promise<void>;
-  logout: (url: string, key: string, instance: string) => Promise<void>;
+  fetchConnectionStatus: (instance: string) => Promise<void>;
+  fetchQRCode: (instance: string, friendlyName: string, unitId: string, type: 'whatsapp' | 'instagram') => Promise<void>;
+  logout: (instance: string) => Promise<void>;
+  deleteInstance: (instance: string) => Promise<void>;
 }
+
+const EVOLUTION_API_KEY = 'mdr_gaivota_zap';
 
 export const useAutomationStore = create<AutomationState>()((set, get) => ({
   connectionStatus: 'loading',
@@ -22,9 +25,11 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setQrCode: (qr) => set({ qrCode: qr }),
 
-  fetchConnectionStatus: async (_url, _key, instance) => {
+  fetchConnectionStatus: async (instance) => {
     try {
-      const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${instance}`);
+      const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${instance}`, {
+        headers: { 'apikey': EVOLUTION_API_KEY }
+      });
       const data = await response.json();
       set({ 
         connectionStatus: data.instance?.state === 'open' ? 'connected' : 'disconnected',
@@ -36,25 +41,32 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     }
   },
 
-  fetchQRCode: async (_url, _key, instance, friendlyName, unitId, type) => {
+  fetchQRCode: async (instance, friendlyName, unitId, type) => {
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
     set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
     
     try {
-      const payload = {
-        instanceName: finalInstanceName,
-        token: finalInstanceName,
-        qrcode: type === 'whatsapp',
-        integration: type === 'whatsapp' ? 'WHATSAPP-BAILEYS' : 'INSTAGRAM'
-      };
+      // 1. Tentar deletar se já existir (Reset)
+      try {
+        await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/delete/${finalInstanceName}`, {
+          method: 'DELETE',
+          headers: { 'apikey': EVOLUTION_API_KEY }
+        });
+      } catch (e) { /* ignore */ }
 
-      console.log('Enviando payload para criação de instância:', payload);
-
-      // 1. Criar a instância
+      // 2. Criar a instância
       const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY
+        },
+        body: JSON.stringify({
+          instanceName: finalInstanceName,
+          token: finalInstanceName,
+          qrcode: type === 'whatsapp',
+          integration: type === 'whatsapp' ? 'WHATSAPP-BAILEYS' : 'INSTAGRAM'
+        })
       });
 
       if (!createRes.ok) {
@@ -62,46 +74,46 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         throw new Error(`Erro na criação: ${err}`);
       }
 
-      // 2. Configurar Webhooks (Formato Evolution v2.2.3)
-      const webhookUrl = `https://mdrinformaticaecelulares.com.br/api/webhooks/evolution`;
+      // 3. Configurar Webhooks (Padrão 2.2.3 Manual)
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY
+        },
         body: JSON.stringify({
-          webhook: {
-            enabled: true,
-            url: webhookUrl,
-            webhookByEvents: false,
-            events: ["messages.upsert", "qrcode.updated", "connection.update"]
-          }
+          url: `https://mdrinformaticaecelulares.com.br/api/webhooks/evolution`,
+          enabled: true,
+          webhookByEvents: false,
+          events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
         })
       }).catch(err => console.warn('Erro ao setar webhook:', err));
 
-      // 3. Salvar Canal no Banco de Dados
-      const { data: existingChannel } = await supabase
-        .from('automation_channels')
-        .select('id')
-        .eq('instance_name', finalInstanceName)
-        .single();
-      
-      if (!existingChannel) {
-        await supabase.from('automation_channels').insert([{
+      // 4. Salvar no Supabase (com tratamento de erro para não bloquear)
+      try {
+        await supabase.from('automation_channels').upsert({
           unit_id: unitId,
           name: friendlyName,
           type: type,
           instance_name: finalInstanceName,
-          status: 'connecting'
-        }]);
+          status: 'connecting',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'instance_name' });
+      } catch (dbErr) {
+        console.warn('DB Error (ignorado para mostrar o QR):', dbErr);
       }
 
-      // 4. Obter QR Code (Apenas se for WhatsApp)
+      // 5. Buscar QR Code Imediatamente
       if (type === 'whatsapp') {
-        const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`);
-        const data = await response.json();
+        const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
+          headers: { 'apikey': EVOLUTION_API_KEY }
+        });
+        const qrData = await qrRes.json();
+        console.log('Resposta do QR Code:', qrData);
         
-        if (data.base64) {
-          set({ qrCode: data.base64, connectionStatus: 'disconnected' });
-        } else if (data.instance?.state === 'open') {
+        if (qrData.qrcode?.base64) {
+          set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
+        } else if (qrData.instance?.state === 'open') {
           set({ connectionStatus: 'connected', qrCode: null });
         }
       } else {
@@ -109,19 +121,31 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       }
     } catch (error: any) {
       console.error('Error in instance setup:', error);
-      alert('Erro na conexão: ' + error.message);
+      alert('Erro: ' + error.message);
       set({ connectionStatus: 'disconnected' });
     }
   },
 
-  logout: async (_url, _key, instance) => {
+  logout: async (instance) => {
     try {
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/logout/${instance}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'apikey': EVOLUTION_API_KEY }
       });
       set({ connectionStatus: 'disconnected', qrCode: null });
     } catch (error) {
       console.error('Error logging out:', error);
+    }
+  },
+
+  deleteInstance: async (instance) => {
+    try {
+      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/delete/${instance}`, {
+        method: 'DELETE',
+        headers: { 'apikey': EVOLUTION_API_KEY }
+      });
+    } catch (error) {
+      console.error('Error deleting instance:', error);
     }
   }
 }));

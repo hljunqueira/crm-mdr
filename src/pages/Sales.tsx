@@ -86,6 +86,24 @@ export default function Sales() {
     });
   };
 
+  const handleEditSale = (sale: Sale) => {
+    showModal({
+      title: 'Editar Venda',
+      children: (
+        <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+          <SaleForm 
+            initialData={sale}
+            onSuccess={() => {
+              hideModal();
+              fetchSales(profile?.unit_id || undefined);
+            }} 
+            onCancel={() => hideModal()} 
+          />
+        </div>
+      ),
+    });
+  };
+
   const handleNewSale = () => {
     showModal({
       title: 'Registrar Nova Venda',
@@ -237,8 +255,16 @@ export default function Sales() {
                           <Printer size={16} />
                         </button>
                         <button 
+                          onClick={() => handleEditSale(sale)}
+                          className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-primary"
+                          title="Editar Venda"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
                           onClick={() => handleDeleteSale(sale)}
                           className="p-2 hover:bg-error/10 rounded-xl transition-all text-on-surface-variant hover:text-error"
+                          title="Excluir Venda"
                         >
                           <Trash2 size={16} />
                         </button>

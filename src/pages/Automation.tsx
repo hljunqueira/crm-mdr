@@ -33,7 +33,7 @@ export default function Automation() {
   const { showNotification } = useUI();
   const { unit, units, fetchUnit, fetchAllUnits } = useUnitStore();
   const { 
-    connectionStatus, qrCode, fetchConnectionStatus, fetchQRCode, logout 
+    connectionStatus, qrCode, fetchConnectionStatus, fetchQRCode, logout, deleteInstance
   } = useAutomationStore();
   
   const [selectedUnitId, setSelectedUnitId] = React.useState<string | null>(null);
@@ -77,7 +77,7 @@ export default function Automation() {
       
       // Buscar status da conexão se houver instância técnica (mock ou real)
       if (currentUnit.evolution_instance) {
-        fetchConnectionStatus('', '', currentUnit.evolution_instance);
+        fetchConnectionStatus(currentUnit.evolution_instance);
       }
     }
   }, [selectedUnitId, units, unit, channelType, fetchConnectionStatus]);
@@ -97,24 +97,29 @@ export default function Automation() {
       return;
     }
 
-    fetchQRCode('', '', instanceNameInput, friendlyName, currentUnitId, channelType);
+    fetchQRCode(instanceNameInput, friendlyName, currentUnitId, channelType);
     showNotification('info', 'Integração', `Gerando conexão para ${channelType === 'whatsapp' ? 'WhatsApp' : 'Instagram'}...`);
   };
 
   const handleLogout = () => {
     const currentUnit = units.find(u => u.id === selectedUnitId) || unit;
     if (currentUnit?.evolution_instance) {
-      logout('', '', currentUnit.evolution_instance);
+      logout(currentUnit.evolution_instance);
       showNotification('info', 'WhatsApp', 'Desconectando instância...');
     }
   };
 
-  const handleDeleteChannel = async (id: string) => {
-    if (confirm('Deseja realmente remover este canal?')) {
-      await supabase.from('automation_channels').delete().eq('id', id);
+  const handleDeleteChannel = async (channel: any) => {
+    if (confirm(`Deseja realmente remover o canal "${channel.name}"?`)) {
+      // 1. Deletar na Evolution
+      await deleteInstance(channel.instance_name);
+      
+      // 2. Deletar no Supabase
+      await supabase.from('automation_channels').delete().eq('id', channel.id);
+      
       const currentUnitId = selectedUnitId || unit?.id;
       if (currentUnitId) fetchChannels(currentUnitId);
-      showNotification('success', 'Canal Removido', 'O canal foi removido com sucesso.');
+      showNotification('success', 'Canal Removido', 'O canal foi removido do CRM e da Evolution.');
     }
   };
 
@@ -179,7 +184,7 @@ export default function Automation() {
                     <div key={channel.id} className="group p-6 bg-white/[0.02] rounded-[32px] border border-white/5 hover:border-primary/30 transition-all flex items-center gap-6">
                       <div className={cn(
                         "w-16 h-16 rounded-2xl flex items-center justify-center border transition-all duration-500 shadow-2xl",
-                        channel.status === 'connected' 
+                        channel.status === 'connected' || channel.status === 'connecting'
                           ? "bg-primary/20 border-primary/30 text-primary scale-105" 
                           : "bg-white/5 border-white/10 text-on-surface-variant opacity-60"
                       )}>
@@ -190,7 +195,7 @@ export default function Automation() {
                           <h3 className="font-display font-black text-on-surface uppercase tracking-tight leading-none text-sm">{channel.name}</h3>
                           <span className={cn(
                             "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md shadow-sm",
-                            channel.status === 'connected' ? "bg-primary text-black" : "bg-white/10 text-on-surface-variant"
+                            channel.status === 'connected' || channel.status === 'connecting' ? "bg-primary text-black" : "bg-white/10 text-on-surface-variant"
                           )}>
                             {channel.status === 'connected' ? 'Ativo' : 'Pendente'}
                           </span>
@@ -208,7 +213,7 @@ export default function Automation() {
                           <ExternalLink size={18} />
                         </button>
                         <button 
-                          onClick={() => handleDeleteChannel(channel.id)}
+                          onClick={() => handleDeleteChannel(channel)}
                           className="p-3 bg-white/5 hover:bg-error hover:text-white text-white rounded-xl transition-all border border-white/10"
                           title="Remover"
                         >

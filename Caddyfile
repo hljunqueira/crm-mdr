@@ -8,13 +8,28 @@ mdrinformaticaecelulares.com.br, api.mdrinformaticaecelulares.com.br {
     encode gzip
 }
 
-# --- Supabase API (Kong) ---
+# --- Supabase API (Kong) com CORS TOTAL ---
 supabase.mdrinformaticaecelulares.com.br {
     reverse_proxy supabase-kong:8000 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
     }
+
+    # Liberação total de CORS para evitar novos erros de headers
+    header {
+        Access-Control-Allow-Origin https://mdrinformaticaecelulares.com.br
+        Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "*"
+        Access-Control-Expose-Headers "*"
+        Access-Control-Allow-Credentials true
+        defer
+    }
+
+    # Responder rapidamente a requisições de teste (OPTIONS)
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
 }
 
 # --- Supabase Dashboard (Studio) ---
