@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  Bot, 
-  MessageSquare, 
-  Bell, 
-  ShieldAlert, 
-  CheckCircle2, 
-  Zap, 
-  Settings, 
+import {
+  Bot,
+  MessageSquare,
+  Bell,
+  ShieldAlert,
+  CheckCircle2,
+  Zap,
+  Settings,
   RefreshCcw,
   Clock,
   Play,
@@ -32,10 +32,10 @@ export default function Automation() {
   const { profile } = useAuthStore();
   const { showNotification } = useUI();
   const { units, fetchAllUnits } = useUnitStore();
-  const { 
+  const {
     channelStatuses, syncAllChannels, fetchQRCode, logout, deleteInstance
   } = useAutomationStore();
-  
+
   const [friendlyName, setFriendlyName] = React.useState('');
   const [instanceNameInput, setInstanceNameInput] = React.useState('');
   const [channels, setChannels] = React.useState<any[]>([]);
@@ -63,7 +63,7 @@ export default function Automation() {
   const handleSetup = async (type: 'whatsapp' | 'instagram') => {
     const name = friendlyName || `${type === 'whatsapp' ? 'WhatsApp' : 'Instagram'} MDR`;
     const instance = instanceNameInput || `mdr_custom_${type}_${Math.random().toString(36).substring(7)}`;
-    
+
     showNotification('info', 'Integração', `Iniciando conexão para ${type}...`);
     await fetchQRCode(instance, name, null, type);
     await fetchChannels();
@@ -112,8 +112,8 @@ export default function Automation() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Nome de Exibição</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder={type === 'whatsapp' ? 'Ex: WhatsApp Loja Arroio' : 'Ex: Instagram MDR'}
                     onChange={(e) => setFriendlyName(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary outline-none transition-all"
@@ -121,15 +121,15 @@ export default function Automation() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">ID da Instância (Opcional)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="mdr_arroio_zap"
                     onChange={(e) => setInstanceNameInput(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary outline-none transition-all font-mono"
                   />
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => handleSetup(type)}
                 className="w-full py-5 bg-primary text-black rounded-2xl font-display font-black uppercase tracking-widest text-[11px] hover:scale-[1.02] shadow-2xl shadow-primary/20 transition-all flex items-center justify-center gap-3"
               >
@@ -146,9 +146,9 @@ export default function Automation() {
                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ativo</span>
                   </div>
                 ) : info.status === 'qrcode' && info.qrCode ? (
-                  <img 
-                    src={info.qrCode.startsWith('data:image') ? info.qrCode : `data:image/png;base64,${info.qrCode}`} 
-                    alt="QR Code" 
+                  <img
+                    src={info.qrCode.startsWith('data:image') ? info.qrCode : `data:image/png;base64,${info.qrCode}`}
+                    alt="QR Code"
                     className="w-40 h-40 object-contain rounded-lg shadow-2xl"
                   />
                 ) : (
@@ -170,15 +170,15 @@ export default function Automation() {
                     <p className="text-xs font-bold text-white uppercase">{channel.type}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => logout(channel.instance_name)}
                     className="flex-1 py-3 bg-white/5 hover:bg-error/20 hover:text-error text-on-surface-variant rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10"
                   >
                     Desconectar
                   </button>
-                  <button 
+                  <button
                     onClick={async () => {
                       await deleteInstance(channel.instance_name);
                       await supabase.from('automation_channels').delete().eq('id', channel.id);
@@ -215,7 +215,7 @@ export default function Automation() {
           Automação de Canais
         </h1>
         <p className="text-on-surface-variant font-display text-[10px] font-bold uppercase tracking-[0.3em] opacity-60">
-          Gerencie suas conexões de forma independente e persistente
+          Gerencie suas conexões
         </p>
       </header>
 
