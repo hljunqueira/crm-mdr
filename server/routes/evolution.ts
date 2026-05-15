@@ -18,9 +18,9 @@ router.all('/*', async (req, res) => {
     const response = await fetch(finalUrl, {
       method: req.method,
       headers: {
+        ...req.headers as any,
         'Content-Type': 'application/json',
-        'apikey': 'MDR_SECRET_TOKEN_2024',
-        ...req.headers as any
+        'apikey': 'MDR_SECRET_TOKEN_2024'
       },
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
     });
