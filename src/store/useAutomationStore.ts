@@ -15,7 +15,7 @@ interface AutomationState {
   deleteInstance: (instance: string) => Promise<void>;
 }
 
-const EVOLUTION_API_KEY = 'mdr_gaivota_zap';
+const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
 
 export const useAutomationStore = create<AutomationState>()((set, get) => ({
   connectionStatus: 'loading',
@@ -52,7 +52,11 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           method: 'DELETE',
           headers: { 'apikey': EVOLUTION_API_KEY }
         });
-      } catch (e) { /* ignore */ }
+        // Aguardar um pouco para a Evolution processar a deleção
+        await new Promise(r => setTimeout(r, 1000));
+      } catch (e) { 
+        console.log('Instance did not exist, proceeding to create...');
+      }
 
       // 2. Criar a instância
       const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
@@ -84,7 +88,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         body: JSON.stringify({
           url: `https://mdrinformaticaecelulares.com.br/api/webhooks/evolution`,
           enabled: true,
-          webhookByEvents: false,
+          webhook_by_events: false,
           events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
         })
       }).catch(err => console.warn('Erro ao setar webhook:', err));
