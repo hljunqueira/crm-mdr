@@ -90,15 +90,16 @@ export default function Automation() {
     if (data) setChannels(data);
   };
 
-  const handleSetupInstance = () => {
+  const handleSetupInstance = async () => {
     const currentUnitId = selectedUnitId || unit?.id;
     if (!currentUnitId) {
       showNotification('error', 'Erro', 'Selecione uma unidade primeiro.');
       return;
     }
 
-    fetchQRCode(instanceNameInput, friendlyName, currentUnitId, channelType);
     showNotification('info', 'Integração', `Gerando conexão para ${channelType === 'whatsapp' ? 'WhatsApp' : 'Instagram'}...`);
+    await fetchQRCode(instanceNameInput, friendlyName, currentUnitId, channelType);
+    fetchChannels(currentUnitId);
   };
 
   const handleLogout = () => {

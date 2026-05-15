@@ -107,19 +107,33 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         console.warn('DB Error (ignorado para mostrar o QR):', dbErr);
       }
 
-      // 5. Buscar QR Code Imediatamente
+      // 5. Buscar QR Code com polling (tentar até 5 vezes)
       if (type === 'whatsapp') {
-        const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
-          headers: { 'apikey': EVOLUTION_API_KEY }
-        });
-        const qrData = await qrRes.json();
-        console.log('Resposta do QR Code:', qrData);
+        let attempts = 0;
+        const maxAttempts = 5;
         
-        if (qrData.qrcode?.base64) {
-          set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
-        } else if (qrData.instance?.state === 'open') {
-          set({ connectionStatus: 'connected', qrCode: null });
+        while (attempts < maxAttempts) {
+          console.log(`Buscando QR Code... Tentativa ${attempts + 1}`);
+          const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
+            headers: { 'apikey': EVOLUTION_API_KEY }
+          });
+          const qrData = await qrRes.json();
+          
+          if (qrData.qrcode?.base64) {
+            set({ qrCode: qrData.qrcode.base64, connectionStatus: 'qrcode' });
+            return; // Sucesso
+          } else if (qrData.instance?.state === 'open') {
+            set({ connectionStatus: 'connected', qrCode: null });
+            return; // Já conectado
+          }
+          
+          attempts++;
+          if (attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 2000)); // Esperar 2 segundos antes de tentar de novo
+          }
         }
+        
+        throw new Error('O QR Code demorou muito para ser gerado. Tente atualizar a página.');
       } else {
         set({ connectionStatus: 'disconnected' });
       }
