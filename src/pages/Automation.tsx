@@ -38,6 +38,8 @@ export default function Automation() {
 
   const [friendlyName, setFriendlyName] = React.useState('');
   const [instanceNameInput, setInstanceNameInput] = React.useState('');
+  const [instaUser, setInstaUser] = React.useState('');
+  const [instaPass, setInstaPass] = React.useState('');
   const [channels, setChannels] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showSetupModal, setShowSetupModal] = React.useState<false | 'whatsapp' | 'instagram'>(false);
@@ -69,9 +71,17 @@ export default function Automation() {
     
     showNotification('info', 'Integração', `Iniciando conexão para ${type}...`);
     setShowSetupModal(false);
-    await fetchQRCode(instance, name, null, type, () => {
+    
+    const credentials = type === 'instagram' ? { user: instaUser, pass: instaPass } : undefined;
+    
+    await fetchQRCode(instance, name, null, type, credentials, () => {
       fetchChannels();
     });
+    
+    setFriendlyName('');
+    setInstanceNameInput('');
+    setInstaUser('');
+    setInstaPass('');
     await fetchChannels();
   };
 
@@ -249,11 +259,37 @@ export default function Automation() {
                 <input 
                   type="text" 
                   value={friendlyName}
-                  placeholder="Ex: WhatsApp Loja Gaivota"
+                  placeholder={showSetupModal === 'whatsapp' ? "Ex: WhatsApp Loja Gaivota" : "Ex: Instagram MDR"}
                   onChange={(e) => setFriendlyName(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
                 />
               </div>
+
+              {showSetupModal === 'instagram' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Usuário Instagram</label>
+                    <input 
+                      type="text" 
+                      value={instaUser}
+                      placeholder="seu_usuario"
+                      onChange={(e) => setInstaUser(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Senha Instagram</label>
+                    <input 
+                      type="password" 
+                      value={instaPass}
+                      placeholder="••••••••"
+                      onChange={(e) => setInstaPass(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">ID Técnico (Opcional)</label>
                 <input 

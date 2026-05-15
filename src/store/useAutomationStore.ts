@@ -13,7 +13,7 @@ interface AutomationState {
   setChannelStatus: (instance: string, status: Partial<ChannelStatus>) => void;
   syncAllChannels: () => Promise<void>;
   fetchConnectionStatus: (instance: string) => Promise<void>;
-  fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram', onCreated?: () => void) => Promise<void>;
+  fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram', credentials?: { user?: string; pass?: string }, onCreated?: () => void) => Promise<void>;
   logout: (instance: string) => Promise<void>;
   deleteInstance: (instance: string) => Promise<void>;
 }
@@ -72,7 +72,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     }
   },
 
-  fetchQRCode: async (instance, friendlyName, unitId, type, onCreated) => {
+  fetchQRCode: async (instance, friendlyName, unitId, type, credentials, onCreated) => {
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
     get().setChannelStatus(finalInstanceName, { status: 'connecting', qrCode: null });
 
@@ -99,7 +99,22 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         }
       }
 
-      // 2. Configurar Webhooks para o App Interno
+      // 2. Se for Instagram e tiver credenciais, conectar agora
+      if (type === 'instagram' && credentials?.user && credentials?.pass) {
+        await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY
+          },
+          body: JSON.stringify({
+            username: credentials.user,
+            password: credentials.pass
+          })
+        }).catch(err => console.warn('Erro ao conectar Instagram:', err));
+      }
+
+      // 3. Configurar Webhooks para o App Interno
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: {
