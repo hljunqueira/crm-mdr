@@ -56,6 +56,8 @@ services:
       - DATABASE_ENABLED=true
       - DATABASE_CONNECTION_URI=postgresql://mdr_user:MDR_DB_PASS_2024@db:5432/infra_db?schema=public
       - DATABASE_PROVIDER=postgresql
+      - DATABASE_SAVE_DATA_HISTORY_MESSAGES=false
+      - DATABASE_SAVE_DATA_CHATS=false
       - CONFIG_SESSION_PHONE_VERSION=2.3000.1032750324
       - WA_VERSION=2.3000.1032750324
     volumes:
