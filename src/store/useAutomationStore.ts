@@ -13,7 +13,7 @@ interface AutomationState {
   setChannelStatus: (instance: string, status: Partial<ChannelStatus>) => void;
   syncAllChannels: () => Promise<void>;
   fetchConnectionStatus: (instance: string) => Promise<void>;
-  fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram') => Promise<void>;
+  fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram', onCreated?: () => void) => Promise<void>;
   logout: (instance: string) => Promise<void>;
   deleteInstance: (instance: string) => Promise<void>;
 }
@@ -72,7 +72,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     }
   },
 
-  fetchQRCode: async (instance, friendlyName, unitId, type) => {
+  fetchQRCode: async (instance, friendlyName, unitId, type, onCreated) => {
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
     get().setChannelStatus(finalInstanceName, { status: 'connecting', qrCode: null });
 
@@ -126,6 +126,9 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
           status: 'connecting',
           updated_at: new Date().toISOString()
         }, { onConflict: 'instance_name' });
+        
+        // Avisar a UI que já pode carregar o card
+        if (onCreated) onCreated();
       } catch (dbErr) {
         console.warn('DB Error:', dbErr);
       }

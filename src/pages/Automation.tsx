@@ -69,7 +69,9 @@ export default function Automation() {
     
     showNotification('info', 'Integração', `Iniciando conexão para ${type}...`);
     setShowSetupModal(false);
-    await fetchQRCode(instance, name, null, type);
+    await fetchQRCode(instance, name, null, type, () => {
+      fetchChannels();
+    });
     await fetchChannels();
   };
 
