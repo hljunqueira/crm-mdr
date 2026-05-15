@@ -5,8 +5,8 @@ import { Session, User } from '@supabase/supabase-js';
 interface Profile {
   id: string;
   unit_id: string | null;
-  name: string;
-  role: 'admin' | 'attendant';
+  full_name: string;
+  role: 'admin' | 'attendant' | 'technician';
 }
 
 interface AuthState {
@@ -29,11 +29,16 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error };
     
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', data.user.id)
       .single();
+
+    const profile = profileData ? {
+      ...profileData,
+      unit_id: profileData.store_id // Mapear store_id para unit_id
+    } : null;
 
     set({ session: data.session, user: data.user, profile });
     return { error: null };
@@ -48,12 +53,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
         
+      const profile = profileData ? {
+        ...profileData,
+        unit_id: profileData.store_id // Mapear store_id para unit_id
+      } : null;
+
       set({ session, user: session.user, profile, isLoading: false });
     } else {
       set({ session: null, user: null, profile: null, isLoading: false });
@@ -61,11 +71,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
-        const { data: profile } = await supabase
+        const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
+
+        const profile = profileData ? {
+          ...profileData,
+          unit_id: profileData.store_id // Mapear store_id para unit_id
+        } : null;
+
         set({ session, user: session.user, profile });
       } else {
         set({ session: null, user: null, profile: null });
