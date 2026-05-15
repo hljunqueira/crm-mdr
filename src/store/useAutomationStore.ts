@@ -102,7 +102,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       // 5. Buscar QR Code com polling
       if (type === 'whatsapp') {
         let attempts = 0;
-        const maxAttempts = 30; 
+        const maxAttempts = 60;
 
         while (attempts < maxAttempts) {
           console.log(`Buscando QR Code... Tentativa ${attempts + 1}/${maxAttempts}`);
