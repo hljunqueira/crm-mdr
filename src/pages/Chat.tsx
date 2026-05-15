@@ -134,6 +134,22 @@ export default function Chat() {
               <h2 className="text-xl font-display font-black text-white uppercase mb-6">Iniciar Novo Chat</h2>
               <form onSubmit={handleStartNewChat} className="space-y-4">
                 <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Origem da Mensagem</label>
+                  <select 
+                    value={selectedChannelId || ''} 
+                    onChange={e => setSelectedChannelId(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary outline-none transition-all appearance-none cursor-pointer"
+                    required
+                  >
+                    <option value="" disabled className="bg-surface">Selecione o Canal</option>
+                    {channels.map(c => (
+                      <option key={c.id} value={c.id} className="bg-surface">
+                        {c.type === 'whatsapp' ? '🟢' : '🟣'} {c.name} ({c.type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Nome do Cliente</label>
                   <input 
                     type="text" 
