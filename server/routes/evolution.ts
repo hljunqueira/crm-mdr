@@ -9,6 +9,8 @@ router.all('/*', async (req, res) => {
   const targetPath = req.params[0];
   const targetUrl = `http://evolution:8080/${targetPath}`;
   
+  console.log(`[Proxy] ${req.method} ${targetUrl}`);
+
   try {
     const queryParams = new URLSearchParams(req.query as any).toString();
     const finalUrl = queryParams ? `${targetUrl}?${queryParams}` : targetUrl;
@@ -17,11 +19,13 @@ router.all('/*', async (req, res) => {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
-        'apikey': 'MDR_SECRET_TOKEN_2024'
+        'apikey': 'MDR_SECRET_TOKEN_2024',
+        ...req.headers as any
       },
       body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
     });
 
+    console.log(`[Proxy] Response: ${response.status}`);
     const data = await response.json();
     res.status(response.status).json(data);
   } catch (error) {
