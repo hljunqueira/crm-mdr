@@ -1,16 +1,19 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
-interface AutomationState {
-  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode';
+interface ChannelStatus {
+  status: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode';
   qrCode: string | null;
-  instanceName: string | null;
+  instanceName: string;
+}
 
-  setConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting' | 'loading' | 'qrcode') => void;
-  setQrCode: (qr: string | null) => void;
-
+interface AutomationState {
+  channelStatuses: Record<string, ChannelStatus>;
+  
+  setChannelStatus: (instance: string, status: Partial<ChannelStatus>) => void;
+  syncAllChannels: () => Promise<void>;
   fetchConnectionStatus: (instance: string) => Promise<void>;
-  fetchQRCode: (instance: string, friendlyName: string, unitId: string, type: 'whatsapp' | 'instagram') => Promise<void>;
+  fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram') => Promise<void>;
   logout: (instance: string) => Promise<void>;
   deleteInstance: (instance: string) => Promise<void>;
 }
@@ -18,32 +21,60 @@ interface AutomationState {
 const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
 
 export const useAutomationStore = create<AutomationState>()((set, get) => ({
-  connectionStatus: 'loading',
-  qrCode: null,
-  instanceName: null,
+  channelStatuses: {},
 
-  setConnectionStatus: (status) => set({ connectionStatus: status }),
-  setQrCode: (qr) => set({ qrCode: qr }),
+  setChannelStatus: (instance, status) => set((state) => ({
+    channelStatuses: {
+      ...state.channelStatuses,
+      [instance]: { 
+        ...(state.channelStatuses[instance] || { status: 'loading', qrCode: null, instanceName: instance }), 
+        ...status 
+      }
+    }
+  })),
+
+  syncAllChannels: async () => {
+    try {
+      const { data: channels } = await supabase.from('automation_channels').select('*');
+      if (channels) {
+        for (const channel of channels) {
+          get().fetchConnectionStatus(channel.instance_name);
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing channels:', error);
+    }
+  },
 
   fetchConnectionStatus: async (instance) => {
+    get().setChannelStatus(instance, { status: 'loading' });
     try {
       const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${instance}`, {
         headers: { 'apikey': EVOLUTION_API_KEY }
       });
       const data = await response.json();
-      set({
-        connectionStatus: data.instance?.state === 'open' ? 'connected' : 'disconnected',
+      const isConnected = data.instance?.state === 'open' || data.state === 'open';
+      
+      get().setChannelStatus(instance, { 
+        status: isConnected ? 'connected' : 'disconnected',
         instanceName: instance
       });
+
+      // Se conectou agora, atualiza no banco
+      if (isConnected) {
+        await supabase.from('automation_channels')
+          .update({ status: 'connected' })
+          .eq('instance_name', instance);
+      }
     } catch (error) {
-      console.error('Error fetching connection status:', error);
-      set({ connectionStatus: 'disconnected' });
+      console.error('Error fetching connection status:', error, instance);
+      get().setChannelStatus(instance, { status: 'disconnected' });
     }
   },
 
   fetchQRCode: async (instance, friendlyName, unitId, type) => {
     const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
-    set({ connectionStatus: 'connecting', instanceName: finalInstanceName, qrCode: null });
+    get().setChannelStatus(finalInstanceName, { status: 'connecting', qrCode: null });
 
     try {
       // 1. Criar a instância
@@ -85,10 +116,10 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         })
       }).catch(err => console.warn('Erro ao setar webhook (não fatal):', err));
 
-      // 4. Salvar no Supabase
+      // 4. Salvar no Supabase (Unidade opcional agora)
       try {
         await supabase.from('automation_channels').upsert({
-          unit_id: unitId,
+          unit_id: unitId || null,
           name: friendlyName,
           type: type,
           instance_name: finalInstanceName,
@@ -99,54 +130,43 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         console.warn('DB Error:', dbErr);
       }
 
-      await new Promise(r => setTimeout(r, 5000));
+      await new Promise(r => setTimeout(r, 2000));
 
       // 5. Buscar QR Code com polling
       if (type === 'whatsapp') {
         let attempts = 0;
-        const maxAttempts = 60;
+        const maxAttempts = 30;
 
         while (attempts < maxAttempts) {
-          console.log(`Buscando QR Code... Tentativa ${attempts + 1}/${maxAttempts}`);
           const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
             headers: { 'apikey': EVOLUTION_API_KEY }
           });
           const qrData = await qrRes.json();
-          console.log('Resposta Evolution:', JSON.stringify(qrData, null, 2));
-
+          
           const base64 = qrData.base64 || qrData.qrcode?.base64;
           const state = qrData.instance?.state || qrData.state || qrData.status;
 
           if (state === 'open') {
-            // Persistir no banco que está conectado
             await supabase.from('automation_channels')
               .update({ status: 'connected' })
               .eq('instance_name', finalInstanceName);
 
-            set({ connectionStatus: 'connected', qrCode: null });
-            console.log('Conexão estabelecida com sucesso!');
+            get().setChannelStatus(finalInstanceName, { status: 'connected', qrCode: null });
             return;
           }
 
           if (base64) {
-            set({ qrCode: base64, connectionStatus: 'qrcode' });
-            // Se já temos o QR, não precisamos correr tanto no loop
-            await new Promise(r => setTimeout(r, 2000));
-          } else {
-            await new Promise(r => setTimeout(r, 2000));
+            get().setChannelStatus(finalInstanceName, { qrCode: base64, status: 'qrcode' });
           }
-
+          
+          await new Promise(r => setTimeout(r, 2000));
           attempts++;
         }
-
-        throw new Error('O QR Code demorou muito para ser gerado. Tente atualizar a página.');
-      } else {
-        set({ connectionStatus: 'disconnected' });
+        throw new Error('O QR Code demorou muito. Tente novamente.');
       }
     } catch (error: any) {
       console.error('Error in instance setup:', error);
-      alert('Erro: ' + error.message);
-      set({ connectionStatus: 'disconnected' });
+      get().setChannelStatus(instance, { status: 'disconnected' });
     }
   },
 
@@ -156,7 +176,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         method: 'DELETE',
         headers: { 'apikey': EVOLUTION_API_KEY }
       });
-      set({ connectionStatus: 'disconnected', qrCode: null });
+      get().setChannelStatus(instance, { status: 'disconnected', qrCode: null });
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -167,6 +187,11 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/delete/${instance}`, {
         method: 'DELETE',
         headers: { 'apikey': EVOLUTION_API_KEY }
+      });
+      set((state) => {
+        const newStatuses = { ...state.channelStatuses };
+        delete newStatuses[instance];
+        return { channelStatuses: newStatuses };
       });
     } catch (error) {
       console.error('Error deleting instance:', error);
