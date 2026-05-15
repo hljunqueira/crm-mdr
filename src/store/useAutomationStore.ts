@@ -98,8 +98,8 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         console.warn('DB Error (ignorado para mostrar o QR):', dbErr);
       }
 
-      // Aguardar a instância estabilizar antes de pedir o QR
-      await new Promise(r => setTimeout(r, 3000));
+      // Aguardar a instância estabilizar (Motores v2 precisam de mais tempo)
+      await new Promise(r => setTimeout(r, 5000));
 
       // 5. Buscar QR Code com polling (tentar até 30 vezes - 1 minuto)
       if (type === 'whatsapp') {
