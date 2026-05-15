@@ -89,19 +89,28 @@ export default function Automation() {
       .eq('unit_id', unitId);
     
     if (data) {
-      // Sincronizar status com Evolution API em tempo real para canais pendentes
       const updatedChannels = await Promise.all(data.map(async (channel) => {
         if (channel.status === 'pending' && channel.instance_name) {
           try {
-            const res = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${channel.instance_name}`, {
-              headers: { 'apikey': 'MDR_SECRET_TOKEN_2024' }
-            });
-            const info = await res.json();
-            if (info.instance?.state === 'open') {
-              await supabase.from('automation_channels')
-                .update({ status: 'connected' })
-                .eq('id', channel.id);
-              return { ...channel, status: 'connected' };
+            // Tenta o nome exato e variações comuns caso haja erro de digitação/sufixo
+            const namesToTry = [channel.instance_name];
+            if (!channel.instance_name.endsWith('_zap')) namesToTry.push(`${channel.instance_name}_zap`);
+            
+            for (const name of namesToTry) {
+              const res = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${name}`, {
+                headers: { 'apikey': 'MDR_SECRET_TOKEN_2024' }
+              });
+              
+              if (res.ok) {
+                const info = await res.json();
+                if (info.instance?.state === 'open' || info.state === 'open') {
+                  await supabase.from('automation_channels')
+                    .update({ status: 'connected', instance_name: name })
+                    .eq('id', channel.id);
+                  return { ...channel, status: 'connected', instance_name: name };
+                }
+                break; // Se achou a instância mas não está aberta, não precisa tentar a variação
+              }
             }
           } catch (e) {
             console.warn('Erro ao sincronizar status:', channel.instance_name, e);
