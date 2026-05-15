@@ -79,7 +79,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         body: JSON.stringify({
           url: `https://n8n.mdrinformaticaecelulares.com.br/webhook/crm-automation`,
           enabled: true,
-          webhook_by_events: false,
+          webhook_by_events: true,
           events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"]
         })
       }).catch(err => console.warn('Erro ao setar webhook (não fatal):', err));
