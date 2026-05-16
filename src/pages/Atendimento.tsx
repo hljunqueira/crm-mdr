@@ -108,62 +108,56 @@ export default function Atendimento() {
             {/* Form Background Accent */}
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[80px] -z-10"></div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Type Selection - Integrated into Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Service/Sale Choice - Radio Group */}
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">O que você deseja?</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, type: 'assistencia' })}
-                    className={`flex items-center gap-4 p-5 rounded-3xl border transition-all ${
-                      formData.type === 'assistencia' 
-                      ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(75,226,119,0.15)] text-primary' 
-                      : 'bg-white/5 border-white/10 text-on-surface-variant hover:border-white/20'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${formData.type === 'assistencia' ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
-                      <Wrench size={24} />
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">O que você precisa?</label>
+                <div className="flex gap-6 pl-1">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        type="radio"
+                        name="type"
+                        value="assistencia"
+                        checked={formData.type === 'assistencia'}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        className="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-full checked:border-primary transition-all"
+                      />
+                      <div className="absolute w-2.5 h-2.5 bg-primary rounded-full scale-0 peer-checked:scale-100 transition-transform"></div>
                     </div>
-                    <div className="text-left">
-                      <p className="text-xs font-black uppercase tracking-widest">Reparos</p>
-                      <p className="text-[10px] opacity-60">Assistência Técnica</p>
-                    </div>
-                  </button>
+                    <span className="text-sm font-bold text-on-surface-variant group-hover:text-white transition-colors">Reparos e Assistência</span>
+                  </label>
 
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, type: 'venda' })}
-                    className={`flex items-center gap-4 p-5 rounded-3xl border transition-all ${
-                      formData.type === 'venda' 
-                      ? 'bg-secondary/10 border-secondary shadow-[0_0_20px_rgba(255,255,255,0.05)] text-secondary' 
-                      : 'bg-white/5 border-white/10 text-on-surface-variant hover:border-white/20'
-                    }`}
-                  >
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${formData.type === 'venda' ? 'bg-secondary text-on-secondary' : 'bg-surface-container text-on-surface-variant'}`}>
-                      <ShoppingBag size={24} />
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        type="radio"
+                        name="type"
+                        value="venda"
+                        checked={formData.type === 'venda'}
+                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        className="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-full checked:border-secondary transition-all"
+                      />
+                      <div className="absolute w-2.5 h-2.5 bg-secondary rounded-full scale-0 peer-checked:scale-100 transition-transform"></div>
                     </div>
-                    <div className="text-left">
-                      <p className="text-xs font-black uppercase tracking-widest">Vendas</p>
-                      <p className="text-[10px] opacity-60">Produtos em Geral</p>
-                    </div>
-                  </button>
+                    <span className="text-sm font-bold text-on-surface-variant group-hover:text-white transition-colors">Vendas em Geral</span>
+                  </label>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Identificação</label>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Nome Completo</label>
                   <input 
                     type="text" 
                     required
-                    placeholder="Seu nome" 
+                    placeholder="Como podemos te chamar?" 
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
                   />
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">WhatsApp</label>
                   <input 
                     type="tel" 
@@ -171,64 +165,54 @@ export default function Atendimento() {
                     placeholder="(00) 00000-0000" 
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none" 
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Unidade</label>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Unidade mais próxima</label>
                   <select 
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer"
                   >
                     <option value="Arroio do Silva">Arroio do Silva (Matriz)</option>
                     <option value="Gaivota">Balneário Gaivota (Filial)</option>
                   </select>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
-                    {formData.type === 'assistencia' ? 'Equipamento' : 'Produto de Interesse'}
-                  </label>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Equipamento ou Produto</label>
                   <input
                     type="text"
                     required
-                    placeholder={formData.type === 'assistencia' ? 'Ex: iPhone 13, Notebook Dell...' : 'Ex: iPhone 15, MacBook, Carregador...'}
+                    placeholder="Ex: iPhone 13, MacBook, Carregador..."
                     value={formData.item}
                     onChange={(e) => setFormData({ ...formData, item: e.target.value })}
-                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
-                  {formData.type === 'assistencia' ? 'Relato do Problema' : 'Dúvidas ou Observações'}
-                </label>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Descrição / Relato</label>
                 <textarea 
                   rows={4} 
-                  placeholder={formData.type === 'assistencia' ? 'Descreva o que está acontecendo...' : 'Como podemos te ajudar com esta compra?'} 
+                  required
+                  placeholder="Conte-nos o que você precisa..." 
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
                 ></textarea>
               </div>
 
               <button 
                 type="submit"
                 disabled={loading}
-                className="w-full py-5 bg-primary text-on-primary rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-lg flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
+                className="w-full py-5 bg-primary text-on-primary rounded-2xl font-display font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all text-lg flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {loading ? (
-                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    Iniciar Atendimento
-                    <Send size={20} />
-                  </>
-                )}
+                {loading ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>Enviar Solicitação <Send size={20} /></>}
               </button>
             </form>
           </motion.div>

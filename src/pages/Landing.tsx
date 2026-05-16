@@ -522,46 +522,43 @@ export default function Landing() {
             <div className="glass-card p-10 md:p-14 border border-outline-variant/40 rounded-[56px] relative overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.3)]">
               <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/5 blur-[120px] -z-10"></div>
 
-              <div className="space-y-6 mb-10">
-                <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] pl-1">Inicie seu Atendimento:</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setFormType('assistencia')}
-                    className={`flex items-center gap-4 p-5 rounded-3xl border transition-all ${
-                      formType === 'assistencia' 
-                      ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(75,226,119,0.15)] text-primary' 
-                      : 'bg-white/5 border-white/10 text-on-surface-variant hover:border-white/20'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formType === 'assistencia' ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
-                      <Wrench size={20} />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[10px] font-black uppercase tracking-widest">Reparos</p>
-                    </div>
-                  </button>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Service/Sale Choice - Radio Group */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">O que você precisa?</label>
+                  <div className="flex gap-6 pl-1">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="radio"
+                          name="type"
+                          value="assistencia"
+                          checked={formType === 'assistencia'}
+                          onChange={(e) => setFormType(e.target.value as any)}
+                          className="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-full checked:border-primary transition-all"
+                        />
+                        <div className="absolute w-2.5 h-2.5 bg-primary rounded-full scale-0 peer-checked:scale-100 transition-transform"></div>
+                      </div>
+                      <span className="text-sm font-bold text-on-surface-variant group-hover:text-white transition-colors">Reparos e Assistência</span>
+                    </label>
 
-                  <button
-                    type="button"
-                    onClick={() => setFormType('venda')}
-                    className={`flex items-center gap-4 p-5 rounded-3xl border transition-all ${
-                      formType === 'venda' 
-                      ? 'bg-secondary/10 border-secondary shadow-[0_0_20px_rgba(255,255,255,0.05)] text-secondary' 
-                      : 'bg-white/5 border-white/10 text-on-surface-variant hover:border-white/20'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formType === 'venda' ? 'bg-secondary text-on-secondary' : 'bg-surface-container text-on-surface-variant'}`}>
-                      <ShoppingBag size={20} />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-[10px] font-black uppercase tracking-widest">Vendas</p>
-                    </div>
-                  </button>
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="radio"
+                          name="type"
+                          value="venda"
+                          checked={formType === 'venda'}
+                          onChange={(e) => setFormType(e.target.value as any)}
+                          className="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-full checked:border-secondary transition-all"
+                        />
+                        <div className="absolute w-2.5 h-2.5 bg-secondary rounded-full scale-0 peer-checked:scale-100 transition-transform"></div>
+                      </div>
+                      <span className="text-sm font-bold text-on-surface-variant group-hover:text-white transition-colors">Vendas em Geral</span>
+                    </label>
+                  </div>
                 </div>
-              </div>
 
-              <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Identificação</label>
@@ -600,13 +597,11 @@ export default function Landing() {
                     </select>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
-                      {formType === 'assistencia' ? 'Equipamento' : 'Produto de Interesse'}
-                    </label>
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Equipamento ou Produto</label>
                     <input
                       type="text"
                       required
-                      placeholder={formType === 'assistencia' ? 'Ex: Macbook Pro 2020' : 'Ex: iPhone, Tablet, Acessórios...'}
+                      placeholder="Ex: iPhone, MacBook, Carregador..."
                       value={formData.device}
                       onChange={(e) => setFormData({ ...formData, device: e.target.value })}
                       className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
@@ -614,37 +609,23 @@ export default function Landing() {
                   </div>
                 </div>
 
-                {formType === 'assistencia' ? (
-                  <div className="space-y-3 animate-in fade-in duration-500">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Relato Técnico</label>
-                    <textarea 
-                      rows={5} 
-                      placeholder="O que está acontecendo com seu dispositivo?" 
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
-                    ></textarea>
-                  </div>
-                ) : (
-                  <div className="space-y-3 animate-in fade-in duration-500">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
-                      {formType === 'assistencia' ? 'Relato Técnico' : 'Mensagem / Observações'}
-                    </label>
-                    <textarea 
-                      rows={5} 
-                      placeholder={formType === 'assistencia' ? 'O que está acontecendo com seu dispositivo?' : 'Como podemos te ajudar com esta compra?'}
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
-                    ></textarea>
-                  </div>
-                )}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Descrição / Relato</label>
+                  <textarea 
+                    rows={5} 
+                    required
+                    placeholder="Conte-nos detalhadamente o que você precisa..." 
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
+                  ></textarea>
+                </div>
 
                 <button 
                   type="submit"
                   className="w-full py-6 bg-primary text-on-primary rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-xl"
                 >
-                  Iniciar Atendimento
+                  Enviar Solicitação
                 </button>
               </form>
             </div>
