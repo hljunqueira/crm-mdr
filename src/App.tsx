@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { UIProvider } from './context/UIContext';
 import AppLayout from './components/layout/AppLayout';
 import Landing from './pages/Landing';
+import Atendimento from './pages/Atendimento';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
@@ -31,6 +32,7 @@ export default function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landing />} />
+          <Route path="/atendimento" element={<Atendimento />} />
           <Route path="/login" element={<Login />} />
           
           {/* App protected routes */}

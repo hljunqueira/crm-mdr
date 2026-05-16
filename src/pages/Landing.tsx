@@ -163,9 +163,9 @@ export default function Landing() {
             <Link to="/login" className="text-[11px] uppercase font-bold tracking-widest text-on-surface-variant hover:text-on-surface">
               Acesso Restrito
             </Link>
-            <a href="#contato" className="px-6 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+            <Link to="/atendimento" className="px-6 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
               Orçamento Online
-            </a>
+            </Link>
           </motion.div>
         </div>
       </nav>
@@ -201,10 +201,10 @@ export default function Landing() {
               transition={{ delay: 0.4 }}
             >
               <div className="flex flex-col sm:flex-row items-center gap-5 pt-6">
-                <a href="#contato" className="w-full sm:w-auto px-10 py-5 bg-primary text-on-primary rounded-2xl text-lg font-black uppercase tracking-widest shadow-2xl shadow-primary/40 flex items-center justify-center gap-4 hover:scale-105 transition-all group">
+                <Link to="/atendimento" className="w-full sm:w-auto px-10 py-5 bg-primary text-on-primary rounded-2xl text-lg font-black uppercase tracking-widest shadow-2xl shadow-primary/40 flex items-center justify-center gap-4 hover:scale-105 transition-all group">
                   Solicitar Orçamento
                   <ArrowRight size={24} className="group-hover:translate-x-1 transition-transform" />
-                </a>
+                </Link>
                 <button 
                   onClick={() => setShowWhatsappModal(true)}
                   className="w-full sm:w-auto px-10 py-5 bg-surface-container-low border border-outline-variant/50 text-on-surface rounded-2xl text-lg font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-4 group"
@@ -522,25 +522,43 @@ export default function Landing() {
             <div className="glass-card p-10 md:p-14 border border-outline-variant/40 rounded-[56px] relative overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.3)]">
               <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/5 blur-[120px] -z-10"></div>
 
-              <div className="space-y-4 mb-10">
-                <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em] pl-1">Escolha o serviço desejado:</p>
-                <div className="flex p-1 bg-white/5 rounded-[24px] gap-1 border border-white/5">
+              <div className="space-y-6 mb-10">
+                <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] pl-1">Inicie seu Atendimento:</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
+                    type="button"
                     onClick={() => setFormType('assistencia')}
-                    className={`flex-1 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${formType === 'assistencia' ? 'bg-white text-black shadow-xl scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                    className={`flex items-center gap-4 p-5 rounded-3xl border transition-all ${
+                      formType === 'assistencia' 
+                      ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(75,226,119,0.15)] text-primary' 
+                      : 'bg-white/5 border-white/10 text-on-surface-variant hover:border-white/20'
+                    }`}
                   >
-                    Reparos e Assistência
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formType === 'assistencia' ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+                      <Wrench size={20} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black uppercase tracking-widest">Reparos</p>
+                    </div>
                   </button>
+
                   <button
+                    type="button"
                     onClick={() => setFormType('venda')}
-                    className={`flex-1 py-4 rounded-[20px] text-[11px] font-black uppercase tracking-widest transition-all ${formType === 'venda' ? 'bg-white text-black shadow-xl scale-[1.02]' : 'text-on-surface-variant hover:text-white'}`}
+                    className={`flex items-center gap-4 p-5 rounded-3xl border transition-all ${
+                      formType === 'venda' 
+                      ? 'bg-secondary/10 border-secondary shadow-[0_0_20px_rgba(255,255,255,0.05)] text-secondary' 
+                      : 'bg-white/5 border-white/10 text-on-surface-variant hover:border-white/20'
+                    }`}
                   >
-                    Venda de Celular
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formType === 'venda' ? 'bg-secondary text-on-secondary' : 'bg-surface-container text-on-surface-variant'}`}>
+                      <ShoppingBag size={20} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-[10px] font-black uppercase tracking-widest">Vendas</p>
+                    </div>
                   </button>
                 </div>
-                <p className="text-[10px] text-on-surface-variant/60 font-medium italic pl-1">
-                  {formType === 'assistencia' ? '* Preencha os detalhes do seu aparelho para conserto.' : '* Consulte modelos disponíveis e condições de parcelamento.'}
-                </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
@@ -583,12 +601,12 @@ export default function Landing() {
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
-                      {formType === 'assistencia' ? 'Equipamento' : 'Preferência de Modelo'}
+                      {formType === 'assistencia' ? 'Equipamento' : 'Produto de Interesse'}
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder={formType === 'assistencia' ? 'Ex: Macbook Pro 2020' : 'Ex: iPhone 14 Pro Max'}
+                      placeholder={formType === 'assistencia' ? 'Ex: Macbook Pro 2020' : 'Ex: iPhone, Tablet, Acessórios...'}
                       value={formData.device}
                       onChange={(e) => setFormData({ ...formData, device: e.target.value })}
                       className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none"
@@ -608,32 +626,17 @@ export default function Landing() {
                     ></textarea>
                   </div>
                 ) : (
-                  <div className="space-y-6 animate-in fade-in duration-500">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Estado de Interesse</label>
-                      <div className="grid grid-cols-2 gap-4">
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({ ...formData, message: 'Interesse em Novo Lacrado' })}
-                          className={`py-4 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.message === 'Interesse em Novo Lacrado' ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant/50 hover:border-primary'}`}
-                        >
-                          Novo Lacrado
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => setFormData({ ...formData, message: 'Interesse em Seminovo Premium' })}
-                          className={`py-4 border rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${formData.message === 'Interesse em Seminovo Premium' ? 'border-primary bg-primary/10 text-primary' : 'border-outline-variant/50 hover:border-primary'}`}
-                        >
-                          Seminovo Premium
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl">
-                      <p className="text-[11px] font-black text-white uppercase tracking-widest mb-2">Consulta Automática</p>
-                      <p className="text-xs text-on-surface-variant leading-relaxed">
-                        Ao solicitar o catálogo, enviaremos as fotos reais e a saúde da bateria dos modelos disponíveis em estoque no momento.
-                      </p>
-                    </div>
+                  <div className="space-y-3 animate-in fade-in duration-500">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">
+                      {formType === 'assistencia' ? 'Relato Técnico' : 'Mensagem / Observações'}
+                    </label>
+                    <textarea 
+                      rows={5} 
+                      placeholder={formType === 'assistencia' ? 'O que está acontecendo com seu dispositivo?' : 'Como podemos te ajudar com esta compra?'}
+                      value={formData.message}
+                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none"
+                    ></textarea>
                   </div>
                 )}
 
@@ -641,7 +644,7 @@ export default function Landing() {
                   type="submit"
                   className="w-full py-6 bg-primary text-on-primary rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-xl"
                 >
-                  {formType === 'assistencia' ? 'Iniciar Diagnóstico' : 'Receber Catálogo'}
+                  Iniciar Atendimento
                 </button>
               </form>
             </div>
