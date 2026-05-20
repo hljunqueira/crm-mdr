@@ -65,9 +65,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     try {
       let query = supabase.from('automation_channels').select('*');
       
-      // Se não for admin e tiver unitId, filtra apenas canais da unidade do usuário
+      // Se não for admin e tiver unitId, filtra apenas canais da unidade do usuário ou canais globais
       if (role !== 'admin' && unitId) {
-        query = query.eq('unit_id', unitId);
+        query = query.or(`unit_id.eq.${unitId},unit_id.is.null`);
       }
       
       const { data, error } = await query;

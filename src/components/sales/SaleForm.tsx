@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText } from 'lucide-react';
+import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Plus, X, Gift, ShoppingBag } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
 import { useSaleStore, Sale } from '../../store/useSaleStore';
@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useUnitStore } from '../../store/useUnitStore';
 import { printElement } from '../../lib/utils';
 import ContractPrint from './ContractPrint';
+import SaleReceiptPrint from './SaleReceiptPrint';
 
 const INSTALLMENT_COEFFICIENTS: Record<'crediario' | 'card', Record<number, number>> = {
   crediario: {
@@ -50,11 +51,86 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     first_due_date: initialData?.date || new Date().toISOString().split('T')[0],
     device_color: initialData?.device_color || '',
     accessories: initialData?.accessories || '',
-    payment_type: initialData?.payment_type || 'crediario',
-    service_fee: initialData?.service_fee && (initialData?.original_price || initialData?.total_value) 
-      ? (initialData.service_fee / (initialData.original_price || initialData.total_value) * 100) 
-      : 0
+    payment_type: initialData?.payment_type || 'crediario'
   });
+
+  // ─── Accessories from inventory ─────────────────────────────────────
+  type SelectedAccessory = {
+    id: string;
+    model: string;
+    price: number;
+    type: 'brinde' | 'venda';
+    quantity: number;
+    stockItem: typeof inventory[0];
+  };
+
+  const [selectedAccessories, setSelectedAccessories] = useState<SelectedAccessory[]>([]);
+  const [accessoryDropdownOpen, setAccessoryDropdownOpen] = useState(false);
+  const [accessorySearch, setAccessorySearch] = useState('');
+
+  // Items available as accessories (with stock, excluding the selected device)
+  const availableAccessories = useMemo(() =>
+    inventory.filter(item =>
+      item.id !== formData.device_id &&
+      (item.stock_quantity || 0) > 0
+    ),
+  [inventory, formData.device_id]);
+
+  const filteredAccessories = useMemo(() =>
+    availableAccessories.filter(item =>
+      item.model.toLowerCase().includes(accessorySearch.toLowerCase()) ||
+      item.brand.toLowerCase().includes(accessorySearch.toLowerCase())
+    ),
+  [availableAccessories, accessorySearch]);
+
+  const addAccessory = (item: typeof inventory[0]) => {
+    // Don't add duplicates
+    if (selectedAccessories.find(a => a.id === item.id)) return;
+    setSelectedAccessories(prev => [...prev, {
+      id: item.id,
+      model: item.model,
+      price: item.price,
+      type: 'brinde', // default to brinde
+      quantity: 1,
+      stockItem: item
+    }]);
+    setAccessoryDropdownOpen(false);
+    setAccessorySearch('');
+  };
+
+  const removeAccessory = (id: string) => {
+    setSelectedAccessories(prev => prev.filter(a => a.id !== id));
+  };
+
+  const toggleAccessoryType = (id: string) => {
+    setSelectedAccessories(prev => prev.map(a =>
+      a.id === id ? { ...a, type: a.type === 'brinde' ? 'venda' : 'brinde' } : a
+    ));
+  };
+
+  const [customDueDates, setCustomDueDates] = useState<string[]>([]);
+
+  const handleDueDateChange = (idx: number, val: string) => {
+    setCustomDueDates(prev => {
+      const copy = [...prev];
+      copy[idx] = val;
+      return copy;
+    });
+  };
+
+  // Initialize and update due dates based on base date and installment count
+  React.useEffect(() => {
+    if (formData.first_due_date && formData.installments > 0) {
+      const dates: string[] = [];
+      const baseDate = new Date(formData.first_due_date + 'T12:00:00'); // Use noon to avoid timezone issues
+      for (let i = 1; i <= formData.installments; i++) {
+        const dueDate = new Date(baseDate);
+        dueDate.setMonth(baseDate.getMonth() + (i - 1));
+        dates.push(dueDate.toISOString().split('T')[0]);
+      }
+      setCustomDueDates(dates);
+    }
+  }, [formData.first_due_date, formData.installments]);
 
   const availableDevices = useMemo(() => 
     inventory.filter(item => item.status === 'available' || (item.stock_quantity || 0) > 0), 
@@ -83,28 +159,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
-  // MDR Fee Logic from Commercial Conditions
-  const suggestedFee = useMemo(() => {
-    const price = formData.total_value;
-    const hasDownPayment = formData.down_payment > 0;
-    
-    if (price <= 0) return 0;
-    if (price <= 2000) return hasDownPayment ? 0.05 : 0.08;
-    if (price <= 3000) return hasDownPayment ? 0.08 : 0.10;
-    if (price <= 3500) return 0.15;
-    return 0.18;
-  }, [formData.total_value, formData.down_payment]);
-
-  // Update manual fee when price changes significantly if it was 0 or same as previous suggested
-  React.useEffect(() => {
-    if (!initialData) {
-      setFormData(prev => ({ ...prev, service_fee: suggestedFee * 100 }));
-    }
-  }, [suggestedFee, initialData]);
-
-  const feePercentage = formData.service_fee / 100;
-  const feeValue = formData.total_value * feePercentage;
-  const finalValue = formData.total_value + feeValue;
+  // MDR Coefficient Calculations
+  const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card';
+  const installmentCount = formData.installments || 1;
+  const baseCoefficient = INSTALLMENT_COEFFICIENTS[paymentType]?.[installmentCount] || (1 / installmentCount);
 
   const minDownPayment = useMemo(() => {
     if (!selectedCustomer) return 0;
@@ -115,22 +173,39 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [selectedCustomer, formData.total_value]);
 
   const riskMultiplier = useMemo(() => {
-    if (!selectedCustomer) return 1.00;
+    if (paymentType === 'card' || !selectedCustomer) return 1.00;
     const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
     if (classification === 'RUIM') return 1.15;
     if (classification === 'MEDIO') return 1.05;
     return 1.00;
-  }, [selectedCustomer]);
+  }, [selectedCustomer, paymentType]);
 
   const installmentValue = useMemo(() => {
-    const financed = finalValue - formData.down_payment;
+    const financed = formData.total_value - formData.down_payment;
     if (financed <= 0) return 0;
-    const type = (formData.payment_type || 'crediario') as 'crediario' | 'card';
-    const count = formData.installments || 1;
-    const baseCoeff = INSTALLMENT_COEFFICIENTS[type]?.[count] || (1 / count);
-    const finalCoeff = baseCoeff * riskMultiplier;
+    const finalCoeff = baseCoefficient * riskMultiplier;
     return financed * finalCoeff;
-  }, [finalValue, formData.down_payment, formData.installments, formData.payment_type, riskMultiplier]);
+  }, [formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
+
+  const totalInstallmentsValue = useMemo(() => {
+    return installmentValue * installmentCount;
+  }, [installmentValue, installmentCount]);
+
+  // Only 'venda' accessories add to the total price
+  const accessoriesTotal = useMemo(() =>
+    selectedAccessories
+      .filter(a => a.type === 'venda')
+      .reduce((sum, a) => sum + a.price * a.quantity, 0),
+  [selectedAccessories]);
+
+  const finalValue = useMemo(() => {
+    return formData.down_payment + totalInstallmentsValue + accessoriesTotal;
+  }, [formData.down_payment, totalInstallmentsValue, accessoriesTotal]);
+
+  const feeValue = useMemo(() => {
+    // Interest = final value minus base device price (accessories 'venda' are transparent cost)
+    return Math.max(0, finalValue - formData.total_value - accessoriesTotal);
+  }, [finalValue, formData.total_value, accessoriesTotal]);
 
   const availableInstallmentOptions = useMemo(() => {
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -139,23 +214,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const generatedInstallments = useMemo(() => {
     if (!formData.customer_id || formData.total_value <= 0) return [];
 
-    const preview: any[] = [];
-    const baseDate = new Date(formData.first_due_date);
-
-    for (let i = 1; i <= formData.installments; i++) {
-      const dueDate = new Date(baseDate);
-      dueDate.setMonth(baseDate.getMonth() + (i - 1));
-      
-      preview.push({
-        number: i,
-        total: formData.installments,
-        value: installmentValue,
-        dueDate: dueDate.toISOString().split('T')[0],
-        status: 'pending'
-      });
-    }
-    return preview;
-  }, [formData, installmentValue]);
+    return customDueDates.map((dueDate, idx) => ({
+      number: idx + 1,
+      total: formData.installments,
+      value: installmentValue,
+      dueDate: dueDate,
+      status: 'pending'
+    }));
+  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, customDueDates]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,8 +243,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     }
 
     try {
+      // Build accessories string for DB
+      const accessoriesStr = selectedAccessories.length > 0
+        ? selectedAccessories.map(a => `${a.model} (${a.type === 'brinde' ? 'Brinde' : `Venda R$${a.price.toFixed(2)}`})`).join(', ')
+        : formData.accessories;
+
       if (initialData) {
-        // Update existing sale
         await updateSale(initialData.id, {
           customer_id: formData.customer_id,
           device_model: formData.device_model,
@@ -190,14 +260,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           installments: formData.installments,
           date: formData.first_due_date,
           device_color: formData.device_color,
-          accessories: formData.accessories,
+          accessories: accessoriesStr,
           payment_type: formData.payment_type as any
         });
-        
         showNotification('success', 'Venda Atualizada');
         onSuccess();
       } else {
-        // Create new sale
         const newSale: any = await addSale({
           unit_id: profile?.unit_id || undefined,
           customer_id: formData.customer_id,
@@ -211,17 +279,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           installments: formData.installments,
           date: formData.first_due_date,
           device_color: formData.device_color,
-          accessories: formData.accessories,
+          accessories: accessoriesStr,
           status: 'completed',
           payment_type: formData.payment_type as any
         });
 
-        // 2. Mark Device as Sold if applicable
+        // Mark main device as sold
         if (formData.device_id) {
           await updateItem(formData.device_id, { status: 'sold' });
         }
 
-        // 3. Create Installments
+        // Deduct stock for all accessories (both brinde and venda)
+        for (const acc of selectedAccessories) {
+          const currentStock = acc.stockItem.stock_quantity || 0;
+          const newQty = Math.max(0, currentStock - acc.quantity);
+          await updateItem(acc.id, {
+            stock_quantity: newQty,
+            ...(newQty === 0 ? { status: 'sold' as const } : {})
+          });
+        }
+
+        // Create installments
         if (newSale?.id && formData.installments > 0) {
           const installmentsToCreate = generatedInstallments.map(inst => ({
             unit_id: profile?.unit_id || undefined,
@@ -235,7 +313,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           }));
           await addInstallments(installmentsToCreate);
         }
-        
+
         showNotification('success', 'Venda Registrada');
         setIsSuccess(true);
       }
@@ -245,6 +323,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   };
 
   if (isSuccess && selectedCustomer) {
+    const saleDataForPrint = {
+      ...formData,
+      date: formData.first_due_date,
+      total_value: finalValue,
+      original_price: formData.total_value,
+      service_fee: feeValue
+    };
     return (
       <div className="text-center py-12 space-y-8 animate-in zoom-in duration-500">
         <div className="w-24 h-24 bg-success/10 rounded-[32px] flex items-center justify-center mx-auto border border-success/20 text-success">
@@ -254,14 +339,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <h2 className="text-3xl font-black text-white uppercase tracking-tight">Venda Realizada!</h2>
           <p className="text-on-surface-variant font-display">O registro foi concluído e o estoque atualizado.</p>
         </div>
+        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 max-w-sm mx-auto text-left">
+          <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Resumo</p>
+          <p className="text-sm text-white font-black">{formData.installments}x de R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <p className="text-[10px] text-on-surface-variant">Total: R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Entrada: R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        </div>
 
-        <div className="grid grid-cols-1 gap-4 max-w-sm mx-auto">
+        <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
           <button 
             onClick={() => printElement('sale-contract')}
-            className="w-full py-5 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
+            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
           >
-            <FileText size={20} />
+            <FileText size={18} />
             Imprimir Contrato
+          </button>
+
+          <button 
+            onClick={() => printElement('sale-receipt')}
+            className="w-full py-4 bg-primary/10 border border-primary/30 text-primary rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/20 transition-all flex items-center justify-center gap-3"
+          >
+            <Receipt size={18} />
+            Imprimir Nota de Venda
           </button>
           
           <button 
@@ -269,21 +367,24 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               onSuccess();
               hideModal();
             }}
-            className="w-full py-5 bg-white/5 border border-white/10 text-on-surface-variant rounded-2xl font-black uppercase tracking-widest text-xs hover:text-white transition-all"
+            className="w-full py-4 bg-white/5 border border-white/10 text-on-surface-variant rounded-2xl font-black uppercase tracking-widest text-xs hover:text-white transition-all"
           >
             Fechar e Voltar
           </button>
         </div>
 
-        {/* Hidden Printable Component */}
+        {/* Hidden Printable Components */}
         <ContractPrint 
-          sale={{
-            ...formData,
-            date: formData.first_due_date,
-            total_value: finalValue
-          }}
+          sale={saleDataForPrint}
           customer={selectedCustomer}
           unit={unit || { name: 'MDR Informática' }}
+          installmentValue={installmentValue}
+        />
+        <SaleReceiptPrint
+          sale={saleDataForPrint}
+          customer={selectedCustomer}
+          unit={unit || { name: 'MDR Informática' }}
+          installmentValue={installmentValue}
         />
       </div>
     );
@@ -399,6 +500,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
+          {formData.device_id && <p className="text-[10px] text-on-surface-variant pl-1 opacity-60">Preenchido do estoque — edite se necessário</p>}
         </div>
 
         <div className="space-y-2">
@@ -474,15 +576,104 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="md:col-span-2 space-y-3">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>
-          <input 
-            type="text" 
-            placeholder="Ex: Cabo, Carregador, Capinha"
-            value={formData.accessories}
-            onChange={(e) => setFormData(prev => ({ ...prev, accessories: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-          />
+
+          {/* Selected accessories list */}
+          {selectedAccessories.length > 0 && (
+            <div className="space-y-2">
+              {selectedAccessories.map(acc => (
+                <div key={acc.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-white truncate">{acc.model}</p>
+                    <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  {/* Brinde / Venda toggle */}
+                  <button
+                    type="button"
+                    onClick={() => toggleAccessoryType(acc.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                      acc.type === 'brinde'
+                        ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
+                        : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
+                    }`}
+                  >
+                    {acc.type === 'brinde' ? <Gift size={11} /> : <ShoppingBag size={11} />}
+                    {acc.type === 'brinde' ? 'Brinde' : 'Venda'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeAccessory(acc.id)}
+                    className="p-1.5 text-on-surface-variant hover:text-error transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add accessory dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setAccessoryDropdownOpen(prev => !prev)}
+              className="w-full flex items-center gap-3 px-5 py-3.5 bg-white/5 border border-dashed border-white/20 rounded-2xl text-[10px] font-black text-on-surface-variant hover:text-white hover:border-white/40 transition-all"
+            >
+              <Plus size={14} />
+              Buscar acessório do estoque
+              {availableAccessories.length > 0 && (
+                <span className="ml-auto text-[8px] bg-white/10 px-2 py-0.5 rounded-full">{availableAccessories.length} disponíveis</span>
+              )}
+            </button>
+
+            {accessoryDropdownOpen && (
+              <div className="absolute z-20 top-full mt-2 w-full bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                <div className="p-3 border-b border-white/5">
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome ou marca..."
+                    value={accessorySearch}
+                    onChange={e => setAccessorySearch(e.target.value)}
+                    autoFocus
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {filteredAccessories.length === 0 ? (
+                    <p className="text-[10px] text-on-surface-variant text-center p-4">Nenhum item encontrado no estoque</p>
+                  ) : (
+                    filteredAccessories.map(item => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => addAccessory(item)}
+                        disabled={!!selectedAccessories.find(a => a.id === item.id)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 text-left transition-all disabled:opacity-40"
+                      >
+                        <div>
+                          <p className="text-xs font-black text-white">{item.model}</p>
+                          <p className="text-[9px] text-on-surface-variant">{item.brand} · Estoque: {item.stock_quantity}</p>
+                        </div>
+                        <span className="text-xs font-black text-primary font-mono">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {selectedAccessories.length > 0 && (
+            <div className="flex items-center justify-between text-[10px] px-1">
+              <span className="text-on-surface-variant">
+                {selectedAccessories.filter(a => a.type === 'brinde').length} brinde(s) · {selectedAccessories.filter(a => a.type === 'venda').length} venda(s)
+              </span>
+              {accessoriesTotal > 0 && (
+                <span className="text-green-400 font-black">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adicionado ao total</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -497,26 +688,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base</p>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
               <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Taxa de Serviço (%)</p>
-              <div className="relative group">
-                <input 
-                  type="number"
-                  step="0.1"
-                  value={formData.service_fee}
-                  onChange={(e) => setFormData(prev => ({ ...prev, service_fee: Number(e.target.value) }))}
-                  className="w-20 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-black text-primary font-mono focus:border-primary outline-none transition-all"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-primary/40 pointer-events-none group-focus-within:opacity-0 transition-opacity">%</span>
-              </div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Índice ({formData.installments}x)</p>
+              <p className="text-sm font-black text-primary font-mono">{(baseCoefficient * riskMultiplier).toFixed(6)}</p>
             </div>
             <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Acréscimo (R$)</p>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Juros/Serviço (R$)</p>
               <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>
@@ -524,6 +706,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
+          {accessoriesTotal > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
+              <ShoppingBag size={14} className="text-green-400 shrink-0" />
+              <span className="text-on-surface-variant">Acessórios (venda):</span>
+              <span className="text-green-400 font-black font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span className="text-on-surface-variant ml-auto text-[10px]">incluídos no Valor Final</span>
+            </div>
+          )}
 
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
             <div>
@@ -536,13 +726,21 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-            {generatedInstallments.slice(0, 4).map((inst, i) => (
-              <div key={i} className="bg-white/5 p-3 rounded-2xl border border-white/5 text-center">
-                <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}</p>
-                <p className="text-[10px] font-black text-white">{new Date(inst.dueDate!).toLocaleDateString('pt-BR')}</p>
-              </div>
-            ))}
+          <div>
+            <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas individualmente:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {generatedInstallments.map((inst, i) => (
+                <div key={i} className="bg-white/5 p-3 rounded-2xl border border-white/5">
+                  <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Parcela {inst.number}/{formData.installments}</p>
+                  <input
+                    type="date"
+                    value={customDueDates[i] || ''}
+                    onChange={(e) => handleDueDateChange(i, e.target.value)}
+                    className="w-full bg-transparent border border-white/10 rounded-xl px-2 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

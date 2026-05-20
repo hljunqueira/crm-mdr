@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; 
 import { 
   TrendingUp, CreditCard, AlertCircle, CheckCircle2, Filter, 
   Search, Download, Calendar, DollarSign, ArrowUpRight, 
   ArrowDownRight, Smartphone, ShieldAlert, MessageSquare, 
-  FileText, Plus, Loader2, ChevronDown, ChevronUp
+  FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
+  X, Copy, Check, Printer, Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
+import { useCustomerStore } from '../store/useCustomerStore';
+import { useUnitStore } from '../store/useUnitStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -22,14 +25,195 @@ interface CustomerGroup {
   totalCount: number;
 }
 
+// PIX defaults — overridden by unit settings
+const DEFAULT_PIX_KEY = '';
+const DEFAULT_PIX_NAME = 'MDR Informática & Celulares';
+const DEFAULT_PIX_PHONE = '';
+
+// Boleto/PIX Print Modal Component
+function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
+  item?: Installment;
+  onClose: () => void;
+  pixKey: string;
+  pixName: string;
+  pixPhone: string;
+}) {
+  const [copiedPix, setCopiedPix] = useState(false);
+
+  const copyPix = async () => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      setCopiedPix(true);
+      setTimeout(() => setCopiedPix(false), 3000);
+    } catch {}
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <div>
+            <h2 className="text-sm font-black text-white uppercase tracking-widest">Pagamento</h2>
+            <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest opacity-60 mt-0.5">
+              {item ? `Parcela ${item.number}/${item.total} — ${item.customer_name}` : 'Recebimento de Parcela'}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Amount */}
+        {item && (
+          <div className="px-6 pt-4 pb-0">
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Valor a Receber</p>
+              <p className="text-3xl font-black text-white font-mono">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-[10px] text-on-surface-variant mt-1">Vencimento: {new Date(item.due_date).toLocaleDateString('pt-BR')}</p>
+            </div>
+          </div>
+        )}
+
+        {/* PIX Section */}
+        <div className="p-6 space-y-4">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
+                <QrCode size={16} className="text-green-400" />
+              </div>
+              <div>
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black">PIX Instantâneo</p>
+                <p className="text-xs text-white font-black">Chave CNPJ</p>
+              </div>
+            </div>
+
+            {/* QR Code Placeholder — visual representation */}
+            <div className="flex justify-center">
+              <div className="bg-white p-4 rounded-2xl" style={{ width: 160, height: 160 }}>
+                <svg viewBox="0 0 100 100" width="100%" height="100%">
+                  {/* Simplified QR-like pattern for visual effect */}
+                  {[0,30,70].map(x => [0,30,70].map(y => (
+                    <rect key={`${x}-${y}`} x={x} y={y} width="25" height="25" fill="#1a1a2e" rx="2"/>
+                  )))}
+                  {/* Inner squares */}
+                  {[4,34,74].map(x => [4,34,74].map(y => (
+                    <rect key={`i${x}-${y}`} x={x} y={y} width="17" height="17" fill="white" rx="1"/>
+                  )))}
+                  {[8,38,78].map(x => [8,38,78].map(y => (
+                    <rect key={`ii${x}-${y}`} x={x} y={y} width="9" height="9" fill="#6C63FF" rx="1"/>
+                  )))}
+                  {/* Data dots */}
+                  {[30,35,40,45,50,55,60,65,70].map((x, xi) =>
+                    [5,10,15,20,25].map((y, yi) =>
+                      (xi + yi) % 2 === 0 ? <rect key={`d${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5"/> : null
+                    )
+                  )}
+                  {[5,10,15,20,25].map((x, xi) =>
+                    [30,35,40,45,50,55,60,65,70].map((y, yi) =>
+                      (xi + yi) % 3 === 0 ? <rect key={`e${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5"/> : null
+                    )
+                  )}
+                  {[30,35,40,45,50,55,60,65].map((x, xi) =>
+                    [30,35,40,45,50,55,60,65].map((y, yi) =>
+                      (xi * yi) % 3 !== 1 ? <rect key={`f${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5"/> : null
+                    )
+                  )}
+                  {/* MDR text in center */}
+                  <text x="50" y="55" textAnchor="middle" fontSize="8" fontWeight="900" fill="#6C63FF" fontFamily="Arial">MDR</text>
+                </svg>
+              </div>
+            </div>
+
+            {/* PIX Key */}
+            <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Chave PIX ({pixKey ? 'Configurada' : 'não configurada'})</p>
+              <div className="flex items-center justify-between gap-3">
+                <code className="text-xs text-white font-mono">{pixKey || 'Configure nas Configurações da loja'}</code>
+                {pixKey && (
+                  <button
+                    onClick={copyPix}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
+                  >
+                    {copiedPix ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedPix ? 'Copiado!' : 'Copiar'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[9px] text-on-surface-variant text-center">
+              Beneficiário: <strong className="text-white">{pixName}</strong>
+            </p>
+          </div>
+
+          {/* Actions */}
+          <button
+            onClick={handlePrint}
+            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+          >
+            <Printer size={16} />
+            Imprimir / Salvar PDF
+          </button>
+        </div>
+
+        {/* Print-only styles */}
+        <style>{`
+          @media print {
+            body > *:not(.pix-boleto-print-wrapper) { display: none !important; }
+            .pix-boleto-print-wrapper { display: block !important; }
+          }
+        `}</style>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Finance() {
   const [activeTab, setActiveTab] = useState<'receivables' | 'overdue'>('receivables');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
+  const [pixModalItem, setPixModalItem] = useState<Installment | null | undefined>(undefined); // undefined = closed
+  const [sendingWa, setSendingWa] = useState<string | null>(null);
   
   const { installments, markAsPaid, markAsBlocked, fetchInstallments, isLoading } = useFinanceStore();
+  const { customers } = useCustomerStore();
+  const { unit } = useUnitStore();
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
+
+  // Derive PIX data from unit settings (with fallbacks)
+  const pixKey = unit?.pix_key || unit?.cnpj || '';
+  const pixName = unit?.name || DEFAULT_PIX_NAME;
+  const pixPhone = unit?.phone || DEFAULT_PIX_PHONE;
+
+  // ─── Late-payment fee calculator ───────────────────────────────────────
+  // Contract terms: 2% multa + 1% per month interest after due date
+  const calculateOverdueFees = (inst: Installment) => {
+    if (inst.status !== 'overdue' && inst.status !== 'blocked') {
+      return { multa: 0, juros: 0, total: inst.value, daysLate: 0 };
+    }
+    const dueDate = new Date(inst.due_date);
+    const today = new Date();
+    const diffMs = today.getTime() - dueDate.getTime();
+    const daysLate = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    const monthsLate = daysLate / 30;
+    const multa = inst.value * 0.02;                  // 2% one-time fine
+    const juros = inst.value * 0.01 * monthsLate;    // 1% per month pro-rata
+    const total = inst.value + multa + juros;
+    return { multa, juros, total, daysLate };
+  };
 
   useEffect(() => {
     fetchInstallments(profile?.unit_id || undefined);
@@ -111,20 +295,49 @@ export default function Finance() {
   };
 
   const handlePayment = (item: Installment) => {
+    const fees = calculateOverdueFees(item);
+    const isOverdue = item.status === 'overdue' || item.status === 'blocked';
     showModal({
-      title: 'Confirmar Pagamento',
+      title: isOverdue ? 'Recebimento com Mora' : 'Confirmar Pagamento',
       children: (
         <div className="space-y-4">
-          <p className="text-sm">Deseja confirmar o recebimento da parcela <span className="text-white font-black">{item.number}/{item.total}</span> de <span className="text-white font-black">{item.customer_name}</span>?</p>
-          <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-on-surface-variant uppercase tracking-widest font-black">Valor Total</span>
-              <span className="text-white font-mono font-black text-sm">R$ {item.value.toFixed(2)}</span>
+          <p className="text-sm">Recebimento da parcela <span className="text-white font-black">{item.number}/{item.total}</span> de <span className="text-white font-black">{item.customer_name}</span>.</p>
+          <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-on-surface-variant uppercase tracking-widest font-black">Valor Original</span>
+              <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
+            {isOverdue && (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span className="text-error uppercase tracking-widest font-black">Multa (2%)</span>
+                  <span className="text-error font-mono font-black">+ R$ {fees.multa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-error uppercase tracking-widest font-black">Juros (1%/mês · {fees.daysLate}d)</span>
+                  <span className="text-error font-mono font-black">+ R$ {fees.juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="pt-2 border-t border-white/10 flex justify-between text-sm">
+                  <span className="text-white uppercase tracking-widest font-black">Total a Receber</span>
+                  <span className="text-white font-mono font-black text-base">R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </>
+            )}
+            {!isOverdue && (
+              <div className="flex justify-between text-sm pt-1">
+                <span className="text-on-surface-variant uppercase tracking-widest font-black">Total a Receber</span>
+                <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
           </div>
+          {isOverdue && (
+            <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-3 rounded-xl border border-error/20">
+              ⚠️ Multa e juros conforme contrato. Vencida há {fees.daysLate} dia(s).
+            </p>
+          )}
         </div>
       ),
-      confirmText: 'Confirmar Recebimento',
+      confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
       onConfirm: async () => {
         try {
           await markAsPaid(item.id);
@@ -160,6 +373,63 @@ export default function Finance() {
     });
   };
 
+  const handleWhatsApp = async (item: Installment) => {
+    setSendingWa(item.id);
+    try {
+      // Fetch active evolution channels
+      const chRes = await fetch('/api/evolution/instance/fetchInstances', {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      let instanceName = 'mdr-principal';
+      if (chRes.ok) {
+        const chData = await chRes.json();
+        const instances = Array.isArray(chData) ? chData : (chData?.instances || []);
+        const active = instances.find((i: any) => i.connectionStatus === 'open' || i.state === 'open');
+        if (active) instanceName = active.instance?.instanceName || active.instanceName || instanceName;
+      }
+
+      // Look up phone from customers store
+      const customer = customers.find(c => c.id === item.customer_id);
+      const rawPhone = (customer?.phone || '').replace(/\D/g, '');
+      const phone = rawPhone.startsWith('55') ? rawPhone : `55${rawPhone}`;
+
+      if (phone.length < 12) {
+        showNotification('error', 'Telefone inválido', 'O cliente não possui um número de telefone válido cadastrado.');
+        setSendingWa(null);
+        return;
+      }
+
+      const dueDate = new Date(item.due_date).toLocaleDateString('pt-BR');
+      const valueFormatted = item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+      const text = `Olá, *${item.customer_name}*! 👋\n\n`
+        + `Passando para lembrar sobre sua parcela com a *${pixName}*:\n\n`
+        + `📋 *Parcela:* ${item.number}/${item.total}\n`
+        + `💰 *Valor:* R$ ${valueFormatted}\n`
+        + `📅 *Vencimento:* ${dueDate}\n\n`
+        + (pixKey ? `Pague pelo PIX:\n🔑 *Chave:* ${pixKey}\n👤 Beneficiário: ${pixName}\n\n` : '')
+        + (pixPhone ? `Dúvidas? Fale conosco: ${pixPhone}\n` : '')
+        + `_Mensagem automática — não responda este número._`;
+
+      const res = await fetch(`/api/evolution/message/sendText/${instanceName}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: phone, text })
+      });
+
+      if (res.ok) {
+        showNotification('success', 'WhatsApp Enviado!', `Lembrete enviado para ${item.customer_name}.`);
+      } else {
+        const err = await res.text();
+        showNotification('error', 'Falha ao Enviar', `Erro: ${err.substring(0, 80)}`);
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro de Conexão', err?.message || 'Não foi possível conectar ao servidor de WhatsApp.');
+    } finally {
+      setSendingWa(null);
+    }
+  };
+
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -167,6 +437,13 @@ export default function Finance() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Painel Financeiro</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Recebíveis</p>
         </div>
+        <button
+          onClick={() => setPixModalItem(null)}
+          className="flex items-center gap-2 px-5 py-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all"
+        >
+          <QrCode size={16} />
+          PIX / Boleto da Loja
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -369,9 +646,25 @@ export default function Finance() {
                                         </div>
                                       </td>
                                       <td className="py-4">
-                                        <span className="text-xs font-mono font-bold text-white">
-                                          R$ {inst.value.toFixed(2)}
-                                        </span>
+                                        {(() => {
+                                          const fees = calculateOverdueFees(inst);
+                                          const isLate = inst.status === 'overdue' || inst.status === 'blocked';
+                                          return (
+                                            <div>
+                                              <span className={`text-xs font-mono font-bold ${isLate ? 'line-through text-on-surface-variant' : 'text-white'}`}>
+                                                R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                              </span>
+                                              {isLate && (
+                                                <div>
+                                                  <span className="text-xs font-mono font-black text-error">
+                                                    R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                  </span>
+                                                  <p className="text-[8px] text-error opacity-70">c/ mora {fees.daysLate}d</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                       </td>
                                       <td className="py-4">
                                         <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
@@ -412,12 +705,28 @@ export default function Finance() {
                                               </button>
                                             </>
                                           )}
+                                          {/* PIX / Boleto button */}
                                           <button 
-                                            onClick={(e) => e.stopPropagation()}
-                                            title="Notificar WhatsApp" 
-                                            className="p-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white rounded-lg transition-all border border-white/10"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setPixModalItem(inst);
+                                            }}
+                                            title="Gerar PIX / Boleto"
+                                            className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/20"
                                           >
-                                            <MessageSquare size={14} />
+                                            <QrCode size={14} />
+                                          </button>
+                                          {/* WhatsApp button */}
+                                          <button 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleWhatsApp(inst);
+                                            }}
+                                            disabled={sendingWa === inst.id}
+                                            title="Notificar WhatsApp"
+                                            className="p-1.5 bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white rounded-lg transition-all border border-white/10 disabled:opacity-40"
+                                          >
+                                            {sendingWa === inst.id ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
                                           </button>
                                         </div>
                                       </td>
@@ -437,6 +746,19 @@ export default function Finance() {
           )}
         </div>
       </div>
+
+      {/* PIX / Boleto Modal */}
+      <AnimatePresence>
+        {pixModalItem !== undefined && (
+          <PixBoletoModal
+            item={pixModalItem ?? undefined}
+            onClose={() => setPixModalItem(undefined)}
+            pixKey={pixKey}
+            pixName={pixName}
+            pixPhone={pixPhone}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

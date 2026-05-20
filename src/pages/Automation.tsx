@@ -33,7 +33,7 @@ export default function Automation() {
   const { showNotification } = useUI();
   const { units, fetchAllUnits } = useUnitStore();
   const {
-    channelStatuses, syncAllChannels, fetchQRCode, logout, deleteInstance, subscribeToChannels
+    channelStatuses, syncAllChannels, fetchQRCode, connectInstance, logout, deleteInstance, subscribeToChannels
   } = useAutomationStore();
 
   const [friendlyName, setFriendlyName] = React.useState('');
@@ -43,6 +43,13 @@ export default function Automation() {
   const [channels, setChannels] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showSetupModal, setShowSetupModal] = React.useState<false | 'whatsapp' | 'instagram'>(false);
+  const [selectedUnitId, setSelectedUnitId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (showSetupModal) {
+      setSelectedUnitId(profile?.unit_id || null);
+    }
+  }, [showSetupModal, profile]);
 
   // Carregar dados iniciais e sincronizar status
   React.useEffect(() => {
@@ -81,7 +88,7 @@ export default function Automation() {
     
     const credentials = type === 'instagram' ? { user: instaUser, pass: instaPass } : undefined;
     
-    await fetchQRCode(instance, name, null, type, credentials, () => {
+    await fetchQRCode(instance, name, selectedUnitId, type, credentials, () => {
       fetchChannels();
     });
     
@@ -180,6 +187,14 @@ export default function Automation() {
                       </div>
 
                       <div className="flex gap-2">
+                        {info.status !== 'connected' && info.status !== 'qrcode' && (
+                          <button 
+                            onClick={() => connectInstance(channel.instance_name, channel.type)}
+                            className="flex-1 py-3 bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-black rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-green-500/30"
+                          >
+                            Conectar
+                          </button>
+                        )}
                         <button 
                           onClick={() => logout(channel.instance_name)}
                           className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-on-surface-variant rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10"
@@ -271,6 +286,33 @@ export default function Automation() {
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
                 />
               </div>
+
+              {profile?.role === 'admin' ? (
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade Responsável</label>
+                  <select
+                    value={selectedUnitId || ''}
+                    onChange={(e) => setSelectedUnitId(e.target.value || null)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all appearance-none"
+                  >
+                    <option value="" className="bg-surface-container-high">Todas as Unidades (Global / Admin)</option>
+                    {units.map(unit => (
+                      <option key={unit.id} value={unit.id} className="bg-surface-container-high">
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                profile?.unit_id && (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade Responsável</label>
+                    <div className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-on-surface-variant opacity-60">
+                      {units.find(u => u.id === profile.unit_id)?.name || 'Sua Unidade'}
+                    </div>
+                  </div>
+                )
+              )}
 
               {showSetupModal === 'instagram' && (
                 <div className="grid grid-cols-2 gap-4">

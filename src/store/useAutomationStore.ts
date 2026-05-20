@@ -14,6 +14,7 @@ interface AutomationState {
   syncAllChannels: () => Promise<void>;
   fetchConnectionStatus: (instance: string) => Promise<void>;
   fetchQRCode: (instance: string, friendlyName: string, unitId: string | null, type: 'whatsapp' | 'instagram', credentials?: { user?: string; pass?: string }, onCreated?: () => void) => Promise<void>;
+  connectInstance: (instance: string, type: 'whatsapp' | 'instagram') => Promise<void>;
   logout: (instance: string) => Promise<void>;
   deleteInstance: (instance: string) => Promise<void>;
   subscribeToChannels: (onUpdate: () => void) => () => void;
@@ -46,6 +47,24 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   },
 
   fetchConnectionStatus: async (instance) => {
+    const current = get().channelStatuses[instance]?.status;
+    if (current === 'qrcode' || current === 'connecting') {
+      try {
+        const response = await fetch(`/api/evolution/instance/connectionState/${instance}`);
+        const data = await response.json();
+        const isConnected = data.instance?.state === 'open' || data.state === 'open';
+        if (isConnected) {
+          get().setChannelStatus(instance, { status: 'connected', qrCode: null });
+          await supabase.from('automation_channels')
+            .update({ status: 'connected' })
+            .eq('instance_name', instance);
+        }
+      } catch (e) {
+        console.warn('Silent check failed for connecting instance:', instance, e);
+      }
+      return;
+    }
+
     get().setChannelStatus(instance, { status: 'loading' });
     try {
       const response = await fetch(`/api/evolution/instance/connectionState/${instance}`);
@@ -66,6 +85,62 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
     } catch (error) {
       console.error('Error fetching connection status:', error, instance);
       get().setChannelStatus(instance, { status: 'disconnected' });
+    }
+  },
+
+  connectInstance: async (instance, type) => {
+    const finalInstanceName = instance.toLowerCase().replace(/\s+/g, '_');
+    get().setChannelStatus(finalInstanceName, { status: 'connecting', qrCode: null });
+
+    try {
+      if (type === 'whatsapp') {
+        let attempts = 0;
+        const maxAttempts = 30;
+
+        while (attempts < maxAttempts) {
+          // Check connection status first
+          const checkRes = await fetch(`/api/evolution/instance/connectionState/${finalInstanceName}`);
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            const state = checkData.instance?.state || checkData.state || checkData.status;
+            if (state === 'open') {
+              await supabase.from('automation_channels')
+                .update({ status: 'connected' })
+                .eq('instance_name', finalInstanceName);
+
+              get().setChannelStatus(finalInstanceName, { status: 'connected', qrCode: null });
+              return;
+            }
+          }
+
+          // Fetch QR Code
+          const qrRes = await fetch(`/api/evolution/instance/connect/${finalInstanceName}`);
+          const qrData = await qrRes.json();
+          
+          const base64 = qrData.base64 || qrData.qrcode?.base64;
+          const state = qrData.instance?.state || qrData.state || qrData.status;
+
+          if (state === 'open') {
+            await supabase.from('automation_channels')
+              .update({ status: 'connected' })
+              .eq('instance_name', finalInstanceName);
+
+            get().setChannelStatus(finalInstanceName, { status: 'connected', qrCode: null });
+            return;
+          }
+
+          if (base64) {
+            get().setChannelStatus(finalInstanceName, { qrCode: base64, status: 'qrcode' });
+          }
+          
+          await new Promise(r => setTimeout(r, 2000));
+          attempts++;
+        }
+        throw new Error('O QR Code demorou muito. Tente novamente.');
+      }
+    } catch (error: any) {
+      console.error('Error in instance connection:', error);
+      get().setChannelStatus(finalInstanceName, { status: 'disconnected', qrCode: null });
     }
   },
 

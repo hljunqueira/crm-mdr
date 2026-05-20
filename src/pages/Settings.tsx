@@ -13,7 +13,8 @@ import {
   Database,
   Save,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  QrCode
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
@@ -36,7 +37,9 @@ export default function Settings() {
     address: '',
     phone: '',
     contract_terms: '',
-    warranty_terms: ''
+    warranty_terms: '',
+    pix_key: '',
+    pix_key_type: 'cnpj' as 'cpf' | 'cnpj' | 'email' | 'phone' | 'random'
   });
 
   useEffect(() => {
@@ -68,7 +71,9 @@ export default function Settings() {
         address: currentUnit.address || '',
         phone: currentUnit.phone || '',
         contract_terms: currentUnit.contract_terms || '',
-        warranty_terms: currentUnit.warranty_terms || ''
+        warranty_terms: currentUnit.warranty_terms || '',
+        pix_key: currentUnit.pix_key || '',
+        pix_key_type: (currentUnit.pix_key_type as any) || 'cnpj'
       });
     }
   }, [selectedUnitId, units, unit]);
@@ -206,6 +211,65 @@ export default function Settings() {
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
                     />
                   </div>
+                </div>
+
+                {/* PIX Section */}
+                <div className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-400 border border-green-500/20">
+                      <QrCode size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white uppercase tracking-tight">Dados para Recebimento PIX</h3>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Usados no modal de cobrança e nas mensagens WhatsApp</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Tipo de Chave PIX</label>
+                      <select
+                        value={formData.pix_key_type}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pix_key_type: e.target.value as any }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all appearance-none"
+                      >
+                        <option value="cnpj" className="bg-surface-container-high">CNPJ</option>
+                        <option value="cpf" className="bg-surface-container-high">CPF</option>
+                        <option value="email" className="bg-surface-container-high">E-mail</option>
+                        <option value="phone" className="bg-surface-container-high">Telefone</option>
+                        <option value="random" className="bg-surface-container-high">Chave Aleatória</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Chave PIX</label>
+                      <input
+                        type="text"
+                        placeholder={
+                          formData.pix_key_type === 'cnpj' ? '00.000.000/0001-00' :
+                          formData.pix_key_type === 'cpf' ? '000.000.000-00' :
+                          formData.pix_key_type === 'email' ? 'pagamentos@suaempresa.com' :
+                          formData.pix_key_type === 'phone' ? '+55 (48) 99999-9999' :
+                          'Chave aleatória UUID'
+                        }
+                        value={formData.pix_key}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pix_key: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-green-400 outline-none transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preview */}
+                  {formData.pix_key && (
+                    <div className="mt-4 p-4 bg-green-500/5 border border-green-500/20 rounded-2xl flex items-center gap-4">
+                      <QrCode size={32} className="text-green-400 shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-green-400 uppercase tracking-widest font-black">Prévia — Como aparecerá nas cobranças</p>
+                        <p className="text-sm text-white font-black font-mono mt-0.5">{formData.pix_key}</p>
+                        <p className="text-[10px] text-on-surface-variant mt-0.5">Tipo: {formData.pix_key_type?.toUpperCase()} · Beneficiário: {formData.name || 'Nome da Loja'}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-8 border-t border-white/5 space-y-8">

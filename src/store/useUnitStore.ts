@@ -12,6 +12,8 @@ export interface Unit {
   evolution_instance?: string;
   contract_terms?: string;
   warranty_terms?: string;
+  pix_key?: string;
+  pix_key_type?: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
 }
 
 interface UnitState {

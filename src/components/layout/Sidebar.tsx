@@ -44,7 +44,7 @@ export default function Sidebar() {
       title: 'Atendimento',
       items: [
         { name: 'Chat Multi-canal', icon: MessageSquare, path: '/chat' },
-        { name: 'WhatsApp', icon: Bot, path: '/automation' },
+        { name: 'Conexão de contas WPP/IG', icon: Bot, path: '/automation' },
       ]
     },
     {
@@ -75,7 +75,7 @@ export default function Sidebar() {
               {group.title}
             </span>
             <div className="space-y-1">
-              {group.items.map((item) => {
+              {group.items.map((item: any) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <Link
