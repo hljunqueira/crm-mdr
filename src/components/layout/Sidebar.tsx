@@ -23,54 +23,80 @@ export default function Sidebar() {
   const location = useLocation();
   const { signOut } = useAuthStore();
 
-  const navItems: { name: string; icon: any; path: string; badge?: number }[] = [
-    { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { name: 'Clientes', icon: Users, path: '/customers' },
-    { name: 'Estoque', icon: Smartphone, path: '/inventory' },
-    { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
-    { name: 'Financeiro', icon: CreditCard, path: '/finance' },
-    { name: 'WhatsApp', icon: Bot, path: '/automation' },
-    { name: 'Chat Multi-canal', icon: MessageSquare, path: '/chat' },
-    { name: 'Leads', icon: UserSearch, path: '/leads' },
-    { name: 'Funil', icon: Filter, path: '/kanban' },
-    { name: 'Relatórios', icon: TrendingUp, path: '/reports' },
-    { name: 'Configurações', icon: Settings, path: '/settings' },
+  const menuGroups = [
+    {
+      title: 'Visão Geral',
+      items: [
+        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+        { name: 'Relatórios', icon: TrendingUp, path: '/reports' },
+      ]
+    },
+    {
+      title: 'Gestão Comercial',
+      items: [
+        { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
+        { name: 'Clientes', icon: Users, path: '/customers' },
+        { name: 'Estoque', icon: Smartphone, path: '/inventory' },
+        { name: 'Financeiro', icon: CreditCard, path: '/finance' },
+      ]
+    },
+    {
+      title: 'Atendimento',
+      items: [
+        { name: 'Chat Multi-canal', icon: MessageSquare, path: '/chat' },
+        { name: 'WhatsApp', icon: Bot, path: '/automation' },
+      ]
+    },
+    {
+      title: 'Prospecção',
+      items: [
+        { name: 'Leads', icon: UserSearch, path: '/leads' },
+        { name: 'Funil', icon: Filter, path: '/kanban' },
+      ]
+    },
+    {
+      title: 'Sistema',
+      items: [
+        { name: 'Configurações', icon: Settings, path: '/settings' },
+      ]
+    }
   ];
 
   return (
     <aside className="w-64 h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30">
-      <div className="px-6 mb-8 flex items-center gap-3">
-        <img src="/logo-mdr.png" alt="MDR Informática & Celulares" className="h-14 w-auto object-contain" />
-        <div>
-          <h1 className="font-display font-bold text-primary text-xl leading-none">MDR</h1>
-          <p className="font-display text-[10px] text-on-surface-variant uppercase tracking-widest mt-1 opacity-70">Informática & Celulares</p>
-        </div>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto px-3 space-y-1 custom-scrollbar">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group relative",
-                isActive 
-                  ? "bg-primary-container text-on-primary-container font-semibold" 
-                  : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest"
-              )}
-            >
-              <item.icon size={20} className={cn(isActive ? "text-on-primary-container" : "text-on-surface-variant group-hover:text-primary transition-colors")} />
-              <span className="font-display text-sm tracking-tight">{item.name}</span>
-              {item.badge && (
-                <span className="ml-auto bg-error text-on-surface text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 space-y-6 custom-scrollbar">
+        {menuGroups.map((group) => (
+          <div key={group.title} className="space-y-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50 px-4 block select-none">
+              {group.title}
+            </span>
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group relative",
+                      isActive 
+                        ? "bg-primary-container text-on-primary-container font-semibold" 
+                        : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest"
+                    )}
+                  >
+                    <item.icon size={20} className={cn(isActive ? "text-on-primary-container" : "text-on-surface-variant group-hover:text-primary transition-colors")} />
+                    <span className="font-display text-sm tracking-tight">{item.name}</span>
+                    {item.badge && (
+                      <span className="ml-auto bg-error text-on-surface text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="mt-auto px-3 py-4 border-t border-outline-variant/10">
