@@ -182,7 +182,7 @@ export default function Landing() {
               transition={{ delay: 0.2 }}
               className="text-5xl sm:text-6xl md:text-8xl font-display font-black text-on-surface tracking-tighter leading-[0.9] uppercase"
             >
-              Assistência & <br />
+              <span className="whitespace-nowrap">Assistência &</span> <br />
               <span className="text-primary italic">Vendas</span>
             </motion.h1>
 
