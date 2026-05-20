@@ -90,7 +90,31 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         .eq('channel_id', channelId)
         .order('last_message_at', { ascending: false });
       if (error) throw error;
-      set({ conversations: data || [] });
+
+      let conversationsList = data || [];
+      const activeConv = get().activeConversation;
+
+      if (activeConv) {
+        // Se a conversa ativa estiver na lista carregada com unread_count > 0, reseta no banco e localmente
+        const matched = conversationsList.find(c => c.id === activeConv.id);
+        if (matched && matched.unread_count > 0) {
+          supabase
+            .from('conversations')
+            .update({ unread_count: 0 })
+            .eq('id', activeConv.id)
+            .then(({ error }) => {
+              if (error) {
+                console.error('Erro ao resetar unread_count em fetchConversations:', error);
+              }
+            });
+
+          conversationsList = conversationsList.map(c =>
+            c.id === activeConv.id ? { ...c, unread_count: 0 } : c
+          );
+        }
+      }
+
+      set({ conversations: conversationsList });
     } catch (error) {
       console.error('Error fetching conversations:', error);
     } finally {
@@ -116,6 +140,26 @@ export const useChatStore = create<ChatState>()((set, get) => ({
     set({ activeConversation: conversation });
     if (conversation) {
       get().fetchMessages(conversation.id);
+      
+      // Se tiver unread_count > 0, reseta no banco e no estado local imediatamente
+      if (conversation.unread_count > 0) {
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === conversation.id ? { ...c, unread_count: 0 } : c
+          ),
+          activeConversation: { ...conversation, unread_count: 0 }
+        }));
+
+        supabase
+          .from('conversations')
+          .update({ unread_count: 0 })
+          .eq('id', conversation.id)
+          .then(({ error }) => {
+            if (error) {
+              console.error('Erro ao resetar unread_count no banco:', error);
+            }
+          });
+      }
     } else {
       set({ messages: [] });
     }
