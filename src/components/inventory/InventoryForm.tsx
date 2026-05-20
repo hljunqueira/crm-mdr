@@ -93,9 +93,9 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             onChange={(e) => setFormData({ ...formData, condition: e.target.value as any })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none"
           >
-            <option value="new">Novo (Lacre)</option>
-            <option value="used">Usado (Seminovo)</option>
-            <option value="vitrine">Vitrine</option>
+            <option value="new" className="bg-[#121214] text-white">Novo (Lacre)</option>
+            <option value="used" className="bg-[#121214] text-white">Usado (Seminovo)</option>
+            <option value="vitrine" className="bg-[#121214] text-white">Vitrine</option>
           </select>
         </div>
 
@@ -130,10 +130,10 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none"
           >
-            <option value="available">Disponível</option>
-            <option value="reserved">Reservado</option>
-            <option value="sold">Vendido</option>
-            <option value="in_repair">Em Reparo</option>
+            <option value="available" className="bg-[#121214] text-white">Disponível</option>
+            <option value="reserved" className="bg-[#121214] text-white">Reservado</option>
+            <option value="sold" className="bg-[#121214] text-white">Vendido</option>
+            <option value="in_repair" className="bg-[#121214] text-white">Em Reparo</option>
           </select>
         </div>
       </div>

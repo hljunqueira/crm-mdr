@@ -182,8 +182,8 @@ export default function Landing() {
               transition={{ delay: 0.2 }}
               className="text-5xl sm:text-6xl md:text-8xl font-display font-black text-on-surface tracking-tighter leading-[0.9] uppercase"
             >
-              Vendas & <br />
-              <span className="text-primary italic">Assistência</span>
+              Assistência & <br />
+              <span className="text-primary italic">Vendas</span>
             </motion.h1>
 
             <motion.p
@@ -523,39 +523,23 @@ export default function Landing() {
               <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/5 blur-[120px] -z-10"></div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Service/Sale Choice - Radio Group */}
+                {/* Service/Sale Choice - Dropdown */}
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">O que você precisa?</label>
-                  <div className="flex gap-6 pl-1">
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative flex items-center justify-center">
-                        <input
-                          type="radio"
-                          name="type"
-                          value="assistencia"
-                          checked={formType === 'assistencia'}
-                          onChange={(e) => setFormType(e.target.value as any)}
-                          className="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-full checked:border-primary transition-all"
-                        />
-                        <div className="absolute w-2.5 h-2.5 bg-primary rounded-full scale-0 peer-checked:scale-100 transition-transform"></div>
-                      </div>
-                      <span className="text-sm font-bold text-on-surface-variant group-hover:text-white transition-colors">Reparos e Assistência</span>
-                    </label>
-
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative flex items-center justify-center">
-                        <input
-                          type="radio"
-                          name="type"
-                          value="venda"
-                          checked={formType === 'venda'}
-                          onChange={(e) => setFormType(e.target.value as any)}
-                          className="peer appearance-none w-5 h-5 border-2 border-outline-variant rounded-full checked:border-secondary transition-all"
-                        />
-                        <div className="absolute w-2.5 h-2.5 bg-secondary rounded-full scale-0 peer-checked:scale-100 transition-transform"></div>
-                      </div>
-                      <span className="text-sm font-bold text-on-surface-variant group-hover:text-white transition-colors">Vendas em Geral</span>
-                    </label>
+                  <div className="relative">
+                    <select
+                      value={formType}
+                      onChange={(e) => setFormType(e.target.value as any)}
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-5 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer text-white pr-12"
+                    >
+                      <option value="assistencia" className="bg-[#121214] text-white">Reparos e Assistência</option>
+                      <option value="venda" className="bg-[#121214] text-white">Vendas em Geral</option>
+                    </select>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface/60">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
 
