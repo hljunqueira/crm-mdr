@@ -122,21 +122,20 @@ router.post('/evolution', async (req, res) => {
       return res.status(200).send('Channel not found');
     }
 
-    // FIX: Garantir que o canal existe na tabela 'channels' (para satisfazer a FK da tabela conversations)
-    const { data: legacyChannel } = await supabase
+    // Garantir que o canal legado usado pela FK/RLS acompanhe o canal da automação.
+    const { error: legacyChannelErr } = await supabase
       .from('channels')
-      .select('id')
-      .eq('id', autoChannel.id)
-      .single();
-
-    if (!legacyChannel) {
-      console.log(`[Webhook] Mirroring channel to legacy table for FK compatibility: ${autoChannel.id}`);
-      await supabase.from('channels').upsert([{
+      .upsert([{
         id: autoChannel.id,
         name: autoChannel.name,
-        type: 'whatsapp',
-        status: 'connected'
-      }]);
+        unit_id: autoChannel.unit_id,
+        type: autoChannel.type || 'whatsapp',
+        instance_name: autoChannel.instance_name,
+        status: autoChannel.status || 'connected'
+      }], { onConflict: 'id' });
+
+    if (legacyChannelErr) {
+      throw legacyChannelErr;
     }
 
     const channel = autoChannel;
