@@ -158,22 +158,12 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         ...formData,
         responsible_analyst_id: formData.responsible_analyst_id || null as any
       };
-      
-      if (!isAdmin && !initialData) {
-        // Atendentes comuns só criam pré-cadastro bloqueado para compra
-        submitData.registration_status = 'PRE_CADASTRO';
-        submitData.approved_for_purchase = false;
-        submitData.credit_status = 'EM_ANALISE';
-      }
 
       if (initialData) {
         await updateCustomer(initialData.id, submitData);
         showNotification('success', 'Cliente Atualizado com Sucesso!');
       } else {
-        await addCustomer({
-          ...submitData,
-          unit_id: profile?.unit_id || undefined
-        });
+        await addCustomer(submitData);
 
         showNotification('success', 'Cliente Cadastrado com Sucesso!');
 
@@ -418,51 +408,37 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             </select>
           </div>
 
-          {/* CONTROLES ADMINISTRATIVOS EXCLUSIVOS */}
-          {isAdmin ? (
-            <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-xs font-black uppercase text-on-surface tracking-wider">Liberado para Compra</span>
-                  <span className="text-[9px] text-on-surface-variant opacity-60">Permite registrar vendas para este cliente</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.approved_for_purchase}
-                    onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                </label>
+          {/* CONTROLES DE LIBERAÇÃO DE CRÉDITO E COMPRA */}
+          <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-xs font-black uppercase text-on-surface tracking-wider">Liberado para Compra</span>
+                <span className="text-[9px] text-on-surface-variant opacity-60">Permite registrar vendas para este cliente</span>
               </div>
-
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status do Cadastro</span>
-                <select
-                  value={formData.registration_status}
-                  onChange={(e) => setFormData(p => ({ ...p, registration_status: e.target.value as any }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-                >
-                  <option value="PRE_CADASTRO" className="bg-[#121214]">PRÉ-CADASTRO (Aguardando Aprovação)</option>
-                  <option value="APROVADO" className="bg-[#121214] text-success">APROVADO (Incluir como Cliente)</option>
-                  <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO / REJEITADO</option>
-                </select>
-              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={formData.approved_for_purchase}
+                  onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
+                  className="sr-only peer" 
+                />
+                <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+              </label>
             </div>
-          ) : (
-            initialData && (
-              <div className="md:col-span-2 bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between text-xs text-on-surface-variant mt-2">
-                <span className="flex items-center gap-2">
-                  <UserCheck size={14} className="text-primary" /> 
-                  Status do Cadastro: <strong>{formData.registration_status === 'APROVADO' ? 'APROVADO' : formData.registration_status === 'REPROVADO' ? 'REPROVADO' : 'PRÉ-CADASTRO'}</strong>
-                </span>
-                <span className="flex items-center gap-2">
-                  Liberado para Compra: <strong>{formData.approved_for_purchase ? 'SIM' : 'NÃO (Bloqueado)'}</strong>
-                </span>
-              </div>
-            )
-          )}
+
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status do Cadastro</span>
+              <select
+                value={formData.registration_status}
+                onChange={(e) => setFormData(p => ({ ...p, registration_status: e.target.value as any }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                <option value="PRE_CADASTRO" className="bg-[#121214]">PRÉ-CADASTRO (Aguardando Aprovação)</option>
+                <option value="APROVADO" className="bg-[#121214] text-success">APROVADO (Incluir como Cliente)</option>
+                <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO / REJEITADO</option>
+              </select>
+            </div>
+          </div>
 
         </div>
       </div>
