@@ -20,7 +20,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     price: item?.price !== undefined ? String(item.price) : '',
     cost_price: item?.cost_price !== undefined ? String(item.cost_price) : '',
     condition: item?.condition || 'new',
-    status: item?.status || 'available',
+    stock_quantity: item?.stock_quantity !== undefined ? String(item.stock_quantity) : '1',
     notes: item?.notes || '',
   });
 
@@ -29,13 +29,15 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
 
     const priceNum = Number(formData.price) || 0;
     const costPriceNum = Number(formData.cost_price) || 0;
+    const qtyNum = Math.max(1, Number(formData.stock_quantity) || 1);
 
     try {
       const payload = {
         brand: formData.brand,
         model: formData.model,
         condition: formData.condition,
-        status: formData.status,
+        status: (item?.status || 'available') as any,
+        stock_quantity: qtyNum,
         notes: formData.notes,
         price: priceNum,
         cost_price: costPriceNum,
@@ -124,17 +126,16 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status</label>
-          <select
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none"
-          >
-            <option value="available" className="bg-[#121214] text-white">Disponível</option>
-            <option value="reserved" className="bg-[#121214] text-white">Reservado</option>
-            <option value="sold" className="bg-[#121214] text-white">Vendido</option>
-            <option value="in_repair" className="bg-[#121214] text-white">Em Reparo</option>
-          </select>
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Quantidade em Estoque</label>
+          <input
+            type="number"
+            required
+            min="1"
+            value={formData.stock_quantity}
+            onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="1"
+          />
         </div>
       </div>
 

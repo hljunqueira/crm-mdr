@@ -11,7 +11,9 @@ import {
   AlertTriangle,
   History,
   Barcode,
-  Loader2
+  Loader2,
+  DollarSign,
+  Package
 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
 import { useUI } from '../context/UIContext';
@@ -84,9 +86,9 @@ export default function Inventory() {
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
-          { label: 'Total em Estoque', value: inventory.length.toString(), icon: Smartphone, color: 'text-primary' },
-          { label: 'Disponíveis', value: inventory.filter(i => i.status === 'available').length.toString(), icon: CheckCircle2, color: 'text-success' },
-          { label: 'Em Reparo', value: inventory.filter(i => i.status === 'in_repair').length.toString(), icon: AlertTriangle, color: 'text-warning' },
+          { label: 'Modelos Diferentes', value: inventory.length.toString(), icon: Smartphone, color: 'text-primary' },
+          { label: 'Quantidade em Estoque', value: inventory.reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
+          { label: 'Valor do Estoque (Venda)', value: `R$ ${inventory.reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
         ].map((stat, i) => (
           <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/[0.02]">
             <div className="flex items-center gap-4">
@@ -146,13 +148,11 @@ export default function Inventory() {
                   </div>
                   <div className={cn(
                     "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                    item.status === 'available' ? 'border-success/20 text-success' :
-                    item.status === 'sold' ? 'border-primary/20 text-primary' :
-                    'border-warning/20 text-warning'
+                    (item.stock_quantity || 0) > 5 ? 'border-success/20 text-success bg-success/5' :
+                    (item.stock_quantity || 0) > 0 ? 'border-warning/20 text-warning bg-warning/5' :
+                    'border-error/20 text-error bg-error/5'
                   )}>
-                    {item.status === 'available' ? 'Disponível' : 
-                     item.status === 'sold' ? 'Vendido' : 
-                     item.status === 'reserved' ? 'Reservado' : 'Em Reparo'}
+                    {(item.stock_quantity || 0) > 0 ? `${item.stock_quantity} unidades` : 'Sem estoque'}
                   </div>
                 </div>
 

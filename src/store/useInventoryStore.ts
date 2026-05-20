@@ -11,6 +11,7 @@ export interface InventoryItem {
   cost_price: number;
   condition: 'new' | 'used' | 'refurbished' | 'vitrine';
   status: 'available' | 'sold' | 'reserved' | 'in_repair';
+  stock_quantity: number;
   notes?: string;
 }
 
@@ -40,6 +41,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         cost_price: Number(item.cost_price) || 0,
         condition: item.condition,
         status: item.status,
+        stock_quantity: Number(item.stock_quantity) || 0,
         notes: item.notes || '',
       }));
       set({ inventory: mapped });
@@ -60,6 +62,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         cost_price: item.cost_price,
         sale_price: item.price,
         status: item.status,
+        stock_quantity: item.stock_quantity,
         notes: item.notes || null,
       };
       const data = await api.post('/inventory', dbItem);
@@ -86,6 +89,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.cost_price !== undefined) dbFields.cost_price = updatedFields.cost_price;
       if (updatedFields.price !== undefined) dbFields.sale_price = updatedFields.price;
       if (updatedFields.status !== undefined) dbFields.status = updatedFields.status;
+      if (updatedFields.stock_quantity !== undefined) dbFields.stock_quantity = updatedFields.stock_quantity;
       if (updatedFields.notes !== undefined) dbFields.notes = updatedFields.notes || null;
 
       const data = await api.patch(`/inventory/${id}`, dbFields);

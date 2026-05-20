@@ -57,7 +57,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   });
 
   const availableDevices = useMemo(() => 
-    inventory.filter(item => item.status === 'available'), 
+    inventory.filter(item => item.status === 'available' || (item.stock_quantity || 0) > 0), 
   [inventory]);
 
   const handleDeviceChange = (deviceId: string) => {
