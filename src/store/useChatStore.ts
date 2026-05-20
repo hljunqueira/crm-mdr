@@ -27,9 +27,11 @@ export interface Message {
   conversation_id: string;
   sender_id?: string;
   text: string;
-  type: 'text' | 'image' | 'audio' | 'video';
+  type: 'text' | 'image' | 'audio' | 'video' | 'document';
   direction: 'inbound' | 'outbound';
   status: 'sent' | 'delivered' | 'read' | 'failed';
+  media_url?: string;
+  media_type?: 'image' | 'audio' | 'video' | 'document';
   created_at: string;
 }
 
@@ -220,33 +222,55 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   subscribeToMessages: (conversationId) => {
+    // Polling fallback to guarantee updates even without Supabase Realtime replication
+    const pollInterval = setInterval(() => {
+      get().fetchMessages(conversationId);
+    }, 5000);
+
     const channel = supabase
       .channel(`public:messages:conversation_id=eq.${conversationId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'messages',
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const newMessage = payload.new as Message;
-          set((state) => {
-            // Check if message already exists (to avoid duplicates from local insert)
-            if (state.messages.find(m => m.id === newMessage.id)) return state;
-            return { messages: [...state.messages, newMessage] };
-          });
+          if (payload.eventType === 'INSERT') {
+            const newMessage = payload.new as Message;
+            set((state) => {
+              if (state.messages.some(m => m.id === newMessage.id)) return state;
+              return { messages: [...state.messages, newMessage] };
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMessage = payload.new as Message;
+            set((state) => ({
+              messages: state.messages.map(m => m.id === updatedMessage.id ? updatedMessage : m)
+            }));
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as any).id;
+            set((state) => ({
+              messages: state.messages.filter(m => m.id !== deletedId)
+            }));
+          }
         }
       )
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   },
 
   subscribeToConversations: (channelId, onUpdate) => {
+    // Polling fallback to guarantee updates even without Supabase Realtime replication
+    const pollInterval = setInterval(() => {
+      onUpdate();
+    }, 5000);
+
     const channel = supabase
       .channel(`public:conversations:channel_id=eq.${channelId}`)
       .on(
@@ -264,6 +288,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   },

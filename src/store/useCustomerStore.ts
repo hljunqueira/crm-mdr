@@ -57,6 +57,7 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
       }
     } catch (error) {
       console.error('Error adding customer:', error);
+      throw error;
     }
   },
   updateCustomer: async (id, updatedFields) => {
@@ -67,6 +68,7 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error updating customer:', error);
+      throw error;
     }
   },
   deleteCustomer: async (id) => {
@@ -77,6 +79,7 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error deleting customer:', error);
+      throw error;
     }
   },
 }));

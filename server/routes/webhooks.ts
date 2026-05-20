@@ -35,18 +35,43 @@ router.post('/evolution', async (req, res) => {
     const isFromMe = key.fromMe;
     const contactName = data.pushName || messageData.pushName || remoteJid.split('@')[0];
     
-    // Extrair texto (suporta múltiplos formatos da v2)
+    // 1. Extrair mídias e legenda
+    let mediaUrl = null;
+    let mediaType: 'image' | 'audio' | 'video' | 'document' | null = null;
+    
+    const msgObj = messageData.message || {};
+    const caption = msgObj.imageMessage?.caption || 
+                    msgObj.videoMessage?.caption || 
+                    msgObj.documentMessage?.caption || 
+                    null;
+
+    if (msgObj.imageMessage) {
+      mediaType = 'image';
+      mediaUrl = data.mediaUrl || msgObj.imageMessage.url || null;
+    } else if (msgObj.audioMessage) {
+      mediaType = 'audio';
+      mediaUrl = data.mediaUrl || msgObj.audioMessage.url || null;
+    } else if (msgObj.videoMessage) {
+      mediaType = 'video';
+      mediaUrl = data.mediaUrl || msgObj.videoMessage.url || null;
+    } else if (msgObj.documentMessage) {
+      mediaType = 'document';
+      mediaUrl = data.mediaUrl || msgObj.documentMessage.url || null;
+    }
+
+    // Extrair texto (suporta múltiplos formatos da v2 e mídias)
     const messageText = 
+      caption ||
       messageData.message?.conversation || 
       messageData.message?.extendedTextMessage?.text || 
       messageData.conversation || 
       messageData.text || 
       messageData.content ||
-      'Mídia/Outro';
+      (mediaType ? `[Mídia: ${mediaType}]` : 'Mídia/Outro');
 
-    console.log(`[Webhook] From: ${contactName} (${remoteJid}) | Text: ${messageText}`);
+    console.log(`[Webhook] From: ${contactName} (${remoteJid}) | Text: ${messageText} | Media: ${mediaType} (${mediaUrl})`);
     
-    // 1. Encontrar o canal na automation_channels
+    // 2. Encontrar o canal na automation_channels
     const { data: autoChannel, error: channelErr } = await supabase
       .from('automation_channels')
       .select('*')
@@ -78,7 +103,7 @@ router.post('/evolution', async (req, res) => {
     const channel = autoChannel;
     console.log(`[Webhook] Channel ready: ${channel.id}`);
 
-    // 2. Encontrar ou criar a conversa
+    // 3. Encontrar ou criar a conversa
     let { data: conversation } = await supabase
       .from('conversations')
       .select('id, unread_count')
@@ -114,18 +139,45 @@ router.post('/evolution', async (req, res) => {
         .eq('id', conversation.id);
     }
 
-    // 3. Salvar a mensagem
-    const { error: msgErr } = await supabase
-      .from('messages')
-      .insert([{
-        conversation_id: conversation.id,
-        text: messageText,
-        direction: isFromMe ? 'outbound' : 'inbound',
-        status: 'delivered',
-        created_at: new Date().toISOString()
-      }]);
+    // 4. Salvar a mensagem no banco (apenas se não for duplicada)
+    let shouldInsertMessage = true;
 
-    if (msgErr) throw msgErr;
+    if (isFromMe) {
+      // Evitar duplicações de mensagens outbound que voltam pelo webhook
+      const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
+      const { data: duplicate } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', conversation.id)
+        .eq('direction', 'outbound')
+        .eq('text', messageText)
+        .gte('created_at', tenSecondsAgo)
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicate) {
+        console.log(`[Webhook] Duplicate outbound message ignored: ${duplicate.id}`);
+        shouldInsertMessage = false;
+      }
+    }
+
+    if (shouldInsertMessage) {
+      const { error: msgErr } = await supabase
+        .from('messages')
+        .insert([{
+          conversation_id: conversation.id,
+          text: messageText,
+          direction: isFromMe ? 'outbound' : 'inbound',
+          status: 'delivered',
+          type: mediaType || 'text',
+          media_url: mediaUrl,
+          media_type: mediaType,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (msgErr) throw msgErr;
+      console.log(`[Webhook] Message successfully saved to database.`);
+    }
 
     res.status(200).send('OK');
   } catch (error) {

@@ -155,7 +155,11 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
     try {
       // Garantir o status correto se for pré-cadastro ou aprovado
-      const submitData = { ...formData };
+      const submitData = { 
+        ...formData,
+        responsible_analyst_id: formData.responsible_analyst_id || null as any
+      };
+      
       if (!isAdmin && !initialData) {
         // Atendentes comuns só criam pré-cadastro bloqueado para compra
         submitData.registration_status = 'PRE_CADASTRO';
