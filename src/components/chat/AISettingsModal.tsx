@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Loader2, Save, Check } from 'lucide-react';
+import { X, Sparkles, Loader2, Save, Check, AlertCircle } from 'lucide-react';
 
 interface AISettingsModalProps {
   channelId: string;
@@ -16,11 +16,13 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     // Buscar configurações de IA
     const fetchSettings = async () => {
       setIsLoading(true);
+      setErrorMsg(null);
       try {
         const res = await fetch(`/api/ai/settings/${channelId}`);
         if (res.ok) {
@@ -30,9 +32,13 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
           setApiKey(data.api_key || '');
           setSystemPrompt(data.system_prompt || 'Você é um atendente virtual da MDR Informática e Celulares. Responda de forma educada, objetiva e profissional. Ajude com dúvidas sobre produtos, preços, prazos e serviços.');
           setMaxTokens(data.max_tokens || 500);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          setErrorMsg(errorData.error || 'Erro ao carregar configurações de IA.');
         }
       } catch (err) {
         console.error('Erro ao buscar configurações de IA:', err);
+        setErrorMsg('Erro na rede ou de conexão ao carregar configurações.');
       } finally {
         setIsLoading(false);
       }
@@ -44,6 +50,8 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setErrorMsg(null);
+    setShowSuccess(false);
     try {
       const res = await fetch(`/api/ai/settings/${channelId}`, {
         method: 'PUT',
@@ -60,9 +68,13 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
       if (res.ok) {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 2000);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        setErrorMsg(errorData.error || 'Erro desconhecido ao salvar as configurações.');
       }
     } catch (err) {
       console.error('Erro ao salvar configurações de IA:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Erro na rede ou de conexão.');
     } finally {
       setIsSaving(false);
     }
@@ -180,6 +192,17 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
                 </div>
               </div>
             </div>
+
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in slide-in-from-top-2 duration-200">
+                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                <div className="flex-1">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-500">Erro ao Salvar</h4>
+                  <p className="text-[10px] text-red-400 font-bold uppercase mt-0.5 tracking-wider opacity-90">{errorMsg}</p>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-2">

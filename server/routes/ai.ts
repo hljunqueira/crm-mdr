@@ -223,14 +223,14 @@ router.put('/settings/:channelId', async (req, res) => {
       channel_id: channelId,
       enabled: enabled ?? false,
       provider: provider || 'groq',
-      system_prompt: system_prompt || undefined,
+      system_prompt: system_prompt !== undefined ? (system_prompt === '' ? null : system_prompt) : undefined,
       max_tokens: max_tokens || 500,
       updated_at: new Date().toISOString()
     };
 
     // Só atualizar api_key se foi enviada uma nova (não mascarada)
-    if (api_key && !api_key.includes('...')) {
-      settingsData.api_key = api_key;
+    if (api_key !== undefined && !api_key.includes('...')) {
+      settingsData.api_key = api_key === '' ? null : api_key;
     }
 
     let result;

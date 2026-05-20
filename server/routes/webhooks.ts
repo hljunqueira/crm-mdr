@@ -4,6 +4,44 @@ import { processInboundWithAI } from './ai.js';
 
 const router = express.Router();
 
+const EVOLUTION_URL = 'https://whatsapp.mdrinformaticaecelulares.com.br';
+const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
+
+async function fetchWhatsAppName(instanceName: string, remoteJid: string, defaultName: string): Promise<string> {
+  try {
+    if (remoteJid.endsWith('@g.us')) {
+      const url = `${EVOLUTION_URL}/group/findGroupInfos/${instanceName}?groupJid=${remoteJid}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'apikey': EVOLUTION_API_KEY }
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        const subject = data?.subject || data?.data?.subject;
+        if (subject) return subject;
+      }
+    } else {
+      const url = `${EVOLUTION_URL}/chat/fetchProfile/${instanceName}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY
+        },
+        body: JSON.stringify({ number: remoteJid })
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        const name = data?.name || data?.pushname || data?.data?.name || data?.data?.pushname;
+        if (name) return name;
+      }
+    }
+  } catch (err: any) {
+    console.error(`[Webhook] Error fetching name for ${remoteJid}:`, err?.message || err);
+  }
+  return defaultName;
+}
+
 // Webhook para receber mensagens da Evolution API
 router.post('/evolution', async (req, res) => {
   const { event, instance, data } = req.body;
@@ -107,17 +145,30 @@ router.post('/evolution', async (req, res) => {
     // 3. Encontrar ou criar a conversa
     let { data: conversation } = await supabase
       .from('conversations')
-      .select('id, unread_count')
+      .select('id, unread_count, contact_name')
       .eq('channel_id', channel.id)
       .eq('contact_phone', remoteJid)
       .single();
 
+    const isUglyName = !conversation?.contact_name || 
+                       conversation.contact_name.includes('@') || 
+                       /^\d+$/.test(conversation.contact_name);
+
     if (!conversation) {
+      let finalName = contactName;
+      if (remoteJid.endsWith('@g.us') || isUglyName) {
+        finalName = await fetchWhatsAppName(instance, remoteJid, contactName);
+      }
+      
+      if (finalName.includes('@')) {
+        finalName = finalName.split('@')[0];
+      }
+
       const { data: newConv, error: convErr } = await supabase
         .from('conversations')
         .insert([{
           channel_id: channel.id,
-          contact_name: contactName,
+          contact_name: finalName,
           contact_phone: remoteJid,
           last_message: messageText,
           last_message_at: new Date().toISOString(),
@@ -130,13 +181,23 @@ router.post('/evolution', async (req, res) => {
       conversation = newConv;
     } else {
       // Atualizar conversa existente
+      const updateData: any = {
+        last_message: messageText,
+        last_message_at: new Date().toISOString(),
+        unread_count: isFromMe ? 0 : (conversation.unread_count || 0) + 1
+      };
+
+      if (isUglyName) {
+        let finalName = await fetchWhatsAppName(instance, remoteJid, conversation.contact_name || contactName);
+        if (finalName.includes('@')) {
+          finalName = finalName.split('@')[0];
+        }
+        updateData.contact_name = finalName;
+      }
+
       await supabase
         .from('conversations')
-        .update({
-          last_message: messageText,
-          last_message_at: new Date().toISOString(),
-          unread_count: isFromMe ? 0 : (conversation.unread_count || 0) + 1
-        })
+        .update(updateData)
         .eq('id', conversation.id);
     }
 
