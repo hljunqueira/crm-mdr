@@ -661,7 +661,7 @@ export default function Landing() {
             <div className="space-y-6">
               <h5 className="text-[10px] uppercase font-black tracking-[0.3em] text-on-surface opacity-40">Navegação</h5>
               <ul className="space-y-4">
-                {['Início', 'Serviços', 'Unidades', 'Garantia', 'Sobre Nós'].map(item => (
+                {['Início', 'Serviços', 'Unidades'].map(item => (
                   <li key={item}><a href={`#${item.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')}`} className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors">{item}</a></li>
                 ))}
               </ul>
