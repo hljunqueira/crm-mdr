@@ -397,11 +397,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             placeholder="Número do IMEI"
             value={formData.imei}
             onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
-            readOnly={!!formData.device_id}
-            className={cn(
-              "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-              formData.device_id && "opacity-50 cursor-not-allowed"
-            )}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
         </div>
 
