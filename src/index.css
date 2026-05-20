@@ -39,6 +39,11 @@
   body {
     @apply bg-surface text-on-surface font-sans antialiased selection:bg-white selection:text-black;
   }
+
+  select option {
+    background-color: #111111 !important;
+    color: #ffffff !important;
+  }
 }
 
 .pixel-grid {
