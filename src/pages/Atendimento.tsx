@@ -158,14 +158,21 @@ export default function Atendimento() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Unidade mais próxima</label>
-                  <select 
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="Arroio do Silva">Arroio do Silva (Matriz)</option>
-                    <option value="Gaivota">Balneário Gaivota (Filial)</option>
-                  </select>
+                  <div className="relative">
+                    <select 
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none appearance-none cursor-pointer text-white pr-12"
+                    >
+                      <option value="Arroio do Silva" className="bg-[#121214] text-white">Arroio do Silva (Matriz)</option>
+                      <option value="Gaivota" className="bg-[#121214] text-white">Balneário Gaivota (Filial)</option>
+                    </select>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface/60">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">Equipamento ou Produto</label>
