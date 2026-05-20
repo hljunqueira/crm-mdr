@@ -17,9 +17,8 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   const [formData, setFormData] = useState({
     brand: item?.brand || '',
     model: item?.model || '',
-    imei: item?.imei || '',
-    price: item?.price || 0,
-    cost_price: item?.cost_price || 0,
+    price: item?.price !== undefined ? String(item.price) : '',
+    cost_price: item?.cost_price !== undefined ? String(item.cost_price) : '',
     condition: item?.condition || 'new',
     status: item?.status || 'available',
     notes: item?.notes || '',
@@ -28,13 +27,27 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const priceNum = Number(formData.price) || 0;
+    const costPriceNum = Number(formData.cost_price) || 0;
+
     try {
+      const payload = {
+        brand: formData.brand,
+        model: formData.model,
+        condition: formData.condition,
+        status: formData.status,
+        notes: formData.notes,
+        price: priceNum,
+        cost_price: costPriceNum,
+        imei: '', // No IMEI in inventory registration
+      };
+
       if (item) {
-        await updateItem(item.id, formData);
+        await updateItem(item.id, payload);
         showNotification('success', 'Item Atualizado');
       } else {
         await addItem({
-          ...formData,
+          ...payload,
           unit_id: profile?.unit_id || undefined,
         });
         showNotification('success', 'Item Adicionado');
@@ -74,18 +87,6 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
-          <input
-            type="text"
-            required
-            value={formData.imei}
-            onChange={(e) => setFormData({ ...formData, imei: e.target.value })}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
-            placeholder="IMEI do aparelho"
-          />
-        </div>
-
-        <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Condição</label>
           <select
             value={formData.condition}
@@ -104,7 +105,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             type="number"
             required
             value={formData.cost_price}
-            onChange={(e) => setFormData({ ...formData, cost_price: Number(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
             placeholder="0,00"
           />
@@ -116,7 +117,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             type="number"
             required
             value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
             placeholder="0,00"
           />

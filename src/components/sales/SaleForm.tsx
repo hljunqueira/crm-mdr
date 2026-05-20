@@ -11,6 +11,17 @@ import { useUnitStore } from '../../store/useUnitStore';
 import { printElement } from '../../lib/utils';
 import ContractPrint from './ContractPrint';
 
+const INSTALLMENT_COEFFICIENTS: Record<'crediario' | 'card', Record<number, number>> = {
+  crediario: {
+    1: 1.080000,  2: 0.560769,  3: 0.388034,  4: 0.301921,  5: 0.250456,  6: 0.216315,
+    7: 0.192072,  8: 0.174015,  9: 0.160080, 10: 0.149029, 11: 0.140076, 12: 0.132695
+  },
+  card: {
+    1: 1.040000,  2: 0.530196,  3: 0.360349,  4: 0.275490,  5: 0.224627,  6: 0.190762,
+    7: 0.166610,  8: 0.148528,  9: 0.134493, 10: 0.123291, 11: 0.114149, 12: 0.106552
+  }
+};
+
 interface SaleFormProps {
   onSuccess: () => void;
   onCancel: () => void;
@@ -39,6 +50,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     first_due_date: initialData?.date || new Date().toISOString().split('T')[0],
     device_color: initialData?.device_color || '',
     accessories: initialData?.accessories || '',
+    payment_type: initialData?.payment_type || 'crediario',
     service_fee: initialData?.service_fee && (initialData?.original_price || initialData?.total_value) 
       ? (initialData.service_fee / (initialData.original_price || initialData.total_value) * 100) 
       : 0
@@ -94,10 +106,35 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const feeValue = formData.total_value * feePercentage;
   const finalValue = formData.total_value + feeValue;
 
+  const minDownPayment = useMemo(() => {
+    if (!selectedCustomer) return 0;
+    const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
+    if (classification === 'RUIM') return formData.total_value * 0.5;
+    if (classification === 'MEDIO') return formData.total_value * 0.2;
+    return 0;
+  }, [selectedCustomer, formData.total_value]);
+
+  const riskMultiplier = useMemo(() => {
+    if (!selectedCustomer) return 1.00;
+    const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
+    if (classification === 'RUIM') return 1.15;
+    if (classification === 'MEDIO') return 1.05;
+    return 1.00;
+  }, [selectedCustomer]);
+
   const installmentValue = useMemo(() => {
     const financed = finalValue - formData.down_payment;
-    return financed > 0 ? financed / formData.installments : 0;
-  }, [finalValue, formData.down_payment, formData.installments]);
+    if (financed <= 0) return 0;
+    const type = (formData.payment_type || 'crediario') as 'crediario' | 'card';
+    const count = formData.installments || 1;
+    const baseCoeff = INSTALLMENT_COEFFICIENTS[type]?.[count] || (1 / count);
+    const finalCoeff = baseCoeff * riskMultiplier;
+    return financed * finalCoeff;
+  }, [finalValue, formData.down_payment, formData.installments, formData.payment_type, riskMultiplier]);
+
+  const availableInstallmentOptions = useMemo(() => {
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  }, []);
 
   const generatedInstallments = useMemo(() => {
     if (!formData.customer_id || formData.total_value <= 0) return [];
@@ -128,6 +165,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       return;
     }
 
+    if (selectedCustomer && selectedCustomer.approved_for_purchase !== true) {
+      showNotification('error', 'Cliente Bloqueado', 'Este cliente não está liberado para compras. É necessária a aprovação de um administrador.');
+      return;
+    }
+
+    if (formData.down_payment < minDownPayment) {
+      const pct = selectedCustomer?.classification === 'RUIM' ? '50%' : '20%';
+      showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
+      return;
+    }
+
     try {
       if (initialData) {
         // Update existing sale
@@ -143,6 +191,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: formData.accessories,
+          payment_type: formData.payment_type as any
         });
         
         showNotification('success', 'Venda Atualizada');
@@ -163,7 +212,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: formData.accessories,
-          status: 'completed'
+          status: 'completed',
+          payment_type: formData.payment_type as any
         });
 
         // 2. Mark Device as Sold if applicable
@@ -241,6 +291,43 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {selectedCustomer && (
+        <div className={cn(
+          "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
+          selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20 text-red-400" :
+          selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
+          "bg-success/10 border-success/20 text-success"
+        )}>
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "p-2 rounded-xl border",
+              selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20" :
+              selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20" :
+              "bg-success/10 border-success/20"
+            )}>
+              <User size={18} />
+            </div>
+            <div>
+              <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
+              <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
+                Cliente {selectedCustomer.classification || 'BOM'}
+              </h4>
+            </div>
+          </div>
+          <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
+            {selectedCustomer.classification === 'RUIM' && (
+              <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de 15% devido ao risco elevado.</span>
+            )}
+            {selectedCustomer.classification === 'MEDIO' && (
+              <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui um acréscimo padrão de <strong>5%</strong> sobre as taxas de juros.</span>
+            )}
+            {selectedCustomer.classification === 'BOM' && (
+              <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros básica sem acréscimo de risco (Tabela 1).</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Customer Section */}
         <div className="space-y-2">
@@ -252,9 +339,19 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
           >
             <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
-            {customers.map(c => (
-              <option key={c.id} value={c.id} className="bg-surface-container-high">{c.name} - {c.cpf}</option>
-            ))}
+            {customers.map(c => {
+              const isBlocked = c.approved_for_purchase !== true;
+              return (
+                <option 
+                  key={c.id} 
+                  value={c.id} 
+                  disabled={isBlocked}
+                  className="bg-surface-container-high"
+                >
+                  {c.name} - {c.cpf}{isBlocked ? ' (BLOQUEADO - Sem Aprovação)' : ''}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -268,7 +365,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           >
             <option value="" className="bg-surface-container-high">-- Entrada Manual --</option>
             {availableDevices.map(d => (
-              <option key={d.id} value={d.id} className="bg-surface-container-high">{d.model} - {d.imei}</option>
+              <option key={d.id} value={d.id} className="bg-surface-container-high">
+                {d.model}{d.imei ? ` - ${d.imei}` : ''}
+              </option>
             ))}
           </select>
         </div>
@@ -334,13 +433,25 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         </div>
 
         <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
+          <select 
+            value={formData.payment_type}
+            onChange={(e) => setFormData(prev => ({ ...prev, payment_type: e.target.value as any }))}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+          >
+            <option value="crediario" className="bg-surface-container-high">Crediário da Loja</option>
+            <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+          </select>
+        </div>
+
+        <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
           <select 
             value={formData.installments}
             onChange={(e) => setFormData(prev => ({ ...prev, installments: Number(e.target.value) }))}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
           >
-            {[1, 2, 3, 6, 10, 12, 18, 24].map(n => (
+            {availableInstallmentOptions.map(n => (
               <option key={n} value={n} className="bg-surface-container-high">{n} Parcela(s)</option>
             ))}
           </select>

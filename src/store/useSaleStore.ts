@@ -17,13 +17,14 @@ export interface Sale {
   device_color?: string;
   accessories?: string;
   status: 'completed' | 'processing' | 'overdue' | 'cancelled';
+  payment_type?: 'crediario' | 'card';
 }
 
 interface SaleState {
   sales: Sale[];
   isLoading: boolean;
   fetchSales: (unitId?: string) => Promise<void>;
-  addSale: (sale: Omit<Sale, 'id'>) => Promise<void>;
+  addSale: (sale: Omit<Sale, 'id'>) => Promise<any>;
   updateSale: (id: string, sale: Partial<Sale>) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
 }
@@ -50,7 +51,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         date: s.sale_date,
         device_color: s.device_color,
         accessories: s.accessories,
-        status: s.status
+        status: s.status,
+        payment_type: s.payment_type || 'crediario'
       }));
       set({ sales: mappedSales });
     } catch (error) {
@@ -74,7 +76,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         sale_date: sale.date,
         device_color: sale.device_color,
         accessories: sale.accessories,
-        status: sale.status
+        status: sale.status,
+        payment_type: sale.payment_type
       };
       const data = await api.post('/sales', dbSale);
       
@@ -108,6 +111,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       if (updatedFields.device_color) dbFields.device_color = updatedFields.device_color;
       if (updatedFields.accessories) dbFields.accessories = updatedFields.accessories;
       if (updatedFields.status) dbFields.status = updatedFields.status;
+      if (updatedFields.payment_type) dbFields.payment_type = updatedFields.payment_type;
 
       const data = await api.patch(`/sales/${id}`, dbFields);
       
@@ -130,4 +134,3 @@ export const useSaleStore = create<SaleState>()((set) => ({
     }
   },
 }));
-

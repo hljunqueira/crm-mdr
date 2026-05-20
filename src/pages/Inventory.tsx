@@ -31,7 +31,7 @@ export default function Inventory() {
 
   const filteredInventory = inventory.filter(item => 
     item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.imei.includes(searchTerm) ||
+    (item.imei || '').includes(searchTerm) ||
     item.brand.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -162,10 +162,12 @@ export default function Inventory() {
                 </p>
 
                 <div className="space-y-2 mt-6 pt-6 border-t border-white/5">
-                  <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-black">
-                    <Barcode size={14} className="opacity-40" />
-                    <span className="font-mono tracking-widest uppercase">{item.imei}</span>
-                  </div>
+                  {item.imei && (
+                    <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-black">
+                      <Barcode size={14} className="opacity-40" />
+                      <span className="font-mono tracking-widest uppercase">{item.imei}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between pt-4">
                     <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço Sugerido</span>
                     <span className="text-xl font-black text-white">R$ {item.price.toLocaleString('pt-BR')}</span>

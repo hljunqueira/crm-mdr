@@ -7,7 +7,20 @@ export interface Customer {
   name: string;
   cpf: string;
   phone: string;
-  address: string;
+  address: string; // Will store the street/logradouro
+  address_number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  document_address_url?: string;
+  document_id_url?: string;
+  document_income_url?: string;
+  classification?: 'BOM' | 'MEDIO' | 'RUIM';
+  credit_limit?: number;
+  credit_status?: 'EM_ANALISE' | 'REPROVADO' | 'APROVADO_COM_ENTRADA' | 'APROVADO';
+  approved_for_purchase?: boolean;
+  registration_status?: 'PRE_CADASTRO' | 'APROVADO' | 'REPROVADO';
+  responsible_analyst_id?: string;
   status: 'active' | 'overdue' | 'blocked';
   last_payment?: string;
   created_at?: string;

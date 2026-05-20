@@ -137,8 +137,10 @@ export default function Customers() {
               <thead>
                 <tr className="bg-white/5">
                   <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Cliente</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Contato</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Status</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Contato / Endereço</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Crédito</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Cadastro / Compra</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Status Geral</th>
                   <th className="px-8 py-5 text-right"></th>
                 </tr>
               </thead>
@@ -168,12 +170,60 @@ export default function Customers() {
                           <Phone size={12} className="text-white opacity-20" />
                           {customer.phone}
                         </div>
-                        {customer.address && (
-                          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-display opacity-60">
-                            <MapPin size={12} />
-                            {customer.address}
+                        {(customer.address || customer.city) && (
+                          <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-display opacity-60 max-w-xs truncate">
+                            <MapPin size={12} className="flex-shrink-0 text-white opacity-40" />
+                            <span>
+                              {customer.address}
+                              {customer.address_number ? `, ${customer.address_number}` : ''}
+                              {customer.neighborhood ? ` - ${customer.neighborhood}` : ''}
+                              {customer.city ? ` - ${customer.city}` : ''}
+                              {customer.state ? `/${customer.state}` : ''}
+                            </span>
                           </div>
                         )}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                            customer.classification === 'BOM' ? 'bg-success/10 text-success' :
+                            customer.classification === 'RUIM' ? 'bg-error/10 text-error' :
+                            'bg-warning/10 text-warning'
+                          }`}>
+                            {customer.classification || 'MEDIO'}
+                          </span>
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-white/5 text-on-surface-variant`}>
+                            {customer.credit_status === 'EM_ANALISE' ? 'EM ANÁLISE' :
+                             customer.credit_status === 'APROVADO' ? 'APROVADO' :
+                             customer.credit_status === 'APROVADO_COM_ENTRADA' ? 'APROVADO C/ ENTRADA' : 'REPROVADO'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-on-surface font-mono font-bold">
+                          Limite: R$ {(customer.credit_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-1">
+                        <div>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                            customer.registration_status === 'APROVADO' ? 'bg-success/10 text-success border border-success/20' :
+                            customer.registration_status === 'REPROVADO' ? 'bg-error/10 text-error border border-error/20' :
+                            'bg-warning/10 text-warning border border-warning/20'
+                          }`}>
+                            {customer.registration_status === 'APROVADO' ? 'Aprovado' :
+                             customer.registration_status === 'REPROVADO' ? 'Rejeitado' : 'Pré-Cadastro'}
+                          </span>
+                        </div>
+                        <div className="text-[9px] font-black uppercase tracking-wider">
+                          {customer.approved_for_purchase ? (
+                            <span className="text-success flex items-center gap-1">✔ Compra Liberada</span>
+                          ) : (
+                            <span className="text-error flex items-center gap-1">❌ Compra Bloqueada</span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">

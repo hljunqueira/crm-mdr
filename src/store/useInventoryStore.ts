@@ -30,7 +30,19 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
     set({ isLoading: true });
     try {
       const data = await api.get('/inventory');
-      set({ inventory: data || [] });
+      const mapped = (data || []).map((item: any) => ({
+        id: item.id,
+        unit_id: item.store_id,
+        model: item.model,
+        brand: item.brand,
+        imei: item.imei || '',
+        price: Number(item.sale_price) || 0,
+        cost_price: Number(item.cost_price) || 0,
+        condition: item.condition,
+        status: item.status,
+        notes: item.notes || '',
+      }));
+      set({ inventory: mapped });
     } catch (error) {
       console.error('Error fetching inventory:', error);
     } finally {
@@ -39,20 +51,55 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
   },
   addItem: async (item) => {
     try {
-      const data = await api.post('/inventory', item);
-      set((state) => ({ inventory: [...state.inventory, data] }));
+      const dbItem = {
+        store_id: item.unit_id,
+        model: item.model,
+        brand: item.brand,
+        imei: item.imei || null,
+        condition: item.condition,
+        cost_price: item.cost_price,
+        sale_price: item.price,
+        status: item.status,
+        notes: item.notes || null,
+      };
+      const data = await api.post('/inventory', dbItem);
+      const newFrontendItem = {
+        ...item,
+        id: data.id,
+        imei: data.imei || '',
+        notes: data.notes || '',
+      };
+      set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
     } catch (error) {
       console.error('Error adding inventory item:', error);
+      throw error;
     }
   },
   updateItem: async (id, updatedFields) => {
     try {
-      const data = await api.patch(`/inventory/${id}`, updatedFields);
+      const dbFields: any = {};
+      if (updatedFields.unit_id !== undefined) dbFields.store_id = updatedFields.unit_id;
+      if (updatedFields.model !== undefined) dbFields.model = updatedFields.model;
+      if (updatedFields.brand !== undefined) dbFields.brand = updatedFields.brand;
+      if (updatedFields.imei !== undefined) dbFields.imei = updatedFields.imei || null;
+      if (updatedFields.condition !== undefined) dbFields.condition = updatedFields.condition;
+      if (updatedFields.cost_price !== undefined) dbFields.cost_price = updatedFields.cost_price;
+      if (updatedFields.price !== undefined) dbFields.sale_price = updatedFields.price;
+      if (updatedFields.status !== undefined) dbFields.status = updatedFields.status;
+      if (updatedFields.notes !== undefined) dbFields.notes = updatedFields.notes || null;
+
+      const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({
-        inventory: state.inventory.map((i) => i.id === id ? data : i)
+        inventory: state.inventory.map((i) => i.id === id ? {
+          ...i,
+          ...updatedFields,
+          imei: data.imei || '',
+          notes: data.notes || '',
+        } : i)
       }));
     } catch (error) {
       console.error('Error updating inventory item:', error);
+      throw error;
     }
   },
   deleteItem: async (id) => {

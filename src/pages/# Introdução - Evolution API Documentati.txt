@@ -1,0 +1,48 @@
+# Introdução - Evolution API Documentation
+
+[Skip to main content](https://doc.evolution-api.com/v2/pt/get-started/introduction#content-area)
+[Evolution API Documentation home page](https://doc.evolution-api.com/)
+- [GitHub](https://github.com/EvolutionAPI/evolution-api)
+- [GitHub](https://github.com/EvolutionAPI/evolution-api)
+[GitHub](https://github.com/EvolutionAPI/evolution-api)
+[GitHub](https://github.com/EvolutionAPI/evolution-api)
+[Português](https://doc.evolution-api.com/v2/pt/get-started/introduction)
+[English](https://doc.evolution-api.com/v2/en/get-started/introduction)
+[API](https://doc.evolution-api.com/v2/api-reference/get-information)
+
+##### Iniciar
+- [Introdução](https://doc.evolution-api.com/v2/pt/get-started/introduction)
+- Pré-requisitos
+- Instalação
+- Integrações
+- [Variáveis de Ambiente](https://doc.evolution-api.com/v2/pt/env)
+- [Atualização](https://doc.evolution-api.com/v2/pt/updates)
+- Configuração
+[Introdução](https://doc.evolution-api.com/v2/pt/get-started/introduction)
+[Variáveis de Ambiente](https://doc.evolution-api.com/v2/pt/env)
+[Atualização](https://doc.evolution-api.com/v2/pt/updates)
+- [Instalação](https://doc.evolution-api.com/v2/pt/get-started/introduction#instala%C3%A7%C3%A3o)
+[Instalação](https://doc.evolution-api.com/v2/pt/get-started/introduction#instala%C3%A7%C3%A3o)
+
+# Introdução
+
+## Documentation Index
+Fetch the complete documentation index at: [https://doc.evolution-api.com/llms.txt](https://doc.evolution-api.com/llms.txt)
+Use this file to discover all available pages before exploring further.
+[repositório](https://github.com/EvolutionAPI/evolution-api)
+[comunidade](https://evolution-api.com)
+
+## [​](https://doc.evolution-api.com/v2/pt/get-started/introduction#instala%C3%A7%C3%A3o)Instalação
+[​](https://doc.evolution-api.com/v2/pt/get-started/introduction#instala%C3%A7%C3%A3o)
+
+## Instalação com Docker
+
+## NVM
+
+## Documentação da API
+
+## Coleção Postman
+[Banco de Dados](https://doc.evolution-api.com/v2/pt/requirements/database)
+[website](https://evolution-api.com)
+[github](https://github.com/EvolutionAPI/evolution-api)
+[Powered byThis documentation is built and hosted on Mintlify, a developer documentation platform](https://www.mintlify.com?utm_campaign=poweredBy&utm_medium=referral&utm_source=evolution-74046672)
