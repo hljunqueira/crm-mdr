@@ -109,7 +109,7 @@ export default function Kanban() {
                       onDragStart={(e) => e.dataTransfer.setData('cardId', card.id)}
                       className="glass-card p-8 border border-outline-variant/30 rounded-[32px] hover:border-white/30 hover:shadow-2xl transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden bg-white/[0.02]"
                     >
-                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <div className="absolute top-0 right-0 p-4 flex gap-2">
                         <button onClick={() => handleEditCard(card)} className="p-1 hover:text-white transition-colors">
                             <Edit2 size={16} />
                          </button>

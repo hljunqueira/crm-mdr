@@ -70,7 +70,7 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-surface-container-high border border-white/10 rounded-[36px] shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-3xl bg-surface-container-high border border-white/10 rounded-[36px] shadow-2xl relative overflow-hidden">
         {/* Decorative Top Glow */}
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30"></div>
 
@@ -121,55 +121,64 @@ export default function AISettingsModal({ channelId, channelName, onClose }: AIS
               </button>
             </div>
 
-            {/* Provider Selection */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Provedor de IA</label>
-              <select
-                value={provider}
-                onChange={e => setProvider(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all appearance-none cursor-pointer"
-              >
-                <option value="groq" className="bg-surface">Groq (Llama-3.3-70b-versatile - RECOMENDADO)</option>
-                <option value="gemini" className="bg-surface">Google Gemini</option>
-                <option value="openai" className="bg-surface">OpenAI GPT</option>
-              </select>
-            </div>
+            {/* Grid Layout for Desktop Side-by-Side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column */}
+              <div className="space-y-4">
+                {/* Provider Selection */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Provedor de IA</label>
+                  <select
+                    value={provider}
+                    onChange={e => setProvider(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="groq" className="bg-surface">Groq (Llama-3.3-70b-versatile - RECOMENDADO)</option>
+                    <option value="gemini" className="bg-surface">Google Gemini</option>
+                    <option value="openai" className="bg-surface">OpenAI GPT</option>
+                  </select>
+                </div>
 
-            {/* Custom API Key */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">API Key Opcional (Usa a padrão por padrão)</label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                placeholder="Insira sua chave personalizada caso tenha"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-              />
-            </div>
+                {/* Max Tokens */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Tamanho Máximo da Resposta (Tokens)</label>
+                  <input
+                    type="number"
+                    value={maxTokens}
+                    onChange={e => setMaxTokens(parseInt(e.target.value) || 200)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                    required
+                  />
+                </div>
+              </div>
 
-            {/* System Prompt */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Instruções da IA (Prompt do Sistema)</label>
-              <textarea
-                value={systemPrompt}
-                onChange={e => setSystemPrompt(e.target.value)}
-                rows={4}
-                placeholder="Ex: Você é o atendente virtual da MDR Informática..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all resize-none"
-                required
-              />
-            </div>
+              {/* Right Column */}
+              <div className="space-y-4">
+                {/* Custom API Key */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">API Key Opcional (Usa a padrão por padrão)</label>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={e => setApiKey(e.target.value)}
+                    placeholder="Insira sua chave personalizada caso tenha"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
 
-            {/* Max Tokens */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Tamanho Máximo da Resposta (Tokens)</label>
-              <input
-                type="number"
-                value={maxTokens}
-                onChange={e => setMaxTokens(parseInt(e.target.value) || 200)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                required
-              />
+                {/* System Prompt */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary pl-1">Instruções da IA (Prompt do Sistema)</label>
+                  <textarea
+                    value={systemPrompt}
+                    onChange={e => setSystemPrompt(e.target.value)}
+                    rows={4}
+                    placeholder="Ex: Você é o atendente virtual da MDR Informática..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all resize-none"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons */}

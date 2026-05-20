@@ -246,7 +246,7 @@ export default function Sales() {
                       </div>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => handlePrintContract(sale)}
                           className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
