@@ -64,6 +64,10 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30">
+      <div className="px-6 mb-8 flex items-center">
+        <img src="/logo-mdr.png" alt="MDR" className="h-14 w-auto object-contain" />
+      </div>
+
       <nav className="flex-1 overflow-y-auto px-3 space-y-6 custom-scrollbar">
         {menuGroups.map((group) => (
           <div key={group.title} className="space-y-1.5">
