@@ -19,8 +19,6 @@ interface AutomationState {
   subscribeToChannels: (onUpdate: () => void) => () => void;
 }
 
-const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
-
 export const useAutomationStore = create<AutomationState>()((set, get) => ({
   channelStatuses: {},
 
@@ -50,9 +48,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
   fetchConnectionStatus: async (instance) => {
     get().setChannelStatus(instance, { status: 'loading' });
     try {
-      const response = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connectionState/${instance}`, {
-        headers: { 'apikey': EVOLUTION_API_KEY }
-      });
+      const response = await fetch(`/api/evolution/instance/connectionState/${instance}`);
       const data = await response.json();
       const isConnected = data.instance?.state === 'open' || data.state === 'open';
       
@@ -79,11 +75,10 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
     try {
       // 1. Criar a instância
-      const createRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/create`, {
+      const createRes = await fetch(`/api/evolution/instance/create`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_API_KEY
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           instanceName: finalInstanceName,
@@ -102,11 +97,10 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
       // 2. Se for Instagram e tiver credenciais, conectar agora
       if (type === 'instagram' && credentials?.user && credentials?.pass) {
-        await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
+        await fetch(`/api/evolution/instance/connect/${finalInstanceName}`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             username: credentials.user,
@@ -116,11 +110,10 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
       }
 
       // 3. Configurar Webhooks para o App Interno
-      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/webhook/set/${finalInstanceName}`, {
+      await fetch(`/api/evolution/webhook/set/${finalInstanceName}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_API_KEY
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           webhook: {
@@ -157,9 +150,7 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
         const maxAttempts = 30;
 
         while (attempts < maxAttempts) {
-          const qrRes = await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/connect/${finalInstanceName}`, {
-            headers: { 'apikey': EVOLUTION_API_KEY }
-          });
+          const qrRes = await fetch(`/api/evolution/instance/connect/${finalInstanceName}`);
           const qrData = await qrRes.json();
           
           const base64 = qrData.base64 || qrData.qrcode?.base64;
@@ -191,9 +182,8 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
   logout: async (instance) => {
     try {
-      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/logout/${instance}`, {
-        method: 'DELETE',
-        headers: { 'apikey': EVOLUTION_API_KEY }
+      await fetch(`/api/evolution/instance/logout/${instance}`, {
+        method: 'DELETE'
       });
       get().setChannelStatus(instance, { status: 'disconnected', qrCode: null });
     } catch (error) {
@@ -203,9 +193,8 @@ export const useAutomationStore = create<AutomationState>()((set, get) => ({
 
   deleteInstance: async (instance) => {
     try {
-      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/instance/delete/${instance}`, {
-        method: 'DELETE',
-        headers: { 'apikey': EVOLUTION_API_KEY }
+      await fetch(`/api/evolution/instance/delete/${instance}`, {
+        method: 'DELETE'
       });
       set((state) => {
         const newStatuses = { ...state.channelStatuses };

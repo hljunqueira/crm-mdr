@@ -42,11 +42,12 @@ interface ChatState {
   messages: Message[];
   isLoading: boolean;
   
-  fetchChannels: (unitId?: string) => Promise<void>;
+  fetchChannels: (unitId?: string, role?: string) => Promise<void>;
   fetchConversations: (channelId: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
   setActiveConversation: (conversation: Conversation | null) => void;
   sendMessage: (conversationId: string, text: string) => Promise<void>;
+  sendMediaMessage: (conversationId: string, mediaUrl: string, mediaType: 'image' | 'audio' | 'video' | 'document', caption?: string) => Promise<void>;
   startNewConversation: (channelId: string, contactName: string, contactPhone: string) => Promise<void>;
   subscribeToMessages: (conversationId: string) => () => void;
   subscribeToConversations: (channelId: string, onUpdate: () => void) => () => void;
@@ -59,12 +60,17 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   messages: [],
   isLoading: false,
 
-  fetchChannels: async (unitId) => {
+  fetchChannels: async (unitId, role) => {
     set({ isLoading: true });
     try {
-      const { data, error } = await supabase
-        .from('automation_channels')
-        .select('*');
+      let query = supabase.from('automation_channels').select('*');
+      
+      // Se não for admin e tiver unitId, filtra apenas canais da unidade do usuário
+      if (role !== 'admin' && unitId) {
+        query = query.eq('unit_id', unitId);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       set({ channels: data || [] });
@@ -188,22 +194,19 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       if (error) throw error;
       set((state) => ({ messages: [...state.messages, data] }));
 
-      // 2. Disparar via Evolution API
+      // 2. Disparar via endpoint seguro do servidor (sem API key no frontend)
       const instance = channel.instance_name;
       const remoteJid = conv.contact_phone?.includes('@') 
         ? conv.contact_phone 
         : `${conv.contact_phone}@s.whatsapp.net`;
 
-      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/message/sendText/${instance}`, {
+      await fetch('/api/chat/send', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'MDR_SECRET_TOKEN_2024'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          number: remoteJid,
-          text: text,
-          linkPreview: true
+          instanceName: instance,
+          remoteJid: remoteJid,
+          text: text
         })
       });
 
@@ -218,6 +221,65 @@ export const useChatStore = create<ChatState>()((set, get) => ({
 
     } catch (error) {
       console.error('Error sending message:', error);
+    }
+  },
+
+  sendMediaMessage: async (conversationId, mediaUrl, mediaType, caption) => {
+    const conv = get().conversations.find(c => c.id === conversationId);
+    const channel = get().channels.find(c => c.id === conv?.channel_id);
+    
+    if (!conv || !channel) return;
+
+    try {
+      // 1. Salvar localmente no Supabase
+      const newMessage = {
+        conversation_id: conversationId,
+        text: caption || `[Mídia: ${mediaType}]`,
+        type: mediaType,
+        direction: 'outbound' as const,
+        status: 'sent' as const,
+        media_url: mediaUrl,
+        media_type: mediaType,
+      };
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert([newMessage])
+        .select()
+        .single();
+
+      if (error) throw error;
+      set((state) => ({ messages: [...state.messages, data] }));
+
+      // 2. Disparar via endpoint seguro do servidor (sem API key no frontend)
+      const instance = channel.instance_name;
+      const remoteJid = conv.contact_phone?.includes('@') 
+        ? conv.contact_phone 
+        : `${conv.contact_phone}@s.whatsapp.net`;
+
+      await fetch('/api/chat/send-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceName: instance,
+          remoteJid: remoteJid,
+          mediaUrl: mediaUrl,
+          mediaType: mediaType,
+          caption: caption
+        })
+      });
+
+      // 3. Atualizar última mensagem
+      await supabase
+        .from('conversations')
+        .update({ 
+          last_message: caption || `📷 Foto`, 
+          last_message_at: new Date().toISOString() 
+        })
+        .eq('id', conversationId);
+
+    } catch (error) {
+      console.error('Error sending media message:', error);
     }
   },
 

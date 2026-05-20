@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
+import { processInboundWithAI } from './ai.js';
 
 const router = express.Router();
 
@@ -177,6 +178,18 @@ router.post('/evolution', async (req, res) => {
 
       if (msgErr) throw msgErr;
       console.log(`[Webhook] Message successfully saved to database.`);
+
+      // 5. Disparar IA auto-respondente para mensagens inbound (async, não bloqueia)
+      if (!isFromMe) {
+        processInboundWithAI(
+          channel.id,
+          instance,
+          conversation.id,
+          remoteJid,
+          contactName,
+          messageText
+        ).catch(err => console.error('[Webhook] AI processing error:', err));
+      }
     }
 
     res.status(200).send('OK');

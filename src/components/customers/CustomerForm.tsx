@@ -131,16 +131,15 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         `📅 *Data:* ${new Date().toLocaleDateString('pt-BR')}\n\n` +
         `Por favor, acesse o painel MDR para realizar a análise dos documentos e liberação de crédito.`;
 
-      await fetch(`https://mdrinformaticaecelulares.com.br/api/evolution/message/sendText/${instance}`, {
+      await fetch(`/api/chat/send`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'MDR_SECRET_TOKEN_2024'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          number: remoteJid,
-          text: messageText,
-          linkPreview: false
+          instanceName: instance,
+          remoteJid: remoteJid,
+          text: messageText
         })
       });
       console.log('Notificação enviada com sucesso para o analista responsável.');
