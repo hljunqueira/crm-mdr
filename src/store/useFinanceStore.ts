@@ -36,7 +36,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         id: i.id,
         unit_id: i.sales?.store_id || i.unit_id || undefined,
         sale_id: i.sale_id,
-        customer_id: i.customer_id,
+        customer_id: i.sales?.customer_id || i.customer_id,
         customer_name: i.sales?.customers?.name || 'Cliente Sem Nome',
         number: i.installment_number,
         total: i.total_installments,
@@ -69,7 +69,6 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       const mapped = {
         id: data.id,
         sale_id: data.sale_id,
-        customer_id: data.customer_id,
         number: data.installment_number,
         total: data.total_installments,
         value: Number(data.value),
@@ -92,7 +91,6 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       const mapped = {
         id: data.id,
         sale_id: data.sale_id,
-        customer_id: data.customer_id,
         number: data.installment_number,
         total: data.total_installments,
         value: Number(data.value),
@@ -112,7 +110,6 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
     try {
       const dbInstallments = newInstallments.map(i => ({
         sale_id: i.sale_id,
-        customer_id: i.customer_id,
         installment_number: i.number,
         total_installments: i.total,
         value: i.value,
