@@ -14,6 +14,10 @@ interface ContractPrintProps {
     device_color?: string;
     accessories?: string;
     payment_type?: string;
+    down_payment_method?: string;
+    trade_device_model?: string;
+    trade_device_imei?: string;
+    interest_table?: string;
   };
   customer: {
     name: string;
@@ -128,6 +132,12 @@ export default function ContractPrint({ sale, customer, unit, installmentValue }
         <div className="highlight-box">
           <p><strong>Valor à Vista (base):</strong> <span className="data-field">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
           <p><strong>Entrada Paga:</strong> <span className="data-field">R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+          {sale.down_payment_method === 'trade' && (
+            <div style={{ margin: '4px 0', padding: '4px 8px', background: 'rgba(108, 99, 255, 0.05)', borderRadius: '4px', borderLeft: '3px solid #6C63FF' }}>
+              <p><strong>Entrada em Troca:</strong> <span className="data-field">{sale.trade_device_model}</span></p>
+              <p><strong>IMEI / Serial (Troca):</strong> <span className="data-field">{sale.trade_device_imei || 'N/A'}</span></p>
+            </div>
+          )}
           <p><strong>Saldo Financiado:</strong> <span className="data-field">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> em <span className="data-field">{sale.installments}</span> parcelas de <span className="data-field">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> cada.</p>
           <p><strong>Valor Total do Contrato:</strong> <span className="data-field">R$ {totalWithFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
           <p><strong>Vencimento:</strong> Todo dia <span className="data-field">{new Date(sale.date + 'T12:00:00').getDate()}</span> do mês, com início em <span className="data-field">{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>.</p>
@@ -135,17 +145,27 @@ export default function ContractPrint({ sale, customer, unit, installmentValue }
         </div>
       </div>
 
-      {/* Section 4: Late Payment */}
+      {/* Section 4: Early Payment Discounts */}
       <div className="section">
-        <h2>4. Atraso no Pagamento</h2>
+        <h2>4. Desconto por Antecipação de Parcelas</h2>
+        <p>O Comprador poderá obter descontos ao antecipar o pagamento de suas parcelas (descontos aplicados sobre o juro embutido):</p>
+        <p>• <strong>Antecipação de 1 parcela:</strong> Desconto de <strong>3%</strong></p>
+        <p>• <strong>Antecipação de 2 parcelas:</strong> Desconto de <strong>5%</strong></p>
+        <p>• <strong>Antecipação de 3 parcelas ou mais:</strong> Desconto de <strong>8%</strong></p>
+        <p>• <strong>Quitação de saldo devedor (acima de 50% das parcelas restantes):</strong> Negociação especial com abatimento proporcional dos juros.</p>
+      </div>
+
+      {/* Section 5: Late Payment */}
+      <div className="section">
+        <h2>5. Atraso no Pagamento</h2>
         <p>Caso alguma parcela não seja paga em até <strong>5 dias</strong> após o vencimento:</p>
         <p>• <strong>Multa:</strong> 2% sobre o valor da parcela + juros de 1% ao mês.</p>
         <p>• <strong>Inadimplência:</strong> Se houver parcelas em atraso, o saldo total passa a ser devido imediatamente. O Vendedor poderá solicitar a devolução do aparelho.</p>
       </div>
 
-      {/* Section 5: Warranty */}
+      {/* Section 6: Warranty */}
       <div className="section">
-        <h2>5. Garantia e Termos Adicionais</h2>
+        <h2>6. Garantia e Termos Adicionais</h2>
         {unit.warranty_terms ? (
           <p className="whitespace-pre-line">{unit.warranty_terms}</p>
         ) : (
@@ -157,9 +177,9 @@ export default function ContractPrint({ sale, customer, unit, installmentValue }
         )}
       </div>
 
-      {/* Section 6: Additional Clauses */}
+      {/* Section 7: Additional Clauses */}
       <div className="section">
-        <h2>6. Cláusulas Adicionais e Rescisão</h2>
+        <h2>7. Cláusulas Adicionais e Rescisão</h2>
         {unit.contract_terms ? (
           <p className="whitespace-pre-line text-xs">{unit.contract_terms}</p>
         ) : (

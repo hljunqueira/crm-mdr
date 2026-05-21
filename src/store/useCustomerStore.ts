@@ -7,7 +7,13 @@ export interface Customer {
   name: string;
   cpf: string;
   phone: string;
+  parent_contact_phone?: string;
+  reference1_name?: string;
+  reference1_phone?: string;
+  reference2_name?: string;
+  reference2_phone?: string;
   address: string; // Will store the street/logradouro
+  notes?: string;
   address_number?: string;
   neighborhood?: string;
   city?: string;
@@ -17,6 +23,7 @@ export interface Customer {
   document_income_url?: string;
   classification?: 'BOM' | 'MEDIO' | 'RUIM';
   credit_limit?: number;
+  suggested_down_payment?: number;
   credit_status?: 'EM_ANALISE' | 'REPROVADO' | 'APROVADO_COM_ENTRADA' | 'APROVADO';
   approved_for_purchase?: boolean;
   registration_status?: 'PRE_CADASTRO' | 'APROVADO' | 'REPROVADO';

@@ -27,6 +27,12 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     name: initialData?.name || '',
     cpf: initialData?.cpf || '',
     phone: initialData?.phone || '',
+    parent_contact_phone: initialData?.parent_contact_phone || '',
+    reference1_name: initialData?.reference1_name || '',
+    reference1_phone: initialData?.reference1_phone || '',
+    reference2_name: initialData?.reference2_name || '',
+    reference2_phone: initialData?.reference2_phone || '',
+    notes: initialData?.notes || '',
     address: initialData?.address || '',
     address_number: initialData?.address_number || '',
     neighborhood: initialData?.neighborhood || '',
@@ -37,6 +43,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     document_income_url: initialData?.document_income_url || '',
     classification: initialData?.classification || 'MEDIO',
     credit_limit: initialData?.credit_limit || 0,
+    suggested_down_payment: initialData?.suggested_down_payment || 0,
     credit_status: initialData?.credit_status || 'EM_ANALISE',
     approved_for_purchase: initialData?.approved_for_purchase || false,
     registration_status: initialData?.registration_status || 'PRE_CADASTRO',
@@ -230,6 +237,67 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         </div>
       </div>
 
+      {/* SEÇÃO 2: CONTATOS COMPLEMENTARES */}
+      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+        <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+          <Phone size={14} /> Contatos Complementares
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Telefone de Contato dos Pais</label>
+            <input
+              type="text"
+              placeholder="(00) 00000-0000"
+              value={formData.parent_contact_phone}
+              onChange={(e) => setFormData(p => ({ ...p, parent_contact_phone: formatPhone(e.target.value) }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Referência 1 - Nome</label>
+            <input
+              type="text"
+              placeholder="Nome da referência"
+              value={formData.reference1_name}
+              onChange={(e) => setFormData(p => ({ ...p, reference1_name: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Referência 1 - Telefone</label>
+            <input
+              type="text"
+              placeholder="(00) 00000-0000"
+              value={formData.reference1_phone}
+              onChange={(e) => setFormData(p => ({ ...p, reference1_phone: formatPhone(e.target.value) }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Referência 2 - Nome</label>
+            <input
+              type="text"
+              placeholder="Nome da referência"
+              value={formData.reference2_name}
+              onChange={(e) => setFormData(p => ({ ...p, reference2_name: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Referência 2 - Telefone</label>
+            <input
+              type="text"
+              placeholder="(00) 00000-0000"
+              value={formData.reference2_phone}
+              onChange={(e) => setFormData(p => ({ ...p, reference2_phone: formatPhone(e.target.value) }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* SEÇÃO 2: ENDEREÇO ESTRUTURADO */}
       <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
@@ -389,6 +457,32 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
               <option value="APROVADO_COM_ENTRADA" className="bg-[#121214] text-warning">APROVADO COM ENTRADA</option>
               <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO</option>
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Entrada Sugerido (R$)</label>
+            <div className="relative">
+              <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                value={formData.suggested_down_payment || ''}
+                onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Solicitação de Crédito</label>
+            <textarea
+              rows={4}
+              placeholder="Ex: Cliente quer crédito para um iPhone 16 Pro Max no valor de R$ 1.000,00. Vai dar R$ 100,00 de entrada e pode pagar R$ 200,00 por mês."
+              value={formData.notes}
+              onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed"
+            />
           </div>
 
           {/* Analista Responsável (WhatsApp) */}

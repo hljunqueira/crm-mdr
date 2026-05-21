@@ -14,6 +14,10 @@ interface SaleReceiptPrintProps {
     device_color?: string;
     accessories?: string;
     payment_type?: string;
+    down_payment_method?: string;
+    trade_device_model?: string;
+    trade_device_imei?: string;
+    interest_table?: string;
   };
   customer: {
     name: string;
@@ -141,11 +145,34 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
       <div className="section">
         <div className="section-title">Resumo Financeiro</div>
         <div className="row"><span>Preço à Vista (base):</span><strong>R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-        <div className="row"><span>Entrada Paga:</span><strong>R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+        <div className="row"><span>Entrada Paga:</span><strong>R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {sale.down_payment_method === 'trade' ? '(Troca)' : ''}</strong></div>
+        {sale.down_payment_method === 'trade' && (
+          <div className="row" style={{ padding: '2px 6px', background: 'rgba(108, 99, 255, 0.05)', borderRadius: '4px', margin: '2px 0' }}>
+            <span>Aparelho Recebido:</span><strong>{sale.trade_device_model} (IMEI: {sale.trade_device_imei || 'N/A'})</strong>
+          </div>
+        )}
         <div className="row"><span>Saldo Financiado:</span><strong>R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
         <div className="row"><span>Parcelado em:</span><strong>{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
         <div className="row"><span>1° Vencimento:</span><strong>{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>
       </div>
+
+      {sale.payment_type !== 'card' && (
+        <div className="section">
+          <div className="section-title">Desconto por Antecipação de Parcelas</div>
+          <div className="row" style={{ fontSize: '10px' }}>
+            <span>• Antecipar 1 parcela:</span><strong>3% de desc. nos juros</strong>
+          </div>
+          <div className="row" style={{ fontSize: '10px' }}>
+            <span>• Antecipar 2 parcelas:</span><strong>5% de desc. nos juros</strong>
+          </div>
+          <div className="row" style={{ fontSize: '10px' }}>
+            <span>• Antecipar 3 ou mais parcelas:</span><strong>8% de desc. nos juros</strong>
+          </div>
+          <div className="row" style={{ fontSize: '10px' }}>
+            <span>• Quitação total (acima de 50% restante):</span><strong>Negociação especial</strong>
+          </div>
+        </div>
+      )}
 
       {/* Signature */}
       <div className="signature-area">

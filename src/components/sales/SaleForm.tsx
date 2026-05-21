@@ -12,15 +12,24 @@ import { printElement } from '../../lib/utils';
 import ContractPrint from './ContractPrint';
 import SaleReceiptPrint from './SaleReceiptPrint';
 
-const INSTALLMENT_COEFFICIENTS: Record<'crediario' | 'card', Record<number, number>> = {
-  crediario: {
-    1: 1.080000,  2: 0.560769,  3: 0.388034,  4: 0.301921,  5: 0.250456,  6: 0.216315,
-    7: 0.192072,  8: 0.174015,  9: 0.160080, 10: 0.149029, 11: 0.140076, 12: 0.132695
+const CREDIARIO_COEFFICIENTS: Record<'premium' | 'standard' | 'flex', Record<number, number>> = {
+  premium: {
+    1: 1.050000,  2: 0.537805,  3: 0.367209,  4: 0.282012,  5: 0.230975,  6: 0.197017,
+    7: 0.172820,  8: 0.154722,  9: 0.140690, 10: 0.129505, 11: 0.120363, 12: 0.112825
   },
-  card: {
-    1: 1.040000,  2: 0.530196,  3: 0.360349,  4: 0.275490,  5: 0.224627,  6: 0.190762,
-    7: 0.166610,  8: 0.148528,  9: 0.134493, 10: 0.123291, 11: 0.114149, 12: 0.106552
+  standard: {
+    1: 1.080000,  2: 0.561600,  3: 0.388033,  4: 0.301920,  5: 0.250457,  6: 0.216315,
+    7: 0.192066,  8: 0.173998,  9: 0.160041, 10: 0.148970, 11: 0.139997, 12: 0.132695
+  },
+  flex: {
+    1: 1.120000,  2: 0.592727,  3: 0.416350,  4: 0.329234,  5: 0.277410,  6: 0.243226,
+    7: 0.219108,  8: 0.201259,  9: 0.187543, 10: 0.176706, 11: 0.167974, 12: 0.160819
   }
+};
+
+const CARD_COEFFICIENTS: Record<number, number> = {
+  1: 1.040000,  2: 0.530196,  3: 0.360349,  4: 0.275490,  5: 0.224627,  6: 0.190762,
+  7: 0.166610,  8: 0.148528,  9: 0.134493, 10: 0.123291, 11: 0.114149, 12: 0.106552
 };
 
 interface SaleFormProps {
@@ -32,7 +41,7 @@ interface SaleFormProps {
 export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormProps) {
   const { customers } = useCustomerStore();
   const { addSale, updateSale } = useSaleStore();
-  const { addInstallments } = useFinanceStore();
+  const { installments, fetchInstallments, addInstallments } = useFinanceStore();
   const { inventory, updateItem } = useInventoryStore();
   const { showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
@@ -51,7 +60,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     first_due_date: initialData?.date || new Date().toISOString().split('T')[0],
     device_color: initialData?.device_color || '',
     accessories: initialData?.accessories || '',
-    payment_type: initialData?.payment_type || 'crediario'
+    payment_type: initialData?.payment_type || 'crediario',
+    interest_table: 'standard',
+    down_payment_method: 'money_pix',
+    trade_device_model: '',
+    trade_device_imei: ''
   });
 
   // ─── Accessories from inventory ─────────────────────────────────────
@@ -132,6 +145,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     }
   }, [formData.first_due_date, formData.installments]);
 
+  React.useEffect(() => {
+    fetchInstallments();
+  }, [formData.customer_id, fetchInstallments]);
+
   const availableDevices = useMemo(() => 
     inventory.filter(item => item.status === 'available' || (item.stock_quantity || 0) > 0), 
   [inventory]);
@@ -162,7 +179,44 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   // MDR Coefficient Calculations
   const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card';
   const installmentCount = formData.installments || 1;
-  const baseCoefficient = INSTALLMENT_COEFFICIENTS[paymentType]?.[installmentCount] || (1 / installmentCount);
+
+  const baseCoefficient = useMemo(() => {
+    if (paymentType === 'card') {
+      return CARD_COEFFICIENTS[installmentCount] || (1 / installmentCount);
+    }
+    const table = formData.interest_table || 'standard';
+    return CREDIARIO_COEFFICIENTS[table as 'premium' | 'standard' | 'flex']?.[installmentCount] || (1 / installmentCount);
+  }, [paymentType, formData.interest_table, installmentCount]);
+
+  // Customer Debt & Limit Calculations
+  const customerDebts = useMemo(() => {
+    if (!formData.customer_id) return 0;
+    return installments
+      .filter(i => i.customer_id === formData.customer_id && i.status !== 'paid')
+      .reduce((sum, i) => sum + i.value, 0);
+  }, [installments, formData.customer_id]);
+
+  const availableLimit = useMemo(() => {
+    if (!selectedCustomer) return 0;
+    const totalLimit = selectedCustomer.credit_limit || 0;
+    return Math.max(0, totalLimit - customerDebts);
+  }, [selectedCustomer, customerDebts]);
+
+  // Only 'venda' accessories add to the total price
+  const accessoriesTotal = useMemo(() =>
+    selectedAccessories
+      .filter(a => a.type === 'venda')
+      .reduce((sum, a) => sum + a.price * a.quantity, 0),
+  [selectedAccessories]);
+
+  const newFinancedAmount = useMemo(() => {
+    return Math.max(0, (formData.total_value + accessoriesTotal) - formData.down_payment);
+  }, [formData.total_value, accessoriesTotal, formData.down_payment]);
+
+  const isOverLimit = useMemo(() => {
+    if (formData.payment_type !== 'crediario' || !selectedCustomer) return false;
+    return newFinancedAmount > availableLimit;
+  }, [formData.payment_type, selectedCustomer, newFinancedAmount, availableLimit]);
 
   const minDownPayment = useMemo(() => {
     if (!selectedCustomer) return 0;
@@ -190,13 +244,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const totalInstallmentsValue = useMemo(() => {
     return installmentValue * installmentCount;
   }, [installmentValue, installmentCount]);
-
-  // Only 'venda' accessories add to the total price
-  const accessoriesTotal = useMemo(() =>
-    selectedAccessories
-      .filter(a => a.type === 'venda')
-      .reduce((sum, a) => sum + a.price * a.quantity, 0),
-  [selectedAccessories]);
 
   const finalValue = useMemo(() => {
     return formData.down_payment + totalInstallmentsValue + accessoriesTotal;
@@ -242,11 +289,36 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       return;
     }
 
+    if (formData.payment_type === 'crediario' && isOverLimit) {
+      showNotification('error', 'Limite de Crédito Excedido', `O valor financiado (R$ ${newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) excede o limite disponível do cliente (R$ ${availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Venda bloqueada. Apenas após nova análise de crédito.`);
+      return;
+    }
+
     try {
-      // Build accessories string for DB
-      const accessoriesStr = selectedAccessories.length > 0
+      // Build accessories string for DB and append metadata
+      let accessoriesStr = selectedAccessories.length > 0
         ? selectedAccessories.map(a => `${a.model} (${a.type === 'brinde' ? 'Brinde' : `Venda R$${a.price.toFixed(2)}`})`).join(', ')
         : formData.accessories;
+
+      const metadataParts: string[] = [];
+      if (formData.payment_type === 'crediario') {
+        const tableName = formData.interest_table === 'premium' ? 'PREMIUM (5%)' :
+                          formData.interest_table === 'flex' ? 'FLEX (12%)' : 'STANDARD (8%)';
+        metadataParts.push(`[Tabela: ${tableName}]`);
+      }
+      if (formData.down_payment > 0) {
+        if (formData.down_payment_method === 'trade') {
+          metadataParts.push(`[Entrada: Troca - ${formData.trade_device_model} (IMEI: ${formData.trade_device_imei || 'N/A'})]`);
+        } else {
+          metadataParts.push(`[Entrada: Dinheiro/PIX]`);
+        }
+      }
+
+      if (metadataParts.length > 0) {
+        accessoriesStr = accessoriesStr 
+          ? `${accessoriesStr} | ${metadataParts.join(' | ')}`
+          : metadataParts.join(' | ');
+      }
 
       if (initialData) {
         await updateSale(initialData.id, {
@@ -323,12 +395,35 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   };
 
   if (isSuccess && selectedCustomer) {
+    const accessoriesStr = selectedAccessories.length > 0
+      ? selectedAccessories.map(a => `${a.model} (${a.type === 'brinde' ? 'Brinde' : `Venda R$${a.price.toFixed(2)}`})`).join(', ')
+      : formData.accessories;
+
+    const metadataParts: string[] = [];
+    if (formData.payment_type === 'crediario') {
+      const tableName = formData.interest_table === 'premium' ? 'PREMIUM (5%)' :
+                        formData.interest_table === 'flex' ? 'FLEX (12%)' : 'STANDARD (8%)';
+      metadataParts.push(`[Tabela: ${tableName}]`);
+    }
+    if (formData.down_payment > 0) {
+      if (formData.down_payment_method === 'trade') {
+        metadataParts.push(`[Entrada: Troca - ${formData.trade_device_model} (IMEI: ${formData.trade_device_imei || 'N/A'})]`);
+      } else {
+        metadataParts.push(`[Entrada: Dinheiro/PIX]`);
+      }
+    }
+
+    const finalAccessoriesStr = metadataParts.length > 0
+      ? (accessoriesStr ? `${accessoriesStr} | ${metadataParts.join(' | ')}` : metadataParts.join(' | '))
+      : accessoriesStr;
+
     const saleDataForPrint = {
       ...formData,
       date: formData.first_due_date,
       total_value: finalValue,
       original_price: formData.total_value,
-      service_fee: feeValue
+      service_fee: feeValue,
+      accessories: finalAccessoriesStr
     };
     return (
       <div className="text-center py-12 space-y-8 animate-in zoom-in duration-500">
@@ -393,40 +488,67 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {selectedCustomer && (
-        <div className={cn(
-          "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
-          selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20 text-red-400" :
-          selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
-          "bg-success/10 border-success/20 text-success"
-        )}>
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "p-2 rounded-xl border",
-              selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20" :
-              selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20" :
-              "bg-success/10 border-success/20"
-            )}>
-              <User size={18} />
+        <>
+          <div className={cn(
+            "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
+            selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20 text-red-400" :
+            selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
+            "bg-success/10 border-success/20 text-success"
+          )}>
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-2 rounded-xl border",
+                selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20" :
+                selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20" :
+                "bg-success/10 border-success/20"
+              )}>
+                <User size={18} />
+              </div>
+              <div>
+                <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
+                <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
+                  Cliente {selectedCustomer.classification || 'BOM'}
+                </h4>
+              </div>
+            </div>
+            <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
+              {selectedCustomer.classification === 'RUIM' && (
+                <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de 15% devido ao risco elevado.</span>
+              )}
+              {selectedCustomer.classification === 'MEDIO' && (
+                <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui um acréscimo padrão de <strong>5%</strong> sobre as taxas de juros.</span>
+              )}
+              {selectedCustomer.classification === 'BOM' && (
+                <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros básica sem acréscimo de risco (Tabela 1).</span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-3xl text-xs transition-all animate-in fade-in duration-300">
+            <div>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Limite Pré-Aprovado</p>
+              <p className="text-sm font-black text-white font-mono">R$ {(selectedCustomer.credit_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div>
-              <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
-              <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
-                Cliente {selectedCustomer.classification || 'BOM'}
-              </h4>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Saldo Devedor Ativo</p>
+              <p className="text-sm font-black text-amber-400 font-mono">R$ {customerDebts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
+            <div>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Limite de Crédito Disponível</p>
+              <p className={`text-sm font-black font-mono ${availableLimit <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                R$ {availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            {formData.payment_type === 'crediario' && isOverLimit && (
+              <div className="md:col-span-3 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl mt-1 animate-pulse">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider">
+                  Bloqueio: Valor financiado (R$ {newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) excede o limite disponível! Apenas após nova análise de crédito.
+                </span>
+              </div>
+            )}
           </div>
-          <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
-            {selectedCustomer.classification === 'RUIM' && (
-              <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de 15% devido ao risco elevado.</span>
-            )}
-            {selectedCustomer.classification === 'MEDIO' && (
-              <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui um acréscimo padrão de <strong>5%</strong> sobre as taxas de juros.</span>
-            )}
-            {selectedCustomer.classification === 'BOM' && (
-              <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros básica sem acréscimo de risco (Tabela 1).</span>
-            )}
-          </div>
-        </div>
+        </>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -509,8 +631,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             type="number" 
             required
             placeholder="0.00"
-            value={formData.total_value || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, total_value: Number(e.target.value) }))}
+            value={formData.total_value === 0 ? '' : formData.total_value}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
+            }}
             readOnly={!!formData.device_id}
             className={cn(
               "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
@@ -524,11 +649,55 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <input 
             type="number" 
             placeholder="0.00"
-            value={formData.down_payment || ''}
-            onChange={(e) => setFormData(prev => ({ ...prev, down_payment: Number(e.target.value) }))}
+            value={formData.down_payment === 0 ? '' : formData.down_payment}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFormData(prev => ({ ...prev, down_payment: val === '' ? 0 : Number(val) }));
+            }}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
         </div>
+
+        {formData.down_payment > 0 && (
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 p-5 bg-white/5 rounded-[32px] border border-white/10 animate-in fade-in duration-300">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Método de Entrada</label>
+              <select 
+                value={formData.down_payment_method}
+                onChange={(e) => setFormData(prev => ({ ...prev, down_payment_method: e.target.value }))}
+                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                <option value="money_pix" className="bg-[#1e1e38]">Dinheiro / PIX</option>
+                <option value="trade" className="bg-[#1e1e38]">Troca (Celular/Aparelho)</option>
+              </select>
+            </div>
+            {formData.down_payment_method === 'trade' && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Aparelho na Troca (Modelo)</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ex: iPhone 11 64GB"
+                    value={formData.trade_device_model}
+                    onChange={(e) => setFormData(prev => ({ ...prev, trade_device_model: e.target.value }))}
+                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial (Troca)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Número do IMEI"
+                    value={formData.trade_device_imei}
+                    onChange={(e) => setFormData(prev => ({ ...prev, trade_device_imei: e.target.value }))}
+                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
@@ -541,6 +710,21 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
           </select>
         </div>
+
+        {formData.payment_type === 'crediario' && (
+          <div className="space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tabela de Juros</label>
+            <select 
+              value={formData.interest_table}
+              onChange={(e) => setFormData(prev => ({ ...prev, interest_table: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              <option value="premium" className="bg-surface-container-high">🟢 Premium (5% a.m.)</option>
+              <option value="standard" className="bg-surface-container-high">🟡 Standard (8% a.m.)</option>
+              <option value="flex" className="bg-surface-container-high">🔴 Flex (12% a.m.)</option>
+            </select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
