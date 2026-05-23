@@ -18,7 +18,6 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
     <div id="contract-print-area" className="p-8 text-black bg-white font-serif max-w-[800px] mx-auto text-sm leading-relaxed">
       <div className="text-center mb-10 border-b-2 border-black pb-6">
         <h1 className="text-2xl font-bold uppercase">Contrato de Compra e Venda de Equipamento Eletrônico</h1>
-        <p className="mt-2 text-gray-600">Referência: {sale.id.split('-')[0]}</p>
       </div>
 
       <section className="mb-6">
