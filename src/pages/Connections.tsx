@@ -33,7 +33,7 @@ interface ConnectionChannel {
 export default function Connections() {
   const { profile } = useAuthStore();
   const { units, fetchAllUnits } = useUnitStore();
-  const { showNotification } = useUI();
+  const { showNotification, showModal, hideModal } = useUI();
   
   const [channels, setChannels] = useState<ConnectionChannel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,15 +101,15 @@ export default function Connections() {
         name: c.name,
         type: c.type || 'whatsapp',
         instance_name: c.instance_name,
-        status: 'loading', // Começa carregando e consulta status ao vivo
+        status: (c.status as any) || 'loading', // Inicializa com o status salvo para evitar piscar em "loading"
         store_id: c.store_id || c.unit_id
       }));
 
       setChannels(formatted);
 
       // Consulta de status assíncrona ao vivo para cada instância
-      for (const channel of formatted) {
-        checkLiveStatus(channel.instance_name);
+      for (const channel of filtered) {
+        checkLiveStatus(channel.instance_name, channel.status);
       }
     } catch (err: any) {
       console.error('Erro ao buscar canais:', err);
@@ -120,32 +120,41 @@ export default function Connections() {
   };
 
   // Checa status de conexão na Evolution
-  const checkLiveStatus = async (instanceName: string) => {
+  const checkLiveStatus = async (instanceName: string, currentDbStatus?: string) => {
     try {
       const response = await fetch(`/api/evolution/instance/connectionState/${instanceName}`);
       if (!response.ok) throw new Error();
       const data = await response.json();
       
       const isConnected = data.instance?.state === 'open' || data.state === 'open' || data.status === 'open';
+      const liveStatus = isConnected ? 'connected' : 'disconnected';
       
       setChannels(prev => prev.map(c => 
         c.instance_name === instanceName 
-          ? { ...c, status: isConnected ? 'connected' : 'disconnected' }
+          ? { ...c, status: liveStatus }
           : c
       ));
 
-      // Sincroniza o status no banco de dados se mudou
-      const dbStatus = isConnected ? 'connected' : 'disconnected';
-      await supabase
-        .from('automation_channels')
-        .update({ status: dbStatus })
-        .eq('instance_name', instanceName);
+      // SÓ atualiza o banco se o status realmente mudou! Isso previne loops infinitos com a subscrição do Supabase
+      if (currentDbStatus !== liveStatus) {
+        await supabase
+          .from('automation_channels')
+          .update({ status: liveStatus })
+          .eq('instance_name', instanceName);
+      }
 
     } catch (e) {
       // Se a instância não existir ou der erro, assume desconectado
       setChannels(prev => prev.map(c => 
         c.instance_name === instanceName ? { ...c, status: 'disconnected' } : c
       ));
+      
+      if (currentDbStatus !== 'disconnected') {
+        await supabase
+          .from('automation_channels')
+          .update({ status: 'disconnected' })
+          .eq('instance_name', instanceName);
+      }
     }
   };
 
@@ -349,47 +358,61 @@ export default function Connections() {
   };
 
   // Desconectar sessão do celular na Evolution API
-  const handleDisconnect = async (instanceName: string) => {
-    if (!confirm('Deseja realmente desconectar este celular do WhatsApp? Ele parará de receber mensagens.')) return;
+  const handleDisconnect = (instanceName: string) => {
+    showModal({
+      title: 'Confirmar Desconexão',
+      children: 'Deseja realmente desconectar este celular do WhatsApp? Ele parará de receber mensagens.',
+      confirmText: 'Sim, Desconectar',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          showNotification('info', 'Desconectando...', 'Enviando comando de desconexão à Evolution...');
+          const res = await fetch(`/api/evolution/instance/logout/${instanceName}`, {
+            method: 'DELETE'
+          });
 
-    try {
-      showNotification('info', 'Desconectando...', 'Enviando comando de desconexão à Evolution...');
-      const res = await fetch(`/api/evolution/instance/logout/${instanceName}`, {
-        method: 'DELETE'
-      });
+          if (!res.ok) throw new Error('Falha ao desconectar');
 
-      if (!res.ok) throw new Error('Falha ao desconectar');
-
-      showNotification('success', 'Sessão Encerrada', 'O celular foi desconectado com sucesso.');
-      fetchChannels();
-    } catch (err) {
-      console.error(err);
-      showNotification('error', 'Erro ao Desconectar', 'Ocorreu um erro ao deslogar o dispositivo.');
-    }
+          showNotification('success', 'Sessão Encerrada', 'O celular foi desconectado com sucesso.');
+          fetchChannels();
+          hideModal();
+        } catch (err) {
+          console.error(err);
+          showNotification('error', 'Erro ao Desconectar', 'Ocorreu um erro ao deslogar o dispositivo.');
+        }
+      }
+    });
   };
 
   // Deletar conexão completamente da Evolution, Chatwoot e do Supabase
-  const handleDeleteConnection = async (id: string, instanceName: string) => {
-    if (!confirm('ATENÇÃO: Isso excluirá permanentemente a instância física do WhatsApp, a Caixa de Entrada correspondente no Chatwoot e todo o histórico do banco de dados. Confirmar?')) return;
+  const handleDeleteConnection = (id: string, instanceName: string) => {
+    showModal({
+      title: 'Confirmar Exclusão',
+      children: 'ATENÇÃO: Isso excluirá permanentemente a instância física do WhatsApp, a Caixa de Entrada correspondente no Chatwoot e todo o histórico do banco de dados. Confirmar?',
+      confirmText: 'Sim, Excluir Tudo',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          showNotification('info', 'Excluindo...', 'Removendo canal do sistema...');
 
-    try {
-      showNotification('info', 'Excluindo...', 'Removendo canal do sistema...');
+          // 1. Deletar instância na Evolution API
+          await fetch(`/api/evolution/instance/delete/${instanceName}`, {
+            method: 'DELETE'
+          }).catch(e => console.warn('Erro ao deletar na Evolution (não fatal):', e));
 
-      // 1. Deletar instância na Evolution API
-      await fetch(`/api/evolution/instance/delete/${instanceName}`, {
-        method: 'DELETE'
-      }).catch(e => console.warn('Erro ao deletar na Evolution (não fatal):', e));
+          // 2. Remover do Supabase (remover das duas tabelas)
+          await supabase.from('automation_channels').delete().eq('id', id);
+          await supabase.from('channels').delete().eq('id', id);
 
-      // 2. Remover do Supabase (remover das duas tabelas)
-      await supabase.from('automation_channels').delete().eq('id', id);
-      await supabase.from('channels').delete().eq('id', id);
-
-      showNotification('success', 'Conexão Excluída', 'O canal foi totalmente removido do sistema.');
-      fetchChannels();
-    } catch (err: any) {
-      console.error(err);
-      showNotification('error', 'Erro ao Excluir', 'Não foi possível deletar a conexão.');
-    }
+          showNotification('success', 'Conexão Excluída', 'O canal foi totalmente removido do sistema.');
+          fetchChannels();
+          hideModal();
+        } catch (err: any) {
+          console.error(err);
+          showNotification('error', 'Erro ao Excluir', 'Não foi possível deletar a conexão.');
+        }
+      }
+    });
   };
 
   return (

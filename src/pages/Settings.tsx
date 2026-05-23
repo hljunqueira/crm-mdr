@@ -30,7 +30,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
   const { profile } = useAuthStore();
   const { unit, units, fetchUnit, fetchAllUnits, updateUnit, isLoading } = useUnitStore();
-  const { showNotification } = useUI();
+  const { showNotification, showModal, hideModal } = useUI();
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
   // States para Controle de Usuários
@@ -154,21 +154,29 @@ export default function Settings() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Deseja realmente remover a conta deste funcionário? A exclusão é permanente.')) return;
-    try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        showNotification('success', 'Usuário Removido', 'A conta foi excluída com sucesso.');
-        fetchUsers();
-      } else {
-        throw new Error();
+  const handleDeleteUser = (userId: string) => {
+    showModal({
+      title: 'Confirmar Exclusão',
+      children: 'Deseja realmente remover a conta deste funcionário? A exclusão é permanente.',
+      confirmText: 'Sim, Excluir',
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/users/${userId}`, {
+            method: 'DELETE'
+          });
+          if (res.ok) {
+            showNotification('success', 'Usuário Removido', 'A conta foi excluída com sucesso.');
+            fetchUsers();
+            hideModal();
+          } else {
+            throw new Error();
+          }
+        } catch (e) {
+          showNotification('error', 'Erro ao Remover', 'Não foi possível excluir o usuário.');
+        }
       }
-    } catch (e) {
-      showNotification('error', 'Erro ao Remover', 'Não foi possível excluir o usuário.');
-    }
+    });
   };
 
 
