@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Palette, 
   Globe, 
   ShieldCheck, 
   MessageCircle, 
@@ -24,7 +23,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUI } from '../context/UIContext';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabType = 'unit' | 'white-label' | 'notifications' | 'users';
+type TabType = 'unit' | 'notifications' | 'users';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
@@ -178,7 +177,6 @@ export default function Settings() {
 
   const menuItems = [
     { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
-    { id: 'white-label', label: 'Identidade Visual', icon: Palette },
     ...(profile?.role === 'admin' ? [{ id: 'users', label: 'Usuários & Permissões', icon: User }] : [])
   ];
 
@@ -393,45 +391,7 @@ export default function Settings() {
             )}
 
 
-            {activeTab === 'white-label' && (
-              <motion.div 
-                key="white-label"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
-              >
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                    <Palette size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Identidade Visual</h2>
-                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Personalização da Plataforma</p>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Logo da Unidade</label>
-                    <div className="w-full aspect-video bg-white/5 border-2 border-dashed border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 group hover:border-white/20 transition-all cursor-pointer">
-                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-on-surface-variant group-hover:text-white transition-all">
-                        <Smartphone size={24} />
-                      </div>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant group-hover:text-white transition-all">Upload Logo PNG/SVG</span>
-                    </div>
-                  </div>
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Cor de Destaque</label>
-                      <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/10">
-                        <div className="w-10 h-10 rounded-xl bg-primary shadow-lg shadow-primary/20" />
-                        <input type="text" value="#FFFFFF" readOnly className="flex-1 bg-transparent text-[10px] font-mono font-black text-on-surface-variant outline-none" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
 
             {activeTab === 'users' && profile?.role === 'admin' && (
               <motion.div 
@@ -529,7 +489,11 @@ export default function Settings() {
                       >
                         <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">Novo Colaborador</h3>
                         
-                        <form onSubmit={handleCreateUser} className="space-y-4">
+                        <form onSubmit={handleCreateUser} className="space-y-4" autoComplete="off">
+                          {/* Dummy hidden inputs to hijack Chrome credentials autofill */}
+                          <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
+                          <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
+
                           <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome Completo</label>
                             <input 
@@ -538,6 +502,7 @@ export default function Settings() {
                               placeholder="Ex: João Silva"
                               value={userFormData.full_name}
                               onChange={(e) => setUserFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                              autoComplete="off"
                               className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
                             />
                           </div>
@@ -550,6 +515,7 @@ export default function Settings() {
                               placeholder="Ex: joao@suaempresa.com"
                               value={userFormData.email}
                               onChange={(e) => setUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                              autoComplete="new-email"
                               className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all font-mono"
                             />
                           </div>
@@ -562,6 +528,7 @@ export default function Settings() {
                               placeholder="Mínimo 6 caracteres"
                               value={userFormData.password}
                               onChange={(e) => setUserFormData(prev => ({ ...prev, password: e.target.value }))}
+                              autoComplete="new-password"
                               className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
                             />
                           </div>
