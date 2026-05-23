@@ -43,7 +43,7 @@ async function fetchWhatsAppName(instanceName: string, remoteJid: string, defaul
 }
 
 // Webhook para receber mensagens da Evolution API
-router.post('/evolution', async (req, res) => {
+router.post(['/evolution', '/evolution/*'], async (req, res) => {
   const { event, instance, data } = req.body;
   
   console.log(`[Webhook] Event: ${event} | Instance: ${instance}`);

@@ -187,7 +187,7 @@ export default function Connections() {
       const chatwootRes = await fetch('/api/chat/inbox/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newConnName })
+        body: JSON.stringify({ name: newConnName, instance_name: instanceName })
       });
 
       if (!chatwootRes.ok) {
@@ -219,20 +219,13 @@ export default function Connections() {
         }
       }
 
-      // Passo 3: Configurar a integração do Chatwoot na Evolution
+      // Passo 3: Configurar a integração do Chatwoot na Evolution de forma segura pelo backend
       showNotification('info', 'Passo 3/4', 'Vinculando WhatsApp ao Chatwoot...');
       const chatwootConfigRes = await fetch(`/api/evolution/chatwoot/set/${instanceName}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          enabled: true,
-          url: process.env.CHATWOOT_URL || 'http://chatwoot-web:3000',
-          accountId: '1',
-          token: inboxToken,
-          signMsg: true,
-          reopenTicket: true,
-          importContacts: true,
-          importMessages: true
+          nameInbox: newConnName // Nome exato do inbox do Chatwoot para vincular na Evolution
         })
       });
 

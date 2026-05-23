@@ -99,7 +99,7 @@ router.post('/send-media', async (req, res) => {
 // POST /api/chat/inbox/create — Criar Caixa de Entrada do tipo API no Chatwoot de forma segura
 router.post('/inbox/create', async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, instance_name } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'O nome da caixa de entrada é obrigatório' });
@@ -138,12 +138,40 @@ router.post('/inbox/create', async (req, res) => {
       return res.status(response.status).json(data);
     }
 
+    // Se instance_name for fornecido, configure automaticamente a callback_webhook_url no Chatwoot
+    if (instance_name) {
+      const updateUrl = `${chatwootUrl}/api/v1/accounts/${accountId}/inboxes/${data.id}`;
+      const webhookUrl = `https://whatsapp.mdrinformaticaecelulares.com.br/chatwoot/webhook/${encodeURIComponent(instance_name)}`;
+      console.log(`[Chatwoot API] Configurando webhook_url no Chatwoot para: ${webhookUrl}`);
+      
+      try {
+        const patchRes = await fetch(updateUrl, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'api_access_token': apiToken
+          },
+          body: JSON.stringify({
+            webhook_url: webhookUrl
+          })
+        });
+        
+        if (!patchRes.ok) {
+          console.warn(`[Chatwoot API Warning] Falha ao configurar callback_webhook_url para a inbox #${data.id}`);
+        } else {
+          console.log(`[Chatwoot API] Callback webhook_url configurada com sucesso para a inbox #${data.id}`);
+        }
+      } catch (err) {
+        console.warn(`[Chatwoot API Warning] Erro ao disparar PATCH do webhook:`, err);
+      }
+    }
+
     // Retorna os tokens e IDs necessários para a vinculação com a Evolution API
     res.json({
       success: true,
       inbox_id: data.id,
       name: data.name,
-      webhook_helper_token: data.webhook_helper_token
+      webhook_helper_token: data.webhook_helper_token || data.inbox_identifier || data.token
     });
   } catch (error: any) {
     console.error('[Chatwoot Inbox Create] Erro:', error);
