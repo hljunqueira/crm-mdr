@@ -13,7 +13,8 @@ import {
   TrendingUp,
   ShieldCheck,
   ShoppingBag,
-  LogOut
+  LogOut,
+  QrCode
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils'; // Fixed path
@@ -21,7 +22,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 
 export default function Sidebar() {
   const location = useLocation();
-  const { signOut } = useAuthStore();
+  const { signOut, profile } = useAuthStore();
 
   const menuGroups = [
     {
@@ -44,6 +45,9 @@ export default function Sidebar() {
       title: 'Atendimento',
       items: [
         { name: 'WPP / Instagram', icon: MessageCircle, path: '/automation' },
+        ...(profile?.role === 'admin' ? [
+          { name: 'Gerenciar WhatsApps', icon: QrCode, path: '/connections' }
+        ] : [])
       ]
     },
     {

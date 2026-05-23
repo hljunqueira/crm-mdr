@@ -33,6 +33,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const isChat = location.pathname === '/chat';
   const isAutomation = location.pathname === '/automation';
+  const isConnections = location.pathname === '/connections';
 
   return (
 
@@ -40,7 +41,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <Sidebar />
       <div className="flex-1 flex flex-col relative h-full">
         <div className="absolute inset-0 pixel-grid pointer-events-none opacity-[0.03] z-0"></div>
-        {!(isChat || isAutomation) && <TopBar />}
+        {!(isChat || isAutomation || isConnections) && <TopBar />}
         <main className="flex-1 overflow-y-auto z-10 custom-scrollbar">
           {children}
         </main>

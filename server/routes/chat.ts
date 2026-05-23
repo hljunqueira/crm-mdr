@@ -96,4 +96,60 @@ router.post('/send-media', async (req, res) => {
   }
 });
 
+// POST /api/chat/inbox/create — Criar Caixa de Entrada do tipo API no Chatwoot de forma segura
+router.post('/inbox/create', async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'O nome da caixa de entrada é obrigatório' });
+    }
+
+    const chatwootUrl = process.env.CHATWOOT_URL || 'http://chatwoot-web:3000';
+    const accountId = process.env.CHATWOOT_ACCOUNT_ID || '1';
+    const apiToken = process.env.CHATWOOT_API_TOKEN;
+
+    if (!apiToken) {
+      return res.status(500).json({ error: 'CHATWOOT_API_TOKEN não configurada no servidor' });
+    }
+
+    const url = `${chatwootUrl}/api/v1/accounts/${accountId}/inboxes`;
+
+    console.log(`[Chatwoot API] Criando inbox: "${name}" em ${url}`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api_access_token': apiToken
+      },
+      body: JSON.stringify({
+        name: name,
+        channel: {
+          type: 'api'
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error(`[Chatwoot API Error] ${response.status}:`, data);
+      return res.status(response.status).json(data);
+    }
+
+    // Retorna os tokens e IDs necessários para a vinculação com a Evolution API
+    res.json({
+      success: true,
+      inbox_id: data.id,
+      name: data.name,
+      webhook_helper_token: data.webhook_helper_token
+    });
+  } catch (error: any) {
+    console.error('[Chatwoot Inbox Create] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
+

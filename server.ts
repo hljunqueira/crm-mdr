@@ -17,6 +17,8 @@ import webhookRoutes from "./server/routes/webhooks.js";
 import evolutionRoutes from "./server/routes/evolution.js";
 import aiRoutes from "./server/routes/ai.js";
 import chatRoutes from "./server/routes/chat.js";
+import usersRoutes from "./server/routes/users.js";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +57,8 @@ async function startServer() {
   app.use("/api/evolution", evolutionRoutes);
   app.use("/api/ai", aiRoutes);
   app.use("/api/chat", chatRoutes);
+  app.use("/api/users", usersRoutes);
+
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

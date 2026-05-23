@@ -14,7 +14,9 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
-  QrCode
+  QrCode,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
@@ -22,7 +24,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUI } from '../context/UIContext';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabType = 'unit' | 'white-label' | 'notifications';
+type TabType = 'unit' | 'white-label' | 'notifications' | 'users';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
@@ -30,6 +32,92 @@ export default function Settings() {
   const { unit, units, fetchUnit, fetchAllUnits, updateUnit, isLoading } = useUnitStore();
   const { showNotification } = useUI();
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+
+  // States para Controle de Usuários
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  
+  const [userFormData, setUserFormData] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'attendant' as 'admin' | 'attendant' | 'technician',
+    store_id: ''
+  });
+
+  const fetchUsers = async () => {
+    try {
+      setUsersLoading(true);
+      const res = await fetch('/api/users');
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) {
+      console.error('[Settings] Erro ao buscar usuários:', e);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userFormData.email || !userFormData.password || !userFormData.full_name) return;
+    
+    setIsSavingUser(true);
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userFormData)
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao criar colaborador');
+      
+      showNotification('success', 'Usuário Criado', 'Novo colaborador cadastrado com sucesso!');
+      setShowUserModal(false);
+      setUserFormData({
+        email: '',
+        password: '',
+        full_name: '',
+        role: 'attendant',
+        store_id: ''
+      });
+      fetchUsers();
+    } catch (err: any) {
+      console.error(err);
+      showNotification('error', 'Erro ao Criar', err.message);
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Deseja realmente remover a conta deste funcionário? A exclusão é permanente.')) return;
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showNotification('success', 'Usuário Removido', 'A conta foi excluída com sucesso.');
+        fetchUsers();
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showNotification('error', 'Erro ao Remover', 'Não foi possível excluir o usuário.');
+    }
+  };
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -91,7 +179,7 @@ export default function Settings() {
   const menuItems = [
     { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
     { id: 'white-label', label: 'Identidade Visual', icon: Palette },
-    { id: 'notifications', label: 'Notificações', icon: Bell },
+    ...(profile?.role === 'admin' ? [{ id: 'users', label: 'Usuários & Permissões', icon: User }] : [])
   ];
 
   return (
@@ -342,6 +430,195 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'users' && profile?.role === 'admin' && (
+              <motion.div 
+                key="users"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                      <User size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Usuários e Permissões</h2>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Gerencie o acesso dos seus colaboradores</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowUserModal(true)}
+                    className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-lg shadow-white/5"
+                  >
+                    Novo Usuário
+                  </button>
+                </div>
+
+                {usersLoading ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <Loader2 className="animate-spin text-primary" size={24} />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Carregando lista...</span>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto w-full border border-white/5 rounded-3xl">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                          <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Colaborador</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">E-mail</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Cargo</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Unidade</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {usersList.map((usr) => {
+                          const userUnit = units.find(u => u.id === usr.store_id)?.name || 'Geral/Todas';
+                          
+                          return (
+                            <tr key={usr.id} className="hover:bg-white/[0.01] transition-all">
+                              <td className="px-6 py-4 font-display font-semibold text-white text-sm">
+                                {usr.full_name}
+                              </td>
+                              <td className="px-6 py-4 text-xs text-on-surface-variant font-mono">
+                                {usr.email}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                  usr.role === 'admin' 
+                                    ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' 
+                                    : usr.role === 'technician'
+                                    ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                }`}>
+                                  {usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : 'Atendente'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-xs text-on-surface-variant">
+                                {userUnit}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() => handleDeleteUser(usr.id)}
+                                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-red-500/10 hover:text-red-400 border border-white/10 hover:border-red-500/20 active:scale-95 transition-all inline-flex items-center justify-center text-on-surface-variant"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* MODAL CADASTRAR USUÁRIO */}
+                <AnimatePresence>
+                  {showUserModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="glass-card w-full max-w-md border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl relative text-left"
+                      >
+                        <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">Novo Colaborador</h3>
+                        
+                        <form onSubmit={handleCreateUser} className="space-y-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome Completo</label>
+                            <input 
+                              type="text"
+                              required
+                              placeholder="Ex: João Silva"
+                              value={userFormData.full_name}
+                              onChange={(e) => setUserFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">E-mail</label>
+                            <input 
+                              type="email"
+                              required
+                              placeholder="Ex: joao@suaempresa.com"
+                              value={userFormData.email}
+                              onChange={(e) => setUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all font-mono"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Senha Provisória</label>
+                            <input 
+                              type="password"
+                              required
+                              placeholder="Mínimo 6 caracteres"
+                              value={userFormData.password}
+                              onChange={(e) => setUserFormData(prev => ({ ...prev, password: e.target.value }))}
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Cargo / Função</label>
+                            <select
+                              value={userFormData.role}
+                              onChange={(e) => setUserFormData(prev => ({ ...prev, role: e.target.value as any }))}
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all appearance-none"
+                            >
+                              <option value="attendant" className="bg-surface-container-high">Atendente</option>
+                              <option value="technician" className="bg-surface-container-high">Técnico de OS</option>
+                              <option value="admin" className="bg-surface-container-high">Administrador Geral</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Unidade / Loja Vinculada</label>
+                            <select
+                              value={userFormData.store_id}
+                              onChange={(e) => setUserFormData(prev => ({ ...prev, store_id: e.target.value }))}
+                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all appearance-none"
+                            >
+                              <option value="" className="bg-surface-container-high">Geral/Todas as Unidades</option>
+                              {units.map((u) => (
+                                <option key={u.id} value={u.id} className="bg-surface-container-high">{u.name}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="flex gap-3 pt-4 border-t border-white/5">
+                            <button
+                              type="button"
+                              onClick={() => setShowUserModal(false)}
+                              className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isSavingUser}
+                              className="flex-1 flex items-center justify-center gap-2 bg-white text-black py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-white/5"
+                            >
+                              {isSavingUser ? (
+                                <Loader2 className="animate-spin" size={12} />
+                              ) : (
+                                'Cadastrar'
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
+
               </motion.div>
             )}
           </AnimatePresence>
