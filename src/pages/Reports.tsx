@@ -32,10 +32,10 @@ export default function Reports() {
   const totalFees = sales.reduce((acc, s) => acc + (s.service_fee || 0), 0);
   
   const reportStats = [
-    { label: 'Faturamento Total', value: `R$ ${totalSalesValue.toLocaleString()}`, trend: '+12%', color: 'text-white' },
-    { label: 'Ganhos em Taxas', value: `R$ ${totalFees.toLocaleString()}`, trend: '+15%', color: 'text-primary' },
-    { label: 'Recebido (Caixa)', value: `R$ ${totalPaid.toLocaleString()}`, trend: '+8%', color: 'text-white' },
-    { label: 'Aparelhos Vendidos', value: sales.length.toString(), trend: '+5%', color: 'text-on-surface-variant' },
+    { label: 'Faturamento Total', value: `R$ ${totalSalesValue.toLocaleString()}`, color: 'text-white' },
+    { label: 'Ganhos em Taxas', value: `R$ ${totalFees.toLocaleString()}`, color: 'text-primary' },
+    { label: 'Recebido (Caixa)', value: `R$ ${totalPaid.toLocaleString()}`, color: 'text-white' },
+    { label: 'Aparelhos Vendidos', value: sales.length.toString(), color: 'text-on-surface-variant' },
   ];
 
   return (
@@ -67,9 +67,6 @@ export default function Reports() {
              <p className="text-[10px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-1">{stat.label}</p>
              <div className="flex items-baseline gap-3">
                <p className="text-3xl font-black text-on-surface tracking-tight">{stat.value}</p>
-               <span className={`text-[10px] font-black ${stat.trend.startsWith('+') ? 'text-primary' : 'text-on-surface-variant'}`}>
-                 {stat.trend}
-               </span>
              </div>
           </div>
         ))}
