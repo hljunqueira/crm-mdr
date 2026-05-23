@@ -25,10 +25,10 @@ export default function Automation() {
             </div>
           </div>
         </div>
-        <a 
-          href="https://chat.mdrinformaticaecelulares.com.br" 
-          target="_blank" 
-          rel="noopener noreferrer" 
+        <a
+          href="https://chat.mdrinformaticaecelulares.com.br"
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-[9px] font-black text-primary uppercase tracking-widest hover:text-white transition-all bg-primary/10 hover:bg-primary/20 border border-primary/20 px-3 py-2 rounded-xl"
         >
           <ExternalLink size={12} />
@@ -37,7 +37,7 @@ export default function Automation() {
       </div>
 
       {/* Main Iframe container */}
-      <div className="flex-1 relative w-full h-[calc(100vh-140px)] bg-[#121215]">
+      <div className="flex-1 relative w-full h-[calc(100vh-64px)] bg-[#121215]">
         {iframeLoading && (
           <div className="absolute inset-0 bg-[#0c0c0e] z-10 flex flex-col items-center justify-center gap-4">
             <Loader2 className="animate-spin text-primary" size={32} />
@@ -46,7 +46,7 @@ export default function Automation() {
             </span>
           </div>
         )}
-        
+
         <iframe
           src="https://chat.mdrinformaticaecelulares.com.br"
           title="Chatwoot Multicanal"
