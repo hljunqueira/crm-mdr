@@ -49,7 +49,10 @@ whatsapp.mdrinformaticaecelulares.com.br {
 
 # --- Chatwoot ---
 chat.mdrinformaticaecelulares.com.br {
-    reverse_proxy chatwoot-web:3000
+    reverse_proxy chatwoot-web:3000 {
+        header_down -X-Frame-Options
+        header_down -Content-Security-Policy
+    }
     encode gzip
 }
 
