@@ -56,12 +56,19 @@ export default function Connections() {
     fetchAllUnits();
     fetchChannels();
     
-    // Subscrição em tempo real para atualizações na tabela
+    // Subscrição em tempo real para atualizações na tabela (apenas INSERT e DELETE)
     const subscription = supabase
       .channel('automation_channels_realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'automation_channels' },
+        { event: 'INSERT', schema: 'public', table: 'automation_channels' },
+        () => {
+          fetchChannels();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'automation_channels' },
         () => {
           fetchChannels();
         }
