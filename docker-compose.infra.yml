@@ -89,6 +89,7 @@ services:
       - WA_VERSION=2.3000.1032750324
     volumes:
       - evolution_data:/evolution/instances
+      - ./scripts/patches/chatwoot.service.js:/evolution/dist/api/integrations/chatbot/chatwoot/services/chatwoot.service.js
     depends_on:
       - db
       - redis
