@@ -46,7 +46,7 @@ export default function Sidebar() {
       items: [
         { name: 'WPP / Instagram', icon: MessageCircle, path: '/automation' },
         ...(profile?.role === 'admin' ? [
-          { name: 'Gerenciar WhatsApps', icon: QrCode, path: '/connections' }
+          { name: 'Gerenciar WPP/IG', icon: QrCode, path: '/connections' }
         ] : [])
       ]
     },
