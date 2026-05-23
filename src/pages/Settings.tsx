@@ -15,7 +15,8 @@ import {
   AlertCircle,
   QrCode,
   Trash2,
-  Loader2
+  Loader2,
+  Edit2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
@@ -37,6 +38,7 @@ export default function Settings() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
   
   const [userFormData, setUserFormData] = useState({
     email: '',
@@ -45,6 +47,30 @@ export default function Settings() {
     role: 'attendant' as 'admin' | 'attendant' | 'technician',
     store_id: ''
   });
+
+  const handleOpenCreateModal = () => {
+    setEditingUser(null);
+    setUserFormData({
+      email: '',
+      password: '',
+      full_name: '',
+      role: 'attendant',
+      store_id: ''
+    });
+    setShowUserModal(true);
+  };
+
+  const handleOpenEditModal = (usr: any) => {
+    setEditingUser(usr);
+    setUserFormData({
+      email: usr.email || '',
+      password: '', // Deixa vazio para manter a senha
+      full_name: usr.full_name || '',
+      role: usr.role || 'attendant',
+      store_id: usr.store_id || ''
+    });
+    setShowUserModal(true);
+  };
 
   const fetchUsers = async () => {
     try {
@@ -67,23 +93,51 @@ export default function Settings() {
     }
   }, [activeTab]);
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userFormData.email || !userFormData.password || !userFormData.full_name) return;
+    if (!userFormData.email || !userFormData.full_name) return;
+    if (!editingUser && !userFormData.password) return; // Senha obrigatória apenas na criação
     
     setIsSavingUser(true);
     try {
-      const res = await fetch('/api/users/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userFormData)
-      });
-      
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha ao criar colaborador');
-      
-      showNotification('success', 'Usuário Criado', 'Novo colaborador cadastrado com sucesso!');
+      if (editingUser) {
+        // Modo Edição
+        const body: any = {
+          full_name: userFormData.full_name,
+          role: userFormData.role,
+          store_id: userFormData.store_id || null,
+          email: userFormData.email
+        };
+        if (userFormData.password) {
+          body.password = userFormData.password;
+        }
+
+        const res = await fetch(`/api/users/${editingUser.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao atualizar colaborador');
+        
+        showNotification('success', 'Usuário Atualizado', 'Os dados do colaborador foram salvos!');
+      } else {
+        // Modo Criação
+        const res = await fetch('/api/users/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userFormData)
+        });
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao criar colaborador');
+        
+        showNotification('success', 'Usuário Criado', 'Novo colaborador cadastrado com sucesso!');
+      }
+
       setShowUserModal(false);
+      setEditingUser(null);
       setUserFormData({
         email: '',
         password: '',
@@ -94,7 +148,7 @@ export default function Settings() {
       fetchUsers();
     } catch (err: any) {
       console.error(err);
-      showNotification('error', 'Erro ao Criar', err.message);
+      showNotification('error', 'Erro ao Salvar', err.message);
     } finally {
       setIsSavingUser(false);
     }
@@ -411,7 +465,7 @@ export default function Settings() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => setShowUserModal(true)}
+                    onClick={handleOpenCreateModal}
                     className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-lg shadow-white/5"
                   >
                     Novo Usuário
@@ -462,12 +516,20 @@ export default function Settings() {
                                 {userUnit}
                               </td>
                               <td className="px-6 py-4 text-right">
-                                <button
-                                  onClick={() => handleDeleteUser(usr.id)}
-                                  className="w-8 h-8 rounded-xl bg-white/5 hover:bg-red-500/10 hover:text-red-400 border border-white/10 hover:border-red-500/20 active:scale-95 transition-all inline-flex items-center justify-center text-on-surface-variant"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handleOpenEditModal(usr)}
+                                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white border border-white/10 active:scale-95 transition-all inline-flex items-center justify-center text-on-surface-variant"
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteUser(usr.id)}
+                                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-red-500/10 hover:text-red-400 border border-white/10 hover:border-red-500/20 active:scale-95 transition-all inline-flex items-center justify-center text-on-surface-variant"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -487,9 +549,11 @@ export default function Settings() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         className="glass-card w-full max-w-md border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl relative text-left"
                       >
-                        <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">Novo Colaborador</h3>
+                        <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">
+                          {editingUser ? 'Editar Colaborador' : 'Novo Colaborador'}
+                        </h3>
                         
-                        <form onSubmit={handleCreateUser} className="space-y-4" autoComplete="off">
+                        <form onSubmit={handleSaveUser} className="space-y-4" autoComplete="off">
                           {/* Dummy hidden inputs to hijack Chrome credentials autofill */}
                           <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
                           <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
@@ -521,11 +585,13 @@ export default function Settings() {
                           </div>
 
                           <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Senha Provisória</label>
+                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">
+                              {editingUser ? 'Senha (Deixe em branco para não alterar)' : 'Senha Provisória'}
+                            </label>
                             <input 
                               type="password"
-                              required
-                              placeholder="Mínimo 6 caracteres"
+                              required={!editingUser}
+                              placeholder={editingUser ? 'Manter senha atual' : 'Mínimo 6 caracteres'}
                               value={userFormData.password}
                               onChange={(e) => setUserFormData(prev => ({ ...prev, password: e.target.value }))}
                               autoComplete="new-password"
@@ -563,7 +629,10 @@ export default function Settings() {
                           <div className="flex gap-3 pt-4 border-t border-white/5">
                             <button
                               type="button"
-                              onClick={() => setShowUserModal(false)}
+                              onClick={() => {
+                                setShowUserModal(false);
+                                setEditingUser(null);
+                              }}
                               className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
                             >
                               Cancelar
@@ -576,7 +645,7 @@ export default function Settings() {
                               {isSavingUser ? (
                                 <Loader2 className="animate-spin" size={12} />
                               ) : (
-                                'Cadastrar'
+                                editingUser ? 'Salvar' : 'Cadastrar'
                               )}
                             </button>
                           </div>

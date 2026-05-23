@@ -250,7 +250,6 @@ export default function Connections() {
           type: 'whatsapp',
           instance_name: instanceName,
           status: 'connecting',
-          store_id: targetStoreId, // FK correspondente
           unit_id: targetStoreId, // Compatibilidade com nomes antigos
           updated_at: new Date().toISOString()
         }]);
