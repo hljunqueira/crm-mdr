@@ -32,6 +32,7 @@ interface SaleReceiptPrintProps {
     phone?: string;
   };
   installmentValue?: number;
+  firstInstallmentValue?: number;
 }
 
 // MDR Logo as inline SVG – always renders even offline/print
@@ -44,11 +45,13 @@ const MDRLogo = () => (
   </svg>
 );
 
-export default function SaleReceiptPrint({ sale, customer, unit, installmentValue }: SaleReceiptPrintProps) {
+export default function SaleReceiptPrint({ sale, customer, unit, installmentValue, firstInstallmentValue }: SaleReceiptPrintProps) {
   const today = new Date().toLocaleDateString('pt-BR');
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
+  const firstInstValue = firstInstallmentValue ?? instValue;
+  const hasGracePeriod = firstInstallmentValue !== undefined && firstInstallmentValue > instValue;
   const paymentLabel = sale.payment_type === 'card' ? 'Cartão de Crédito' : 'Crediário da Loja';
   const receiptNumber = Math.floor(Math.random() * 900000 + 100000);
 
@@ -152,7 +155,16 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           </div>
         )}
         <div className="row"><span>Saldo Financiado:</span><strong>R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-        <div className="row"><span>Parcelado em:</span><strong>{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+        {hasGracePeriod ? (
+          <>
+            <div className="row"><span>1ª Parcela (c/ carência):</span><strong>R$ {firstInstValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+            {sale.installments > 1 && (
+              <div className="row"><span>Parcelas 2–{sale.installments}:</span><strong>{sale.installments - 1}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+            )}
+          </>
+        ) : (
+          <div className="row"><span>Parcelado em:</span><strong>{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
+        )}
         <div className="row"><span>1° Vencimento:</span><strong>{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>
       </div>
 

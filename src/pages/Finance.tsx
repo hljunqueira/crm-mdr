@@ -201,18 +201,22 @@ export default function Finance() {
   // ─── Late-payment fee calculator ───────────────────────────────────────
   // Contract terms: 2% multa + 1% per month interest after due date
   const calculateOverdueFees = (inst: Installment) => {
-    if (inst.status !== 'overdue' && inst.status !== 'blocked') {
-      return { multa: 0, juros: 0, total: inst.value, daysLate: 0 };
-    }
-    const dueDate = new Date(inst.due_date);
+    const dueDate = new Date(inst.due_date + 'T12:00:00');
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isPastDue = dueDate < today;
+    // Treat as overdue: explicitly overdue/blocked, OR pending but past due date
+    const isLate = inst.status === 'overdue' || inst.status === 'blocked' || (inst.status === 'pending' && isPastDue);
+    if (!isLate) {
+      return { multa: 0, juros: 0, total: inst.value, daysLate: 0, isLate: false };
+    }
     const diffMs = today.getTime() - dueDate.getTime();
     const daysLate = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
     const monthsLate = daysLate / 30;
     const multa = inst.value * 0.02;                  // 2% one-time fine
     const juros = inst.value * 0.01 * monthsLate;    // 1% per month pro-rata
     const total = inst.value + multa + juros;
-    return { multa, juros, total, daysLate };
+    return { multa, juros, total, daysLate, isLate: true };
   };
 
   useEffect(() => {
@@ -296,7 +300,7 @@ export default function Finance() {
 
   const handlePayment = (item: Installment) => {
     const fees = calculateOverdueFees(item);
-    const isOverdue = item.status === 'overdue' || item.status === 'blocked';
+    const isOverdue = fees.isLate;
     showModal({
       title: isOverdue ? 'Recebimento com Mora' : 'Confirmar Pagamento',
       children: (
@@ -340,7 +344,8 @@ export default function Finance() {
       confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
       onConfirm: async () => {
         try {
-          await markAsPaid(item.id);
+          // Pass the total with fees so the actual received amount is persisted in DB
+          await markAsPaid(item.id, isOverdue ? fees.total : undefined);
           showNotification('success', 'Pagamento Confirmado');
           hideModal();
         } catch (error) {
@@ -619,7 +624,8 @@ export default function Finance() {
                               </thead>
                               <tbody className="divide-y divide-white/5">
                                 {group.installments.map((inst) => {
-                                  const isOverdue = inst.status === 'overdue' || inst.status === 'blocked';
+                                  const fees = calculateOverdueFees(inst);
+                                  const isOverdue = fees.isLate;
                                   return (
                                     <tr 
                                       key={inst.id}
@@ -641,42 +647,36 @@ export default function Finance() {
                                           <span className={`text-xs font-black tracking-tight ${
                                             isOverdue ? 'text-error' : 'text-on-surface'
                                           }`}>
-                                            {new Date(inst.due_date).toLocaleDateString('pt-BR')}
+                                            {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                           </span>
                                         </div>
                                       </td>
                                       <td className="py-4">
-                                        {(() => {
-                                          const fees = calculateOverdueFees(inst);
-                                          const isLate = inst.status === 'overdue' || inst.status === 'blocked';
-                                          return (
+                                        <div>
+                                          <span className={`text-xs font-mono font-bold ${isOverdue ? 'line-through text-on-surface-variant' : 'text-white'}`}>
+                                            R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </span>
+                                          {isOverdue && (
                                             <div>
-                                              <span className={`text-xs font-mono font-bold ${isLate ? 'line-through text-on-surface-variant' : 'text-white'}`}>
-                                                R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                              <span className="text-xs font-mono font-black text-error">
+                                                R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                               </span>
-                                              {isLate && (
-                                                <div>
-                                                  <span className="text-xs font-mono font-black text-error">
-                                                    R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                                  </span>
-                                                  <p className="text-[8px] text-error opacity-70">c/ mora {fees.daysLate}d</p>
-                                                </div>
-                                              )}
+                                              <p className="text-[8px] text-error opacity-70">c/ mora {fees.daysLate}d</p>
                                             </div>
-                                          );
-                                        })()}
+                                          )}
+                                        </div>
                                       </td>
                                       <td className="py-4">
                                         <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
                                           inst.status === 'paid' ? 'bg-success/10 text-success border-success/20' :
+                                          isOverdue ? 'bg-error/10 text-error border-error/20' :
                                           inst.status === 'pending' ? 'bg-secondary/10 text-secondary border-secondary/20' :
-                                          inst.status === 'overdue' ? 'bg-error/10 text-error border-error/20' :
                                           'bg-error/20 text-white border-error/50'
                                         }`}>
                                           <div className="w-1 h-1 rounded-full bg-current" />
                                           {inst.status === 'paid' ? 'Pago' : 
-                                           inst.status === 'pending' ? 'Pendente' : 
-                                           inst.status === 'overdue' ? 'Atrasado' : 'Bloqueado'}
+                                           inst.status === 'blocked' ? 'Bloqueado' : 
+                                           isOverdue ? 'Atrasado' : 'Pendente'}
                                         </div>
                                       </td>
                                       <td className="py-4 text-right pr-4">

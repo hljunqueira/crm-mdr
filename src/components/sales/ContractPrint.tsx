@@ -34,6 +34,7 @@ interface ContractPrintProps {
     warranty_terms?: string;
   };
   installmentValue?: number;
+  firstInstallmentValue?: number;
 }
 
 // MDR Logo as inline SVG – always renders even offline/print
@@ -46,10 +47,12 @@ const MDRLogoContract = () => (
   </svg>
 );
 
-export default function ContractPrint({ sale, customer, unit, installmentValue }: ContractPrintProps) {
+export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue }: ContractPrintProps) {
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
+  const firstInstValue = firstInstallmentValue ?? instValue;
+  const hasGracePeriod = firstInstallmentValue !== undefined && firstInstallmentValue > instValue;
   const totalWithFee = sale.total_value; // Already the final value including fees
   const today = new Date().toLocaleDateString('pt-BR');
 
@@ -138,7 +141,11 @@ export default function ContractPrint({ sale, customer, unit, installmentValue }
               <p><strong>IMEI / Serial (Troca):</strong> <span className="data-field">{sale.trade_device_imei || 'N/A'}</span></p>
             </div>
           )}
-          <p><strong>Saldo Financiado:</strong> <span className="data-field">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> em <span className="data-field">{sale.installments}</span> parcelas de <span className="data-field">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> cada.</p>
+          <p><strong>Saldo Financiado:</strong> <span className="data-field">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> em <span className="data-field">{sale.installments}</span> parcelas{hasGracePeriod ? (
+            <span>, sendo a <strong>1ª parcela de R$ {firstInstValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>{sale.installments > 1 ? ` e as ${sale.installments - 1} parcela(s) restante(s) de R$ ${instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} cada` : ''}</span>
+          ) : (
+            <span> de <span className="data-field">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span> cada</span>
+          )}.</p>
           <p><strong>Valor Total do Contrato:</strong> <span className="data-field">R$ {totalWithFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
           <p><strong>Vencimento:</strong> Todo dia <span className="data-field">{new Date(sale.date + 'T12:00:00').getDate()}</span> do mês, com início em <span className="data-field">{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>.</p>
           <p><strong>Forma de Pagamento:</strong> <span className="data-field">{sale.payment_type === 'card' ? 'Cartão de Crédito' : 'PIX / Dinheiro / Transferência'}</span></p>

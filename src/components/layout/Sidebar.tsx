@@ -1,14 +1,14 @@
 import { 
   LayoutDashboard, 
   UserSearch, 
-  MessageSquare, 
+  MessageCircle, 
   Filter, 
   Settings, 
   HelpCircle,
   Users,
   Smartphone,
   CreditCard,
-  Bot,
+  Globe,
   TrendingDown,
   TrendingUp,
   ShieldCheck,
@@ -43,8 +43,7 @@ export default function Sidebar() {
     {
       title: 'Atendimento',
       items: [
-        { name: 'Chat Multi-canal', icon: MessageSquare, path: '/chat' },
-        { name: 'Conexão de contas WPP/IG', icon: Bot, path: '/automation' },
+        { name: 'WPP / Instagram', icon: MessageCircle, path: '/automation' },
       ]
     },
     {

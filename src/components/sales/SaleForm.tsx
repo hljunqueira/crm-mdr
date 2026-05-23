@@ -188,6 +188,32 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return CREDIARIO_COEFFICIENTS[table as 'premium' | 'standard' | 'flex']?.[installmentCount] || (1 / installmentCount);
   }, [paymentType, formData.interest_table, installmentCount]);
 
+  // Monthly rate for the selected table (used in grace period calculation)
+  const monthlyRate = useMemo(() => {
+    if (paymentType === 'card') return 0.04;
+    const table = formData.interest_table || 'standard';
+    if (table === 'premium') return 0.05;
+    if (table === 'flex') return 0.12;
+    return 0.08; // standard
+  }, [paymentType, formData.interest_table]);
+
+  // Grace period extra interest: extra days beyond 30 days from today incur pro-rata interest
+  // charged exclusively on the 1st installment
+  const gracePeriodInterest = useMemo(() => {
+    if (!formData.first_due_date || paymentType === 'card') return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const firstDue = new Date(formData.first_due_date + 'T12:00:00');
+    const diffMs = firstDue.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    const extraDays = Math.max(0, diffDays - 30);
+    if (extraDays === 0) return 0;
+    const financed = formData.total_value - formData.down_payment;
+    if (financed <= 0) return 0;
+    const dailyRate = monthlyRate / 30;
+    return financed * dailyRate * extraDays;
+  }, [formData.first_due_date, formData.total_value, formData.down_payment, paymentType, monthlyRate]);
+
   // Customer Debt & Limit Calculations
   const customerDebts = useMemo(() => {
     if (!formData.customer_id) return 0;
@@ -241,9 +267,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return financed * finalCoeff;
   }, [formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
 
+  // First installment value includes grace period interest (if any)
+  const firstInstallmentValue = useMemo(() => {
+    return installmentValue + gracePeriodInterest;
+  }, [installmentValue, gracePeriodInterest]);
+
   const totalInstallmentsValue = useMemo(() => {
-    return installmentValue * installmentCount;
-  }, [installmentValue, installmentCount]);
+    if (installmentCount <= 1) return firstInstallmentValue;
+    return firstInstallmentValue + installmentValue * (installmentCount - 1);
+  }, [firstInstallmentValue, installmentValue, installmentCount]);
 
   const finalValue = useMemo(() => {
     return formData.down_payment + totalInstallmentsValue + accessoriesTotal;
@@ -264,11 +296,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return customDueDates.map((dueDate, idx) => ({
       number: idx + 1,
       total: formData.installments,
-      value: installmentValue,
+      value: idx === 0 ? firstInstallmentValue : installmentValue,
       dueDate: dueDate,
       status: 'pending'
     }));
-  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, customDueDates]);
+  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -474,12 +506,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           customer={selectedCustomer}
           unit={unit || { name: 'MDR Informática' }}
           installmentValue={installmentValue}
+          firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
         />
         <SaleReceiptPrint
           sale={saleDataForPrint}
           customer={selectedCustomer}
           unit={unit || { name: 'MDR Informática' }}
           installmentValue={installmentValue}
+          firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
         />
       </div>
     );
@@ -901,8 +935,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
             <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Plano de {formData.installments}x</p>
-              <p className="text-xl font-black text-white font-mono">R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">
+                {gracePeriodInterest > 0 ? `1ª Parcela (c/ carência)` : `Plano de ${formData.installments}x`}
+              </p>
+              <p className="text-xl font-black text-white font-mono">
+                R$ {(gracePeriodInterest > 0 ? firstInstallmentValue : installmentValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              {gracePeriodInterest > 0 && installmentCount > 1 && (
+                <p className="text-[9px] text-amber-400 font-black mt-0.5">
+                  Parcelas 2–{formData.installments}: R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada</p>
@@ -910,12 +953,31 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           </div>
 
+          {gracePeriodInterest > 0 && (
+            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[10px] animate-in fade-in duration-300">
+              <Calendar size={14} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-amber-400 font-black uppercase tracking-wider">Juro de Carência Aplicado</p>
+                <p className="text-on-surface-variant mt-0.5">
+                  Vencimento estendido além de 30 dias — juro pro-rata de{' '}
+                  <strong className="text-amber-400">
+                    R$ {gracePeriodInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </strong>{' '}
+                  somado à 1ª parcela.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div>
             <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas individualmente:</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {generatedInstallments.map((inst, i) => (
-                <div key={i} className="bg-white/5 p-3 rounded-2xl border border-white/5">
-                  <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Parcela {inst.number}/{formData.installments}</p>
+                <div key={i} className={`p-3 rounded-2xl border ${i === 0 && gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'}`}>
+                  <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}/{formData.installments}</p>
+                  {i === 0 && gracePeriodInterest > 0 && (
+                    <p className="text-[8px] text-amber-400 font-black mb-1">R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (c/ carência)</p>
+                  )}
                   <input
                     type="date"
                     value={customDueDates[i] || ''}

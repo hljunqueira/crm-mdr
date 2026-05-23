@@ -1,371 +1,481 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Bot,
-  MessageSquare,
-  Bell,
-  ShieldAlert,
-  CheckCircle2,
-  Zap,
-  Settings,
-  RefreshCcw,
-  Clock,
-  Play,
-  History,
-  Lock,
   MessageCircle,
-  Plus,
-  Trash2,
-  ExternalLink,
   Instagram,
-  Smartphone
+  ExternalLink,
+  Edit3,
+  CheckCircle2,
+  AlertCircle,
+  Smartphone,
+  Globe,
+  Save,
+  X,
+  Building2,
+  Lock,
+  Zap
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useFinanceStore } from '../store/useFinanceStore';
-import { useUI } from '../context/UIContext';
 import { useUnitStore } from '../store/useUnitStore';
-import { useAutomationStore } from '../store/useAutomationStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { useUI } from '../context/UIContext';
 
-export default function Automation() {
-  const { profile } = useAuthStore();
-  const { showNotification } = useUI();
-  const { units, fetchAllUnits } = useUnitStore();
-  const {
-    channelStatuses, syncAllChannels, fetchQRCode, connectInstance, logout, deleteInstance, subscribeToChannels
-  } = useAutomationStore();
+// ─── helpers ───────────────────────────────────────────────────────────────
 
-  const [friendlyName, setFriendlyName] = React.useState('');
-  const [instanceNameInput, setInstanceNameInput] = React.useState('');
-  const [instaUser, setInstaUser] = React.useState('');
-  const [instaPass, setInstaPass] = React.useState('');
-  const [channels, setChannels] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [showSetupModal, setShowSetupModal] = React.useState<false | 'whatsapp' | 'instagram'>(false);
-  const [selectedUnitId, setSelectedUnitId] = React.useState<string | null>(null);
+/** Build a WhatsApp Web direct-open URL from a raw number */
+function buildWppUrl(number: string): string {
+  // Strip everything that isn't a digit
+  const digits = number.replace(/\D/g, '');
+  if (!digits) return 'https://web.whatsapp.com/';
+  return `https://wa.me/${digits}`;
+}
 
-  React.useEffect(() => {
-    if (showSetupModal) {
-      setSelectedUnitId(profile?.unit_id || null);
-    }
-  }, [showSetupModal, profile]);
+/** Build an Instagram Direct URL from a username */
+function buildIgUrl(username: string): string {
+  const clean = username.replace(/^@/, '').trim();
+  if (!clean) return 'https://www.instagram.com/direct/inbox/';
+  return `https://www.instagram.com/${clean}/`;
+}
 
-  // Carregar dados iniciais e sincronizar status
-  React.useEffect(() => {
-    const init = async () => {
-      await fetchAllUnits();
-      await syncAllChannels();
-      await fetchChannels();
-      setLoading(false);
-    };
-    init();
+// ─── sub-components ────────────────────────────────────────────────────────
 
-    // Inscrição em tempo real para status
-    const unsubscribe = subscribeToChannels(() => {
-      fetchChannels();
-    });
-    
-    return () => unsubscribe();
-  }, []);
-
-  const fetchChannels = async () => {
-    const { data } = await supabase
-      .from('automation_channels')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (data) setChannels(data);
+interface ConnectionCardProps {
+  unit: {
+    id: string;
+    name: string;
+    whatsapp_number?: string;
+    instagram_username?: string;
   };
+  isCurrentUnit: boolean;
+  isAdmin: boolean;
+  onEdit: (unitId: string) => void;
+}
 
-  const handleSetup = async () => {
-    if (!showSetupModal) return;
-    const type = showSetupModal;
-    const name = friendlyName || `${type === 'whatsapp' ? 'WhatsApp' : 'Instagram'} MDR`;
-    const instance = instanceNameInput || `mdr_custom_${type}_${Math.random().toString(36).substring(7)}`;
-    
-    showNotification('info', 'Integração', `Iniciando conexão para ${type}...`);
-    setShowSetupModal(false);
-    
-    const credentials = type === 'instagram' ? { user: instaUser, pass: instaPass } : undefined;
-    
-    await fetchQRCode(instance, name, selectedUnitId, type, credentials, () => {
-      fetchChannels();
-    });
-    
-    setFriendlyName('');
-    setInstanceNameInput('');
-    setInstaUser('');
-    setInstaPass('');
-    await fetchChannels();
-  };
+function ConnectionCard({ unit, isCurrentUnit, isAdmin, onEdit }: ConnectionCardProps) {
+  const hasWpp = !!unit.whatsapp_number?.trim();
+  const hasIg = !!unit.instagram_username?.trim();
 
-  const getStatusInfo = (instanceName: string) => {
-    return channelStatuses[instanceName] || { status: 'disconnected', qrCode: null };
-  };
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-surface-container-low p-6 rounded-[32px] border relative overflow-hidden ${
+        isCurrentUnit ? 'border-primary/30' : 'border-outline-variant/30'
+      }`}
+    >
+      {isCurrentUnit && (
+        <div className="absolute top-4 right-16 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded-full">
+          <span className="text-[8px] font-black text-primary uppercase tracking-widest">Sua Unidade</span>
+        </div>
+      )}
 
-  const IntegrationSection = ({ type }: { type: 'whatsapp' | 'instagram' }) => {
-    const typeChannels = channels.filter(c => c.type === type);
-    const Icon = type === 'whatsapp' ? MessageCircle : Instagram;
-
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-2xl text-primary">
-              <Icon size={24} />
-            </div>
-            <h2 className="text-2xl font-display font-black text-on-surface uppercase tracking-tight">
-              {type === 'whatsapp' ? 'WhatsApp Business' : 'Instagram Direct'}
-            </h2>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-white/5 rounded-2xl">
+            <Building2 size={20} className="text-on-surface-variant" />
           </div>
-          <button 
-            onClick={() => {
-              setFriendlyName('');
-              setInstanceNameInput('');
-              setShowSetupModal(type);
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-primary hover:text-black rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10"
+          <div>
+            <h3 className="text-sm font-display font-black text-on-surface uppercase tracking-tight leading-none">
+              {unit.name}
+            </h3>
+          </div>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => onEdit(unit.id)}
+            className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
           >
-            <Plus size={16} />
-            Adicionar Novo
+            <Edit3 size={16} />
           </button>
+        )}
+      </div>
+
+      {/* Connections */}
+      <div className="space-y-3">
+        {/* WhatsApp */}
+        <div className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+          hasWpp
+            ? 'bg-green-500/5 border-green-500/20 hover:bg-green-500/10 group cursor-pointer'
+            : 'bg-white/[0.02] border-white/5 opacity-50'
+        }`}
+          onClick={hasWpp ? () => window.open(buildWppUrl(unit.whatsapp_number!), '_blank') : undefined}
+        >
+          <div className={`p-2 rounded-xl ${hasWpp ? 'bg-green-500/10' : 'bg-white/5'}`}>
+            <MessageCircle size={18} className={hasWpp ? 'text-green-400' : 'text-on-surface-variant'} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">WhatsApp</p>
+            <p className={`text-xs font-bold truncate mt-0.5 ${hasWpp ? 'text-white' : 'text-on-surface-variant'}`}>
+              {hasWpp ? unit.whatsapp_number : 'Não configurado'}
+            </p>
+          </div>
+          {hasWpp ? (
+            <ExternalLink size={14} className="text-green-400 shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+          ) : (
+            <AlertCircle size={14} className="text-on-surface-variant shrink-0 opacity-40" />
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {typeChannels.length === 0 ? (
-            <div className="p-12 border-2 border-dashed border-outline-variant/20 rounded-[32px] flex flex-col items-center text-center bg-white/[0.01]">
-              <Icon size={48} className="text-on-surface-variant/10 mb-4" />
-              <p className="text-on-surface-variant font-display text-xs uppercase tracking-[0.2em] font-black opacity-30">
-                Nenhuma conta conectada
-              </p>
-            </div>
+        {/* Instagram */}
+        <div className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
+          hasIg
+            ? 'bg-pink-500/5 border-pink-500/20 hover:bg-pink-500/10 group cursor-pointer'
+            : 'bg-white/[0.02] border-white/5 opacity-50'
+        }`}
+          onClick={hasIg ? () => window.open(buildIgUrl(unit.instagram_username!), '_blank') : undefined}
+        >
+          <div className={`p-2 rounded-xl ${hasIg ? 'bg-pink-500/10' : 'bg-white/5'}`}>
+            <Instagram size={18} className={hasIg ? 'text-pink-400' : 'text-on-surface-variant'} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Instagram</p>
+            <p className={`text-xs font-bold truncate mt-0.5 ${hasIg ? 'text-white' : 'text-on-surface-variant'}`}>
+              {hasIg ? `@${unit.instagram_username!.replace(/^@/, '')}` : 'Não configurado'}
+            </p>
+          </div>
+          {hasIg ? (
+            <ExternalLink size={14} className="text-pink-400 shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           ) : (
-            typeChannels.map(channel => {
-              const info = getStatusInfo(channel.instance_name);
-              return (
-                <div key={channel.id} className="bg-surface-container-low p-6 rounded-[32px] border border-outline-variant/30 relative overflow-hidden group">
-                  <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
-                    <div className="w-40 h-40 bg-black/40 rounded-[30px] border border-white/10 flex flex-col items-center justify-center relative overflow-hidden shrink-0">
-                      {info.status === 'connected' ? (
-                        <div className="flex flex-col items-center text-primary">
-                          <CheckCircle2 size={40} className="mb-2 shadow-2xl" />
-                          <span className="text-[9px] font-black uppercase tracking-[0.2em]">Ativo</span>
-                        </div>
-                      ) : info.status === 'qrcode' && info.qrCode ? (
-                        <img 
-                          src={info.qrCode.startsWith('data:image') ? info.qrCode : `data:image/png;base64,${info.qrCode}`} 
-                          alt="QR Code" 
-                          className="w-32 h-32 object-contain rounded-lg shadow-2xl"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center opacity-40">
-                          <RefreshCcw size={24} className="animate-spin mb-3" />
-                          <span className="text-[8px] font-black uppercase tracking-widest italic">Sincronizando</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-1 w-full space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-display font-black text-on-surface uppercase tracking-tight leading-none mb-1">
-                            {channel.name}
-                          </h3>
-                          <p className="text-[9px] text-on-surface-variant font-black uppercase tracking-widest opacity-40">
-                            Instância: {channel.instance_name}
-                          </p>
-                        </div>
-                        <div className={cn(
-                          "px-3 py-1 rounded-full border flex items-center gap-2",
-                          info.status === 'connected' ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/5 border-white/10 text-on-surface-variant"
-                        )}>
-                          <div className={cn("w-1 h-1 rounded-full", info.status === 'connected' ? "bg-primary animate-pulse" : "bg-on-surface-variant")} />
-                          <span className="text-[8px] font-black uppercase tracking-widest">
-                            {info.status === 'connected' ? 'Conectado' : info.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        {info.status !== 'connected' && info.status !== 'qrcode' && (
-                          <button 
-                            onClick={() => connectInstance(channel.instance_name, channel.type)}
-                            className="flex-1 py-3 bg-green-500/20 hover:bg-green-500 text-green-400 hover:text-black rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-green-500/30"
-                          >
-                            Conectar
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => logout(channel.instance_name)}
-                          className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-on-surface-variant rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10"
-                        >
-                          Reiniciar
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            await deleteInstance(channel.instance_name);
-                            await supabase.from('automation_channels').delete().eq('id', channel.id);
-                            fetchChannels();
-                          }}
-                          className="px-5 py-3 bg-error/10 text-error hover:bg-error hover:text-white rounded-xl transition-all border border-error/20"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            <AlertCircle size={14} className="text-on-surface-variant shrink-0 opacity-40" />
           )}
         </div>
       </div>
-    );
+
+      {/* Quick status row */}
+      <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-3">
+        <div className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest ${
+          hasWpp ? 'text-green-400' : 'text-on-surface-variant opacity-40'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${hasWpp ? 'bg-green-400 animate-pulse' : 'bg-on-surface-variant'}`} />
+          WhatsApp {hasWpp ? 'Configurado' : 'Pendente'}
+        </div>
+        <div className="w-px h-3 bg-white/10" />
+        <div className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest ${
+          hasIg ? 'text-pink-400' : 'text-on-surface-variant opacity-40'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${hasIg ? 'bg-pink-400 animate-pulse' : 'bg-on-surface-variant'}`} />
+          Instagram {hasIg ? 'Configurado' : 'Pendente'}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Quick Access Panel (for non-admin: see own unit & open directly) ──────
+
+interface QuickAccessProps {
+  unit: { name: string; whatsapp_number?: string; instagram_username?: string };
+}
+
+function QuickAccessPanel({ unit }: QuickAccessProps) {
+  const hasWpp = !!unit.whatsapp_number?.trim();
+  const hasIg = !!unit.instagram_username?.trim();
+
+  return (
+    <div className="mb-10 p-6 bg-primary/5 border border-primary/20 rounded-[32px]">
+      <div className="flex items-center gap-3 mb-6">
+        <Zap size={18} className="text-primary" />
+        <h2 className="text-[10px] font-black text-primary uppercase tracking-widest">
+          Acesso Rápido — {unit.name}
+        </h2>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button
+          onClick={() => window.open(
+            hasWpp ? buildWppUrl(unit.whatsapp_number!) : 'https://web.whatsapp.com/',
+            '_blank'
+          )}
+          className="flex items-center gap-4 p-5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 rounded-2xl transition-all group text-left"
+        >
+          <div className="p-3 bg-green-500/10 rounded-xl">
+            <MessageCircle size={24} className="text-green-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[9px] font-black text-green-400/60 uppercase tracking-widest">Abrir</p>
+            <p className="text-sm font-black text-white">WhatsApp Web</p>
+            {hasWpp && (
+              <p className="text-[10px] text-green-400 font-mono mt-0.5">{unit.whatsapp_number}</p>
+            )}
+          </div>
+          <ExternalLink size={16} className="text-green-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+        </button>
+
+        <button
+          onClick={() => window.open(
+            hasIg ? buildIgUrl(unit.instagram_username!) : 'https://www.instagram.com/direct/inbox/',
+            '_blank'
+          )}
+          className="flex items-center gap-4 p-5 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 rounded-2xl transition-all group text-left"
+        >
+          <div className="p-3 bg-pink-500/10 rounded-xl">
+            <Instagram size={24} className="text-pink-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[9px] font-black text-pink-400/60 uppercase tracking-widest">Abrir</p>
+            <p className="text-sm font-black text-white">Instagram Direct</p>
+            {hasIg && (
+              <p className="text-[10px] text-pink-400 font-mono mt-0.5">@{unit.instagram_username!.replace(/^@/, '')}</p>
+            )}
+          </div>
+          <ExternalLink size={16} className="text-pink-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Modal ─────────────────────────────────────────────────────────────
+
+interface EditModalProps {
+  unit: { id: string; name: string; whatsapp_number?: string; instagram_username?: string };
+  onSave: (id: string, wpp: string, ig: string) => Promise<void>;
+  onClose: () => void;
+}
+
+function EditModal({ unit, onSave, onClose }: EditModalProps) {
+  const [wpp, setWpp] = useState(unit.whatsapp_number || '');
+  const [ig, setIg] = useState(unit.instagram_username || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave(unit.id, wpp, ig);
+    setSaving(false);
+    onClose();
   };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-md bg-surface-container-high p-10 rounded-[48px] border border-white/10 shadow-2xl relative"
+      >
+        <button onClick={onClose} className="absolute top-8 right-8 text-on-surface-variant hover:text-white transition-all">
+          <X size={22} />
+        </button>
+
+        <div className="flex items-center gap-3 mb-8">
+          <div className="p-3 bg-primary/10 rounded-2xl">
+            <Building2 size={20} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-primary uppercase tracking-widest">Configurar Conexões</p>
+            <h2 className="text-lg font-display font-black text-white uppercase tracking-tight leading-none">
+              {unit.name}
+            </h2>
+          </div>
+        </div>
+
+        <div className="space-y-5">
+          {/* WhatsApp */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-[9px] font-black text-green-400 uppercase tracking-widest pl-1">
+              <MessageCircle size={12} />
+              Número WhatsApp
+            </label>
+            <input
+              type="tel"
+              value={wpp}
+              onChange={e => setWpp(e.target.value)}
+              placeholder="5548999999999 (DDI+DDD+Número)"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:border-green-400 outline-none transition-all font-mono"
+            />
+            <p className="text-[9px] text-on-surface-variant pl-1">
+              Ex: <span className="font-mono text-white/50">5548999990000</span> — inclua DDI (55) + DDD + número
+            </p>
+          </div>
+
+          {/* Instagram */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-[9px] font-black text-pink-400 uppercase tracking-widest pl-1">
+              <Instagram size={12} />
+              Username Instagram
+            </label>
+            <div className="relative">
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant font-black">@</span>
+              <input
+                type="text"
+                value={ig.replace(/^@/, '')}
+                onChange={e => setIg(e.target.value.replace(/^@/, ''))}
+                placeholder="mdr_informatica"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-5 py-3.5 text-sm text-white focus:border-pink-400 outline-none transition-all font-mono"
+              />
+            </div>
+            <p className="text-[9px] text-on-surface-variant pl-1">
+              Apenas o usuário, sem o @ — o sistema abre o perfil diretamente
+            </p>
+          </div>
+
+          {/* Preview */}
+          {(wpp.trim() || ig.trim()) && (
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-2">
+              <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-2">Preview dos Links</p>
+              {wpp.trim() && (
+                <div className="flex items-center gap-2 text-[10px] text-green-400">
+                  <MessageCircle size={10} />
+                  <span className="font-mono truncate">{buildWppUrl(wpp)}</span>
+                </div>
+              )}
+              {ig.trim() && (
+                <div className="flex items-center gap-2 text-[10px] text-pink-400">
+                  <Instagram size={10} />
+                  <span className="font-mono truncate">{buildIgUrl(ig)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-4 bg-primary text-black rounded-2xl font-display font-black uppercase tracking-widest text-[11px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save size={16} />
+            {saving ? 'Salvando...' : 'Salvar Configurações'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Main Page ──────────────────────────────────────────────────────────────
+
+export default function Automation() {
+  const { profile } = useAuthStore();
+  const { units, unit, fetchAllUnits, fetchUnit, updateUnit } = useUnitStore();
+  const { showNotification } = useUI();
+
+  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const isAdmin = profile?.role === 'admin';
+
+  useEffect(() => {
+    const init = async () => {
+      if (isAdmin) {
+        await fetchAllUnits();
+      } else if (profile?.unit_id) {
+        await fetchUnit(profile.unit_id);
+      }
+      setLoading(false);
+    };
+    init();
+  }, [isAdmin, profile?.unit_id]);
+
+  const handleSave = async (unitId: string, wpp: string, ig: string) => {
+    await updateUnit(unitId, {
+      whatsapp_number: wpp.trim(),
+      instagram_username: ig.replace(/^@/, '').trim()
+    });
+    showNotification('success', 'Conexões Salvas', 'Configurações atualizadas com sucesso.');
+    if (isAdmin) await fetchAllUnits();
+    else if (profile?.unit_id) await fetchUnit(profile.unit_id);
+  };
+
+  const editingUnit = isAdmin
+    ? units.find(u => u.id === editingUnitId)
+    : (unit?.id === editingUnitId ? unit : undefined);
+
+  // Displayed units
+  const displayUnits = isAdmin ? units : (unit ? [unit] : []);
+  const currentUnitId = profile?.unit_id;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-surface">
+      <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-4">
-          <RefreshCcw className="animate-spin text-primary" size={48} />
-          <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em]">Sincronizando Canais...</p>
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-[10px] font-black text-primary uppercase tracking-[0.4em]">Carregando...</p>
         </div>
       </div>
     );
   }
 
+  // For non-admin, if only one unit, show quick access prominently
+  const myUnit = !isAdmin && unit ? unit : null;
+
   return (
-    <div className="p-8 space-y-12">
+    <div className="p-8 space-y-10 max-w-5xl mx-auto">
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-4xl font-display font-black text-on-surface uppercase tracking-tighter leading-none mb-3">
-            Automação de Canais
+            Conexões WPP / IG
           </h1>
           <p className="text-on-surface-variant font-display text-[10px] font-bold uppercase tracking-[0.3em] opacity-60">
-            Gerencie múltiplos WhatsApp e Instagram MDR
+            Acesso direto ao WhatsApp Web e Instagram Direct de cada unidade
           </p>
         </div>
-        <div className="flex items-center gap-4 px-6 py-3 bg-primary/10 rounded-2xl border border-primary/20">
-          <Zap size={16} className="text-primary" />
-          <span className="text-[9px] font-black text-primary uppercase tracking-widest">{channels.length} Canais Registrados</span>
+        <div className="flex items-center gap-4 px-5 py-3 bg-white/5 rounded-2xl border border-white/10">
+          <Globe size={16} className="text-on-surface-variant" />
+          <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">
+            {displayUnits.length} {displayUnits.length === 1 ? 'Unidade' : 'Unidades'}
+          </span>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
-        <IntegrationSection type="whatsapp" />
-        <IntegrationSection type="instagram" />
+      {/* How it works — info banner */}
+      <div className="p-5 bg-white/[0.02] border border-white/10 rounded-2xl flex items-start gap-4">
+        <Smartphone size={18} className="text-primary shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-primary uppercase tracking-widest">Como funciona</p>
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Clique no botão da unidade para abrir diretamente o <strong className="text-white">WhatsApp Web</strong> ou o{' '}
+            <strong className="text-white">Instagram Direct</strong> no navegador.
+            Cada unidade atende pelo seu próprio número e perfil — sem APIs intermediárias, sem reconexões, sem complexidade.
+          </p>
+        </div>
       </div>
 
-      {/* Modal de Setup */}
-      {showSetupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-lg bg-surface-container-high p-10 rounded-[48px] border border-white/10 shadow-2xl relative"
-          >
-            <button 
-              onClick={() => setShowSetupModal(false)}
-              className="absolute top-8 right-8 text-on-surface-variant hover:text-white transition-all"
-            >
-              <Trash2 size={24} className="rotate-45" />
-            </button>
+      {/* Quick Access for non-admin */}
+      {myUnit && <QuickAccessPanel unit={myUnit} />}
 
-            <h2 className="text-2xl font-display font-black text-white uppercase tracking-tight mb-8">
-              Nova Conexão {showSetupModal === 'whatsapp' ? 'WhatsApp' : 'Instagram'}
-            </h2>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Nome da Loja/Canal</label>
-                <input 
-                  type="text" 
-                  value={friendlyName}
-                  placeholder={showSetupModal === 'whatsapp' ? "Ex: WhatsApp Loja Gaivota" : "Ex: Instagram MDR"}
-                  onChange={(e) => setFriendlyName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
-                />
-              </div>
-
-              {profile?.role === 'admin' ? (
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade Responsável</label>
-                  <select
-                    value={selectedUnitId || ''}
-                    onChange={(e) => setSelectedUnitId(e.target.value || null)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all appearance-none"
-                  >
-                    <option value="" className="bg-surface-container-high">Todas as Unidades (Global / Admin)</option>
-                    {units.map(unit => (
-                      <option key={unit.id} value={unit.id} className="bg-surface-container-high">
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                profile?.unit_id && (
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade Responsável</label>
-                    <div className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-on-surface-variant opacity-60">
-                      {units.find(u => u.id === profile.unit_id)?.name || 'Sua Unidade'}
-                    </div>
-                  </div>
-                )
-              )}
-
-              {showSetupModal === 'instagram' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Usuário Instagram</label>
-                    <input 
-                      type="text" 
-                      value={instaUser}
-                      placeholder="seu_usuario"
-                      onChange={(e) => setInstaUser(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Senha Instagram</label>
-                    <input 
-                      type="password" 
-                      value={instaPass}
-                      placeholder="••••••••"
-                      onChange={(e) => setInstaPass(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">ID Técnico (Opcional)</label>
-                <input 
-                  type="text" 
-                  value={instanceNameInput}
-                  placeholder="mdr_gaivota_zap"
-                  onChange={(e) => setInstanceNameInput(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:border-primary outline-none transition-all font-mono"
-                />
-              </div>
-              <button 
-                onClick={handleSetup}
-                className="w-full py-5 bg-primary text-black rounded-2xl font-display font-black uppercase tracking-widest text-[11px] hover:scale-[1.02] transition-all flex items-center justify-center gap-3 mt-4"
-              >
-                {showSetupModal === 'whatsapp' ? 'Gerar QR Code' : 'Conectar Instagram'}
-              </button>
-            </div>
-          </motion.div>
+      {/* Admin: all units or non-admin just their unit */}
+      {isAdmin && (
+        <div>
+          <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-5 flex items-center gap-2">
+            <Lock size={10} />
+            Administrador — Todas as Unidades
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {displayUnits.map(u => (
+              <ConnectionCard
+                key={u.id}
+                unit={u}
+                isCurrentUnit={u.id === currentUnitId}
+                isAdmin={isAdmin}
+                onEdit={setEditingUnitId}
+              />
+            ))}
+          </div>
         </div>
       )}
 
-      <footer className="pt-10 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 opacity-40">
-        <div className="flex items-center gap-3">
-          <ShieldAlert size={16} />
-          <p className="text-[9px] font-bold uppercase tracking-widest">Conexão Criptografada e Segura</p>
+      {/* Non-admin: just their unit as a card too */}
+      {!isAdmin && myUnit && (
+        <div>
+          <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-5">
+            Detalhes da Conexão
+          </p>
+          <ConnectionCard
+            unit={myUnit}
+            isCurrentUnit={true}
+            isAdmin={false}
+            onEdit={setEditingUnitId}
+          />
         </div>
-      </footer>
+      )}
+
+      {/* Edit Modal */}
+      {editingUnitId && editingUnit && (
+        <EditModal
+          unit={editingUnit}
+          onSave={handleSave}
+          onClose={() => setEditingUnitId(null)}
+        />
+      )}
     </div>
   );
 }

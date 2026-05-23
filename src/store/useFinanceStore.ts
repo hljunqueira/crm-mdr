@@ -20,7 +20,7 @@ interface FinanceState {
   installments: Installment[];
   isLoading: boolean;
   fetchInstallments: (unitId?: string) => Promise<void>;
-  markAsPaid: (id: string) => Promise<void>;
+  markAsPaid: (id: string, finalValue?: number) => Promise<void>;
   markAsBlocked: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<void>;
 }
@@ -59,12 +59,17 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       set({ isLoading: false });
     }
   },
-  markAsPaid: async (id) => {
+  markAsPaid: async (id, finalValue) => {
     try {
-      const data = await api.patch(`/finance/installments/${id}`, { 
-        status: 'paid', 
-        payment_date: new Date().toISOString().split('T')[0] 
-      });
+      const payload: Record<string, any> = {
+        status: 'paid',
+        payment_date: new Date().toISOString().split('T')[0]
+      };
+      // If a final value is given (e.g., includes late fees), persist the real amount received
+      if (finalValue !== undefined) {
+        payload.value = finalValue;
+      }
+      const data = await api.patch(`/finance/installments/${id}`, payload);
       
       const mapped = {
         id: data.id,
