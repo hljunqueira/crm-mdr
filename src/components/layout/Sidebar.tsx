@@ -54,7 +54,6 @@ export default function Sidebar() {
       title: 'Prospecção',
       items: [
         { name: 'Leads', icon: UserSearch, path: '/leads' },
-        { name: 'Funil', icon: Filter, path: '/kanban' },
       ]
     },
     {

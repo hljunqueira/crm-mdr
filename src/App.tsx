@@ -7,7 +7,6 @@ import Atendimento from './pages/Atendimento';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
-import Kanban from './pages/Kanban';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
@@ -47,7 +46,7 @@ export default function App() {
           <Route path="/connections" element={<PrivateRoute><AppLayout><Connections /></AppLayout></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute><AppLayout><Reports /></AppLayout></PrivateRoute>} />
           <Route path="/leads" element={<PrivateRoute><AppLayout><Leads /></AppLayout></PrivateRoute>} />
-          <Route path="/kanban" element={<PrivateRoute><AppLayout><Kanban /></AppLayout></PrivateRoute>} />
+          <Route path="/kanban" element={<Navigate to="/leads" replace />} />
           <Route path="/chat" element={<PrivateRoute><AppLayout><Chat /></AppLayout></PrivateRoute>} />
           <Route path="/settings" element={<PrivateRoute><AppLayout><Settings /></AppLayout></PrivateRoute>} />
           
