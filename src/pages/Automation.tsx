@@ -52,7 +52,7 @@ export default function Automation() {
           title="Chatwoot Multicanal"
           className="w-full h-full border-none"
           onLoad={() => setIframeLoading(false)}
-          allow="microphone; camera; clipboard-read; clipboard-write; geolocation"
+          allow="microphone; camera; clipboard-read; clipboard-write; geolocation; keyboard-map"
         />
       </div>
     </div>
