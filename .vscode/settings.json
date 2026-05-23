@@ -3,5 +3,9 @@
     "supabase/functions"
   ],
   "deno.config": "supabase/functions/deno.json",
-  "deno.importMap": "supabase/functions/import_map.json"
+  "deno.importMap": "supabase/functions/import_map.json",
+  "files.associations": {
+    "Caddyfile": "properties",
+    "Caddyfile.*": "properties"
+  }
 }

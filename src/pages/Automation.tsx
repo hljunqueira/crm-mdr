@@ -39,6 +39,7 @@ function buildIgUrl(username: string): string {
 // ─── sub-components ────────────────────────────────────────────────────────
 
 interface ConnectionCardProps {
+  key?: string;
   unit: {
     id: string;
     name: string;

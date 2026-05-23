@@ -46,3 +46,10 @@ n8n.mdrinformaticaecelulares.com.br {
 whatsapp.mdrinformaticaecelulares.com.br {
     reverse_proxy crm-mdr-evolution-1:8080
 }
+
+# --- Chatwoot ---
+chat.mdrinformaticaecelulares.com.br {
+    reverse_proxy chatwoot-web:3000
+    encode gzip
+}
+

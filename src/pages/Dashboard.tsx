@@ -86,6 +86,87 @@ export default function Dashboard() {
     }).filter(b => b.value > 0);
   }, [sales]);
 
+  const currentMonthName = useMemo(() => {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[new Date().getMonth()];
+  }, []);
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
+  const clientsOwingThisMonth = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const unpaidThisMonth = installments.filter(i => {
+      if (i.status === 'paid') return false;
+      const [yearStr, monthStr] = i.due_date.split('-');
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10) - 1;
+      return year === currentYear && month === currentMonth;
+    });
+
+    const grouped: { [key: string]: {
+      customer_id: string;
+      customer_name: string;
+      totalValue: number;
+      dueDates: string[];
+      statuses: string[];
+      installmentsCount: number;
+    } } = {};
+
+    unpaidThisMonth.forEach(i => {
+      const key = i.customer_id || i.customer_name || 'unknown';
+      if (!grouped[key]) {
+        grouped[key] = {
+          customer_id: i.customer_id,
+          customer_name: i.customer_name || 'Cliente Sem Nome',
+          totalValue: 0,
+          dueDates: [],
+          statuses: [],
+          installmentsCount: 0
+        };
+      }
+      grouped[key].totalValue += i.value;
+      grouped[key].installmentsCount += 1;
+      if (i.due_date && !grouped[key].dueDates.includes(i.due_date)) {
+        grouped[key].dueDates.push(i.due_date);
+      }
+      if (i.status && !grouped[key].statuses.includes(i.status)) {
+        grouped[key].statuses.push(i.status);
+      }
+    });
+
+    return Object.values(grouped).map(group => {
+      let finalStatus: 'pending' | 'overdue' | 'blocked' = 'pending';
+      if (group.statuses.includes('blocked')) {
+        finalStatus = 'blocked';
+      } else if (group.statuses.includes('overdue')) {
+        finalStatus = 'overdue';
+      }
+
+      const sortedDates = [...group.dueDates].sort();
+      const earliestDate = sortedDates[0];
+
+      return {
+        customer_id: group.customer_id,
+        customer_name: group.customer_name,
+        totalValue: group.totalValue,
+        installmentsCount: group.installmentsCount,
+        dueDate: earliestDate,
+        status: finalStatus,
+        hasMultipleDates: group.dueDates.length > 1
+      };
+    });
+  }, [installments]);
+
   const COLORS = ['#ffffff', '#a3a3a3', '#525252', '#262626', '#404040'];
 
   if (isFinanceLoading && sales.length === 0) {
@@ -188,41 +269,64 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 glass-card border border-outline-variant/30 rounded-[40px] overflow-hidden flex flex-col">
           <div className="p-8 border-b border-outline-variant/30 flex items-center justify-between bg-white/[0.02]">
-            <h3 className="text-xl font-black text-on-surface uppercase tracking-tight font-display">Alertas de Pagamento</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl font-black text-on-surface uppercase tracking-tight font-display">Alertas de Pagamento</h3>
+              <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-white/5 border border-white/10 text-on-surface-variant">
+                {currentMonthName}
+              </span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/5 border-b border-outline-variant/20">
-                  <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Cliente / Parcela</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Cliente</th>
                   <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Vencimento</th>
                   <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Status</th>
                   <th className="px-8 py-5 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-right">Valor</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/10">
-                {installments
-                  .filter(i => i.status !== 'paid')
-                  .slice(0, 4)
-                  .map((row, i) => (
-                  <tr key={i} className="hover:bg-white/[0.02] transition-colors cursor-pointer group">
-                    <td className="px-8 py-5">
-                      <p className="text-sm font-bold text-on-surface">{row.customer_name}</p>
-                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Parcela #{row.id.split('-')[0]}</p>
+                {clientsOwingThisMonth.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-10 text-center text-xs font-black uppercase tracking-widest text-on-surface-variant opacity-60">
+                      Nenhum cliente devendo neste mês
                     </td>
-                    <td className="px-8 py-5">
-                      <p className="text-xs font-black text-on-surface uppercase tracking-widest">{new Date(row.due_date).toLocaleDateString('pt-BR')}</p>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        row.status === 'blocked' || row.status === 'overdue' ? 'border-error/20 bg-error/10 text-error' : 'border-white/10 text-on-surface-variant'
-                      }`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5 text-right font-black text-on-surface text-sm font-mono">R$ {row.value.toFixed(2)}</td>
                   </tr>
-                ))}
+                ) : (
+                  clientsOwingThisMonth.map((row, i) => (
+                    <tr key={i} className="hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                      <td className="px-8 py-5">
+                        <p className="text-sm font-bold text-on-surface">{row.customer_name}</p>
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">
+                          {row.installmentsCount === 1 ? '1 parcela pendente' : `${row.installmentsCount} parcelas pendentes`}
+                        </p>
+                      </td>
+                      <td className="px-8 py-5">
+                        <p className="text-xs font-black text-on-surface uppercase tracking-widest">
+                          {formatDate(row.dueDate)}
+                          {row.hasMultipleDates && (
+                            <span className="text-[9px] text-on-surface-variant ml-1 font-normal lowercase">
+                              (mais antiga)
+                            </span>
+                          )}
+                        </p>
+                      </td>
+                      <td className="px-8 py-5">
+                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                          row.status === 'blocked' || row.status === 'overdue'
+                            ? 'border-error/20 bg-error/10 text-error'
+                            : 'border-white/10 text-on-surface-variant'
+                        }`}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-5 text-right font-black text-on-surface text-sm font-mono">
+                        R$ {row.totalValue.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
