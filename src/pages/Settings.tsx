@@ -547,83 +547,85 @@ export default function Settings() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        className="glass-card w-full max-w-md border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl relative text-left"
+                        className="glass-card w-full max-w-2xl border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl relative text-left"
                       >
                         <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">
                           {editingUser ? 'Editar Colaborador' : 'Novo Colaborador'}
                         </h3>
                         
-                        <form onSubmit={handleSaveUser} className="space-y-4" autoComplete="off">
+                        <form onSubmit={handleSaveUser} className="space-y-6" autoComplete="off">
                           {/* Dummy hidden inputs to hijack Chrome credentials autofill */}
                           <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
                           <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
 
-                          <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome Completo</label>
-                            <input 
-                              type="text"
-                              required
-                              placeholder="Ex: João Silva"
-                              value={userFormData.full_name}
-                              onChange={(e) => setUserFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                              autoComplete="off"
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
-                            />
-                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Nome Completo</label>
+                              <input 
+                                type="text"
+                                required
+                                placeholder="Ex: João Silva"
+                                value={userFormData.full_name}
+                                onChange={(e) => setUserFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                                autoComplete="off"
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
+                              />
+                            </div>
 
-                          <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">E-mail</label>
-                            <input 
-                              type="email"
-                              required
-                              placeholder="Ex: joao@suaempresa.com"
-                              value={userFormData.email}
-                              onChange={(e) => setUserFormData(prev => ({ ...prev, email: e.target.value }))}
-                              autoComplete="new-email"
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all font-mono"
-                            />
-                          </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">E-mail</label>
+                              <input 
+                                type="email"
+                                required
+                                placeholder="Ex: joao@suaempresa.com"
+                                value={userFormData.email}
+                                onChange={(e) => setUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                                autoComplete="new-email"
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all font-mono"
+                              />
+                            </div>
 
-                          <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">
-                              {editingUser ? 'Senha (Deixe em branco para não alterar)' : 'Senha Provisória'}
-                            </label>
-                            <input 
-                              type="password"
-                              required={!editingUser}
-                              placeholder={editingUser ? 'Manter senha atual' : 'Mínimo 6 caracteres'}
-                              value={userFormData.password}
-                              onChange={(e) => setUserFormData(prev => ({ ...prev, password: e.target.value }))}
-                              autoComplete="new-password"
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
-                            />
-                          </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">
+                                {editingUser ? 'Senha (Deixe em branco para não alterar)' : 'Senha Provisória'}
+                              </label>
+                              <input 
+                                type="password"
+                                required={!editingUser}
+                                placeholder={editingUser ? 'Manter senha atual' : 'Mínimo 6 caracteres'}
+                                value={userFormData.password}
+                                onChange={(e) => setUserFormData(prev => ({ ...prev, password: e.target.value }))}
+                                autoComplete="new-password"
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all"
+                              />
+                            </div>
 
-                          <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Cargo / Função</label>
-                            <select
-                              value={userFormData.role}
-                              onChange={(e) => setUserFormData(prev => ({ ...prev, role: e.target.value as any }))}
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all appearance-none"
-                            >
-                              <option value="attendant" className="bg-surface-container-high">Atendente</option>
-                              <option value="technician" className="bg-surface-container-high">Técnico de OS</option>
-                              <option value="admin" className="bg-surface-container-high">Administrador Geral</option>
-                            </select>
-                          </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Cargo / Função</label>
+                              <select
+                                value={userFormData.role}
+                                onChange={(e) => setUserFormData(prev => ({ ...prev, role: e.target.value as any }))}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all appearance-none"
+                              >
+                                <option value="attendant" className="bg-surface-container-high">Atendente</option>
+                                <option value="technician" className="bg-surface-container-high">Técnico de OS</option>
+                                <option value="admin" className="bg-surface-container-high">Administrador Geral</option>
+                              </select>
+                            </div>
 
-                          <div className="space-y-1.5">
-                            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Unidade / Loja Vinculada</label>
-                            <select
-                              value={userFormData.store_id}
-                              onChange={(e) => setUserFormData(prev => ({ ...prev, store_id: e.target.value }))}
-                              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all appearance-none"
-                            >
-                              <option value="" className="bg-surface-container-high">Geral/Todas as Unidades</option>
-                              {units.map((u) => (
-                                <option key={u.id} value={u.id} className="bg-surface-container-high">{u.name}</option>
-                              ))}
-                            </select>
+                            <div className="space-y-1.5 md:col-span-2">
+                              <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Unidade / Loja Vinculada</label>
+                              <select
+                                value={userFormData.store_id}
+                                onChange={(e) => setUserFormData(prev => ({ ...prev, store_id: e.target.value }))}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all appearance-none"
+                              >
+                                <option value="" className="bg-surface-container-high">Geral/Todas as Unidades</option>
+                                {units.map((u) => (
+                                  <option key={u.id} value={u.id} className="bg-surface-container-high">{u.name}</option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
 
                           <div className="flex gap-3 pt-4 border-t border-white/5">
