@@ -37,6 +37,7 @@ export default function Sidebar() {
       items: [
         { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
         { name: 'Clientes', icon: Users, path: '/customers' },
+        { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
         { name: 'Financeiro', icon: CreditCard, path: '/finance' },
       ]

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, CreditCard, Phone, MapPin, Save, X, 
-  Upload, FileText, Check, Loader2, DollarSign, 
-  ShieldAlert, UserCheck
+  Upload, FileText, Check, Loader2, DollarSign
 } from 'lucide-react';
 import { useCustomerStore, Customer } from '../../store/useCustomerStore';
 import { useUI } from '../../context/UIContext';
@@ -407,135 +406,6 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         </div>
       </div>
 
-      {/* SEÇÃO 4: ANÁLISE DE CRÉDITO & ADMINISTRAÇÃO */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
-        <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
-          <ShieldAlert size={14} /> Análise de Crédito & Controle
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          {/* Classificação Risco */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Classificação do Cliente</label>
-            <select
-              value={formData.classification}
-              onChange={(e) => setFormData(p => ({ ...p, classification: e.target.value as any }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              <option value="BOM" className="bg-[#121214] text-success">BOM</option>
-              <option value="MEDIO" className="bg-[#121214] text-warning">MEDIO</option>
-              <option value="RUIM" className="bg-[#121214] text-error">RUIM</option>
-            </select>
-          </div>
-
-          {/* Limite Pré-Aprovado */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Limite Pré-Aprovado (R$)</label>
-            <div className="relative">
-              <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-              <input 
-                type="number" 
-                step="0.01"
-                placeholder="0.00"
-                value={formData.credit_limit}
-                onChange={(e) => setFormData(p => ({ ...p, credit_limit: parseFloat(e.target.value) || 0 }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Status Análise de Crédito */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status da Análise de Crédito</label>
-            <select
-              value={formData.credit_status}
-              onChange={(e) => setFormData(p => ({ ...p, credit_status: e.target.value as any }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              <option value="EM_ANALISE" className="bg-[#121214]">EM ANÁLISE</option>
-              <option value="APROVADO" className="bg-[#121214] text-success">APROVADO</option>
-              <option value="APROVADO_COM_ENTRADA" className="bg-[#121214] text-warning">APROVADO COM ENTRADA</option>
-              <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Entrada Sugerido (R$)</label>
-            <div className="relative">
-              <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-              <input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.suggested_down_payment || ''}
-                onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          <div className="md:col-span-2 space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Solicitação de Crédito</label>
-            <textarea
-              rows={4}
-              placeholder="Ex: Cliente quer crédito para um iPhone 16 Pro Max no valor de R$ 1.000,00. Vai dar R$ 100,00 de entrada e pode pagar R$ 200,00 por mês."
-              value={formData.notes}
-              onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed"
-            />
-          </div>
-
-          {/* Analista Responsável (WhatsApp) */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Responsável pela Análise (Notificação)</label>
-            <select
-              value={formData.responsible_analyst_id}
-              onChange={(e) => setFormData(p => ({ ...p, responsible_analyst_id: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              <option value="" className="bg-[#121214]">Nenhum Selecionado</option>
-              {admins.map((adm) => (
-                <option key={adm.id} value={adm.id} className="bg-[#121214]">
-                  {adm.full_name} {adm.phone ? `(${adm.phone})` : '(Sem Celular)'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* CONTROLES DE LIBERAÇÃO DE CRÉDITO E COMPRA */}
-          <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-xs font-black uppercase text-on-surface tracking-wider">Liberado para Compra</span>
-                <span className="text-[9px] text-on-surface-variant opacity-60">Permite registrar vendas para este cliente</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={formData.approved_for_purchase}
-                  onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
-                  className="sr-only peer" 
-                />
-                <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-              </label>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status do Cadastro</span>
-              <select
-                value={formData.registration_status}
-                onChange={(e) => setFormData(p => ({ ...p, registration_status: e.target.value as any }))}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="PRE_CADASTRO" className="bg-[#121214]">PRÉ-CADASTRO (Aguardando Aprovação)</option>
-                <option value="APROVADO" className="bg-[#121214] text-success">APROVADO (Incluir como Cliente)</option>
-                <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO / REJEITADO</option>
-              </select>
-            </div>
-          </div>
-
-        </div>
-      </div>
 
       {/* BOTÕES DE AÇÃO */}
       <div className="flex gap-4 pt-4">
