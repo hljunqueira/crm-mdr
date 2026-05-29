@@ -22,6 +22,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     condition: item?.condition || 'new',
     stock_quantity: item?.stock_quantity !== undefined ? String(item.stock_quantity) : '1',
     notes: item?.notes || '',
+    category: item?.category || 'smartphone',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,6 +43,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         price: priceNum,
         cost_price: costPriceNum,
         imei: '', // No IMEI in inventory registration
+        category: formData.category,
       };
 
       if (item) {
@@ -86,6 +88,21 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
             placeholder="Ex: iPhone 15 Pro"
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
+          <select
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none text-white"
+          >
+            <option value="smartphone" className="bg-[#121214] text-white">📱 Smartphone / Celular</option>
+            <option value="accessory_mobile" className="bg-[#121214] text-white">🔌 Acessório Celular</option>
+            <option value="accessory_it" className="bg-[#121214] text-white">💻 Acessório Informática</option>
+            <option value="part" className="bg-[#121214] text-white">🔧 Peça de Reposição</option>
+            <option value="other" className="bg-[#121214] text-white">📦 Outros</option>
+          </select>
         </div>
 
         <div className="space-y-2">

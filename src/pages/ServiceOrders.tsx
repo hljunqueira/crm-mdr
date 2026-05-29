@@ -102,6 +102,8 @@ export default function ServiceOrders() {
     custom_accessory: ''
   });
 
+  const [justCreatedOs, setJustCreatedOs] = useState<ServiceOrder | null>(null);
+
   // Load and fetch initial states
   useEffect(() => {
     fetchServiceOrders();
@@ -241,6 +243,10 @@ export default function ServiceOrders() {
 
       showNotification('success', 'Ordem de Serviço criada com sucesso!');
       
+      // Load details into currentServiceOrder immediately so relation details are populated for print
+      await fetchServiceOrderById(created.id);
+      setJustCreatedOs(created);
+
       // Auto-trigger WhatsApp notification
       try {
         await notifyOsStatus(created.id, 'entry');
@@ -1278,6 +1284,44 @@ export default function ServiceOrders() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL DE CONFIRMAÇÃO DE IMPRESSÃO IMEDIATA */}
+      {justCreatedOs && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[40px] p-8 space-y-6 text-center animate-in zoom-in duration-300 shadow-2xl">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary border border-primary/20 mx-auto">
+              <Printer size={32} />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-black uppercase tracking-wider text-white">OS Registrada com Sucesso!</h3>
+              <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-mono">Ordem de Serviço Nº {String(justCreatedOs.os_number).padStart(4, '0')}</p>
+              <p className="text-xs text-on-surface-variant leading-relaxed pt-2">
+                Deseja imprimir o <strong>Termo de Entrada (Admission)</strong> agora para coletar a assinatura do cliente?
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                onClick={() => {
+                  printElement('print-os-entry');
+                  setJustCreatedOs(null);
+                }}
+                className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Printer size={14} /> Imprimir Termo de Entrada
+              </button>
+              <button
+                onClick={() => setJustCreatedOs(null)}
+                className="w-full py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              >
+                Fechar Sem Imprimir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

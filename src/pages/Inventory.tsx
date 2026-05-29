@@ -13,7 +13,9 @@ import {
   Barcode,
   Loader2,
   DollarSign,
-  Package
+  Package,
+  Wrench,
+  Monitor
 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
 import { useUI } from '../context/UIContext';
@@ -26,16 +28,38 @@ export default function Inventory() {
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   useEffect(() => {
     fetchInventory(profile?.unit_id || undefined);
   }, [profile?.unit_id, fetchInventory]);
 
-  const filteredInventory = inventory.filter(item => 
-    item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.imei || '').includes(searchTerm) ||
-    item.brand.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInventory = inventory.filter(item => {
+    const matchesSearch = 
+      item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.imei || '').includes(searchTerm) ||
+      item.brand.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const getCategoryBadge = (cat?: string) => {
+    switch (cat) {
+      case 'smartphone':
+        return { label: 'Celular', color: 'border-blue-500/20 text-blue-400 bg-blue-500/5', icon: Smartphone };
+      case 'accessory_mobile':
+        return { label: 'Acessório Celular', color: 'border-purple-500/20 text-purple-400 bg-purple-500/5', icon: Smartphone };
+      case 'accessory_it':
+        return { label: 'Acessório TI', color: 'border-teal-500/20 text-teal-400 bg-teal-500/5', icon: Monitor };
+      case 'part':
+        return { label: 'Peça', color: 'border-amber-500/20 text-amber-400 bg-amber-500/5', icon: Wrench };
+      case 'other':
+        return { label: 'Outros', color: 'border-white/15 text-white/60 bg-white/5', icon: Package };
+      default:
+        return { label: 'Celular', color: 'border-blue-500/20 text-blue-400 bg-blue-500/5', icon: Smartphone };
+    }
+  };
 
   const handleAddItem = () => {
     showModal({
@@ -104,6 +128,35 @@ export default function Inventory() {
         ))}
       </div>
 
+      {/* Category Filters */}
+      <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar">
+        {[
+          { id: 'all', label: 'Tudo', icon: Package },
+          { id: 'smartphone', label: 'Celulares', icon: Smartphone },
+          { id: 'accessory_mobile', label: 'Acessórios Celular', icon: Smartphone },
+          { id: 'accessory_it', label: 'Acessórios TI', icon: Monitor },
+          { id: 'part', label: 'Peças de Reposição', icon: Wrench },
+          { id: 'other', label: 'Outros', icon: Package }
+        ].map(cat => {
+          const CatIcon = cat.icon;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={cn(
+                "flex items-center gap-2.5 px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
+                selectedCategory === cat.id
+                  ? "bg-primary border-primary text-on-primary shadow-lg shadow-primary/10"
+                  : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/5"
+              )}
+            >
+              <CatIcon size={14} />
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters & Search */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1 group">
@@ -144,7 +197,11 @@ export default function Inventory() {
               <div className="p-6 flex-1">
                 <div className="flex items-start justify-between mb-4">
                   <div className="p-3 bg-white/5 rounded-2xl text-white border border-white/10 shadow-sm group-hover:bg-white group-hover:text-black transition-all">
-                    <Smartphone size={24} />
+                    {(() => {
+                      const catBadge = getCategoryBadge(item.category);
+                      const CatIcon = catBadge.icon;
+                      return <CatIcon size={24} />;
+                    })()}
                   </div>
                   <div className={cn(
                     "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
@@ -157,9 +214,14 @@ export default function Inventory() {
                 </div>
 
                 <h3 className="text-xl font-black text-white mb-1 uppercase tracking-tight">{item.model}</h3>
-                <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest opacity-60">
-                  {item.brand} • {item.condition === 'new' ? 'Novo' : item.condition === 'used' ? 'Usado' : 'Vitrine'}
-                </p>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest opacity-60">
+                    {item.brand} • {item.condition === 'new' ? 'Novo' : item.condition === 'used' ? 'Usado' : 'Vitrine'}
+                  </span>
+                  <span className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border", getCategoryBadge(item.category).color)}>
+                    {getCategoryBadge(item.category).label}
+                  </span>
+                </div>
 
                 <div className="space-y-2 mt-6 pt-6 border-t border-white/5">
                   {item.imei && (

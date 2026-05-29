@@ -13,6 +13,7 @@ export interface InventoryItem {
   status: 'available' | 'sold' | 'reserved' | 'in_repair';
   stock_quantity: number;
   notes?: string;
+  category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other';
 }
 
 interface InventoryState {
@@ -43,6 +44,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         status: item.status,
         stock_quantity: Number(item.stock_quantity) || 0,
         notes: item.notes || '',
+        category: item.category || 'smartphone',
       }));
       set({ inventory: mapped });
     } catch (error) {
@@ -64,6 +66,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         status: item.status,
         stock_quantity: item.stock_quantity,
         notes: item.notes || null,
+        category: item.category || 'smartphone',
       };
       const data = await api.post('/inventory', dbItem);
       const newFrontendItem = {
@@ -91,6 +94,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.status !== undefined) dbFields.status = updatedFields.status;
       if (updatedFields.stock_quantity !== undefined) dbFields.stock_quantity = updatedFields.stock_quantity;
       if (updatedFields.notes !== undefined) dbFields.notes = updatedFields.notes || null;
+      if (updatedFields.category !== undefined) dbFields.category = updatedFields.category;
 
       const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({

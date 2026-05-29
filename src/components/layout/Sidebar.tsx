@@ -13,7 +13,8 @@ import {
   LogOut,
   QrCode,
   ChevronDown,
-  Wrench
+  Wrench,
+  FileText
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -42,7 +43,15 @@ export default function Sidebar() {
         { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
+      ]
+    },
+    {
+      title: 'Financeiro & Fiscal',
+      subtitle: 'Controle e Emissão',
+      icon: CreditCard,
+      items: [
         { name: 'Financeiro', icon: CreditCard, path: '/finance' },
+        { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
       ]
     },
     {

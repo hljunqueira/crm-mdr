@@ -18,6 +18,7 @@ import Inventory from './pages/Inventory';
 import Connections from './pages/Connections'; // Conexões multicanais
 import CreditAnalysis from './pages/CreditAnalysis';
 import ServiceOrders from './pages/ServiceOrders';
+import Fiscal from './pages/Fiscal';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/service-orders" element={<PrivateRoute><AppLayout><ServiceOrders /></AppLayout></PrivateRoute>} />
           <Route path="/inventory" element={<PrivateRoute><AppLayout><Inventory /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute><AppLayout><Finance /></AppLayout></PrivateRoute>} />
+          <Route path="/fiscal" element={<PrivateRoute><AppLayout><Fiscal /></AppLayout></PrivateRoute>} />
           <Route path="/automation" element={<PrivateRoute><AppLayout><Automation /></AppLayout></PrivateRoute>} />
           <Route path="/connections" element={<PrivateRoute><AppLayout><Connections /></AppLayout></PrivateRoute>} />
           <Route path="/reports" element={<PrivateRoute><AppLayout><Reports /></AppLayout></PrivateRoute>} />
