@@ -470,7 +470,7 @@ export default function CreditAnalysis() {
                     <div>
                       <h4 className="text-xs font-black uppercase tracking-wider leading-none">Recomendação do Motor de Decisão</h4>
                       <p className="text-[10px] leading-relaxed mt-1">
-                        Com base no relatório do Banco Central, o cliente foi sugerido com a classificação **{formData.classification}**.
+                        Com base no relatório do Banco Central, o cliente foi sugerido com a classificação **{formData.classification === 'BOM' ? 'Premium (5% a.m.)' : formData.classification === 'MEDIO' ? 'Standard (8% a.m.)' : 'Flex (12% a.m.)'}**.
                         {formData.classification === 'RUIM' && ' ❌ O cliente possui dívidas registradas como Prejuízo no mercado financeiro. Recomendamos rejeitar crédito.'}
                         {formData.classification === 'MEDIO' && ' ⚖️ O cliente possui parcelas de empréstimos em atraso (vencido). Recomendamos aprovar mediante entrada obrigatória de 20% a 50%.'}
                         {formData.classification === 'BOM' && ' 🌟 Nenhuma restrição ou atraso encontrado no SCR Bacen. Crédito elegível para aprovação padrão sem entrada obrigatória.'}
@@ -495,9 +495,9 @@ export default function CreditAnalysis() {
                       onChange={(e) => setFormData(p => ({ ...p, classification: e.target.value as any }))}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
                     >
-                      <option value="BOM" className="bg-[#121214] text-success">BOM</option>
-                      <option value="MEDIO" className="bg-[#121214] text-warning">MEDIO</option>
-                      <option value="RUIM" className="bg-[#121214] text-error">RUIM</option>
+                      <option value="BOM" className="bg-[#121214] text-success">🟢 Premium (5% a.m.)</option>
+                      <option value="MEDIO" className="bg-[#121214] text-warning">🟡 Standard (8% a.m.)</option>
+                      <option value="RUIM" className="bg-[#121214] text-error">🔴 Flex (12% a.m.)</option>
                     </select>
                   </div>
 

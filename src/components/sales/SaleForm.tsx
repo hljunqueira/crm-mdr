@@ -541,19 +541,19 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <div>
                 <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
                 <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
-                  Cliente {selectedCustomer.classification || 'BOM'}
+                  Cliente {selectedCustomer.classification === 'BOM' ? 'Premium (5% a.m.)' : selectedCustomer.classification === 'RUIM' ? 'Flex (12% a.m.)' : 'Standard (8% a.m.)'}
                 </h4>
               </div>
             </div>
             <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
               {selectedCustomer.classification === 'RUIM' && (
-                <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de 15% devido ao risco elevado.</span>
+                <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de <strong>12% a.m.</strong> (Tabela Flex) devido ao risco elevado.</span>
               )}
               {selectedCustomer.classification === 'MEDIO' && (
-                <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui um acréscimo padrão de <strong>5%</strong> sobre as taxas de juros.</span>
+                <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui taxa de juros de <strong>8% a.m.</strong> (Tabela Standard).</span>
               )}
               {selectedCustomer.classification === 'BOM' && (
-                <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros básica sem acréscimo de risco (Tabela 1).</span>
+                <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros reduzida de <strong>5% a.m.</strong> (Tabela Premium).</span>
               )}
             </div>
           </div>

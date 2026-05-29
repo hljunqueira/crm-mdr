@@ -192,7 +192,9 @@ export default function Customers() {
                             customer.classification === 'RUIM' ? 'bg-error/10 text-error' :
                             'bg-warning/10 text-warning'
                           }`}>
-                            {customer.classification || 'MEDIO'}
+                            {customer.classification === 'BOM' ? 'Premium (5% a.m.)' :
+                             customer.classification === 'RUIM' ? 'Flex (12% a.m.)' :
+                             'Standard (8% a.m.)'}
                           </span>
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-white/5 text-on-surface-variant`}>
                             {customer.credit_status === 'EM_ANALISE' ? 'EM ANÁLISE' :
