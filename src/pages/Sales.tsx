@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Plus, Search, Smartphone, ShoppingBag, Clock,
   CheckCircle2, AlertCircle, MoreVertical, Filter,
   DollarSign, Calendar, Layers, ShieldCheck, Tag,
@@ -18,28 +18,28 @@ import SaleForm from '../components/sales/SaleForm';
 import SaleContract from '../components/sales/SaleContract';
 
 // Componente para Visualização Interativa e Edição Livre de Contrato / Nota
-function SaleDocumentViewer({ 
-  sale, 
-  customer, 
-  installments, 
+function SaleDocumentViewer({
+  sale,
+  customer,
+  installments,
   unit,
-  hideModal, 
-  showNotification 
-}: { 
-  sale: Sale; 
-  customer: any; 
-  installments: any[]; 
+  hideModal,
+  showNotification
+}: {
+  sale: Sale;
+  customer: any;
+  installments: any[];
   unit: any;
   hideModal: () => void;
   showNotification: any;
 }) {
   const [activeTab, setActiveTab] = useState<'contract' | 'receipt'>('contract');
   const today = new Date().toLocaleDateString('pt-BR');
-  
+
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
   const instValue = installments.length > 0 ? installments[0].value : (sale.installments > 0 ? financed / sale.installments : 0);
-  
+
   const handlePrint = () => {
     const element = document.getElementById('sale-document-preview-area');
     if (!element) return;
@@ -50,32 +50,18 @@ function SaleDocumentViewer({
       return;
     }
 
+    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map(styleNode => styleNode.outerHTML)
+      .join('\n');
+
     printWindow.document.write(`
       <html>
         <head>
           <title>Impressão - CRM MDR</title>
+          ${styles}
           <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              padding: 20px;
-              color: #000;
-              line-height: 1.6;
-              font-size: 11px;
-              background: #fff;
-            }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background-color: #f5f5f5; }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .font-bold { font-weight: bold; }
-            .mb-6 { margin-bottom: 24px; }
-            .border-b { border-bottom: 1px solid #ddd; }
-            .pb-2 { padding-bottom: 8px; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-            .signature-box { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 50px; }
-            .signature-line { border-top: 1.5px solid #aaa; padding-top: 6px; font-size: 10px; color: #333; text-align: center; }
+            body { background: #fff !important; color: #000 !important; font-family: sans-serif; }
             @media print {
               body { padding: 0; }
               .no-print { display: none; }
@@ -83,7 +69,7 @@ function SaleDocumentViewer({
           </style>
         </head>
         <body>
-          <div style="max-width: 800px; margin: 0 auto;">
+          <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
             ${element.innerHTML}
           </div>
           <script>
@@ -106,18 +92,16 @@ function SaleDocumentViewer({
           <button
             type="button"
             onClick={() => setActiveTab('contract')}
-            className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${
-              activeTab === 'contract' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
-            }`}
+            className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'contract' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+              }`}
           >
             Contrato de Venda
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('receipt')}
-            className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${
-              activeTab === 'receipt' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
-            }`}
+            className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'receipt' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+              }`}
           >
             Nota de Venda
           </button>
@@ -139,7 +123,7 @@ function SaleDocumentViewer({
 
       {/* Document Area */}
       <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar border border-white/10 rounded-3xl bg-white text-black">
-        <div 
+        <div
           id="sale-document-preview-area"
           contentEditable={true}
           suppressContentEditableWarning={true}
@@ -179,7 +163,7 @@ function SaleDocumentViewer({
                 <p>O valor total da transação é de <strong>R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, conforme as seguintes condições:</p>
                 <p className="mt-1">• <strong>Entrada Paga:</strong> R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 <p className="mt-1">• <strong>Plano de Financiamento:</strong> {sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                
+
                 <div className="my-3 p-4 bg-gray-50 border border-gray-200 rounded-2xl text-[10.5px] text-gray-800 leading-relaxed">
                   <strong className="text-black uppercase block mb-1.5">⚡ Desconto por Antecipação (Garantia do Art. 52, § 2º do CDC):</strong>
                   <p>• ✅ <strong>1 parcela adiantada:</strong> Desconto de <strong>3%</strong> sobre o juro embutido da parcela.</p>
@@ -198,7 +182,7 @@ function SaleDocumentViewer({
                       </tr>
                     </thead>
                     <tbody>
-                      {installments.sort((a,b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).map(inst => (
+                      {installments.sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).map(inst => (
                         <tr key={inst.id}>
                           <td className="border p-1">{inst.number}/{inst.total}</td>
                           <td className="border p-1">{new Date(inst.due_date).toLocaleDateString('pt-BR')}</td>
@@ -213,8 +197,8 @@ function SaleDocumentViewer({
               <section className="mb-6">
                 <h2 className="font-bold border-b border-gray-300 mb-2 uppercase text-xs text-black">4. Cláusula de Bloqueio por Inadimplemento</h2>
                 <p className="text-[10px] text-justify text-gray-800 leading-relaxed">
-                  4.1. O não pagamento de qualquer parcela em até <strong>5 (cinco) dias</strong> a contar do vencimento constituirá o COMPRADOR em mora.<br/>
-                  4.2. <strong>CONSENTIMENTO EXPRESSO DE BLOQUEIO REMOTO:</strong> O COMPRADOR declara estar ciente e **concorda de forma expressa e inequívoca** que o VENDEDOR efetuará o **bloqueio remoto imediato** das funcionalidades do dispositivo eletrônico (via IMEI ou software de gestão) caso ocorra o atraso de qualquer parcela por período superior a 5 dias, até a efetiva quitação do débito pendente.<br/>
+                  4.1. O não pagamento de qualquer parcela em até <strong>5 (cinco) dias</strong> a contar do vencimento constituirá o COMPRADOR em mora.<br />
+                  4.2. <strong>CONSENTIMENTO EXPRESSO DE BLOQUEIO REMOTO:</strong> O COMPRADOR declara estar ciente e **concorda de forma expressa e inequívoca** que o VENDEDOR efetuará o **bloqueio remoto imediato** das funcionalidades do dispositivo eletrônico (via IMEI ou software de gestão) caso ocorra o atraso de qualquer parcela por período superior a 5 dias, até a efetiva quitação do débito pendente.<br />
                   4.3. O desbloqueio ocorrerá no prazo de até 24 horas úteis após a compensação do pagamento.
                 </p>
               </section>
@@ -317,7 +301,7 @@ function SaleDocumentViewer({
           className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
         >
           <Printer size={16} />
-          Imprimir Agora (Estável)
+          Imprimir
         </button>
       </div>
     </div>
@@ -340,7 +324,7 @@ export default function Sales() {
     fetchAllUnits();
   }, [profile?.unit_id, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits]);
 
-  const filteredSales = sales.filter(s => 
+  const filteredSales = sales.filter(s =>
     (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     s.device_model.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.imei.includes(searchTerm)
@@ -348,14 +332,14 @@ export default function Sales() {
 
   const handlePrintContract = (sale: Sale) => {
     const customer = customers.find(c => c.id === sale.customer_id);
-    
+
     if (!customer) {
       showNotification('error', 'Erro', 'Cliente não encontrado para esta venda.');
       return;
     }
 
     const saleInstallments = installments.filter(inst => inst.sale_id === sale.id);
-    
+
     const saleUnit = units.find(u => u.id === sale.unit_id) || units[0] || {
       name: 'MDR Celulares',
       cnpj: '____________________',
@@ -366,7 +350,7 @@ export default function Sales() {
     showModal({
       title: 'Visualizar & Imprimir Documentos',
       children: (
-        <SaleDocumentViewer 
+        <SaleDocumentViewer
           sale={sale}
           customer={customer}
           installments={saleInstallments}
@@ -396,13 +380,13 @@ export default function Sales() {
       title: 'Editar Venda',
       children: (
         <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-          <SaleForm 
+          <SaleForm
             initialData={sale}
             onSuccess={() => {
               hideModal();
               fetchSales(profile?.unit_id || undefined);
-            }} 
-            onCancel={() => hideModal()} 
+            }}
+            onCancel={() => hideModal()}
           />
         </div>
       ),
@@ -414,12 +398,12 @@ export default function Sales() {
       title: 'Registrar Nova Venda',
       children: (
         <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-          <SaleForm 
+          <SaleForm
             onSuccess={() => {
               hideModal();
               fetchSales(profile?.unit_id || undefined);
-            }} 
-            onCancel={() => hideModal()} 
+            }}
+            onCancel={() => hideModal()}
           />
         </div>
       ),
@@ -433,7 +417,7 @@ export default function Sales() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Vendas & Contratos</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Aparelhos e Financeiro</p>
         </div>
-        <button 
+        <button
           onClick={handleNewSale}
           className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
         >
@@ -450,7 +434,7 @@ export default function Sales() {
           <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Volume de Vendas</p>
           <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">R$ {sales.reduce((acc, s) => acc + s.total_value, 0).toLocaleString('pt-BR')}</h3>
         </div>
-        
+
         <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5">
           <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white mb-4 border border-white/10">
             <Smartphone size={24} />
@@ -472,9 +456,9 @@ export default function Sales() {
         <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
           <div className="relative flex-1 group">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Buscar por cliente, modelo ou IMEI..." 
+            <input
+              type="text"
+              placeholder="Buscar por cliente, modelo ou IMEI..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
@@ -507,7 +491,7 @@ export default function Sales() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredSales.map((sale) => (
-                  <motion.tr 
+                  <motion.tr
                     key={sale.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -540,33 +524,32 @@ export default function Sales() {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                        sale.status === 'completed' ? 'bg-success/10 text-success border-success/20' :
+                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${sale.status === 'completed' ? 'bg-success/10 text-success border-success/20' :
                         sale.status === 'processing' ? 'bg-secondary/10 text-secondary border-secondary/20' :
-                        'bg-error/10 text-error border-error/20'
-                      }`}>
+                          'bg-error/10 text-error border-error/20'
+                        }`}>
                         <div className="w-1 h-1 rounded-full bg-current" />
-                        {sale.status === 'completed' ? 'Em dia' : 
-                         sale.status === 'processing' ? 'Pendente' : 'Atrasado'}
+                        {sale.status === 'completed' ? 'Em dia' :
+                          sale.status === 'processing' ? 'Pendente' : 'Atrasado'}
                       </div>
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => handlePrintContract(sale)}
                           className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
                           title="Imprimir Contrato"
                         >
                           <Printer size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleEditSale(sale)}
                           className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-primary"
                           title="Editar Venda"
                         >
                           <Edit size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDeleteSale(sale)}
                           className="p-2 hover:bg-error/10 rounded-xl transition-all text-on-surface-variant hover:text-error"
                           title="Excluir Venda"

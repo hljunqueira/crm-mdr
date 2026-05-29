@@ -98,7 +98,7 @@ services:
 
   # --- Postgres (Shared for infra) ---
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     restart: always
     environment:
       - POSTGRES_PASSWORD=MDR_DB_PASS_2024
@@ -111,7 +111,7 @@ services:
 
   # --- Chatwoot Web ---
   chatwoot-web:
-    image: chatwoot/chatwoot:v3.13.0
+    image: chatwoot/chatwoot:v4.12.1
     restart: always
     entrypoint: docker/entrypoints/rails.sh
     command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
@@ -140,7 +140,7 @@ services:
 
   # --- Chatwoot Worker ---
   chatwoot-worker:
-    image: chatwoot/chatwoot:v3.13.0
+    image: chatwoot/chatwoot:v4.12.1
     restart: always
     command: bundle exec sidekiq -C config/sidekiq.yml
     environment:

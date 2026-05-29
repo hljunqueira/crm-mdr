@@ -58,36 +58,18 @@ export function printElement(elementId: string) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
+  const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+    .map(styleNode => styleNode.outerHTML)
+    .join('\n');
+
   printWindow.document.write(`
     <html>
       <head>
         <title>Impressão - CRM MDR</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-          body { 
-            font-family: 'Inter', sans-serif; 
-            padding: 40px;
-            color: #000;
-            line-height: 1.5;
-            font-size: 12px;
-          }
-          .contract-container { max-width: 800px; margin: 0 auto; }
-          h1 { text-align: center; text-transform: uppercase; font-size: 18px; margin-bottom: 30px; font-weight: 900; }
-          h2 { font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 5px; margin-top: 20px; font-weight: 900; }
-          .section { margin-bottom: 15px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-          .footer { margin-top: 50px; }
-          .signature-box { margin-top: 60px; display: flex; justify-content: space-between; gap: 60px; }
-          .signature-line { border-top: 1px solid #000; flex: 1; padding-top: 8px; text-align: center; font-size: 10px; text-transform: uppercase; font-weight: 700; }
-          .data-field { font-weight: 700; border-bottom: 1px solid #eee; }
-          @media print {
-            body { padding: 0; }
-            .no-print { display: none; }
-          }
-        </style>
+        ${styles}
       </head>
       <body>
-        <div class="contract-container">
+        <div id="${elementId}" class="contract-container">
           ${element.innerHTML}
         </div>
         <script>
