@@ -12,7 +12,8 @@ import {
   ShoppingBag,
   LogOut,
   QrCode,
-  ChevronDown
+  ChevronDown,
+  Wrench
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -38,6 +39,7 @@ export default function Sidebar() {
       icon: ShoppingBag,
       items: [
         { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
+        { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
         { name: 'Financeiro', icon: CreditCard, path: '/finance' },
