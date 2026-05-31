@@ -50,15 +50,30 @@ export default function Landing() {
   React.useEffect(() => {
     const fetchShowcase = async () => {
       try {
-        // Busca itens disponíveis para venda
-        const { data, error } = await supabase
+        // 1. Busca primeiro os itens destacados para a vitrine
+        let { data, error } = await supabase
           .from('devices')
-          .select('id, brand, model, condition, sale_price, stock_quantity, image_url')
+          .select('id, brand, model, condition, sale_price, stock_quantity, image_url, show_on_landing')
           .eq('status', 'available')
+          .eq('show_on_landing', true)
           .order('created_at', { ascending: false })
           .limit(8);
 
-        if (!error && data && data.length > 0) {
+        // 2. Fallback: Se não houver itens com destaque marcado, traz quaisquer disponíveis
+        if (error || !data || data.length === 0) {
+          const fallbackRes = await supabase
+            .from('devices')
+            .select('id, brand, model, condition, sale_price, stock_quantity, image_url, show_on_landing')
+            .eq('status', 'available')
+            .order('created_at', { ascending: false })
+            .limit(8);
+          
+          if (!fallbackRes.error && fallbackRes.data) {
+            data = fallbackRes.data;
+          }
+        }
+
+        if (data && data.length > 0) {
           // Filtra itens com stock_quantity > 0 OU sem controle de estoque
           const available = data.filter((d: any) => Number(d.stock_quantity) > 0 || d.stock_quantity === null);
           const toShow = available.length > 0 ? available : data;
@@ -87,7 +102,6 @@ export default function Landing() {
           });
           setShowcaseDevices(mapped);
         }
-        // Se não houver dados, mantém array vazio (não mostra fallback fake)
       } catch (err) {
         console.error('Error fetching landing showcase:', err);
       }
@@ -385,7 +399,7 @@ export default function Landing() {
             transition={{ duration: 1, ease: 'easeOut' }}
             className="relative"
           >
-            <div className="relative flex items-center justify-center h-[520px]" style={{ perspective: 1200 }}>
+            <div className="relative flex items-center justify-center h-[600px]" style={{ perspective: 1200 }}>
               {/* Dynamic Showcase Item */}
               {showcaseDevices.length > 0 ? (
                 <AnimatePresence mode="wait">
@@ -396,7 +410,7 @@ export default function Landing() {
                     exit={{ opacity: 0, rotateY: 90, scale: 0.8 }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
                     whileHover={{ scale: 1.03 }}
-                    className="relative w-full max-w-[340px] aspect-[9/16] glass-card border border-white/10 rounded-[48px] p-6 shadow-[0_32px_80px_rgba(0,0,0,0.6)] flex flex-col justify-between overflow-hidden bg-white/[0.01]"
+                    className="relative w-full max-w-[380px] aspect-[9/16] glass-card border border-white/10 rounded-[56px] p-6 shadow-[0_32px_80px_rgba(0,0,0,0.6)] flex flex-col justify-between overflow-hidden bg-white/[0.01]"
                   >
                     {/* Glowing rotating card aura */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
@@ -415,11 +429,11 @@ export default function Landing() {
                           ease: "linear"
                         }}
                         style={{ transformStyle: "preserve-3d" }}
-                        className="w-[220px] h-[360px] relative cursor-pointer"
+                        className="w-[260px] h-[410px] relative cursor-pointer"
                       >
                         {/* Front Face */}
                         <div 
-                          className="absolute inset-0 rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-[#09090b]"
+                          className="absolute inset-0 rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-[#09090b]"
                           style={{ backfaceVisibility: "hidden" }}
                         >
                           <img 
@@ -433,7 +447,7 @@ export default function Landing() {
                         
                         {/* Back Face (spinning effect backface illustration) */}
                         <div 
-                          className="absolute inset-0 rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-gradient-to-b from-[#121214] to-[#09090b] flex flex-col items-center justify-center p-6"
+                          className="absolute inset-0 rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-gradient-to-b from-[#121214] to-[#09090b] flex flex-col items-center justify-center p-6"
                           style={{ 
                             backfaceVisibility: "hidden",
                             transform: "rotateY(180deg)" 

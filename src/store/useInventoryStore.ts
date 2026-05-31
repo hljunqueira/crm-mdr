@@ -15,6 +15,7 @@ export interface InventoryItem {
   notes?: string;
   category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other';
   image_url?: string;
+  show_on_landing?: boolean;
 }
 
 interface InventoryState {
@@ -47,6 +48,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         notes: item.notes || '',
         category: item.category || 'smartphone',
         image_url: item.image_url || '',
+        show_on_landing: !!item.show_on_landing,
       }));
       set({ inventory: mapped });
     } catch (error) {
@@ -70,6 +72,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         notes: item.notes || null,
         category: item.category || 'smartphone',
         image_url: item.image_url || null,
+        show_on_landing: item.show_on_landing || false,
       };
       const data = await api.post('/inventory', dbItem);
       const newFrontendItem = {
@@ -78,6 +81,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         imei: data.imei || '',
         notes: data.notes || '',
         image_url: data.image_url || '',
+        show_on_landing: !!data.show_on_landing,
       };
       set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
     } catch (error) {
@@ -100,6 +104,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.notes !== undefined) dbFields.notes = updatedFields.notes || null;
       if (updatedFields.category !== undefined) dbFields.category = updatedFields.category;
       if (updatedFields.image_url !== undefined) dbFields.image_url = updatedFields.image_url || null;
+      if (updatedFields.show_on_landing !== undefined) dbFields.show_on_landing = updatedFields.show_on_landing;
 
       const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({
@@ -109,6 +114,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
           imei: data.imei || '',
           notes: data.notes || '',
           image_url: data.image_url || '',
+          show_on_landing: !!data.show_on_landing,
         } : i)
       }));
     } catch (error) {

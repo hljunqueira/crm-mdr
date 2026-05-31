@@ -26,6 +26,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     notes: item?.notes || '',
     category: item?.category || 'smartphone',
     image_url: item?.image_url || '',
+    show_on_landing: item?.show_on_landing || false,
   });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,6 +80,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         imei: '', // No IMEI in inventory registration
         category: formData.category,
         image_url: formData.image_url,
+        show_on_landing: formData.show_on_landing,
       };
 
       if (item) {
@@ -201,6 +203,25 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
           placeholder="Cor, saúde da bateria, detalhes de uso..."
         />
       </div>
+
+      {/* Opção de Destaque na Vitrine */}
+      {formData.category === 'smartphone' && (
+        <div className="p-5 bg-primary/5 border border-primary/20 rounded-3xl flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-primary uppercase tracking-widest block leading-none">⚡ Destacar na Vitrine da Página Inicial</span>
+            <p className="text-[9px] text-on-surface-variant/70 leading-normal">Exibir este celular no carrossel 3D giratório da página pública principal.</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input 
+              type="checkbox" 
+              checked={formData.show_on_landing}
+              onChange={(e) => setFormData({ ...formData, show_on_landing: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+      )}
 
       {/* Imagem do Aparelho (Upload ou Link) */}
       <div className="space-y-3 p-5 bg-white/[0.02] border border-white/5 rounded-3xl">
