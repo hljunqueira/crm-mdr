@@ -35,14 +35,34 @@ export default function Sidebar() {
       ]
     },
     {
-      title: 'Operação Comercial',
-      subtitle: 'Celulares e Acessórios',
-      icon: ShoppingBag,
+      title: 'Comercial & CRM',
+      subtitle: 'Leads, Clientes e Vendas',
+      icon: Users,
       items: [
+        { name: 'Leads', icon: UserSearch, path: '/leads' },
+        { name: 'Clientes', icon: Users, path: '/customers' },
         { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
-        { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
+      ]
+    },
+    {
+      title: 'Serviços & Estoque',
+      subtitle: 'OS e Controle Físico',
+      icon: Wrench,
+      items: [
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
+        { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
+      ]
+    },
+    {
+      title: 'Canais & WhatsApp',
+      subtitle: 'Conversas e Conexão',
+      icon: MessageCircle,
+      items: [
+        { name: 'WPP / Instagram', icon: MessageCircle, path: '/automation' },
+        ...(profile?.role === 'admin' ? [
+          { name: 'Gerenciar WPP/IG', icon: QrCode, path: '/connections' }
+        ] : []),
       ]
     },
     {
@@ -55,23 +75,10 @@ export default function Sidebar() {
       ]
     },
     {
-      title: 'Relacionamento & Suporte',
-      subtitle: 'Comunicação e Leads',
-      icon: MessageCircle,
-      items: [
-        { name: 'Clientes', icon: Users, path: '/customers' },
-        { name: 'Leads', icon: UserSearch, path: '/leads' },
-        { name: 'WPP / Instagram', icon: MessageCircle, path: '/automation' },
-      ]
-    },
-    {
-      title: 'Configuração do Sistema',
-      subtitle: 'Ajustes e Conexões',
+      title: 'Configurações',
+      subtitle: 'Ajustes Gerais',
       icon: Settings,
       items: [
-        ...(profile?.role === 'admin' ? [
-          { name: 'Gerenciar WPP/IG', icon: QrCode, path: '/connections' }
-        ] : []),
         { name: 'Configurações', icon: Settings, path: '/settings' },
       ]
     }
