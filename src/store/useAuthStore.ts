@@ -26,22 +26,34 @@ export const useAuthStore = create<AuthState>()((set) => ({
   isLoading: true,
 
   signIn: async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error };
-    
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { error };
+      
+      let profile = null;
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
 
-    const profile = profileData ? {
-      ...profileData,
-      unit_id: profileData.store_id // Mapear store_id para unit_id
-    } : null;
+        if (!profileError && profileData) {
+          profile = {
+            ...profileData,
+            unit_id: profileData.store_id // Mapear store_id para unit_id
+          };
+        }
+      } catch (profileErr) {
+        console.error('Error fetching profile during sign in:', profileErr);
+      }
 
-    set({ session: data.session, user: data.user, profile });
-    return { error: null };
+      set({ session: data.session, user: data.user, profile });
+      return { error: null };
+    } catch (err) {
+      console.error('Unexpected sign in error:', err);
+      return { error: err };
+    }
   },
 
   signOut: async () => {
@@ -50,44 +62,65 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   initialize: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('[AuthStore] Initializing session:', session?.user?.email);
-    
-    if (session) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-        
-      console.log('[AuthStore] Profile data from DB:', profileData);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[AuthStore] Initializing session:', session?.user?.email);
+      
+      if (session) {
+        let profile = null;
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (!profileError && profileData) {
+            profile = {
+              ...profileData,
+              unit_id: profileData.store_id // Mapear store_id para unit_id
+            };
+          }
+          console.log('[AuthStore] Profile data from DB:', profileData);
+        } catch (profileErr) {
+          console.error('[AuthStore] Error fetching profile during initialization:', profileErr);
+        }
 
-      const profile = profileData ? {
-        ...profileData,
-        unit_id: profileData.store_id // Mapear store_id para unit_id
-      } : null;
-
-      console.log('[AuthStore] Final mapped profile:', profile);
-
-      set({ session, user: session.user, profile, isLoading: false });
-    } else {
+        console.log('[AuthStore] Final mapped profile:', profile);
+        set({ session, user: session.user, profile, isLoading: false });
+      } else {
+        set({ session: null, user: null, profile: null, isLoading: false });
+      }
+    } catch (err) {
+      console.error('[AuthStore] Initialization error:', err);
       set({ session: null, user: null, profile: null, isLoading: false });
     }
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthStore] onAuthStateChange event:', event);
       if (session) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        // Defer user query using setTimeout to prevent Supabase JS deadlock
+        setTimeout(async () => {
+          let profile = null;
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
 
-        const profile = profileData ? {
-          ...profileData,
-          unit_id: profileData.store_id // Mapear store_id para unit_id
-        } : null;
+            if (!profileError && profileData) {
+              profile = {
+                ...profileData,
+                unit_id: profileData.store_id // Mapear store_id para unit_id
+              };
+            }
+          } catch (profileErr) {
+            console.error('[AuthStore] Error fetching profile in onAuthStateChange:', profileErr);
+          }
 
-        set({ session, user: session.user, profile });
+          set({ session, user: session.user, profile });
+        }, 0);
       } else {
         set({ session: null, user: null, profile: null });
       }
