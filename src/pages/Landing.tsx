@@ -401,18 +401,10 @@ export default function Landing() {
                     {/* Glowing rotating card aura */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
                     
-                    {/* Header */}
-                    <div className="flex justify-between items-center z-10">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full flex items-center gap-1.5">
-                        <Sparkles size={10} className="animate-pulse" /> Vitrine MDR
-                      </span>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white/50">
-                        {showcaseDevices[currentShowcaseIdx].condition === 'new' ? 'Novo' : showcaseDevices[currentShowcaseIdx].condition === 'vitrine' ? 'Vitrine' : 'Seminovo'}
-                      </span>
-                    </div>
+
 
                     {/* Middle Phone Body with 3D Y-Axis auto-spinning phone model */}
-                    <div className="flex-1 flex items-center justify-center relative my-4">
+                    <div className="flex-1 flex items-center justify-center relative">
                       <motion.div
                         animate={{ 
                           rotateY: [0, 360]
@@ -423,7 +415,7 @@ export default function Landing() {
                           ease: "linear"
                         }}
                         style={{ transformStyle: "preserve-3d" }}
-                        className="w-[170px] h-[280px] relative cursor-pointer"
+                        className="w-[220px] h-[360px] relative cursor-pointer"
                       >
                         {/* Front Face */}
                         <div 
