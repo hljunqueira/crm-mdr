@@ -17,14 +17,18 @@ import {
   Star,
   CheckCircle2,
   HardDrive,
-  ShoppingBag
+  ShoppingBag,
+  Sparkles,
+  Loader2,
+  ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useLeadStore } from '../store/useLeadStore';
 import { useUI } from '../context/UIContext';
-import { formatPhone } from '../lib/utils';
+import { formatPhone, formatCPF, cn } from '../lib/utils';
 import React from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function Landing() {
   const { addLead } = useLeadStore();
@@ -39,6 +43,88 @@ export default function Landing() {
     message: '',
     unit: 'Arroio do Silva'
   });
+
+  const [showcaseDevices, setShowcaseDevices] = React.useState<any[]>([]);
+  const [currentShowcaseIdx, setCurrentShowcaseIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    const fetchShowcase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('devices')
+          .select('id, brand, model, condition, sale_price, image_url')
+          .eq('status', 'available')
+          .gt('stock_quantity', 0)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (!error && data && data.length > 0) {
+          const mapped = data.map((d: any) => {
+            let img = d.image_url;
+            if (!img) {
+              const modelLower = d.model.toLowerCase();
+              if (modelLower.includes('15 pro') || modelLower.includes('15pro')) img = 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&q=80&fit=crop';
+              else if (modelLower.includes('14 pro') || modelLower.includes('14pro')) img = 'https://images.unsplash.com/photo-1678685888221-cda773a3dcdb?w=600&q=80&fit=crop';
+              else if (modelLower.includes('13 pro') || modelLower.includes('13pro')) img = 'https://images.unsplash.com/photo-1636413289066-51d08e33bb97?w=600&q=80&fit=crop';
+              else if (d.brand.toLowerCase() === 'apple') img = 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&q=80&fit=crop';
+              else img = 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=600&q=80&fit=crop';
+            }
+            return {
+              id: d.id,
+              brand: d.brand,
+              model: d.model,
+              price: Number(d.sale_price) || 0,
+              condition: d.condition || 'used',
+              img
+            };
+          });
+          setShowcaseDevices(mapped);
+        } else {
+          // Curated static fallback devices if DB is empty
+          setShowcaseDevices([
+            {
+              id: '1',
+              brand: 'Apple',
+              model: 'iPhone 15 Pro Max',
+              price: 7499,
+              condition: 'vitrine',
+              img: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&q=80&fit=crop'
+            },
+            {
+              id: '2',
+              brand: 'Samsung',
+              model: 'Galaxy S24 Ultra',
+              price: 5999,
+              condition: 'new',
+              img: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=600&q=80&fit=crop'
+            },
+            {
+              id: '3',
+              brand: 'Apple',
+              model: 'iPhone 14 Pro',
+              price: 4999,
+              condition: 'used',
+              img: 'https://images.unsplash.com/photo-1678685888221-cda773a3dcdb?w=600&q=80&fit=crop'
+            }
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching landing showcase:', err);
+      }
+    };
+    fetchShowcase();
+  }, []);
+
+  React.useEffect(() => {
+    if (showcaseDevices.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentShowcaseIdx(prev => (prev + 1) % showcaseDevices.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [showcaseDevices]);
+
+  const [isNavDropdownOpen, setIsNavDropdownOpen] = React.useState(false);
+  const [navCpf, setNavCpf] = React.useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,9 +246,81 @@ export default function Landing() {
             animate={{ opacity: 1, scale: 1 }}
             className="flex items-center gap-4"
           >
-            <Link to="/login" className="text-[11px] uppercase font-bold tracking-widest text-on-surface-variant hover:text-on-surface">
-              Acesso Restrito
-            </Link>
+            {/* Área do Cliente & Acesso Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNavDropdownOpen(!isNavDropdownOpen)}
+                className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-widest text-on-surface-variant hover:text-white transition-colors cursor-pointer select-none"
+              >
+                Área do Cliente <ChevronDown size={14} className={cn("transition-transform", isNavDropdownOpen ? "rotate-180 text-primary" : "")} />
+              </button>
+
+              <AnimatePresence>
+                {isNavDropdownOpen && (
+                  <>
+                    {/* Invisible Backdrop to close dropdown on outer clicks */}
+                    <div 
+                      onClick={() => setIsNavDropdownOpen(false)}
+                      className="fixed inset-0 z-40"
+                    />
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-3 w-72 glass-card border border-white/10 rounded-3xl p-5 shadow-2xl bg-[#121215]/95 backdrop-blur-xl z-50 text-left space-y-4"
+                    >
+                      {/* Option 1: Search CPF for Customer OS */}
+                      <div className="space-y-2.5">
+                        <span className="text-[9px] font-black text-primary uppercase tracking-widest block leading-none">Acompanhar Conserto</span>
+                        <p className="text-[10px] text-on-surface-variant/75 leading-tight">Consulte a situação do seu aparelho digitando o seu CPF:</p>
+                        
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="000.000.000-00"
+                            value={navCpf}
+                            onChange={(e) => setNavCpf(formatCPF(e.target.value))}
+                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cleanCpf = navCpf.replace(/\D/g, '');
+                              if (cleanCpf.length === 11) {
+                                window.location.href = `/consulta-os?cpf=${cleanCpf}`;
+                              } else {
+                                showNotification('error', 'CPF Inválido', 'Digite os 11 dígitos do CPF.');
+                              }
+                            }}
+                            className="bg-white text-black hover:bg-primary hover:text-white px-3.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center"
+                            title="Buscar"
+                          >
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="h-px bg-white/5" />
+
+                      {/* Option 2: Employee Portal */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest block leading-none">Colaboradores</span>
+                        <Link
+                          to="/login"
+                          onClick={() => setIsNavDropdownOpen(false)}
+                          className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-[10px] font-black uppercase tracking-wider text-white hover:text-primary transition-all"
+                        >
+                          Acesso Restrito (ERP) <ChevronRight size={14} />
+                        </Link>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             <Link to="/atendimento" className="px-6 py-2.5 bg-primary text-on-primary rounded-xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
               Orçamento Online
             </Link>
@@ -173,6 +331,7 @@ export default function Landing() {
       {/* Hero Section */}
       <section id="inicio" className="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 md:px-8 overflow-hidden">
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/5 blur-[150px] -z-10 rounded-full animate-pulse-slow"></div>
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10">
           <div className="space-y-10">
 
@@ -246,23 +405,109 @@ export default function Landing() {
             transition={{ duration: 1, ease: 'easeOut' }}
             className="relative"
           >
-            <div className="relative glass-card border border-outline-variant/40 rounded-[48px] overflow-hidden aspect-square shadow-[0_32px_80px_rgba(0,0,0,0.4)] group">
-              <img
-                src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=2070&auto=format&fit=crop"
-                alt="Reparo iPhone"
-                className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent opacity-60"></div>
+            <div className="relative flex items-center justify-center h-[520px]" style={{ perspective: 1200 }}>
+              {/* Dynamic Showcase Item */}
+              {showcaseDevices.length > 0 ? (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentShowcaseIdx}
+                    initial={{ opacity: 0, rotateY: -90, scale: 0.8 }}
+                    animate={{ opacity: 1, rotateY: 0, scale: 1 }}
+                    exit={{ opacity: 0, rotateY: 90, scale: 0.8 }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    whileHover={{ scale: 1.03 }}
+                    className="relative w-full max-w-[340px] aspect-[9/16] glass-card border border-white/10 rounded-[48px] p-6 shadow-[0_32px_80px_rgba(0,0,0,0.6)] flex flex-col justify-between overflow-hidden bg-white/[0.01]"
+                  >
+                    {/* Glowing rotating card aura */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
+                    
+                    {/* Header */}
+                    <div className="flex justify-between items-center z-10">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full flex items-center gap-1.5">
+                        <Sparkles size={10} className="animate-pulse" /> Vitrine MDR
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                        {showcaseDevices[currentShowcaseIdx].condition === 'new' ? 'Novo' : showcaseDevices[currentShowcaseIdx].condition === 'vitrine' ? 'Vitrine' : 'Seminovo'}
+                      </span>
+                    </div>
 
-              {/* Status Bar UI */}
-              <div className="absolute bottom-10 left-10 right-10 h-2 bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '85%' }}
-                  transition={{ delay: 1, duration: 2 }}
-                  className="h-full bg-primary shadow-[0_0_15px_rgba(75,226,119,0.5)]"
-                ></motion.div>
-              </div>
+                    {/* Middle Phone Body with 3D Y-Axis auto-spinning phone model */}
+                    <div className="flex-1 flex items-center justify-center relative my-4">
+                      <motion.div
+                        animate={{ 
+                          rotateY: [0, 360]
+                        }}
+                        transition={{ 
+                          repeat: Infinity, 
+                          duration: 16, 
+                          ease: "linear"
+                        }}
+                        style={{ transformStyle: "preserve-3d" }}
+                        className="w-[170px] h-[280px] relative cursor-pointer"
+                      >
+                        {/* Front Face */}
+                        <div 
+                          className="absolute inset-0 rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-[#09090b]"
+                          style={{ backfaceVisibility: "hidden" }}
+                        >
+                          <img 
+                            src={showcaseDevices[currentShowcaseIdx].img} 
+                            alt={showcaseDevices[currentShowcaseIdx].model} 
+                            className="w-full h-full object-cover select-none pointer-events-none"
+                          />
+                          {/* Glossy Reflection overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 pointer-events-none" />
+                        </div>
+                        
+                        {/* Back Face (spinning effect backface illustration) */}
+                        <div 
+                          className="absolute inset-0 rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-gradient-to-b from-[#121214] to-[#09090b] flex flex-col items-center justify-center p-6"
+                          style={{ 
+                            backfaceVisibility: "hidden",
+                            transform: "rotateY(180deg)" 
+                          }}
+                        >
+                          <img src="/logo-mdr.png" alt="MDR Logo" className="w-14 h-auto opacity-10 mb-3" />
+                          <Smartphone size={28} className="opacity-15 text-primary" />
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    {/* Footer Info */}
+                    <div className="space-y-3.5 z-10 text-center">
+                      <div>
+                        <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest block opacity-50">
+                          {showcaseDevices[currentShowcaseIdx].brand}
+                        </span>
+                        <h3 className="text-base font-black text-white uppercase truncate mt-0.5 leading-tight">
+                          {showcaseDevices[currentShowcaseIdx].model}
+                        </h3>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/5">
+                        <div className="text-left">
+                          <span className="text-[8px] text-on-surface-variant/40 uppercase tracking-widest block leading-none">À vista</span>
+                          <span className="text-sm font-black text-white font-mono block mt-1">
+                            R$ {showcaseDevices[currentShowcaseIdx].price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <Link
+                          to="/consulta-os"
+                          className="px-4 py-2.5 bg-white hover:bg-primary text-black hover:text-white rounded-xl font-display text-[8px] font-black uppercase tracking-widest transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                        >
+                          <ShoppingBag size={10} /> Vitrine
+                        </Link>
+                      </div>
+                    </div>
+
+                  </motion.div>
+                </AnimatePresence>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="animate-spin text-primary" size={24} />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/60">Carregando Vitrine...</span>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>

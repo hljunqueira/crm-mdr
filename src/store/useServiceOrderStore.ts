@@ -17,7 +17,7 @@ export interface ServiceOrder {
   os_number: number;
   customer_id: string;
   unit_id?: string;
-  device_category: 'smartphone' | 'tablet' | 'notebook' | 'desktop' | 'printer' | 'console' | 'other';
+  device_category: string;
   device_brand: string;
   device_model: string;
   device_serial_number?: string;
@@ -37,6 +37,8 @@ export interface ServiceOrder {
   warranty_period: number;
   warranty_notes?: string;
   responsible_technician_id?: string;
+  signature_entry?: string;
+  signature_exit?: string;
   created_at?: string;
   updated_at?: string;
   

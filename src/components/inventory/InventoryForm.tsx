@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Smartphone, Barcode, DollarSign, Save, X, Layers } from 'lucide-react';
+import { Smartphone, Barcode, DollarSign, Save, X, Layers, Loader2 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../../store/useInventoryStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
+import { supabase } from '../../lib/supabase';
 
 interface InventoryFormProps {
   item?: InventoryItem;
@@ -13,6 +14,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   const { addItem, updateItem } = useInventoryStore();
   const { showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
+  const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     brand: item?.brand || '',
@@ -23,7 +25,39 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     stock_quantity: item?.stock_quantity !== undefined ? String(item.stock_quantity) : '1',
     notes: item?.notes || '',
     category: item?.category || 'smartphone',
+    image_url: item?.image_url || '',
   });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `devices/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('customer-documents')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('customer-documents')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, image_url: publicUrl }));
+      showNotification('success', 'Imagem enviada com sucesso!');
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      showNotification('error', 'Falha ao enviar imagem.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +78,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         cost_price: costPriceNum,
         imei: '', // No IMEI in inventory registration
         category: formData.category,
+        image_url: formData.image_url,
       };
 
       if (item) {
@@ -165,6 +200,65 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none resize-none"
           placeholder="Cor, saúde da bateria, detalhes de uso..."
         />
+      </div>
+
+      {/* Imagem do Aparelho (Upload ou Link) */}
+      <div className="space-y-3 p-5 bg-white/[0.02] border border-white/5 rounded-3xl">
+        <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest block pl-1">Foto do Aparelho (Vitrine)</label>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          {/* Preview da foto se existir */}
+          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+            {formData.image_url ? (
+              <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <Smartphone size={24} className="opacity-20" />
+            )}
+          </div>
+          
+          <div className="flex-1 w-full space-y-3">
+            {/* Input de URL */}
+            <input
+              type="text"
+              value={formData.image_url}
+              onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-xs focus:border-primary transition-all outline-none"
+              placeholder="Cole o link da foto (URL) ou selecione um arquivo abaixo..."
+            />
+            
+            {/* Botão de Upload */}
+            <div className="flex items-center gap-2">
+              <label className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] font-black uppercase tracking-wider py-3.5 rounded-2xl cursor-pointer transition-all active:scale-95">
+                {uploading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={12} /> Enviando...
+                  </>
+                ) : (
+                  <>
+                    Fazer Upload de Foto
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+              
+              {formData.image_url && (
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, image_url: '' })}
+                  className="px-4 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all border border-red-500/10"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-4 pt-4">

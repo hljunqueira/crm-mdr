@@ -47,3 +47,34 @@ CREATE TRIGGER trg_on_installment_overdue
 AFTER UPDATE OF status ON installments
 FOR EACH ROW WHEN (NEW.status = 'overdue')
 EXECUTE PROCEDURE update_customer_overdue_status();
+
+-- 5. Tabela de Permissões de Acesso por Usuário (RBAC por Página)
+CREATE TABLE IF NOT EXISTS user_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    page_name TEXT NOT NULL, -- Ex: 'Vendas & Celulares', 'Financeiro', 'Relatórios'
+    visible BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(profile_id, page_name)
+);
+
+-- Habilitar RLS e criar política de leitura e escrita para usuários autenticados
+ALTER TABLE user_permissions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Enable all for authenticated users" ON user_permissions;
+CREATE POLICY "Enable all for authenticated users" ON user_permissions
+    FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+-- 6. Adição de Assinatura Digital nas Ordens de Serviço (PNG Base64)
+ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS signature_entry TEXT;
+ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS signature_exit TEXT;
+
+-- 7. Coluna de Foto e RLS para a Vitrine Pública de Aparelhos (Fase 3)
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir leitura publica de aparelhos disponiveis" ON devices;
+CREATE POLICY "Permitir leitura publica de aparelhos disponiveis" ON devices
+    FOR SELECT TO public
+    USING (status = 'available' AND stock_quantity > 0);

@@ -14,6 +14,12 @@ import { formatCPF, formatPhone, printElement } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 
+// Import subcomponentes isolados
+import OsSidebar from '../components/layout/OsSidebar';
+import OsTechWorkbench from '../components/layout/OsTechWorkbench';
+import OsPartsLogistics from '../components/layout/OsPartsLogistics';
+import SignatureCanvas from '../components/layout/SignatureCanvas';
+
 const DEVICE_CATEGORIES = [
   { id: 'all', label: 'Tudo', icon: Wrench },
   { id: 'smartphone', label: 'Celular', icon: Smartphone },
@@ -87,6 +93,7 @@ export default function ServiceOrders() {
   const [newOs, setNewOs] = useState({
     customer_id: '',
     device_category: 'smartphone' as any,
+    custom_category: '',
     device_brand: '',
     device_model: '',
     device_serial_number: '',
@@ -103,6 +110,7 @@ export default function ServiceOrders() {
   });
 
   const [justCreatedOs, setJustCreatedOs] = useState<ServiceOrder | null>(null);
+  const [signatureMode, setSignatureMode] = useState<'entry' | 'exit' | null>(null);
 
   // Load and fetch initial states
   useEffect(() => {
@@ -130,7 +138,16 @@ export default function ServiceOrders() {
   // Filter OS listings
   const filteredOs = useMemo(() => {
     return serviceOrders.filter(os => {
-      const matchCategory = selectedCategoryTab === 'all' || os.device_category === selectedCategoryTab;
+      const isStandard = ['smartphone', 'tablet', 'notebook', 'desktop', 'printer', 'console'].includes(os.device_category);
+      
+      let matchCategory = false;
+      if (selectedCategoryTab === 'all') {
+        matchCategory = true;
+      } else if (selectedCategoryTab === 'other') {
+        matchCategory = !isStandard || os.device_category === 'other';
+      } else {
+        matchCategory = os.device_category === selectedCategoryTab;
+      }
       
       const osNumberStr = String(os.os_number);
       const customerName = os.customers?.name?.toLowerCase() || '';
@@ -218,12 +235,21 @@ export default function ServiceOrders() {
       return;
     }
 
+    if (newOs.device_category === 'other' && !newOs.custom_category.trim()) {
+      showNotification('error', 'Erro', 'Por favor, digite o nome da categoria manual.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const finalCategory = newOs.device_category === 'other'
+        ? newOs.custom_category.trim()
+        : newOs.device_category;
+
       const techId = newOs.responsible_technician_id || profile?.id || null;
       const created = await createServiceOrder({
         customer_id: newOs.customer_id,
-        device_category: newOs.device_category,
+        device_category: finalCategory,
         device_brand: newOs.device_brand,
         device_model: newOs.device_model,
         device_serial_number: newOs.device_serial_number || null,
@@ -259,6 +285,7 @@ export default function ServiceOrders() {
       setNewOs({
         customer_id: '',
         device_category: 'smartphone',
+        custom_category: '',
         device_brand: '',
         device_model: '',
         device_serial_number: '',
@@ -400,76 +427,15 @@ export default function ServiceOrders() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* COLUNA 1: FILA DE ORDENS DE SERVIÇO */}
-        <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
-              <Wrench size={16} /> Fila de Serviços ({filteredOs.length})
-            </h3>
-          </div>
-          
-          {/* Campo de Busca */}
-          <div className="relative group">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-            <input 
-              type="text" 
-              placeholder="Buscar por OS, cliente, modelo ou N/S..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-10 pr-4 py-3 text-xs focus:border-white outline-none transition-all font-display"
-            />
-          </div>
-
-          {/* Listagem */}
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-            {isLoading && serviceOrders.length === 0 ? (
-              <div className="flex justify-center items-center h-48">
-                <Loader2 className="animate-spin text-primary" size={32} />
-              </div>
-            ) : filteredOs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 opacity-40 text-center gap-2">
-                <CheckCircle2 size={32} className="text-success" />
-                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Tudo Organizado!</p>
-                <p className="text-[9px] text-on-surface-variant max-w-[200px]">Nenhum conserto nesta categoria precisando de atenção.</p>
-              </div>
-            ) : (
-              filteredOs.map(os => {
-                const statusInfo = getStatusInfo(os.status);
-                const numberStr = String(os.os_number).padStart(4, '0');
-                const isSelected = selectedOsId === os.id;
-                
-                return (
-                  <button
-                    key={os.id}
-                    onClick={() => setSelectedOsId(os.id)}
-                    className={cn(
-                      "w-full text-left p-4 rounded-3xl border transition-all flex flex-col gap-2",
-                      isSelected 
-                        ? 'bg-primary-container border-primary/40 text-on-primary-container shadow-lg' 
-                        : 'bg-white/[0.01] border-white/5 text-on-surface hover:bg-white/[0.03]'
-                    )}
-                  >
-                    <div className="flex justify-between items-start w-full">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-60">OS #{numberStr}</span>
-                        <span className="text-xs font-black uppercase truncate mt-1 max-w-[140px]">{os.customers?.name}</span>
-                      </div>
-                      <span className={cn("inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border", statusInfo.color)}>
-                        {statusInfo.label}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-[10px] font-medium border-t border-white/5 pt-2">
-                      <span className="truncate max-w-[120px] opacity-75">{os.device_brand} {os.device_model}</span>
-                      <span className="font-bold font-mono text-primary">
-                        R$ {Number(os.labor_value + os.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </div>
+        <OsSidebar 
+          filteredOs={filteredOs}
+          selectedOsId={selectedOsId}
+          setSelectedOsId={setSelectedOsId}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          isLoading={isLoading}
+          getStatusInfo={getStatusInfo}
+        />
 
         {/* COLUNA 2 E 3: BANCADA DO TÉCNICO & DETALHES DA OS */}
         <div className="lg:col-span-2 flex flex-col gap-6">
@@ -502,7 +468,7 @@ export default function ServiceOrders() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 w-full md:w-auto">
+                  <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <button
                       onClick={() => handlePrintDocument('print-os-entry')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
@@ -511,11 +477,25 @@ export default function ServiceOrders() {
                       <Printer size={12} /> Entrada
                     </button>
                     <button
+                      onClick={() => setSignatureMode('entry')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all cursor-pointer"
+                      title="Coletar Assinatura Digital de Entrada"
+                    >
+                      <Save size={12} /> Assinar Entrada
+                    </button>
+                    <button
                       onClick={() => handlePrintDocument('print-os-warranty')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
                       title="Imprimir Garantia e Saída"
                     >
                       <Printer size={12} /> Saída
+                    </button>
+                    <button
+                      onClick={() => setSignatureMode('exit')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all cursor-pointer"
+                      title="Coletar Assinatura Digital de Saída"
+                    >
+                      <Save size={12} /> Assinar Saída
                     </button>
                   </div>
                 </div>
@@ -580,131 +560,53 @@ export default function ServiceOrders() {
                       </div>
                     </div>
                   )}
+
+                  {currentServiceOrder.signature_entry && (
+                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                      <FileText size={14} className="opacity-40 text-primary mt-0.5" />
+                      <div>
+                        <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Assinatura de Entrada</p>
+                        <div className="mt-1.5 bg-white/5 border border-white/5 rounded-xl px-4 py-1.5 h-10 flex items-center justify-center overflow-hidden">
+                          <img src={currentServiceOrder.signature_entry} alt="Assinatura Entrada" className="h-full w-auto object-contain brightness-200" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentServiceOrder.signature_exit && (
+                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                      <FileText size={14} className="opacity-40 text-primary mt-0.5" />
+                      <div>
+                        <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Assinatura de Saída</p>
+                        <div className="mt-1.5 bg-white/5 border border-white/5 rounded-xl px-4 py-1.5 h-10 flex items-center justify-center overflow-hidden">
+                          <img src={currentServiceOrder.signature_exit} alt="Assinatura Saída" className="h-full w-auto object-contain brightness-200" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* BANCADA E TESTES DE QUALIDADE */}
-              <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
-                <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
-                  <Wrench size={16} /> Bancada de Testes de Qualidade
-                </h3>
-                
-                <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">
-                  Marque os testes aprovados do equipamento para atestar na garantia:
-                </p>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-                  {activeChecklist.map(item => {
-                    const isOk = isChecklistItemOk(item.id);
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => handleToggleChecklist(item.id)}
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-2xl border text-[10px] font-black uppercase tracking-wider transition-all",
-                          isOk 
-                            ? "bg-success/10 border-success/30 text-success" 
-                            : "bg-white/[0.01] border-white/5 text-on-surface-variant/70 hover:bg-white/5"
-                        )}
-                      >
-                        <div className={cn(
-                          "w-4 h-4 rounded flex items-center justify-center border transition-all",
-                          isOk ? "bg-success border-success text-on-success" : "border-white/20"
-                        )}>
-                          {isOk && <Check size={10} strokeWidth={4} />}
-                        </div>
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <OsTechWorkbench 
+                currentServiceOrder={currentServiceOrder}
+                activeChecklist={activeChecklist}
+                isChecklistItemOk={isChecklistItemOk}
+                handleToggleChecklist={handleToggleChecklist}
+              />
 
               {/* CONTROLE DE PEÇAS CONSUMIDAS DO ESTOQUE */}
-              <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
-                <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
-                  <PlusCircle size={16} /> Peças Consumidas do Estoque
-                </h3>
-
-                {/* Adicionar Peça */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Selecione a Peça (Estoque)</label>
-                    <select
-                      value={selectedPartId}
-                      onChange={(e) => setSelectedPartId(e.target.value)}
-                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                    >
-                      <option value="">Nenhuma Peça Selecionada</option>
-                      {inventory.map(item => (
-                        <option key={item.id} value={item.id} disabled={item.stock_quantity <= 0}>
-                          {item.brand} {item.model} - R$ {item.price.toLocaleString('pt-BR')} (Estoque: {item.stock_quantity})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Qtd</label>
-                    <input 
-                      type="number" 
-                      min={1}
-                      value={partQty}
-                      onChange={(e) => setPartQty(parseInt(e.target.value) || 1)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all text-center"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleAddPart}
-                    disabled={addingPart || !selectedPartId}
-                    className="w-full bg-primary hover:scale-[1.01] text-on-primary font-black uppercase tracking-widest text-[9px] py-4 rounded-2xl transition-all disabled:opacity-50"
-                  >
-                    {addingPart ? 'Inserindo...' : 'Adicionar Peça'}
-                  </button>
-                </div>
-
-                {/* Tabela de Peças Utilizadas */}
-                <div className="overflow-x-auto pt-2">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-white/5 text-[9px] font-black uppercase text-on-surface-variant tracking-widest">
-                        <th className="pb-3">Descrição da Peça</th>
-                        <th className="pb-3 text-center">Quantidade</th>
-                        <th className="pb-3 text-right">Valor Unitário</th>
-                        <th className="pb-3 text-right">Subtotal</th>
-                        <th className="pb-3 text-center">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {!currentServiceOrder.parts || currentServiceOrder.parts.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-6 text-center text-[10px] text-on-surface-variant opacity-60">
-                            Nenhuma peça registrada nesta Ordem de Serviço.
-                          </td>
-                        </tr>
-                      ) : (
-                        currentServiceOrder.parts.map(part => (
-                          <tr key={part.id} className="border-b border-white/5 last:border-0">
-                            <td className="py-3 font-bold">{part.part_name}</td>
-                            <td className="py-3 text-center font-mono">{part.quantity}</td>
-                            <td className="py-3 text-right font-mono">R$ {Number(part.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                            <td className="py-3 text-right font-mono text-primary font-bold">R$ {Number(part.quantity * part.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                            <td className="py-3 text-center">
-                              <button 
-                                onClick={() => handleDeletePart(part.id)}
-                                className="text-on-surface-variant hover:text-error transition-all"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <OsPartsLogistics 
+                currentServiceOrder={currentServiceOrder}
+                inventory={inventory}
+                selectedPartId={selectedPartId}
+                setSelectedPartId={setSelectedPartId}
+                partQty={partQty}
+                setPartQty={setPartQty}
+                addingPart={addingPart}
+                handleAddPart={handleAddPart}
+                handleDeletePart={handleDeletePart}
+              />
 
               {/* MOTOR DE DECISÃO TÉCNICA E HOMOLOGAÇÃO FINANCEIRA */}
               <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
@@ -963,6 +865,21 @@ export default function ServiceOrders() {
                     <option value="other">🔧 Outros Equipamentos</option>
                   </select>
                 </div>
+
+                {/* Categoria Manual (se selecionado 'Outros') */}
+                {newOs.device_category === 'other' && (
+                  <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Nome da Categoria Manual *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Smartwatch, Microondas, TV"
+                      value={newOs.custom_category}
+                      onChange={(e) => setNewOs(prev => ({ ...prev, custom_category: e.target.value }))}
+                      className="w-full bg-white/5 border border-primary/30 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                )}
 
                 {/* Marca */}
                 <div className="space-y-2">
@@ -1320,6 +1237,32 @@ export default function ServiceOrders() {
                 Fechar Sem Imprimir
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ASSINATURA ELETRÔNICA */}
+      {signatureMode && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <SignatureCanvas
+              title={signatureMode === 'entry' ? "Assinatura de Entrada do Cliente" : "Assinatura de Retirada do Cliente"}
+              onCancel={() => setSignatureMode(null)}
+              onSave={async (base64) => {
+                if (!currentServiceOrder) return;
+                try {
+                  if (signatureMode === 'entry') {
+                    await updateServiceOrder(currentServiceOrder.id, { signature_entry: base64 });
+                  } else {
+                    await updateServiceOrder(currentServiceOrder.id, { signature_exit: base64 });
+                  }
+                  showNotification('success', 'Assinatura Registrada', 'Rubrica salva e vinculada à OS!');
+                  setSignatureMode(null);
+                } catch (err) {
+                  showNotification('error', 'Erro ao salvar assinatura');
+                }
+              }}
+            />
           </div>
         </div>
       )}

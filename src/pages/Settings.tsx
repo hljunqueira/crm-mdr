@@ -24,7 +24,9 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUI } from '../context/UIContext';
 import { motion, AnimatePresence } from 'motion/react';
 
-type TabType = 'unit' | 'notifications' | 'users';
+import { usePermissionStore } from '../store/usePermissionStore';
+
+type TabType = 'unit' | 'notifications' | 'users' | 'rbac';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
@@ -32,6 +34,36 @@ export default function Settings() {
   const { unit, units, fetchUnit, fetchAllUnits, updateUnit, isLoading } = useUnitStore();
   const { showNotification, showModal, hideModal } = useUI();
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  
+  // States e ações para Gestão Matricial de Permissões (RBAC)
+  const { userPermissions, fetchUserPermissions, toggleUserPermission } = usePermissionStore();
+  const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<string>('');
+
+  useEffect(() => {
+    if (activeTab === 'rbac') {
+      fetchUserPermissions();
+      fetchUsers(); // also fetch active users so we can display their names in the selector
+    }
+  }, [activeTab, fetchUserPermissions]);
+
+  const handleToggleUserRbac = async (pageName: string) => {
+    if (!selectedPermissionUserId) return;
+    const perm = userPermissions.find(p => p.profile_id === selectedPermissionUserId && p.page_name === pageName);
+    const currentVisible = perm ? perm.visible : true;
+    const nextVisible = !currentVisible;
+    try {
+      await toggleUserPermission(selectedPermissionUserId, pageName, nextVisible);
+      showNotification('success', 'Permissão Atualizada', `A visibilidade da página "${pageName}" foi atualizada.`);
+    } catch (err) {
+      showNotification('error', 'Erro', 'Não foi possível alterar a permissão.');
+    }
+  };
+
+  const isPageVisibleForUser = (pageName: string) => {
+    if (!selectedPermissionUserId) return true;
+    const perm = userPermissions.find(p => p.profile_id === selectedPermissionUserId && p.page_name === pageName);
+    return perm ? perm.visible : true;
+  };
 
   // States para Controle de Usuários
   const [usersList, setUsersList] = useState<any[]>([]);
@@ -239,7 +271,10 @@ export default function Settings() {
 
   const menuItems = [
     { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
-    ...(profile?.role === 'admin' ? [{ id: 'users', label: 'Usuários & Permissões', icon: User }] : [])
+    ...(profile?.role === 'admin' ? [
+      { id: 'users', label: 'Colaboradores', icon: User },
+      { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck }
+    ] : [])
   ];
 
   return (
@@ -665,6 +700,110 @@ export default function Settings() {
                   )}
                 </AnimatePresence>
 
+              </motion.div>
+            )}
+
+            {activeTab === 'rbac' && profile?.role === 'admin' && (
+              <motion.div 
+                key="rbac"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <ShieldCheck size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Permissões de Acesso por Usuário</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Escolha quais páginas cada colaborador pode visualizar no sistema</p>
+                  </div>
+                </div>
+
+                <div className="p-5 bg-primary/5 border border-primary/10 rounded-2xl text-[11px] leading-relaxed text-on-surface-variant/80">
+                  💡 <strong>Nota sobre Segurança Administrativa:</strong> Colaboradores com o cargo de <strong>Administrador (admin)</strong> possuem permissão implícita irrestrita e sempre visualizarão todas as telas do sistema, por segurança contra auto-bloqueios.
+                </div>
+
+                {/* Seleção do Colaborador */}
+                <div className="space-y-2 bg-white/5 border border-white/10 p-5 rounded-3xl">
+                  <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Selecione o Colaborador para Configurar</label>
+                  <select
+                    value={selectedPermissionUserId}
+                    onChange={(e) => setSelectedPermissionUserId(e.target.value)}
+                    className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                  >
+                    <option value="">-- Escolha um colaborador da lista --</option>
+                    {usersList.map(usr => (
+                      <option key={usr.id} value={usr.id}>
+                        {usr.full_name} ({usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : 'Atendente'}) - {usr.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedPermissionUserId ? (
+                  usersList.find(u => u.id === selectedPermissionUserId)?.role === 'admin' ? (
+                    <div className="p-8 bg-primary/5 border border-primary/20 rounded-[32px] text-center text-primary">
+                      <p className="font-bold text-xs uppercase tracking-wider">Este colaborador é Administrador</p>
+                      <p className="text-[10px] leading-relaxed mt-2 opacity-80">Administradores possuem privilégios de acesso globais e irrestritos para gerenciar toda a assistência, lojas e usuários. Não há necessidade de configurar restrições de visibilidade.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto w-full border border-white/5 rounded-3xl">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Página do Sistema</th>
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant text-center">Permissão de Acesso</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {[
+                            'Dashboard',
+                            'Relatórios',
+                            'Leads',
+                            'Clientes',
+                            'Vendas & Celulares',
+                            'Análise de Crédito',
+                            'Estoque',
+                            'Assistência Técnica (OS)',
+                            'WPP / Instagram',
+                            'Gerenciar WPP/IG',
+                            'Financeiro',
+                            'Fiscal (NFe/NFSe)',
+                            'Configurações'
+                          ].map((pageName) => (
+                            <tr key={pageName} className="hover:bg-white/[0.01] transition-all">
+                              <td className="px-6 py-4 font-display font-semibold text-white text-sm">
+                                {pageName}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleUserRbac(pageName)}
+                                  className={cn(
+                                    "mx-auto w-10 h-6 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex items-center border border-white/5",
+                                    isPageVisibleForUser(pageName) ? "bg-primary" : "bg-white/10"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "w-4 h-4 rounded-full bg-white transition-all duration-300 shadow",
+                                    isPageVisibleForUser(pageName) ? "translate-x-4" : "translate-x-0"
+                                  )} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                ) : (
+                  <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
+                    <ShieldCheck size={32} className="opacity-20 text-primary" />
+                    <p className="text-[10px] font-black uppercase tracking-wider">Aguardando Seleção de Colaborador</p>
+                    <p className="text-[9px] text-on-surface-variant max-w-[280px]">Escolha um colaborador no seletor acima para auditar e editar suas permissões de tela reativas.</p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

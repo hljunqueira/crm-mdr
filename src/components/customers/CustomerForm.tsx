@@ -50,6 +50,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     status: (initialData?.status || 'active') as any
   });
 
+  const [cep, setCep] = useState('');
+  const [loadingCep, setLoadingCep] = useState(false);
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [admins, setAdmins] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,6 +153,49 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       console.log('Notificação enviada com sucesso para o analista responsável.');
     } catch (err) {
       console.error('Falha ao enviar notificação de WhatsApp:', err);
+    }
+  };
+
+  const handleCepChange = async (value: string) => {
+    const clean = value.replace(/\D/g, '');
+    let formatted = clean;
+    if (clean.length > 5) {
+      formatted = `${clean.substring(0, 5)}-${clean.substring(5, 8)}`;
+    }
+    setCep(formatted);
+
+    if (clean.length === 8) {
+      setLoadingCep(true);
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+        const data = await res.json();
+        
+        if (!data.erro) {
+          setFormData(prev => ({
+            ...prev,
+            city: data.localidade || prev.city,
+            state: data.uf || prev.state,
+            address: data.logradouro || '',
+            neighborhood: data.bairro || ''
+          }));
+          
+          if (!data.logradouro) {
+            showNotification('info', 'CEP Único/Geral detectado. Digite a rua e o bairro manualmente.');
+            setTimeout(() => {
+              document.getElementById('customer-address-input')?.focus();
+            }, 100);
+          } else {
+            showNotification('success', 'Endereço preenchido automaticamente!');
+          }
+        } else {
+          showNotification('error', 'CEP não encontrado.');
+        }
+      } catch (err) {
+        console.error('Erro ao consultar ViaCEP:', err);
+        showNotification('error', 'Erro ao consultar o serviço de CEP.');
+      } finally {
+        setLoadingCep(false);
+      }
     }
   };
 
@@ -303,23 +348,27 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           <MapPin size={14} /> Endereço Residencial
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
+              CEP {loadingCep && <Loader2 className="inline animate-spin ml-1 text-primary" size={10} />}
+            </label>
+            <input 
+              type="text" 
+              placeholder="00000-000"
+              maxLength={9}
+              value={cep}
+              onChange={(e) => handleCepChange(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
           <div className="md:col-span-4 space-y-2">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Logradouro / Rua</label>
             <input 
               type="text" 
+              id="customer-address-input"
               placeholder="Ex: Av. Brasil"
               value={formData.address}
               onChange={(e) => setFormData(p => ({ ...p, address: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-            />
-          </div>
-          <div className="md:col-span-2 space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Número</label>
-            <input 
-              type="text" 
-              placeholder="Nº"
-              value={formData.address_number}
-              onChange={(e) => setFormData(p => ({ ...p, address_number: e.target.value }))}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
             />
           </div>
@@ -334,7 +383,17 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
             />
           </div>
-          <div className="md:col-span-3 space-y-2">
+          <div className="md:col-span-1 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Número</label>
+            <input 
+              type="text" 
+              placeholder="Nº"
+              value={formData.address_number}
+              onChange={(e) => setFormData(p => ({ ...p, address_number: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-2">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cidade</label>
             <input 
               type="text" 

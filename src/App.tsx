@@ -19,6 +19,7 @@ import Connections from './pages/Connections'; // Conexões multicanais
 import CreditAnalysis from './pages/CreditAnalysis';
 import ServiceOrders from './pages/ServiceOrders';
 import Fiscal from './pages/Fiscal';
+import CustomerOSPortal from './pages/CustomerOSPortal';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/atendimento" element={<Atendimento />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/consulta-os" element={<CustomerOSPortal />} />
           
           {/* App protected routes */}
           <Route path="/dashboard" element={<PrivateRoute><AppLayout><Dashboard /></AppLayout></PrivateRoute>} />
