@@ -47,7 +47,7 @@ docker ps --format 'table {{.Names}}\t{{.Status}}' | grep crm-mdr
 echo "Deploy finalizado com sucesso!"
 "@
 
-ssh -i $SSH_KEY "${SSH_USER}@${SSH_HOST}" $REMOTE_COMMANDS
+$REMOTE_COMMANDS | ssh -i $SSH_KEY "${SSH_USER}@${SSH_HOST}" "bash"
 
 # 4. Limpeza local
 if (Test-Path $ARCHIVE_NAME) { Remove-Item $ARCHIVE_NAME }

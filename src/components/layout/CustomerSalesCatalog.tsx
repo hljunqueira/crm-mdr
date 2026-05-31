@@ -168,7 +168,8 @@ export default function CustomerSalesCatalog({ osNumber, unitId }: CustomerSales
       device.condition === 'new' ? 'Novo' : 
       device.condition === 'vitrine' ? 'Vitrine' : 'Seminovo';
 
-    const text = `Olá! Estou acompanhando meu aparelho na assistência${osNumberStr ? ` (OS #${osNumberStr})` : ''} e fiquei muito interessado no *${device.brand} ${device.model} (${conditionStr})* por R$ ${device.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} que vi na vitrine do portal. Gostaria de saber se está disponível para reserva!`;
+    const priceFormatted = (device.price ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const text = `Olá! Estou acompanhando meu aparelho na assistência${osNumberStr ? ` (OS #${osNumberStr})` : ''} e fiquei muito interessado no *${device.brand} ${device.model} (${conditionStr})* por R$ ${priceFormatted} que vi na vitrine do portal. Gostaria de saber se está disponível para reserva!`;
 
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, '_blank');
@@ -276,10 +277,10 @@ export default function CustomerSalesCatalog({ osNumber, unitId }: CustomerSales
                   <div className="mt-3">
                     <span className="text-[9px] text-on-surface-variant/40 uppercase tracking-widest block leading-none">À vista</span>
                     <span className="text-lg font-black text-white font-mono block mt-1">
-                      R$ {device.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {(device.price ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                     <span className="text-[9px] text-on-surface-variant/60 block mt-0.5 font-medium">
-                      ou até 12x de R$ {(device.price / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} sem juros
+                      ou até 12x de R$ {((device.price ?? 0) / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} sem juros
                     </span>
                   </div>
                 </div>

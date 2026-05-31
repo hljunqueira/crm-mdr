@@ -1,67 +1,119 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  FileText, Search, Plus, Filter, Loader2, Play, CheckCircle2, 
-  AlertTriangle, DollarSign, Settings, Globe, Shield, RefreshCw, 
-  ExternalLink, ArrowUpRight, Check
+  FileText, Search, Plus, Loader2, CheckCircle2, 
+  AlertTriangle, DollarSign, Settings, Globe, Shield, Check
 } from 'lucide-react';
 import { useUI } from '../context/UIContext';
+import { useFiscalStore, Invoice } from '../store/useFiscalStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { cn } from '../lib/utils';
 
 export default function Fiscal() {
   const { showNotification } = useUI();
+  const { profile } = useAuthStore();
+  const {
+    invoices,
+    config,
+    isLoading,
+    fetchInvoices,
+    addInvoice,
+    updateInvoiceStatus,
+    fetchStoreConfig,
+    saveStoreConfig
+  } = useFiscalStore();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedApi, setSelectedApi] = useState('focusnfe');
-  const [environment, setEnvironment] = useState('sandbox');
+  const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox');
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   // Configuration inputs state
-  const [apiToken, setApiToken] = useState('focus_nfe_sandbox_tok_827a1b02cf92');
-  const [cnpjEmitente, setCnpjEmitente] = useState('45.189.230/0001-99');
+  const [apiToken, setApiToken] = useState('');
+  const [cnpjEmitente, setCnpjEmitente] = useState('');
 
-  // Initial Mock data for issued invoices (NF-e/NFS-e)
-  const [invoices, setInvoices] = useState([
-    { id: '1', number: '000452', type: 'NF-e (Produto)', client: 'Carlos Silva de Souza', val: 1499.00, tax: 63.45, date: '2026-05-29 16:32', status: 'authorized', key: '35260545189230000199550010000004521004521234' },
-    { id: '2', number: '000189', type: 'NFS-e (Serviço)', client: 'Ana Paula Medeiros', val: 280.00, tax: 14.00, date: '2026-05-29 11:15', status: 'authorized', key: 'NFS-MDR-000189' },
-    { id: '3', number: '000451', type: 'NF-e (Produto)', client: 'Roberto Linhares', val: 89.90, tax: 3.80, date: '2026-05-28 14:02', status: 'authorized', key: '35260545189230000199550010000004511004511234' },
-    { id: '4', number: '000450', type: 'NF-e (Produto)', client: 'Mariana Costa Ferreira', val: 2450.00, tax: 103.70, date: '2026-05-27 09:40', status: 'cancelled', key: '35260545189230000199550010000004501004501234' },
-    { id: '5', number: '000188', type: 'NFS-e (Serviço)', client: 'Julio Cesar Santos', val: 450.00, tax: 22.50, date: '2026-05-26 17:05', status: 'authorized', key: 'NFS-MDR-000188' },
-  ]);
+  // Fetch initial config and invoices on mount
+  useEffect(() => {
+    if (profile?.unit_id) {
+      fetchStoreConfig(profile.unit_id);
+      fetchInvoices(profile.unit_id);
+    }
+  }, [profile?.unit_id, fetchStoreConfig, fetchInvoices]);
 
-  const handleCreateMockInvoice = () => {
+  // Bind store config to form states when config is fetched
+  useEffect(() => {
+    if (config) {
+      setCnpjEmitente(config.cnpj || '');
+      setApiToken(config.fiscal_api_token || '');
+      setSelectedApi(config.fiscal_gateway || 'focusnfe');
+      setEnvironment(config.fiscal_environment || 'sandbox');
+    }
+  }, [config]);
+
+  // Calculate dynamic KPIs from live DB invoices
+  const authorizedInvoices = invoices.filter(inv => inv.status === 'authorized');
+  const cancelledInvoices = invoices.filter(inv => inv.status === 'cancelled');
+  
+  const totalInvoicesCount = authorizedInvoices.length;
+  const cancelledInvoicesCount = cancelledInvoices.length;
+  const totalFaturamento = authorizedInvoices.reduce((acc, inv) => acc + inv.value, 0);
+  const totalImpostos = authorizedInvoices.reduce((acc, inv) => acc + inv.tax, 0);
+
+  const handleCreateMockInvoice = async () => {
+    if (!profile?.unit_id) {
+      showNotification('error', 'Por favor, faça login para emitir uma nota fiscal.');
+      return;
+    }
+
     setLoadingAction('create');
-    setTimeout(() => {
-      const newInv = {
-        id: String(Date.now()),
-        number: String(invoices.length + 453).padStart(6, '0'),
+    try {
+      const nextNumber = String(invoices.length + 453).padStart(6, '0');
+      const val = 350.00;
+      const tax = 14.80;
+      
+      const newInv = await addInvoice({
+        number: nextNumber,
         type: Math.random() > 0.5 ? 'NF-e (Produto)' : 'NFS-e (Serviço)',
-        client: 'Henrique Lins Junqueira',
-        val: 350.00,
-        tax: 14.80,
-        date: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        client_name: 'Henrique Lins Junqueira',
+        value: val,
+        tax: tax,
         status: 'processing',
-        key: '3526054518923000019955001000000' + (invoices.length + 453) + '1004531234'
-      };
+        key: '352605' + (config?.cnpj?.replace(/\D/g, '') || '45189230000199') + '55001000000' + nextNumber + '1004531234',
+        store_id: profile.unit_id
+      });
 
-      setInvoices([newInv, ...invoices]);
       showNotification('success', 'Nota Fiscal enviada para processamento na API!');
       setLoadingAction(null);
 
       // Auto-approve after 3 seconds to mock a real webhook response!
-      setTimeout(() => {
-        setInvoices(current => current.map(inv => inv.id === newInv.id ? { ...inv, status: 'authorized' } : inv));
+      setTimeout(async () => {
+        await updateInvoiceStatus(newInv.id, 'authorized');
         showNotification('success', `Nota Fiscal Nº ${newInv.number} AUTORIZADA com sucesso!`);
       }, 3000);
 
-    }, 1200);
+    } catch (error) {
+      showNotification('error', 'Falha ao emitir nota fiscal de teste.');
+      setLoadingAction(null);
+    }
   };
 
-  const handleSaveConfig = (e: React.FormEvent) => {
+  const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!profile?.unit_id) return;
+
     setLoadingAction('save');
-    setTimeout(() => {
-      showNotification('success', 'Configurações de emissão salvas e canal de testes revalidado!');
+    try {
+      await saveStoreConfig(profile.unit_id, {
+        cnpj: cnpjEmitente,
+        fiscal_api_token: apiToken,
+        fiscal_gateway: selectedApi as any,
+        fiscal_environment: environment
+      });
+      showNotification('success', 'Configurações de emissão salvas no banco de dados!');
+    } catch (error) {
+      showNotification('error', 'Erro ao salvar as configurações.');
+    } finally {
       setLoadingAction(null);
-    }, 1000);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -78,7 +130,7 @@ export default function Fiscal() {
   };
 
   const filteredInvoices = invoices.filter(inv => 
-    inv.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inv.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inv.number.includes(searchTerm) ||
     inv.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -123,10 +175,10 @@ export default function Fiscal() {
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
         {[
-          { label: 'Notas Emitidas', value: '439', valColor: 'text-white', icon: FileText, iconColor: 'text-primary' },
-          { label: 'Notas Canceladas', value: '11', valColor: 'text-error', icon: AlertTriangle, iconColor: 'text-error' },
-          { label: 'Faturamento Fiscal', value: 'R$ 78.430,90', valColor: 'text-success', icon: DollarSign, iconColor: 'text-success' },
-          { label: 'Impostos Calculados', value: 'R$ 4.705,85', valColor: 'text-warning', icon: Shield, iconColor: 'text-warning' },
+          { label: 'Notas Emitidas', value: String(totalInvoicesCount), valColor: 'text-white', icon: FileText, iconColor: 'text-primary' },
+          { label: 'Notas Canceladas', value: String(cancelledInvoicesCount), valColor: 'text-error', icon: AlertTriangle, iconColor: 'text-error' },
+          { label: 'Faturamento Fiscal', value: `R$ ${totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, valColor: 'text-success', icon: DollarSign, iconColor: 'text-success' },
+          { label: 'Impostos Calculados', value: `R$ ${totalImpostos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, valColor: 'text-warning', icon: Shield, iconColor: 'text-warning' },
         ].map((card, idx) => (
           <div key={idx} className="bg-white/[0.02] border border-outline-variant/30 rounded-[32px] p-6 flex items-center gap-4">
             <div className={cn("w-12 h-12 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center shrink-0", card.iconColor)}>
@@ -148,7 +200,9 @@ export default function Fiscal() {
             <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
               <FileText size={16} /> Últimas Notas Emitidas
             </h3>
-            <span className="text-[10px] text-on-surface-variant font-mono uppercase font-black tracking-widest">Sandbox Ativo</span>
+            <span className="text-[10px] text-on-surface-variant font-mono uppercase font-black tracking-widest">
+              {environment === 'sandbox' ? 'Sandbox Ativo' : 'Produção Ativa'}
+            </span>
           </div>
 
           {/* Campo de Busca */}
@@ -165,30 +219,43 @@ export default function Fiscal() {
 
           {/* Listagem */}
           <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
-            {filteredInvoices.map((inv) => {
-              const badge = getStatusBadge(inv.status);
-              return (
-                <div key={inv.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-3xl hover:bg-white/[0.03] transition-all flex flex-col md:flex-row justify-between gap-3 text-xs">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[9px] font-black font-mono tracking-widest bg-white/5 px-2 py-0.5 rounded border border-white/5 text-on-surface-variant">Nº {inv.number}</span>
-                      <span className="font-bold text-white uppercase">{inv.type}</span>
-                      <span className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border", badge.color)}>
-                        {badge.label}
-                      </span>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center h-full opacity-40 gap-3">
+                <Loader2 className="animate-spin" size={24} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Carregando Notas Fiscais...</span>
+              </div>
+            ) : filteredInvoices.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full opacity-40 gap-3">
+                <FileText size={32} />
+                <span className="text-[9px] font-black uppercase tracking-widest">Nenhuma nota emitida</span>
+              </div>
+            ) : (
+              filteredInvoices.map((inv) => {
+                const badge = getStatusBadge(inv.status);
+                const formattedDate = inv.created_at ? new Date(inv.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+                return (
+                  <div key={inv.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-3xl hover:bg-white/[0.03] transition-all flex flex-col md:flex-row justify-between gap-3 text-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[9px] font-black font-mono tracking-widest bg-white/5 px-2 py-0.5 rounded border border-white/5 text-on-surface-variant">Nº {inv.number}</span>
+                        <span className="font-bold text-white uppercase">{inv.type}</span>
+                        <span className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border", badge.color)}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <p className="text-on-surface-variant mt-1">Cliente: <strong className="text-white">{inv.client_name}</strong></p>
+                      <p className="text-[9px] font-mono text-on-surface-variant/50 max-w-[340px] truncate" title={inv.key}>Chave: {inv.key || '—'}</p>
                     </div>
-                    <p className="text-on-surface-variant mt-1">Cliente: <strong className="text-white">{inv.client}</strong></p>
-                    <p className="text-[9px] font-mono text-on-surface-variant/50 max-w-[340px] truncate" title={inv.key}>Chave: {inv.key}</p>
+                    
+                    <div className="flex flex-col md:items-end justify-between shrink-0 text-left md:text-right gap-1 border-t md:border-t-0 border-white/5 pt-2 md:pt-0">
+                      <span className="font-bold text-white font-mono text-sm">R$ {inv.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-[9px] text-on-surface-variant/60 font-medium font-mono leading-none">Imposto retido: R$ {inv.tax.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-[8px] text-on-surface-variant/40 font-mono mt-1">{formattedDate}</span>
+                    </div>
                   </div>
-                  
-                  <div className="flex flex-col md:items-end justify-between shrink-0 text-left md:text-right gap-1 border-t md:border-t-0 border-white/5 pt-2 md:pt-0">
-                    <span className="font-bold text-white font-mono text-sm">R$ {inv.val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    <span className="text-[9px] text-on-surface-variant/60 font-medium font-mono leading-none">Imposto retido: R$ {inv.tax.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    <span className="text-[8px] text-on-surface-variant/40 font-mono mt-1">{inv.date}</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -250,7 +317,7 @@ export default function Fiscal() {
                   type="button"
                   onClick={() => setEnvironment('sandbox')}
                   className={cn(
-                    "py-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all",
+                    "py-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
                     environment === 'sandbox' 
                       ? "bg-warning/10 border-warning/30 text-warning" 
                       : "bg-[#121214] border-white/5 text-on-surface-variant"
@@ -262,7 +329,7 @@ export default function Fiscal() {
                   type="button"
                   onClick={() => setEnvironment('production')}
                   className={cn(
-                    "py-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all",
+                    "py-3 rounded-xl border text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer",
                     environment === 'production' 
                       ? "bg-success/10 border-success/30 text-success" 
                       : "bg-[#121214] border-white/5 text-on-surface-variant"

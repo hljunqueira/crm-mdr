@@ -460,7 +460,7 @@ export default function Landing() {
                         <div className="text-left">
                           <span className="text-[8px] text-on-surface-variant/40 uppercase tracking-widest block leading-none">À vista</span>
                           <span className="text-sm font-black text-white font-mono block mt-1">
-                            R$ {showcaseDevices[currentShowcaseIdx].price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {(showcaseDevices[currentShowcaseIdx]?.price ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                         </div>
                         <a

@@ -19,6 +19,7 @@ import aiRoutes from "./server/routes/ai.js";
 import chatRoutes from "./server/routes/chat.js";
 import usersRoutes from "./server/routes/users.js";
 import serviceOrderRoutes from "./server/routes/service_orders.js";
+import fiscalRoutes from "./server/routes/fiscal.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,6 +61,7 @@ async function startServer() {
   app.use("/api/chat", chatRoutes);
   app.use("/api/users", usersRoutes);
   app.use("/api/os", serviceOrderRoutes);
+  app.use("/api/fiscal", fiscalRoutes);
 
 
   // Vite middleware for development
