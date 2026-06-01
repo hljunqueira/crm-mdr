@@ -186,7 +186,7 @@ services:
       - SQL_USER=mdr_user
       - SQL_PASS=MDR_DB_PASS_2024
       - BASE_DOMAIN=mdm.mdrinformaticaecelulares.com.br
-      - PROTOCOL=https
+      - PROTOCOL=http
     ports:
       - "31000:31000"
     volumes:
