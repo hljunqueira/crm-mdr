@@ -769,6 +769,7 @@ export default function Settings() {
                             'WPP / Instagram',
                             'Gerenciar WPP/IG',
                             'Financeiro',
+                            'Controle de Bloqueio',
                             'Fiscal (NFe/NFSe)',
                             'Configurações'
                           ].map((pageName) => (

@@ -84,6 +84,7 @@ export default function Sidebar() {
       icon: CreditCard,
       items: [
         { name: 'Financeiro', icon: CreditCard, path: '/finance' },
+        { name: 'Controle de Bloqueio', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
       ]
     },

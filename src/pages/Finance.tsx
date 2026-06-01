@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'; 
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, CreditCard, AlertCircle, CheckCircle2, Filter, 
   Search, Download, Calendar, DollarSign, ArrowUpRight, 
@@ -181,6 +182,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
 }
 
 export default function Finance() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'receivables' | 'overdue'>('receivables');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
@@ -357,23 +359,18 @@ export default function Finance() {
 
   const handleBlock = (item: Installment) => {
     showModal({
-      title: 'Bloquear Aparelho',
+      title: 'Gerenciar Bloqueio de Segurança',
       children: (
         <div className="space-y-4">
-          <p className="text-sm">O aparelho de <span className="text-white font-black">{item.customer_name}</span> será bloqueado remotamente.</p>
-          <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-4 rounded-xl border border-error/20">Esta ação impedirá o uso do dispositivo até que o pagamento seja regularizado.</p>
+          <p className="text-sm">Deseja gerenciar o bloqueio de segurança do aparelho de <span className="text-white font-black">{item.customer_name}</span>?</p>
+          <p className="text-[10px] text-primary font-black uppercase tracking-widest bg-primary/10 p-4 rounded-xl border border-primary/20">Você será redirecionado para o Painel de Controle de Bloqueio para enviar comandos automáticos para Android ou gerenciar iClouds de iPhones.</p>
         </div>
       ),
-      type: 'danger',
-      confirmText: 'Confirmar Bloqueio',
-      onConfirm: async () => {
-        try {
-          await markAsBlocked(item.id);
-          showNotification('warning', 'Aparelho Bloqueado');
-          hideModal();
-        } catch (error) {
-          showNotification('error', 'Erro no Servidor');
-        }
+      type: 'info',
+      confirmText: 'Ir para Controle de Bloqueio 🔒',
+      onConfirm: () => {
+        hideModal();
+        navigate(`/device-locks?search=${encodeURIComponent(item.customer_name)}`);
       }
     });
   };
