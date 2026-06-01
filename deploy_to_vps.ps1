@@ -30,7 +30,7 @@ docker compose down --remove-orphans 2>/dev/null || true
 
 # Força remoção de containers com nome conflitante
 for c in crm-mdr-app-1 crm-mdr-caddy-1 crm-mdr-db-1 crm-mdr-redis-1 crm-mdr-n8n-1 crm-mdr-evolution-1 crm-mdr-chatwoot-web-1 crm-mdr-chatwoot-worker-1 crm-mdr-hmdm-1; do
-  docker rm -f "$c" 2>/dev/null || true
+  docker rm -f "`$c" 2>/dev/null || true
 done
 
 # Sobe os containers com build
