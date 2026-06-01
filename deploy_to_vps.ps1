@@ -29,7 +29,7 @@ docker compose -f docker-compose.infra.yml down --remove-orphans 2>/dev/null || 
 docker compose down --remove-orphans 2>/dev/null || true
 
 # Força remoção de containers com nome conflitante
-for c in crm-mdr-app-1 crm-mdr-caddy-1 crm-mdr-db-1 crm-mdr-redis-1 crm-mdr-n8n-1 crm-mdr-evolution-1 crm-mdr-chatwoot-web-1 crm-mdr-chatwoot-worker-1; do
+for c in crm-mdr-app-1 crm-mdr-caddy-1 crm-mdr-db-1 crm-mdr-redis-1 crm-mdr-n8n-1 crm-mdr-evolution-1 crm-mdr-chatwoot-web-1 crm-mdr-chatwoot-worker-1 crm-mdr-hmdm-1; do
   docker rm -f "$c" 2>/dev/null || true
 done
 
@@ -39,6 +39,13 @@ if docker compose version >/dev/null 2>&1; then
 else
     docker-compose -f docker-compose.infra.yml up -d --build
 fi
+
+echo "Aguardando banco de dados estabilizar..."
+sleep 5
+
+# Cria o banco de dados hmdm se não existir
+echo "Garantindo existência do banco de dados hmdm..."
+docker exec crm-mdr-db-1 psql -U mdr_user -d infra_db -tc "SELECT 1 FROM pg_database WHERE datname = 'hmdm'" | grep -q 1 || docker exec crm-mdr-db-1 psql -U mdr_user -d infra_db -c "CREATE DATABASE hmdm;"
 
 docker image prune -f
 echo "Status dos containers:"

@@ -24,3 +24,8 @@ whatsapp.mdrinformaticaecelulares.com.br {
 supabase.mdrinformaticaecelulares.com.br {
     reverse_proxy supabase-kong:8000
 }
+
+# Headwind MDM
+mdm.mdrinformaticaecelulares.com.br {
+    reverse_proxy hmdm:8080
+}
