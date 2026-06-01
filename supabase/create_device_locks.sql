@@ -28,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_device_locks_device ON device_locks(device_id);
 CREATE INDEX IF NOT EXISTS idx_device_locks_sale ON device_locks(sale_id);
 
 -- Register Trigger for updated_at column to auto-update modification time
+DROP TRIGGER IF EXISTS update_device_locks_modtime ON device_locks;
 CREATE TRIGGER update_device_locks_modtime 
 BEFORE UPDATE ON device_locks 
 FOR EACH ROW 
