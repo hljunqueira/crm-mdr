@@ -130,9 +130,11 @@ services:
       - SECRET_KEY_BASE=a3f89cd712b5e401fa8e9bc20d6f8a8b1c2e3d4f5g6h7i8j9k0l1m2n3o4p5q6r
       - ACTIVE_STORAGE_SERVICE=local
       - ENABLE_RACK_ATTACK=false
-      - FB_APP_ID=1559099635844382
+      - FB_APP_ID=1635946754376101
       - FB_APP_SECRET=447922b92e661154400d90b82757a8c2
       - FB_VERIFY_TOKEN=mdr_instagram_verify_token_2026
+      - IG_VERIFY_TOKEN=mdr_instagram_verify_token_2026
+      - INSTAGRAM_VERIFY_TOKEN=mdr_instagram_verify_token_2026
     volumes:
       - chatwoot_storage:/app/storage
     depends_on:
@@ -160,9 +162,11 @@ services:
       - SECRET_KEY_BASE=a3f89cd712b5e401fa8e9bc20d6f8a8b1c2e3d4f5g6h7i8j9k0l1m2n3o4p5q6r
       - ACTIVE_STORAGE_SERVICE=local
       - ENABLE_RACK_ATTACK=false
-      - FB_APP_ID=1559099635844382
+      - FB_APP_ID=1635946754376101
       - FB_APP_SECRET=447922b92e661154400d90b82757a8c2
       - FB_VERIFY_TOKEN=mdr_instagram_verify_token_2026
+      - IG_VERIFY_TOKEN=mdr_instagram_verify_token_2026
+      - INSTAGRAM_VERIFY_TOKEN=mdr_instagram_verify_token_2026
     volumes:
       - chatwoot_storage:/app/storage
     depends_on:
