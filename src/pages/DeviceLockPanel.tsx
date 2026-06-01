@@ -13,11 +13,12 @@ import {
   RefreshCw,
   Clock,
   UserCheck,
-  Building
+  Building,
+  QrCode
 } from 'lucide-react';
 import { useDeviceLockStore, DeviceLock } from '../store/useDeviceLockStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { useUI } from '../hooks/useUI';
+import { useUI } from '../context/UIContext';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
