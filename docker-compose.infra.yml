@@ -177,7 +177,7 @@ services:
 
   # --- Headwind MDM ---
   hmdm:
-    image: hmdm/hmdm:latest
+    image: headwindmdm/hmdm:latest
     restart: always
     environment:
       - SQL_HOST=db
