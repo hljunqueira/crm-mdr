@@ -20,7 +20,7 @@ import { useDeviceLockStore, DeviceLock } from '../store/useDeviceLockStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUI } from '../context/UIContext';
 import { cn } from '../lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export default function DeviceLockPanel() {
   const { deviceLocks, isLoading, fetchDeviceLocks, lockDevice, unlockDevice, updateDeviceLock } = useDeviceLockStore();
@@ -285,7 +285,6 @@ export default function DeviceLockPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              <AnimatePresence>
                 {filteredLocks.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-xs text-on-surface-variant font-medium">
@@ -462,7 +461,6 @@ export default function DeviceLockPanel() {
                     );
                   })
                 )}
-              </AnimatePresence>
             </tbody>
           </table>
         </div>

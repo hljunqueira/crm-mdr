@@ -101,11 +101,14 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       {/* Modal Portal */}
       <AnimatePresence>
         {modal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+          <motion.div 
+            key="modal-portal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          >
+            <div
               onClick={hideModal}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
@@ -150,7 +153,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
                 )}
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </UIContext.Provider>
