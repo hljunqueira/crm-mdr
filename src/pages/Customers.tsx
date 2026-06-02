@@ -4,7 +4,7 @@ import {
   ShieldAlert, CheckCircle2, Trash2, Edit, UserPlus,
   Loader2
 } from 'lucide-react';
-import { motion } from 'motion/react';
+
 import { useCustomerStore, Customer } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
@@ -146,11 +146,9 @@ export default function Customers() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredCustomers.map((customer) => (
-                  <motion.tr 
+                  <tr 
                     key={customer.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="hover:bg-white/[0.02] transition-colors group"
+                    className="hover:bg-white/[0.02] transition-colors group animate-in fade-in duration-300"
                   >
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
@@ -254,7 +252,7 @@ export default function Customers() {
                         </button>
                       </div>
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
               </tbody>
             </table>
