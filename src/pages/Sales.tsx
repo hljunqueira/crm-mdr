@@ -495,7 +495,6 @@ export default function Sales() {
                     key={sale.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    layout
                     className="hover:bg-white/[0.02] transition-colors group"
                   >
                     <td className="px-8 py-6">
