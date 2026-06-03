@@ -30,13 +30,74 @@ interface UIContextType {
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
 
+const translateError = (text?: string): string => {
+  if (!text) return 'Ocorreu um erro inesperado.';
+  
+  const lower = text.toLowerCase();
+  
+  if (lower.includes('invalid login credentials') || lower.includes('invalid credentials')) {
+    return 'E-mail ou senha incorretos.';
+  }
+  if (lower.includes('user already registered') || lower.includes('already registered')) {
+    return 'Este e-mail já está cadastrado.';
+  }
+  if (lower.includes('password should be at least')) {
+    return 'A senha deve conter pelo menos 6 caracteres.';
+  }
+  if (lower.includes('email not confirmed') || lower.includes('email_not_confirmed')) {
+    return 'E-mail não confirmado. Verifique sua caixa de entrada.';
+  }
+  if (lower.includes('duplicate key value violates unique constraint') || lower.includes('unique constraint')) {
+    return 'Um registro com estes dados já existe no sistema.';
+  }
+  if (lower.includes('violates foreign key constraint') || lower.includes('foreign key constraint')) {
+    return 'Não é possível realizar esta operação pois o registro está vinculado a outras informações no sistema.';
+  }
+  if (lower.includes('violates not-null constraint') || lower.includes('not-null constraint') || lower.includes('null value in column')) {
+    return 'Por favor, preencha todos os campos obrigatórios.';
+  }
+  if (lower.includes('row-level security') || lower.includes('rls policy') || lower.includes('violates row-level security')) {
+    return 'Você não tem permissão para realizar esta ação.';
+  }
+  if (lower.includes('failed to fetch') || lower.includes('network error') || lower.includes('networkerror')) {
+    return 'Não foi possível conectar ao servidor. Verifique sua conexão de rede.';
+  }
+  if (lower.includes('jwt expired') || lower.includes('token expired') || lower.includes('invalid token')) {
+    return 'Sua sessão expirou. Por favor, faça login novamente.';
+  }
+  if (lower.includes('invalid input syntax for type uuid') || lower.includes('invalid uuid')) {
+    return 'Identificador de registro inválido.';
+  }
+  if (lower.includes('value too long for type character')) {
+    return 'O valor digitado excede o limite de caracteres permitido para o campo.';
+  }
+  if (lower.includes('api error') || lower.includes('internal server error')) {
+    return 'Erro interno no servidor. Tente novamente mais tarde.';
+  }
+  if (text === 'API Error') {
+    return 'Erro na resposta do servidor.';
+  }
+  
+  return text;
+};
+
 export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [modal, setModal] = useState<ModalProps | null>(null);
 
   const showNotification = useCallback((type: NotificationType, title: string, message?: string) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setNotifications((prev) => [...prev, { id, type, title, message }]);
+    
+    let finalTitle = title;
+    let finalMessage = message;
+    if (type === 'error') {
+      finalTitle = translateError(title);
+      if (message) {
+        finalMessage = translateError(message);
+      }
+    }
+
+    setNotifications((prev) => [...prev, { id, type, title: finalTitle, message: finalMessage }]);
     setTimeout(() => {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     }, 5000);
@@ -63,7 +124,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       {children}
       
       {/* Notifications Portal */}
-      <div className="fixed bottom-8 right-8 z-[100] flex flex-col gap-4 pointer-events-none">
+      <div className="fixed bottom-8 right-8 z-[9999] flex flex-col gap-4 pointer-events-none">
         <AnimatePresence>
           {notifications.map((n) => (
             <motion.div
