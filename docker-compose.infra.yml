@@ -186,12 +186,12 @@ services:
       - SQL_USER=mdr_user
       - SQL_PASS=MDR_DB_PASS_2024
       - BASE_DOMAIN=mdm.mdrinformaticaecelulares.com.br
-      - PROTOCOL=http
+      - PROTOCOL=https
     ports:
       - "31000:31000"
     volumes:
       - hmdm_config:/usr/local/tomcat/conf/Catalina/localhost
-      - hmdm_data:/usr/local/tomcat/webapps/ROOT/data
+      - hmdm_data:/usr/local/tomcat/work
     depends_on:
       - db
     networks:
