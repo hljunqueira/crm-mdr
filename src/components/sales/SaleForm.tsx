@@ -246,12 +246,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [formData.payment_type, selectedCustomer, newFinancedAmount, availableLimit]);
 
   const minDownPayment = useMemo(() => {
-    if (!selectedCustomer) return 0;
+    if (formData.payment_type === 'vista' || !selectedCustomer) return 0;
     const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
     if (classification === 'RUIM') return formData.total_value * 0.5;
     if (classification === 'MEDIO') return formData.total_value * 0.2;
     return 0;
-  }, [selectedCustomer, formData.total_value]);
+  }, [selectedCustomer, formData.total_value, formData.payment_type]);
 
   const riskMultiplier = useMemo(() => {
     if (paymentType === 'card' || !selectedCustomer) return 1.00;
@@ -326,7 +326,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       return;
     }
 
-    if (formData.down_payment < minDownPayment) {
+    if (formData.payment_type !== 'vista' && formData.down_payment < minDownPayment) {
       const pct = selectedCustomer?.classification === 'RUIM' ? '50%' : '20%';
       showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
       return;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, ShieldCheck, DollarSign, Loader2, 
   AlertCircle, CheckCircle2, User, Phone, MapPin, 
-  FileText, ExternalLink, ShieldAlert, Save, UserCheck
+  FileText, ExternalLink, ShieldAlert, Save, UserCheck, Smartphone
 } from 'lucide-react';
 import { useCustomerStore, Customer } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
@@ -137,7 +137,7 @@ export default function CreditAnalysis() {
         credit_limit: suggestedLimit,
         suggested_down_payment: suggestedDownPayment,
         credit_status: suggestedStatus,
-        approved_for_purchase: false, // Default to false (not authorized) during Bacen query recommendation
+        approved_for_purchase: false,
         registration_status: suggestedStatus === 'REPROVADO' ? 'REPROVADO' : 'APROVADO'
       }));
 
@@ -183,14 +183,8 @@ export default function CreditAnalysis() {
 
       await fetch(`/api/chat/send`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          instanceName: instance,
-          remoteJid: remoteJid,
-          text: messageText
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceName: instance, remoteJid, text: messageText })
       });
     } catch (err) {
       console.error('Falha ao notificar via WhatsApp:', err);
@@ -224,7 +218,6 @@ export default function CreditAnalysis() {
       await updateCustomer(selectedCustomerId, submitData);
       showNotification('success', 'Decisão de crédito salva com sucesso!');
       
-      // WhatsApp notification
       if (formData.responsible_analyst_id) {
         await sendWhatsAppNotification(
           formData.responsible_analyst_id,
@@ -244,9 +237,20 @@ export default function CreditAnalysis() {
     }
   };
 
+  // Helper function to parse desired_device JSON safely
+  const parseDesiredDevices = (desired_device: string | undefined | null): any[] | null => {
+    if (!desired_device) return null;
+    try {
+      const parsed = JSON.parse(desired_device);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+      // not JSON, legacy string
+    }
+    return null;
+  };
+
   // Helper values for Bacen dashboard
   const resumo = bacenData?.retorno?.resumo || bacenData?.resumo;
-  const totalBacen = resumo ? Number(resumo.total || resumo.Total || 0) : 0;
   const vencidoBacen = resumo ? Number(resumo.vencido || resumo.Vencido || 0) : 0;
   const prejuizoBacen = resumo ? Number(resumo.prejuizo || resumo.Prejuizo || 0) : 0;
   const aVencerBacen = resumo ? Number(resumo.aVencer || resumo.AVencer || 0) : 0;
@@ -323,8 +327,10 @@ export default function CreditAnalysis() {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Card Dados do Cliente */}
+
+              {/* ── Card Dados do Cliente ── */}
               <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+                {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-primary font-black uppercase text-lg border border-white/10">
@@ -341,17 +347,14 @@ export default function CreditAnalysis() {
                     className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                   >
                     {queryingBacen ? (
-                      <>
-                        <Loader2 className="animate-spin" size={14} /> Consultando SCR Bacen...
-                      </>
+                      <><Loader2 className="animate-spin" size={14} /> Consultando SCR Bacen...</>
                     ) : (
-                      <>
-                        <ShieldCheck size={14} /> Consultar SCR Bacen
-                      </>
+                      <><ShieldCheck size={14} /> Consultar SCR Bacen</>
                     )}
                   </button>
                 </div>
 
+                {/* Contatos */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
                     <Phone size={14} className="opacity-40 text-primary" />
@@ -376,32 +379,72 @@ export default function CreditAnalysis() {
                   )}
                 </div>
 
-                {/* Simulação de Venda */}
+                {/* Simulação de Venda (Pré-venda) */}
                 {(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
-                  <div className="pt-4 border-t border-white/5">
-                    <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest mb-3">Simulação de Venda (Pré-venda)</p>
+                  <div className="pt-4 border-t border-white/5 space-y-4">
+                    <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest">Simulação de Venda (Pré-venda)</p>
+                    
+                    {/* Lista de aparelhos */}
+                    <div className="bg-white/5 border border-white/10 rounded-3xl p-4">
+                      <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-wider mb-2">Aparelhos Solicitados</p>
+                      {(() => {
+                        const devices = parseDesiredDevices(selectedCustomer.desired_device);
+                        if (devices && devices.length > 0) {
+                          return (
+                            <div className="divide-y divide-white/5">
+                              {devices.map((device: any, idx: number) => (
+                                <div key={idx} className="py-2.5 flex items-center justify-between text-xs first:pt-0 last:pb-0">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="p-1.5 bg-primary/10 border border-primary/20 rounded-lg text-primary">
+                                      <Smartphone size={14} />
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-white">{device.model}</span>
+                                      {device.brand && (
+                                        <span className="text-[9px] text-on-surface-variant uppercase tracking-wider ml-2">({device.brand})</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="font-mono font-bold text-white">
+                                    {Number(device.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="flex items-center gap-2.5 text-xs text-white">
+                            <Smartphone size={14} className="text-primary" />
+                            <span className="font-bold">{selectedCustomer.desired_device || 'Não informado'}</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Três cards de resumo financeiro */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
-                        <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Aparelho Desejado</span>
-                        <h4 className="text-xs font-black text-white leading-tight mt-1.5">
-                          {selectedCustomer.desired_device || 'Não Informado'}
-                        </h4>
-                      </div>
-                      
-                      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
                         <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Crédito Necessário</span>
-                        <h4 className="text-xs font-black text-primary font-mono leading-tight mt-1.5">
-                          {selectedCustomer.needed_credit 
-                            ? Number(selectedCustomer.needed_credit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                        <h4 className="text-sm font-black text-primary font-mono leading-tight mt-1.5">
+                          {selectedCustomer.needed_credit
+                            ? Number(selectedCustomer.needed_credit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                             : 'R$ 0,00'}
                         </h4>
                       </div>
-
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                        <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Entrada Sugerida</span>
+                        <h4 className="text-sm font-black text-white font-mono leading-tight mt-1.5">
+                          {selectedCustomer.suggested_down_payment
+                            ? Number(selectedCustomer.suggested_down_payment).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                            : 'R$ 0,00'}
+                        </h4>
+                      </div>
                       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
                         <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Parcela Desejada</span>
-                        <h4 className="text-xs font-black text-white font-mono leading-tight mt-1.5">
-                          {selectedCustomer.desired_installment_value 
-                            ? Number(selectedCustomer.desired_installment_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                        <h4 className="text-sm font-black text-white font-mono leading-tight mt-1.5">
+                          {selectedCustomer.desired_installment_value
+                            ? Number(selectedCustomer.desired_installment_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                             : 'R$ 0,00'}
                         </h4>
                       </div>
@@ -409,7 +452,7 @@ export default function CreditAnalysis() {
                   </div>
                 )}
 
-                {/* Arquivos do Cliente */}
+                {/* Documentos Anexados */}
                 {(selectedCustomer.document_id_url || selectedCustomer.document_address_url || selectedCustomer.document_income_url) && (
                   <div className="pt-2">
                     <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest mb-3">Documentos Anexados</p>
@@ -439,7 +482,144 @@ export default function CreditAnalysis() {
                 )}
               </div>
 
-              {/* Painel do SCR Bacen (Direct Data) */}
+              {/* ── Formulário de Decisão e Homologação de Crédito ── */}
+              <form onSubmit={handleSubmit} className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
+                <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
+                  <UserCheck size={16} /> Decisão e Homologação de Crédito
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Classificação Risco */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Classificação de Risco</label>
+                    <select
+                      value={formData.classification}
+                      onChange={(e) => setFormData(p => ({ ...p, classification: e.target.value as any }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                    >
+                      <option value="BOM" className="bg-[#121214] text-success">🟢 Premium (5% a.m.)</option>
+                      <option value="MEDIO" className="bg-[#121214] text-warning">🟡 Standard (8% a.m.)</option>
+                      <option value="RUIM" className="bg-[#121214] text-error">🔴 Flex (12% a.m.)</option>
+                    </select>
+                  </div>
+
+                  {/* Limite Pré-Aprovado */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Limite Pré-Aprovado (R$)</label>
+                    <div className="relative">
+                      <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="0.00"
+                        value={formData.credit_limit}
+                        onChange={(e) => setFormData(p => ({ ...p, credit_limit: parseFloat(e.target.value) || 0 }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status Crédito */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status do Crédito</label>
+                    <select
+                      value={formData.credit_status}
+                      onChange={(e) => setFormData(p => ({ ...p, credit_status: e.target.value as any }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                    >
+                      <option value="EM_ANALISE" className="bg-[#121214]">EM ANÁLISE</option>
+                      <option value="APROVADO" className="bg-[#121214] text-success">APROVADO</option>
+                      <option value="APROVADO_COM_ENTRADA" className="bg-[#121214] text-warning">APROVADO COM ENTRADA</option>
+                      <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO</option>
+                    </select>
+                  </div>
+
+                  {/* Entrada Sugerida */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada Sugerida (R$)</label>
+                    <div className="relative">
+                      <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={formData.suggested_down_payment}
+                        onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Analista Responsável */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Notificar Analista Responsável</label>
+                    <select
+                      value={formData.responsible_analyst_id}
+                      onChange={(e) => setFormData(p => ({ ...p, responsible_analyst_id: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                    >
+                      <option value="" className="bg-[#121214]">Nenhum Selecionado</option>
+                      {admins.map(adm => (
+                        <option key={adm.id} value={adm.id} className="bg-[#121214]">
+                          {adm.full_name} {adm.phone ? `(${adm.phone})` : '(Sem Celular)'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Anotações */}
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Anotações / Justificativa da Decisão</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Ex: Consultamos o SCR Bacen e constatamos dívida ativa baixa. Limite aprovado com base nas referências e CNH."
+                      value={formData.notes}
+                      onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Liberado para Compra */}
+                  <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black uppercase text-on-surface tracking-wider">Liberado para Compra no PDV</span>
+                      <span className="text-[9px] text-on-surface-variant opacity-60">Se ativado, permite registrar vendas de aparelhos para este cliente</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.approved_for_purchase}
+                        onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4 border-t border-white/5">
+                  <button 
+                    type="button"
+                    onClick={() => { setSelectedCustomerId(null); setBacenData(null); }}
+                    className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+                  >
+                    Voltar
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <><Loader2 className="animate-spin" size={16} /> Salvando...</>
+                    ) : (
+                      <><Save size={16} /> Homologar Análise de Crédito</>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              {/* ── Painel do SCR Bacen ── */}
               {queryingBacen && (
                 <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-12 text-center flex flex-col items-center justify-center gap-4">
                   <Loader2 className="animate-spin text-primary" size={40} />
@@ -470,7 +650,6 @@ export default function CreditAnalysis() {
                     <ShieldCheck size={16} /> Relatório Analítico - SCR Bacen (Direct Data)
                   </h3>
 
-                  {/* Cards de Resumo */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between min-h-[100px]">
                       <span className="text-[8px] font-black text-green-400 uppercase tracking-widest">A Vencer (Crédito Ativo)</span>
@@ -498,7 +677,6 @@ export default function CreditAnalysis() {
                     </div>
                   </div>
 
-                  {/* Recommendation Alert Box */}
                   <div className={`p-5 rounded-3xl border flex items-start gap-4 ${
                     formData.classification === 'RUIM' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
                     formData.classification === 'MEDIO' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' :
@@ -510,9 +688,10 @@ export default function CreditAnalysis() {
                     <div>
                       <h4 className="text-xs font-black uppercase tracking-wider leading-none">Recomendação do Motor de Decisão</h4>
                       <p className="text-[10px] leading-relaxed mt-1">
-                        Com base no relatório do Banco Central, o cliente foi sugerido com a classificação **{formData.classification === 'BOM' ? 'Premium (5% a.m.)' : formData.classification === 'MEDIO' ? 'Standard (8% a.m.)' : 'Flex (12% a.m.)'}**.
+                        Com base no relatório do Banco Central, o cliente foi sugerido com a classificação{' '}
+                        {formData.classification === 'BOM' ? 'Premium (5% a.m.)' : formData.classification === 'MEDIO' ? 'Standard (8% a.m.)' : 'Flex (12% a.m.)'}.
                         {formData.classification === 'RUIM' && ' ❌ O cliente possui dívidas registradas como Prejuízo no mercado financeiro. Recomendamos rejeitar crédito.'}
-                        {formData.classification === 'MEDIO' && ' ⚖️ O cliente possui parcelas de empréstimos em atraso (vencido). Recomendamos aprovar mediante entrada obrigatória de 20% a 50%.'}
+                        {formData.classification === 'MEDIO' && ' ⚖️ O cliente possui parcelas em atraso (vencido). Recomendamos aprovar mediante entrada obrigatória de 20% a 50%.'}
                         {formData.classification === 'BOM' && ' 🌟 Nenhuma restrição ou atraso encontrado no SCR Bacen. Crédito elegível para aprovação padrão sem entrada obrigatória.'}
                       </p>
                     </div>
@@ -520,149 +699,6 @@ export default function CreditAnalysis() {
                 </div>
               )}
 
-              {/* Formulário de Decisão de Crédito */}
-              <form onSubmit={handleSubmit} className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
-                <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
-                  <UserCheck size={16} /> Decisão e Homologação de Crédito
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Classificação Risco */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Classificação de Risco</label>
-                    <select
-                      value={formData.classification}
-                      onChange={(e) => setFormData(p => ({ ...p, classification: e.target.value as any }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-                    >
-                      <option value="BOM" className="bg-[#121214] text-success">🟢 Premium (5% a.m.)</option>
-                      <option value="MEDIO" className="bg-[#121214] text-warning">🟡 Standard (8% a.m.)</option>
-                      <option value="RUIM" className="bg-[#121214] text-error">🔴 Flex (12% a.m.)</option>
-                    </select>
-                  </div>
-
-                  {/* Limite de Crédito Aprovado */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Limite Pré-Aprovado (R$)</label>
-                    <div className="relative">
-                      <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        placeholder="0.00"
-                        value={formData.credit_limit}
-                        onChange={(e) => setFormData(p => ({ ...p, credit_limit: parseFloat(e.target.value) || 0 }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Status Análise de Crédito */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status do Crédito</label>
-                    <select
-                      value={formData.credit_status}
-                      onChange={(e) => setFormData(p => ({ ...p, credit_status: e.target.value as any }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-                    >
-                      <option value="EM_ANALISE" className="bg-[#121214]">EM ANÁLISE</option>
-                      <option value="APROVADO" className="bg-[#121214] text-success">APROVADO</option>
-                      <option value="APROVADO_COM_ENTRADA" className="bg-[#121214] text-warning">APROVADO COM ENTRADA</option>
-                      <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO</option>
-                    </select>
-                  </div>
-
-                  {/* Valor de Entrada Sugerido */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada Sugerida (R$)</label>
-                    <div className="relative">
-                      <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={formData.suggested_down_payment}
-                        onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Analista Notificado */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Notificar Analista Responsável</label>
-                    <select
-                      value={formData.responsible_analyst_id}
-                      onChange={(e) => setFormData(p => ({ ...p, responsible_analyst_id: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-                    >
-                      <option value="" className="bg-[#121214]">Nenhum Selecionado</option>
-                      {admins.map(adm => (
-                        <option key={adm.id} value={adm.id} className="bg-[#121214]">
-                          {adm.full_name} {adm.phone ? `(${adm.phone})` : '(Sem Celular)'}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Anotações / Justificativa da Decisão</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Ex: Consultamos o SCR Bacen e constatamos dívida ativa baixa. Limite aprovado com base nas referências e CNH."
-                      value={formData.notes}
-                      onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed"
-                    />
-                  </div>
-
-                  {/* Liberado para Compra Switch */}
-                  <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black uppercase text-on-surface tracking-wider">Liberado para Compra no PDV</span>
-                      <span className="text-[9px] text-on-surface-variant opacity-60">Se ativado, permite registrar vendas de aparelhos para este cliente</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.approved_for_purchase}
-                        onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
-                        className="sr-only peer" 
-                      />
-                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4 border-t border-white/5">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setSelectedCustomerId(null);
-                      setBacenData(null);
-                    }}
-                    className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
-                  >
-                    Voltar
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="animate-spin" size={16} /> Salvando...
-                      </>
-                    ) : (
-                      <>
-                        <Save size={16} /> Homologar Análise de Crédito
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
             </div>
           )}
         </div>

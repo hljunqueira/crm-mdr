@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, CreditCard, Phone, MapPin, Save, X, 
   Upload, FileText, Check, Loader2, DollarSign, Smartphone
@@ -8,6 +8,7 @@ import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { formatCPF, formatPhone } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
+import { useInventoryStore } from '../../store/useInventoryStore';
 
 interface CustomerFormProps {
   initialData?: Customer;
@@ -53,6 +54,35 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     status: (initialData?.status || 'active') as any
   });
 
+  const { inventory, fetchInventory, isLoading: isLoadingInventory } = useInventoryStore();
+
+  const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number }[]>(() => {
+    if (!initialData?.desired_device) return [];
+    try {
+      const parsed = JSON.parse(initialData.desired_device);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: any) => ({
+          id: item.id || '',
+          model: item.model || '',
+          brand: item.brand || '',
+          price: Number(item.price) || 0
+        }));
+      }
+    } catch (e) {
+      // legacy fallback
+      return [{
+        id: '',
+        model: initialData.desired_device,
+        brand: '',
+        price: initialData.needed_credit || 0
+      }];
+    }
+    return [];
+  });
+
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+
   const [cep, setCep] = useState('');
   const [loadingCep, setLoadingCep] = useState(false);
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
@@ -89,6 +119,52 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     };
     fetchAdmins();
   }, []);
+
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
+
+  const availableDevicesForSimulation = useMemo(() => {
+    return inventory.filter(item => item.status === 'available' && (item.stock_quantity || 0) > 0);
+  }, [inventory]);
+
+  const filteredDevicesForSimulation = useMemo(() => {
+    if (!deviceSearch) return availableDevicesForSimulation;
+    return availableDevicesForSimulation.filter(item =>
+      item.model.toLowerCase().includes(deviceSearch.toLowerCase()) ||
+      item.brand.toLowerCase().includes(deviceSearch.toLowerCase()) ||
+      (item.imei && item.imei.toLowerCase().includes(deviceSearch.toLowerCase()))
+    );
+  }, [availableDevicesForSimulation, deviceSearch]);
+
+  const addDeviceToSimulation = (item: typeof inventory[0]) => {
+    if (selectedDevices.find(d => d.id === item.id)) {
+      showNotification('info', 'Este aparelho já foi adicionado.');
+      return;
+    }
+    setSelectedDevices(prev => [...prev, {
+      id: item.id,
+      model: item.model,
+      brand: item.brand,
+      price: item.price
+    }]);
+    setDeviceDropdownOpen(false);
+    setDeviceSearch('');
+  };
+
+  const removeDeviceFromSimulation = (id: string) => {
+    setSelectedDevices(prev => prev.filter(d => d.id !== id));
+  };
+
+  useEffect(() => {
+    if (formType === 'complete') {
+      const total = selectedDevices.reduce((sum, d) => sum + d.price, 0);
+      setFormData(prev => ({
+        ...prev,
+        needed_credit: total
+      }));
+    }
+  }, [selectedDevices, formType]);
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -250,12 +326,14 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           submitData.approved_for_purchase = true;
         }
       } else {
-        // Se for cadastro completo novo
+        // Se for cadastro completo novo ou edição
+        submitData.desired_device = JSON.stringify(selectedDevices);
+
         if (!initialData) {
           submitData.registration_status = 'PRE_CADASTRO';
           submitData.credit_status = 'EM_ANALISE';
           submitData.approved_for_purchase = false;
-        } else if (initialData.registration_status === 'APROVADO' && (formData.desired_device || formData.needed_credit > 0)) {
+        } else if (initialData.registration_status === 'APROVADO' && (selectedDevices.length > 0 || formData.needed_credit > 0)) {
           // Se o cliente simples já estava aprovado mas agora foi atualizado para completo com simulação de crédito
           submitData.registration_status = 'PRE_CADASTRO';
           submitData.credit_status = 'EM_ANALISE';
@@ -547,16 +625,100 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           <Smartphone size={14} /> Simulação de Pré-venda (Sujeita a Aprovação)
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Aparelho Desejado */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Aparelho Procurado</label>
-            <input 
-              type="text" 
-              placeholder="Ex: iPhone 13 128GB"
-              value={formData.desired_device}
-              onChange={(e) => setFormData(p => ({ ...p, desired_device: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-            />
+          {/* Aparelho Desejado (Simulação com Estoque) */}
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Aparelhos na Simulação</label>
+            
+            {/* List of selected devices */}
+            {selectedDevices.length === 0 ? (
+              <div className="p-4 bg-white/5 border border-white/5 border-dashed rounded-2xl text-center text-xs text-on-surface-variant/50">
+                Nenhum aparelho selecionado. Busque aparelhos no estoque abaixo.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {selectedDevices.map((device, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                        <Smartphone size={16} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white leading-tight">{device.model}</p>
+                        {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-xs font-black text-white">
+                        {device.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeDeviceFromSimulation(device.id)}
+                        className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Search and selection input */}
+            <div className="relative mt-3">
+              <input
+                type="text"
+                placeholder="🔍 Digite modelo ou marca para buscar no estoque..."
+                value={deviceSearch}
+                onChange={(e) => {
+                  setDeviceSearch(e.target.value);
+                  setDeviceDropdownOpen(true);
+                }}
+                onFocus={() => setDeviceDropdownOpen(true)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+              
+              {deviceDropdownOpen && (
+                <>
+                  {/* Backdrop click to close */}
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => {
+                      setDeviceDropdownOpen(false);
+                      setDeviceSearch('');
+                    }}
+                  />
+                  
+                  {/* Dropdown list */}
+                  <div className="absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
+                    {isLoadingInventory ? (
+                      <div className="p-4 text-center text-xs text-on-surface-variant">Carregando estoque...</div>
+                    ) : filteredDevicesForSimulation.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum aparelho disponível no estoque.</div>
+                    ) : (
+                      filteredDevicesForSimulation.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => addDeviceToSimulation(item)}
+                          className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <span className="font-bold text-white">{item.model}</span>
+                            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
+                            {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
+                          </div>
+                          <div className="text-right">
+                            <span className="font-black text-primary font-mono">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            <p className="text-[9px] text-green-400">Qtd: {item.stock_quantity}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Crédito Necessário */}
@@ -567,12 +729,13 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
               <input 
                 type="number" 
                 step="0.01"
+                readOnly
                 placeholder="0.00"
                 value={formData.needed_credit === 0 ? '' : formData.needed_credit}
-                onChange={(e) => setFormData(p => ({ ...p, needed_credit: parseFloat(e.target.value) || 0 }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface-variant opacity-60 outline-none cursor-not-allowed transition-all font-mono"
               />
             </div>
+            <p className="text-[9px] text-on-surface-variant/60 pl-1">Calculado automaticamente com base nos aparelhos selecionados.</p>
           </div>
 
           {/* Entrada Sugerida */}
@@ -586,13 +749,13 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                 placeholder="0.00"
                 value={formData.suggested_down_payment === 0 ? '' : formData.suggested_down_payment}
                 onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all font-mono"
               />
             </div>
           </div>
 
           {/* Valor da Parcela Desejada */}
-          <div className="space-y-2">
+          <div className="space-y-2 md:col-span-2">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Ideal da Parcela (R$)</label>
             <div className="relative">
               <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
@@ -602,7 +765,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                 placeholder="0.00"
                 value={formData.desired_installment_value === 0 ? '' : formData.desired_installment_value}
                 onChange={(e) => setFormData(p => ({ ...p, desired_installment_value: parseFloat(e.target.value) || 0 }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all font-mono"
               />
             </div>
           </div>
