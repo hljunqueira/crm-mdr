@@ -2,8 +2,7 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 
 const router = Router();
-const HEADWIND_URL = process.env.HEADWIND_API_URL || 'https://mdm.mdrinformaticaecelulares.com.br';
-const HEADWIND_API_KEY = process.env.HEADWIND_API_KEY || 'MDR_HEADWIND_SECRET_KEY_2026';
+
 
 // 1. Get all active locks with relations
 router.get("/", async (req, res) => {
@@ -82,69 +81,7 @@ router.post("/:id/lock", async (req, res) => {
     }
 
     if (lock.lock_type === 'headwind') {
-      // Automatic Android Locking via Headwind MDM REST API
-      const mdmDeviceId = lock.mdm_device_id;
-      if (!mdmDeviceId) {
-        return res.status(400).json({ error: 'ID do dispositivo MDM não cadastrado' });
-      }
-
-      console.log(`[Headwind API] Enviando comando de bloqueio para o aparelho ${mdmDeviceId}...`);
-
-      let apiSuccess = false;
-      let apiResponse = null;
-
-      try {
-        // Envia requisição para a VPS do Headwind MDM
-        const response = await fetch(`${HEADWIND_URL}/api/plugins/kiosk/run`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${HEADWIND_API_KEY}`
-          },
-          body: JSON.stringify({
-            deviceId: mdmDeviceId,
-            kioskMode: true,
-            lockMessage: kioskMessage || 'Aparelho bloqueado por atraso no crediário. Procure a MDR Celulares.'
-          })
-        });
-
-        apiResponse = await response.text();
-        apiSuccess = response.ok;
-      } catch (err: any) {
-        console.warn(`[Headwind API Offline] Não foi possível conectar ao servidor Headwind: ${err.message}. Executando modo Simulado Resiliente.`);
-      }
-
-      // Atualiza o banco de dados da MDR (seja com sucesso real ou simulado)
-      const { data: updatedLock, error: updateError } = await supabase
-        .from('device_locks')
-        .update({
-          mdm_locked: true,
-          mdm_kiosk_message: kioskMessage,
-          mdm_last_sync_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      // Registrar o log de bloqueio
-      await supabase.from('device_block_logs').insert([{
-        customer_id: req.body.customerId || null,
-        imei: lock.device?.imei || 'MANUAL_IMEI',
-        action: 'block',
-        reason: 'Inadimplência - Crediário em Atraso',
-        success: true
-      }]);
-
-      return res.json({
-        success: true,
-        data: updatedLock,
-        message: apiSuccess 
-          ? 'Comando de bloqueio enviado com sucesso pelo Headwind MDM!' 
-          : 'Aviso: Servidor MDM offline. Comando simulado localmente com sucesso no CRM!'
-      });
-
+      return res.status(400).json({ error: 'O serviço de MDM Android (Headwind) foi desativado.' });
     } else {
       // Manual iCloud locking for iOS
       const { data: updatedLock, error: updateError } = await supabase
@@ -199,66 +136,7 @@ router.post("/:id/unlock", async (req, res) => {
     }
 
     if (lock.lock_type === 'headwind') {
-      // Automatic Android Unlocking via Headwind MDM REST API
-      const mdmDeviceId = lock.mdm_device_id;
-      if (!mdmDeviceId) {
-        return res.status(400).json({ error: 'ID do dispositivo MDM não cadastrado' });
-      }
-
-      console.log(`[Headwind API] Enviando comando de desbloqueio para o aparelho ${mdmDeviceId}...`);
-
-      let apiSuccess = false;
-      let apiResponse = null;
-
-      try {
-        const response = await fetch(`${HEADWIND_URL}/api/plugins/kiosk/run`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${HEADWIND_API_KEY}`
-          },
-          body: JSON.stringify({
-            deviceId: mdmDeviceId,
-            kioskMode: false
-          })
-        });
-
-        apiResponse = await response.text();
-        apiSuccess = response.ok;
-      } catch (err: any) {
-        console.warn(`[Headwind API Offline] Não foi possível conectar ao servidor Headwind: ${err.message}. Executando modo Simulado Resiliente.`);
-      }
-
-      // Atualiza o banco de dados da MDR
-      const { data: updatedLock, error: updateError } = await supabase
-        .from('device_locks')
-        .update({
-          mdm_locked: false,
-          mdm_last_sync_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      // Registrar o log de desbloqueio
-      await supabase.from('device_block_logs').insert([{
-        customer_id: req.body.customerId || null,
-        imei: lock.device?.imei || 'MANUAL_IMEI',
-        action: 'unblock',
-        reason: 'Pagamento Identificado - Conta em dia',
-        success: true
-      }]);
-
-      return res.json({
-        success: true,
-        data: updatedLock,
-        message: apiSuccess 
-          ? 'Comando de desbloqueio enviado com sucesso pelo Headwind MDM!' 
-          : 'Aviso: Servidor MDM offline. Comando de liberação simulado localmente no CRM!'
-      });
-
+      return res.status(400).json({ error: 'O serviço de MDM Android (Headwind) foi desativado.' });
     } else {
       // Manual iCloud unlocking for iOS
       const { data: updatedLock, error: updateError } = await supabase

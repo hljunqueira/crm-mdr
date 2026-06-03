@@ -118,10 +118,9 @@ export const useDeviceLockStore = create<DeviceLockState>()((set) => ({
             if (item.id === id) {
               return {
                 ...item,
-                ...(item.lock_type === 'headwind' 
-                  ? { mdm_locked: true, mdm_kiosk_message: kioskMessage, mdm_last_sync_at: new Date().toISOString() }
-                  : { icloud_locked: true, icloud_lock_confirmed_at: new Date().toISOString(), icloud_lock_confirmed_by: operatorId }
-                )
+                icloud_locked: true,
+                icloud_lock_confirmed_at: new Date().toISOString(),
+                icloud_lock_confirmed_by: operatorId
               };
             }
             return item;
@@ -148,10 +147,9 @@ export const useDeviceLockStore = create<DeviceLockState>()((set) => ({
             if (item.id === id) {
               return {
                 ...item,
-                ...(item.lock_type === 'headwind' 
-                  ? { mdm_locked: false, mdm_last_sync_at: new Date().toISOString() }
-                  : { icloud_locked: false, icloud_lock_confirmed_at: undefined, icloud_lock_confirmed_by: undefined }
-                )
+                icloud_locked: false,
+                icloud_lock_confirmed_at: undefined,
+                icloud_lock_confirmed_by: undefined
               };
             }
             return item;

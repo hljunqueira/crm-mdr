@@ -56,8 +56,4 @@ chat.mdrinformaticaecelulares.com.br {
     encode gzip
 }
 
-# --- Headwind MDM ---
-mdm.mdrinformaticaecelulares.com.br {
-    reverse_proxy hmdm:8080
-}
 

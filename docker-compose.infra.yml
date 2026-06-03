@@ -175,28 +175,6 @@ services:
     networks:
       - crm-network
 
-  # --- Headwind MDM ---
-  hmdm:
-    image: headwindmdm/hmdm:latest
-    restart: always
-    environment:
-      - SQL_HOST=db
-      - SQL_PORT=5432
-      - SQL_BASE=hmdm
-      - SQL_USER=mdr_user
-      - SQL_PASS=MDR_DB_PASS_2024
-      - BASE_DOMAIN=mdm.mdrinformaticaecelulares.com.br
-      - PROTOCOL=http
-    ports:
-      - "31000:31000"
-    volumes:
-      - hmdm_config:/usr/local/tomcat/conf/Catalina/localhost
-      - hmdm_data:/usr/local/tomcat/work
-    depends_on:
-      - db
-    networks:
-      - crm-network
-
 networks:
   crm-network:
     driver: bridge
@@ -210,5 +188,3 @@ volumes:
   evolution_data:
   db_data:
   chatwoot_storage:
-  hmdm_config:
-  hmdm_data:

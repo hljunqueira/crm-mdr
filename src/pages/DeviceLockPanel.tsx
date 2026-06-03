@@ -30,7 +30,6 @@ export default function DeviceLockPanel() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'overdue' | 'active' | 'quitado'>('all');
-  const [platformFilter, setPlatformFilter] = useState<'all' | 'icloud' | 'headwind'>('all');
   const [selectedLock, setSelectedLock] = useState<DeviceLock | null>(null);
   const [showLockModal, setShowLockModal] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
@@ -51,11 +50,11 @@ export default function DeviceLockPanel() {
     return 'active';
   };
 
-  // Filter locks based on criteria
+  // Filter locks based on criteria (Only show iCloud/iOS devices)
   const filteredLocks = deviceLocks.filter(lock => {
+    if (lock.lock_type !== 'icloud') return false;
     const status = getInstallmentStatus(lock);
     const matchesStatus = statusFilter === 'all' || status === statusFilter;
-    const matchesPlatform = platformFilter === 'all' || lock.lock_type === platformFilter;
     
     const customerName = lock.sale?.customer?.name || '';
     const customerCpf = lock.sale?.customer?.cpf || '';
@@ -67,21 +66,20 @@ export default function DeviceLockPanel() {
       deviceModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
       imei.includes(searchTerm);
       
-    return matchesStatus && matchesPlatform && matchesSearch;
+    return matchesStatus && matchesSearch;
   });
 
-  // KPI Calculations
-  const totalCrediario = deviceLocks.length;
-  const totalLocked = deviceLocks.filter(l => l.lock_type === 'headwind' ? l.mdm_locked : l.icloud_locked).length;
+  // KPI Calculations (iOS devices only)
+  const totalCrediario = deviceLocks.filter(l => l.lock_type === 'icloud').length;
+  const totalLocked = deviceLocks.filter(l => l.lock_type === 'icloud' && l.icloud_locked).length;
   const pendingActions = deviceLocks.filter(l => {
+    if (l.lock_type !== 'icloud') return false;
     const status = getInstallmentStatus(l);
     if (status === 'overdue') {
-      const isCurrentlyLocked = l.lock_type === 'headwind' ? l.mdm_locked : l.icloud_locked;
-      return !isCurrentlyLocked; // Inadimplente mas ainda não bloqueado
+      return !l.icloud_locked; // Inadimplente mas ainda não bloqueado
     }
     if (status === 'quitado') {
-      const isCurrentlyLocked = l.lock_type === 'headwind' ? l.mdm_locked : l.icloud_locked;
-      return isCurrentlyLocked || l.lock_type === 'icloud'; // Quitado mas iCloud ainda vinculado
+      return l.icloud_locked; // Quitado mas iCloud ainda vinculado
     }
     return false;
   }).length;
@@ -160,7 +158,7 @@ export default function DeviceLockPanel() {
             Controle de Bloqueio de Celulares
           </h1>
           <p className="text-xs text-on-surface-variant max-w-xl">
-            Gestão híbrida de adimplência do crediário MDR: iCloud manual para iPhones e automação via API Headwind MDM para celulares Android.
+            Gestão de adimplência do crediário MDR: Controle de bloqueio via iCloud corporativo para iPhones.
           </p>
         </div>
         
@@ -246,26 +244,6 @@ export default function DeviceLockPanel() {
               </button>
             ))}
           </div>
-
-          {/* Platform filter */}
-          <div className="flex bg-white/[0.02] border border-white/5 p-1 rounded-2xl">
-            {(['all', 'icloud', 'headwind'] as const).map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setPlatformFilter(filter)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all uppercase tracking-wide",
-                  platformFilter === filter 
-                    ? "bg-white/10 text-white shadow" 
-                    : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                {filter === 'all' && 'Todos'}
-                {filter === 'icloud' && '🍏 iOS'}
-                {filter === 'headwind' && '🤖 Android'}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -277,7 +255,6 @@ export default function DeviceLockPanel() {
               <tr className="border-b border-white/5 bg-white/[0.01]">
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Cliente</th>
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Aparelho / IMEI</th>
-                <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Tipo</th>
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Status Financ.</th>
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Vínculo Segurança</th>
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Trava</th>
@@ -294,7 +271,7 @@ export default function DeviceLockPanel() {
                 ) : (
                   filteredLocks.map((lock) => {
                     const status = getInstallmentStatus(lock);
-                    const isLocked = lock.lock_type === 'headwind' ? lock.mdm_locked : lock.icloud_locked;
+                    const isLocked = lock.icloud_locked;
                     
                     return (
                       <tr key={lock.id} className="hover:bg-white/[0.01] transition-all group">
@@ -319,19 +296,6 @@ export default function DeviceLockPanel() {
                           </div>
                         </td>
 
-                        {/* Lock Type Badge */}
-                        <td className="px-6 py-4">
-                          {lock.lock_type === 'icloud' ? (
-                            <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 w-fit">
-                              🍏 iOS (iCloud)
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 w-fit">
-                              🤖 Android (MDM)
-                            </span>
-                          )}
-                        </td>
-
                         {/* Installment Status */}
                         <td className="px-6 py-4">
                           {status === 'overdue' && (
@@ -354,17 +318,10 @@ export default function DeviceLockPanel() {
                         {/* Vínculo Corporativo */}
                         <td className="px-6 py-4">
                           <div className="text-xs text-white max-w-[180px] truncate font-medium">
-                            {lock.lock_type === 'icloud' ? (
-                              <span className="flex items-center gap-1" title={lock.icloud_email}>
-                                <Building size={12} className="text-on-surface-variant" />
-                                {lock.icloud_email || <span className="text-red-500/60 italic">Não vinculado!</span>}
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1">
-                                <QrCode size={12} className="text-cyan-400" />
-                                ID: {lock.mdm_device_id || 'Não cadastrado'}
-                              </span>
-                            )}
+                            <span className="flex items-center gap-1" title={lock.icloud_email}>
+                              <Building size={12} className="text-on-surface-variant" />
+                              {lock.icloud_email || <span className="text-red-500/60 italic">Não vinculado!</span>}
+                            </span>
                           </div>
                         </td>
 
@@ -384,74 +341,44 @@ export default function DeviceLockPanel() {
                         {/* Actions */}
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            {/* Headwind Android Actions */}
-                            {lock.lock_type === 'headwind' && (
+                            {/* Se o crediário estiver quitado, incentivar remoção do iCloud corporativo */}
+                            {status === 'quitado' && lock.icloud_email ? (
+                              <button
+                                onClick={() => handleConfirmIcloudRemoval(lock)}
+                                disabled={actionLoadingId === lock.id}
+                                className="px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                              >
+                                <Unlock size={12} />
+                                Registrar Remoção iCloud
+                              </button>
+                            ) : (
                               <>
-                                {!lock.mdm_locked ? (
+                                {/* Link externo para o Buscar iPhone */}
+                                <a
+                                  href="https://www.icloud.com/find"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-3.5 py-2 bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] text-white rounded-xl transition-all font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  Abrir Buscar <ExternalLink size={12} />
+                                </a>
+
+                                {!lock.icloud_locked ? (
                                   <button
                                     onClick={() => handleOpenLockModal(lock)}
                                     disabled={actionLoadingId === lock.id}
-                                    className="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-red-500/15"
+                                    className="px-3.5 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-red-500/15"
                                   >
-                                    <Lock size={12} />
-                                    Travar Aparelho
+                                    <Lock size={12} /> Confirmar Bloqueio
                                   </button>
                                 ) : (
                                   <button
                                     onClick={() => handleTriggerUnlock(lock)}
                                     disabled={actionLoadingId === lock.id}
-                                    className="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-500/15"
+                                    className="px-3.5 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-500/15"
                                   >
-                                    <Unlock size={12} />
-                                    Desbloquear
+                                    <Unlock size={12} /> Confirmar Desbloqueio
                                   </button>
-                                )}
-                              </>
-                            )}
-
-                            {/* iOS iCloud Actions */}
-                            {lock.lock_type === 'icloud' && (
-                              <>
-                                {/* Se o crediário estiver quitado, incentivar remoção do iCloud corporativo */}
-                                {status === 'quitado' && lock.icloud_email ? (
-                                  <button
-                                    onClick={() => handleConfirmIcloudRemoval(lock)}
-                                    disabled={actionLoadingId === lock.id}
-                                    className="px-4 py-2 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                                  >
-                                    <Unlock size={12} />
-                                    Registrar Remoção iCloud
-                                  </button>
-                                ) : (
-                                  <>
-                                    {/* Link externo para o Buscar iPhone */}
-                                    <a
-                                      href="https://www.icloud.com/find"
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="px-3.5 py-2 bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] text-white rounded-xl transition-all font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                      Abrir Buscar <ExternalLink size={12} />
-                                    </a>
-
-                                    {!lock.icloud_locked ? (
-                                      <button
-                                        onClick={() => handleOpenLockModal(lock)}
-                                        disabled={actionLoadingId === lock.id}
-                                        className="px-3.5 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-red-500/15"
-                                      >
-                                        <Lock size={12} /> Confirmar Bloqueio
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleTriggerUnlock(lock)}
-                                        disabled={actionLoadingId === lock.id}
-                                        className="px-3.5 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all font-semibold text-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-500/15"
-                                      >
-                                        <Unlock size={12} /> Confirmar Desbloqueio
-                                      </button>
-                                    )}
-                                  </>
                                 )}
                               </>
                             )}
@@ -485,26 +412,8 @@ export default function DeviceLockPanel() {
             </div>
 
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              Você está prestes a bloquear o aparelho de <strong>{selectedLock.sale?.customer?.name}</strong>. 
-              {selectedLock.lock_type === 'headwind' ? (
-                ' O bloqueio via API enviará um comando de Kiosk travando a tela do Android.'
-              ) : (
-                ' Lembre-se de primeiro ativar o "Modo Perdido" no site icloud.com para esta conta iCloud antes de confirmar aqui.'
-              )}
+              Você está prestes a bloquear o aparelho de <strong>{selectedLock.sale?.customer?.name}</strong>. Lembre-se de primeiro ativar o "Modo Perdido" no site icloud.com para esta conta iCloud antes de confirmar aqui.
             </p>
-
-            {selectedLock.lock_type === 'headwind' && (
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-wider text-on-surface-variant">Mensagem Exibida na Tela</label>
-                <textarea
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value)}
-                  rows={4}
-                  className="w-full p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-xs text-white placeholder-on-surface-variant focus:outline-none focus:border-red-500 transition-all resize-none"
-                  placeholder="Mensagem exibida na tela bloqueada..."
-                />
-              </div>
-            )}
 
             <div className="flex gap-3 pt-2">
               <button
