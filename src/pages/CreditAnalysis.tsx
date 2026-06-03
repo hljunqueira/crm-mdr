@@ -137,7 +137,7 @@ export default function CreditAnalysis() {
         credit_limit: suggestedLimit,
         suggested_down_payment: suggestedDownPayment,
         credit_status: suggestedStatus,
-        approved_for_purchase: suggestedStatus !== 'REPROVADO',
+        approved_for_purchase: false, // Default to false (not authorized) during Bacen query recommendation
         registration_status: suggestedStatus === 'REPROVADO' ? 'REPROVADO' : 'APROVADO'
       }));
 
@@ -203,13 +203,20 @@ export default function CreditAnalysis() {
 
     setIsSubmitting(true);
     try {
+      let autoRegistrationStatus: 'PRE_CADASTRO' | 'APROVADO' | 'REPROVADO' = 'PRE_CADASTRO';
+      if (formData.credit_status === 'APROVADO' || formData.credit_status === 'APROVADO_COM_ENTRADA') {
+        autoRegistrationStatus = 'APROVADO';
+      } else if (formData.credit_status === 'REPROVADO') {
+        autoRegistrationStatus = 'REPROVADO';
+      }
+
       const submitData = {
         classification: formData.classification,
         credit_limit: formData.credit_limit,
         suggested_down_payment: formData.suggested_down_payment,
         credit_status: formData.credit_status,
         approved_for_purchase: formData.approved_for_purchase,
-        registration_status: formData.registration_status,
+        registration_status: autoRegistrationStatus,
         responsible_analyst_id: formData.responsible_analyst_id || null,
         notes: formData.notes
       };
@@ -565,19 +572,6 @@ export default function CreditAnalysis() {
                     </select>
                   </div>
 
-                  {/* Status Geral do Cadastro */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status Geral do Cadastro</label>
-                    <select
-                      value={formData.registration_status}
-                      onChange={(e) => setFormData(p => ({ ...p, registration_status: e.target.value as any }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-                    >
-                      <option value="PRE_CADASTRO" className="bg-[#121214]">PRÉ-CADASTRO (Aguardando Aprovação)</option>
-                      <option value="APROVADO" className="bg-[#121214] text-success">APROVADO (Incluir como Cliente)</option>
-                      <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO / REJEITADO</option>
-                    </select>
-                  </div>
 
                   <div className="md:col-span-2 space-y-2">
                     <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Anotações / Justificativa da Decisão</label>

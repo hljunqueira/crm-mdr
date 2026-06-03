@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, CreditCard, Phone, MapPin, Save, X, 
-  Upload, FileText, Check, Loader2, DollarSign
+  Upload, FileText, Check, Loader2, DollarSign, Smartphone
 } from 'lucide-react';
 import { useCustomerStore, Customer } from '../../store/useCustomerStore';
 import { useUI } from '../../context/UIContext';
@@ -40,6 +40,9 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     document_address_url: initialData?.document_address_url || '',
     document_id_url: initialData?.document_id_url || '',
     document_income_url: initialData?.document_income_url || '',
+    desired_device: initialData?.desired_device || '',
+    needed_credit: initialData?.needed_credit || 0,
+    desired_installment_value: initialData?.desired_installment_value || 0,
     classification: initialData?.classification || 'MEDIO',
     credit_limit: initialData?.credit_limit || 0,
     suggested_down_payment: initialData?.suggested_down_payment || 0,
@@ -465,124 +468,73 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         </div>
       </div>
 
-      {/* SEÇÃO 5: CONFIGURAÇÕES DE CRÉDITO & HOMOLOGAÇÃO (Admin Only) */}
-      {isAdmin && (
-        <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4 animate-in fade-in duration-300">
-          <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
-            <CreditCard size={14} /> Homologação de Crédito (Exclusivo Admin)
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Classificação Risco */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Classificação de Risco</label>
-              <select
-                value={formData.classification}
-                onChange={(e) => setFormData(p => ({ ...p, classification: e.target.value as any }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="BOM" className="bg-[#121214] text-success">🟢 Premium (5% a.m.)</option>
-                <option value="MEDIO" className="bg-[#121214] text-warning">🟡 Standard (8% a.m.)</option>
-                <option value="RUIM" className="bg-[#121214] text-error">🔴 Flex (12% a.m.)</option>
-              </select>
-            </div>
+      {/* SEÇÃO 5: SIMULAÇÃO DE PRÉ-VENDA */}
+      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+        <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+          <Smartphone size={14} /> Simulação de Pré-venda (Sujeita a Aprovação)
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Aparelho Desejado */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Aparelho Procurado</label>
+            <input 
+              type="text" 
+              placeholder="Ex: iPhone 13 128GB"
+              value={formData.desired_device}
+              onChange={(e) => setFormData(p => ({ ...p, desired_device: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
 
-            {/* Limite de Crédito Aprovado */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Limite Pré-Aprovado (R$)</label>
-              <div className="relative">
-                <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                <input 
-                  type="number" 
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.credit_limit}
-                  onChange={(e) => setFormData(p => ({ ...p, credit_limit: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                />
-              </div>
+          {/* Crédito Necessário */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Crédito Necessário (R$)</label>
+            <div className="relative">
+              <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+              <input 
+                type="number" 
+                step="0.01"
+                placeholder="0.00"
+                value={formData.needed_credit === 0 ? '' : formData.needed_credit}
+                onChange={(e) => setFormData(p => ({ ...p, needed_credit: parseFloat(e.target.value) || 0 }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
             </div>
+          </div>
 
-            {/* Status Análise de Crédito */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status do Crédito</label>
-              <select
-                value={formData.credit_status}
-                onChange={(e) => setFormData(p => ({ ...p, credit_status: e.target.value as any }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="EM_ANALISE" className="bg-[#121214]">EM ANÁLISE</option>
-                <option value="APROVADO" className="bg-[#121214] text-success">APROVADO</option>
-                <option value="APROVADO_COM_ENTRADA" className="bg-[#121214] text-warning">APROVADO COM ENTRADA</option>
-                <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO</option>
-              </select>
+          {/* Entrada Sugerida */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Entrada Sugerido (R$)</label>
+            <div className="relative">
+              <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+              <input 
+                type="number" 
+                step="0.01"
+                placeholder="0.00"
+                value={formData.suggested_down_payment === 0 ? '' : formData.suggested_down_payment}
+                onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
             </div>
+          </div>
 
-            {/* Valor de Entrada Sugerido */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada Sugerida (R$)</label>
-              <div className="relative">
-                <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.suggested_down_payment}
-                  onChange={(e) => setFormData(p => ({ ...p, suggested_down_payment: parseFloat(e.target.value) || 0 }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Analista Responsável */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Analista Responsável</label>
-              <select
-                value={formData.responsible_analyst_id}
-                onChange={(e) => setFormData(p => ({ ...p, responsible_analyst_id: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="" className="bg-[#121214]">Nenhum Selecionado</option>
-                {admins.map(adm => (
-                  <option key={adm.id} value={adm.id} className="bg-[#121214]">
-                    {adm.full_name} {adm.phone ? `(${adm.phone})` : '(Sem Celular)'}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Status Geral do Cadastro */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status Geral do Cadastro</label>
-              <select
-                value={formData.registration_status}
-                onChange={(e) => setFormData(p => ({ ...p, registration_status: e.target.value as any }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="PRE_CADASTRO" className="bg-[#121214]">PRÉ-CADASTRO (Aguardando Aprovação)</option>
-                <option value="APROVADO" className="bg-[#121214] text-success">APROVADO (Incluir como Cliente)</option>
-                <option value="REPROVADO" className="bg-[#121214] text-error">REPROVADO / REJEITADO</option>
-              </select>
-            </div>
-
-            {/* Liberado para Compra Switch */}
-            <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-xs font-black uppercase text-on-surface tracking-wider">Liberado para Compra no PDV</span>
-                <span className="text-[9px] text-on-surface-variant opacity-60">Se ativado, permite registrar vendas de aparelhos para este cliente</span>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={formData.approved_for_purchase}
-                  onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
-                  className="sr-only peer" 
-                />
-                <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
-              </label>
+          {/* Valor da Parcela Desejada */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Ideal da Parcela (R$)</label>
+            <div className="relative">
+              <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+              <input 
+                type="number" 
+                step="0.01"
+                placeholder="0.00"
+                value={formData.desired_installment_value === 0 ? '' : formData.desired_installment_value}
+                onChange={(e) => setFormData(p => ({ ...p, desired_installment_value: parseFloat(e.target.value) || 0 }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
             </div>
           </div>
         </div>
-      )}
+      </div>
 
 
       {/* BOTÕES DE AÇÃO */}

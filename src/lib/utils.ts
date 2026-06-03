@@ -55,31 +55,21 @@ export function printElement(elementId: string) {
   const element = document.getElementById(elementId);
   if (!element) return;
 
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+  let printDiv = document.getElementById('print-mount-point');
+  if (!printDiv) {
+    printDiv = document.createElement('div');
+    printDiv.id = 'print-mount-point';
+    document.body.appendChild(printDiv);
+  }
 
-  const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-    .map(styleNode => styleNode.outerHTML)
-    .join('\n');
-
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Impressão - CRM MDR</title>
-        ${styles}
-      </head>
-      <body>
-        <div id="${elementId}" class="contract-container">
-          ${element.innerHTML}
-        </div>
-        <script>
-          setTimeout(() => {
-            window.print();
-            window.close();
-          }, 500);
-        </script>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
+  printDiv.innerHTML = element.innerHTML;
+  document.body.classList.add('printing-active');
+  
+  setTimeout(() => {
+    window.print();
+    document.body.classList.remove('printing-active');
+    if (printDiv) {
+      printDiv.innerHTML = '';
+    }
+  }, 300);
 }

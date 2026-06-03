@@ -21,7 +21,10 @@ CREATE OR REPLACE FUNCTION handle_new_sale_inventory()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.device_id IS NOT NULL THEN
-        UPDATE devices SET status = 'sold' WHERE id = NEW.device_id;
+        UPDATE devices 
+        SET stock_quantity = GREATEST(0, stock_quantity - 1),
+            status = CASE WHEN GREATEST(0, stock_quantity - 1) = 0 THEN 'sold' ELSE status END
+        WHERE id = NEW.device_id;
     END IF;
     RETURN NEW;
 END;
@@ -78,3 +81,8 @@ DROP POLICY IF EXISTS "Permitir leitura publica de aparelhos disponiveis" ON dev
 CREATE POLICY "Permitir leitura publica de aparelhos disponiveis" ON devices
     FOR SELECT TO public
     USING (status = 'available' AND stock_quantity > 0);
+
+-- 8. Campos de Simulação de Pré-venda na Tabela de Clientes
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS desired_device TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS needed_credit DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS desired_installment_value DECIMAL(12, 2) DEFAULT 0;

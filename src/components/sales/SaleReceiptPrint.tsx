@@ -35,16 +35,6 @@ interface SaleReceiptPrintProps {
   firstInstallmentValue?: number;
 }
 
-// MDR Logo as inline SVG – always renders even offline/print
-const MDRLogo = () => (
-  <svg width="120" height="44" viewBox="0 0 240 88" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="240" height="88" rx="12" fill="#1a1a2e"/>
-    <text x="12" y="60" fontFamily="Arial Black, Arial" fontWeight="900" fontSize="52" fill="#6C63FF" letterSpacing="-2">MDR</text>
-    <rect x="12" y="66" width="216" height="3" rx="1.5" fill="#6C63FF" opacity="0.6"/>
-    <text x="12" y="82" fontFamily="Arial, sans-serif" fontSize="10" fill="#aaa" letterSpacing="3">INFORMÁTICA &amp; CELULARES</text>
-  </svg>
-);
-
 export default function SaleReceiptPrint({ sale, customer, unit, installmentValue, firstInstallmentValue }: SaleReceiptPrintProps) {
   const today = new Date().toLocaleDateString('pt-BR');
   const basePrice = sale.original_price ?? sale.total_value;
@@ -52,155 +42,360 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
   const firstInstValue = firstInstallmentValue ?? instValue;
   const hasGracePeriod = firstInstallmentValue !== undefined && firstInstallmentValue > instValue;
-  const paymentLabel = sale.payment_type === 'card' ? 'Cartão de Crédito' : 'Crediário da Loja';
+  
+  const getPaymentLabel = (type?: string) => {
+    switch (type) {
+      case 'pix': return 'PIX';
+      case 'money': return 'Dinheiro';
+      case 'card': return 'Cartão de Crédito';
+      case 'crediario': return 'Crediário da Loja';
+      default: return type ? type.toUpperCase() : 'Não Informado';
+    }
+  };
+
   const receiptNumber = Math.floor(Math.random() * 900000 + 100000);
+
+  const renderReceiptCopy = (copyTitle: string) => {
+    return (
+      <div className="thermal-receipt">
+        {/* Copy Indicator */}
+        <div className="copy-indicator">{copyTitle}</div>
+
+        {/* Company Header */}
+        <div className="header-center">
+          <div className="brand-name">MDR</div>
+          <div className="brand-sub">INFORMÁTICA & CELULARES</div>
+          <div className="unit-details">
+            {unit.name}<br />
+            {unit.cnpj && <>CNPJ: {unit.cnpj}<br /></>}
+            {unit.address && <>{unit.address}<br /></>}
+            {unit.phone && <>Tel: {formatPhone(unit.phone)}</>}
+          </div>
+        </div>
+
+        <div className="double-divider"></div>
+
+        {/* Title and Meta */}
+        <div className="header-center">
+          <div className="receipt-title">NOTA DE VENDA</div>
+          <div className="receipt-num">N° #{receiptNumber}</div>
+          <div className="receipt-date">Data: {today}</div>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Buyer Section */}
+        <div className="section-title">DADOS DO CLIENTE</div>
+        <div className="row">
+          <span>Nome:</span>
+          <span className="align-right">{customer.name}</span>
+        </div>
+        <div className="row">
+          <span>CPF:</span>
+          <span className="align-right font-mono">{formatCPF(customer.cpf)}</span>
+        </div>
+        <div className="row">
+          <span>Tel:</span>
+          <span className="align-right font-mono">{formatPhone(customer.phone)}</span>
+        </div>
+        {customer.address && (
+          <div className="row">
+            <span>Endereço:</span>
+            <span className="align-right">{customer.address}</span>
+          </div>
+        )}
+
+        <div className="divider"></div>
+
+        {/* Product Section */}
+        <div className="section-title">PRODUTOS E SERVIÇOS</div>
+        <div className="row">
+          <span>Aparelho:</span>
+          <span className="align-right">{sale.device_model}</span>
+        </div>
+        <div className="row">
+          <span>IMEI/Serial:</span>
+          <span className="align-right font-mono">{sale.imei || '—'}</span>
+        </div>
+        {sale.device_color && (
+          <div className="row">
+            <span>Cor:</span>
+            <span className="align-right">{sale.device_color}</span>
+          </div>
+        )}
+        {sale.accessories && (
+          <div className="row">
+            <span>Acessórios:</span>
+            <span className="align-right text-small">{sale.accessories}</span>
+          </div>
+        )}
+        <div className="row">
+          <span>Pagamento:</span>
+          <span className="align-right">{getPaymentLabel(sale.payment_type)}</span>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Financial Details */}
+        <div className="section-title">RESUMO FINANCEIRO</div>
+        <div className="row">
+          <span>Preço Base:</span>
+          <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        
+        {sale.down_payment > 0 && (
+          <>
+            <div className="row">
+              <span>Entrada:</span>
+              <span className="align-right font-mono">R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            {sale.down_payment_method === 'trade' && (
+              <div className="trade-box">
+                Recebido: {sale.trade_device_model} (IMEI: {sale.trade_device_imei || 'N/A'})
+              </div>
+            )}
+          </>
+        )}
+
+        {sale.payment_type === 'crediario' && (
+          <>
+            <div className="row">
+              <span>Saldo Financiado:</span>
+              <span className="align-right font-mono">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            {hasGracePeriod ? (
+              <>
+                <div className="row">
+                  <span>1ª Parcela (Carência):</span>
+                  <span className="align-right font-mono">R$ {firstInstValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                {sale.installments > 1 && (
+                  <div className="row">
+                    <span>Parcelas 2-{sale.installments}:</span>
+                    <span className="align-right font-mono">{sale.installments - 1}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="row">
+                <span>Parcelas:</span>
+                <span className="align-right font-mono">{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="row">
+              <span>1º Vencimento:</span>
+              <span className="align-right font-mono">{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+            </div>
+          </>
+        )}
+
+        <div className="divider"></div>
+
+        {/* Total Box */}
+        <div className="total-box">
+          <div className="total-label">VALOR TOTAL</div>
+          <div className="total-val">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+
+        {/* Discount Policy */}
+        {sale.payment_type === 'crediario' && (
+          <div className="discount-info">
+            <span className="discount-title">POLÍTICA DE ANTECIPAÇÃO:</span><br />
+            • 1 parc.: 3% de desc. nos juros<br />
+            • 2 parc.: 5% de desc. nos juros<br />
+            • 3+ parc.: 8% de desc. nos juros<br />
+            • Quitação total: Negociação
+          </div>
+        )}
+
+        <div className="divider"></div>
+
+        {/* Signatures */}
+        <div className="sig-line-box">
+          <div className="sig-line"></div>
+          <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
+        </div>
+
+        <div className="sig-line-box" style={{ marginTop: '20px' }}>
+          <div className="sig-line"></div>
+          <span className="sig-label">{customer.name}<br />Comprador</span>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Footer Note */}
+        <div className="footer-note">
+          Comprovante interno emitido por {unit.name || 'MDR Informática & Celulares'}.
+          O aparelho é propriedade do vendedor até a quitação total das parcelas.
+          Pagamentos via PIX/Dinheiro/Transferência.
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div id="sale-receipt" className="hidden">
       <style>{`
         @media print {
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          body > *:not(#sale-receipt) { display: none !important; }
-          #sale-receipt { display: block !important; font-family: Arial, sans-serif; color: #111; }
+          body > *:not(#print-mount-point) { display: none !important; }
+          #print-mount-point { display: block !important; }
+          @page {
+            margin: 0;
+            size: auto;
+          }
         }
-        #sale-receipt {
-          width: 210mm;
-          min-height: 148mm;
-          padding: 12mm 14mm;
+        .thermal-receipt {
+          width: 80mm;
+          margin: 0 auto;
+          padding: 4mm;
           box-sizing: border-box;
-          font-family: Arial, sans-serif;
+          font-family: 'Courier New', Courier, monospace;
           font-size: 11px;
-          color: #111;
+          color: #000;
           background: #fff;
+          line-height: 1.3;
         }
-        #sale-receipt .receipt-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #6C63FF; }
-        #sale-receipt .receipt-title { font-size: 18px; font-weight: 900; color: #1a1a2e; letter-spacing: -0.5px; }
-        #sale-receipt .receipt-subtitle { font-size: 9px; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
-        #sale-receipt .receipt-meta { text-align: right; font-size: 10px; color: #555; }
-        #sale-receipt .receipt-meta strong { color: #1a1a2e; }
-        #sale-receipt .section { margin: 10px 0; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 6px; }
-        #sale-receipt .section-title { font-size: 9px; font-weight: 900; color: #6C63FF; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
-        #sale-receipt .row { display: flex; justify-content: space-between; margin: 3px 0; }
-        #sale-receipt .row span { color: #555; }
-        #sale-receipt .row strong { color: #111; }
-        #sale-receipt .value-box { background: #f5f3ff; border: 2px solid #6C63FF; border-radius: 6px; padding: 8px 12px; margin: 8px 0; text-align: center; }
-        #sale-receipt .value-box .label { font-size: 9px; color: #6C63FF; text-transform: uppercase; letter-spacing: 2px; font-weight: 900; }
-        #sale-receipt .value-box .amount { font-size: 24px; font-weight: 900; color: #1a1a2e; letter-spacing: -1px; }
-        #sale-receipt .installment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
-        #sale-receipt .installment-grid .inst-card { border: 1px solid #ddd; border-radius: 4px; padding: 5px 8px; text-align: center; }
-        #sale-receipt .inst-card .inst-num { font-size: 8px; color: #999; text-transform: uppercase; letter-spacing: 1px; }
-        #sale-receipt .inst-card .inst-val { font-size: 11px; font-weight: 900; color: #1a1a2e; }
-        #sale-receipt .signature-area { display: flex; justify-content: space-between; margin-top: 14px; gap: 20px; }
-        #sale-receipt .sig-box { flex: 1; }
-        #sale-receipt .sig-line { border-top: 1.5px solid #bbb; margin-top: 30px; padding-top: 5px; font-size: 9px; color: #666; text-align: center; }
-        #sale-receipt .footer-note { font-size: 8px; color: #aaa; text-align: center; margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 6px; }
+        .copy-indicator {
+          text-align: center;
+          font-weight: bold;
+          font-size: 10px;
+          border: 1px solid #000;
+          padding: 2px;
+          margin-bottom: 8px;
+          letter-spacing: 1px;
+        }
+        .header-center {
+          text-align: center;
+          margin-bottom: 6px;
+        }
+        .brand-name {
+          font-size: 22px;
+          font-weight: 900;
+          letter-spacing: -1px;
+        }
+        .brand-sub {
+          font-size: 8px;
+          letter-spacing: 1px;
+          margin-bottom: 4px;
+        }
+        .unit-details {
+          font-size: 9px;
+          color: #333;
+        }
+        .receipt-title {
+          font-size: 14px;
+          font-weight: bold;
+          margin-top: 4px;
+        }
+        .receipt-num {
+          font-size: 11px;
+          font-weight: bold;
+        }
+        .receipt-date {
+          font-size: 10px;
+        }
+        .divider {
+          border-top: 1px dashed #000;
+          margin: 6px 0;
+        }
+        .double-divider {
+          border-top: 1px double #000;
+          border-bottom: 1px double #000;
+          height: 3px;
+          margin: 6px 0;
+        }
+        .section-title {
+          font-weight: bold;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+          font-size: 10px;
+          letter-spacing: 0.5px;
+          text-decoration: underline;
+        }
+        .row {
+          display: flex;
+          justify-content: space-between;
+          margin: 2px 0;
+        }
+        .align-right {
+          text-align: right;
+          max-width: 60%;
+          word-wrap: break-word;
+        }
+        .font-mono {
+          font-family: 'Courier New', Courier, monospace;
+        }
+        .text-small {
+          font-size: 9px;
+        }
+        .trade-box {
+          background: #f0f0f0;
+          border: 1px dashed #000;
+          padding: 4px;
+          margin: 2px 0;
+          font-size: 9px;
+        }
+        .total-box {
+          border: 2px solid #000;
+          padding: 6px;
+          margin: 8px 0;
+          text-align: center;
+        }
+        .total-label {
+          font-size: 9px;
+          font-weight: bold;
+        }
+        .total-val {
+          font-size: 18px;
+          font-weight: bold;
+        }
+        .discount-info {
+          font-size: 9px;
+          border: 1px dotted #000;
+          padding: 4px;
+          margin-top: 6px;
+          line-height: 1.2;
+        }
+        .discount-title {
+          font-weight: bold;
+        }
+        .sig-line-box {
+          margin-top: 25px;
+          text-align: center;
+        }
+        .sig-line {
+          border-top: 1px solid #000;
+          width: 80%;
+          margin: 0 auto 4px auto;
+        }
+        .sig-label {
+          font-size: 9px;
+          line-height: 1.1;
+          display: block;
+        }
+        .footer-note {
+          font-size: 8px;
+          text-align: center;
+          margin-top: 8px;
+          line-height: 1.2;
+        }
+        .receipt-separator {
+          text-align: center;
+          margin: 15px 0;
+          border-top: 2px dashed #000;
+          padding-top: 15px;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 9px;
+          color: #555;
+          page-break-inside: avoid;
+        }
       `}</style>
 
-      <div className="receipt-header">
-        <div>
-          <MDRLogo />
-          <div style={{ marginTop: 4, fontSize: 9, color: '#888' }}>
-            {unit.cnpj && <span>CNPJ: {unit.cnpj} | </span>}
-            {unit.address && <span>{unit.address}</span>}
-          </div>
-        </div>
-        <div className="receipt-meta">
-          <div className="receipt-title">NOTA DE VENDA</div>
-          <div className="receipt-subtitle">Recibo de Compra</div>
-          <div style={{ marginTop: 6 }}>
-            <div>N° <strong>#{receiptNumber}</strong></div>
-            <div>Data: <strong>{today}</strong></div>
-            {unit.phone && <div>Tel: <strong>{unit.phone}</strong></div>}
-          </div>
-        </div>
+      {renderReceiptCopy("VIA DO CLIENTE")}
+      <div className="receipt-separator">
+        - - - - - - - - SERRILHA DE CORTE - - - - - - - -
       </div>
-
-      {/* Buyer Info */}
-      <div className="section">
-        <div className="section-title">Dados do Comprador</div>
-        <div className="row"><span>Nome:</span><strong>{customer.name}</strong></div>
-        <div className="row"><span>CPF:</span><strong>{formatCPF(customer.cpf)}</strong></div>
-        <div className="row"><span>Telefone:</span><strong>{formatPhone(customer.phone)}</strong></div>
-        {customer.address && <div className="row"><span>Endereço:</span><strong>{customer.address}</strong></div>}
-      </div>
-
-      {/* Device Info */}
-      <div className="section">
-        <div className="section-title">Produto Adquirido</div>
-        <div className="row"><span>Aparelho:</span><strong>{sale.device_model}</strong></div>
-        <div className="row"><span>IMEI / Serial:</span><strong>{sale.imei || '—'}</strong></div>
-        {sale.device_color && <div className="row"><span>Cor:</span><strong>{sale.device_color}</strong></div>}
-        {sale.accessories && <div className="row"><span>Acessórios:</span><strong>{sale.accessories}</strong></div>}
-        <div className="row"><span>Forma de Pagamento:</span><strong>{paymentLabel}</strong></div>
-      </div>
-
-      {/* Financial Summary */}
-      <div className="value-box">
-        <div className="label">Valor Total da Venda</div>
-        <div className="amount">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-        {sale.original_price && sale.original_price !== sale.total_value && (
-          <div style={{ fontSize: 9, color: '#888', marginTop: 2 }}>
-            Preço base: R$ {sale.original_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + juros/serviços: R$ {((sale.service_fee ?? 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </div>
-        )}
-      </div>
-
-      <div className="section">
-        <div className="section-title">Resumo Financeiro</div>
-        <div className="row"><span>Preço à Vista (base):</span><strong>R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-        <div className="row"><span>Entrada Paga:</span><strong>R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {sale.down_payment_method === 'trade' ? '(Troca)' : ''}</strong></div>
-        {sale.down_payment_method === 'trade' && (
-          <div className="row" style={{ padding: '2px 6px', background: 'rgba(108, 99, 255, 0.05)', borderRadius: '4px', margin: '2px 0' }}>
-            <span>Aparelho Recebido:</span><strong>{sale.trade_device_model} (IMEI: {sale.trade_device_imei || 'N/A'})</strong>
-          </div>
-        )}
-        <div className="row"><span>Saldo Financiado:</span><strong>R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-        {hasGracePeriod ? (
-          <>
-            <div className="row"><span>1ª Parcela (c/ carência):</span><strong>R$ {firstInstValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-            {sale.installments > 1 && (
-              <div className="row"><span>Parcelas 2–{sale.installments}:</span><strong>{sale.installments - 1}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-            )}
-          </>
-        ) : (
-          <div className="row"><span>Parcelado em:</span><strong>{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></div>
-        )}
-        <div className="row"><span>1° Vencimento:</span><strong>{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong></div>
-      </div>
-
-      {sale.payment_type !== 'card' && (
-        <div className="section">
-          <div className="section-title">Desconto por Antecipação de Parcelas</div>
-          <div className="row" style={{ fontSize: '10px' }}>
-            <span>• Antecipar 1 parcela:</span><strong>3% de desc. nos juros</strong>
-          </div>
-          <div className="row" style={{ fontSize: '10px' }}>
-            <span>• Antecipar 2 parcelas:</span><strong>5% de desc. nos juros</strong>
-          </div>
-          <div className="row" style={{ fontSize: '10px' }}>
-            <span>• Antecipar 3 ou mais parcelas:</span><strong>8% de desc. nos juros</strong>
-          </div>
-          <div className="row" style={{ fontSize: '10px' }}>
-            <span>• Quitação total (acima de 50% restante):</span><strong>Negociação especial</strong>
-          </div>
-        </div>
-      )}
-
-      {/* Signature */}
-      <div className="signature-area">
-        <div className="sig-box">
-          <div className="sig-line">{unit.name || 'MDR Informática & Celulares'}<br /><span style={{ fontSize: 8 }}>Vendedor / Responsável</span></div>
-        </div>
-        <div className="sig-box">
-          <div className="sig-line">{customer.name}<br /><span style={{ fontSize: 8 }}>Comprador — CPF: {formatCPF(customer.cpf)}</span></div>
-        </div>
-      </div>
-
-      <div className="footer-note">
-        Este documento é um comprovante interno de venda emitido por {unit.name || 'MDR Informática & Celulares'}.
-        Guarde este recibo. O celular é propriedade do vendedor até a quitação total das parcelas.
-        Pagamentos via PIX/Dinheiro/Transferência na data de vencimento de cada parcela.
-      </div>
+      {renderReceiptCopy("VIA DO ESTABELECIMENTO")}
     </div>
   );
 }

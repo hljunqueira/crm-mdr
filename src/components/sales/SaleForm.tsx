@@ -390,7 +390,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
         // Mark main device as sold
         if (formData.device_id) {
-          await updateItem(formData.device_id, { status: 'sold' });
+          const deviceItem = inventory.find(d => d.id === formData.device_id);
+          const currentStock = deviceItem?.stock_quantity || 0;
+          const newQty = Math.max(0, currentStock - 1);
+          await updateItem(formData.device_id, {
+            stock_quantity: newQty,
+            status: newQty === 0 ? 'sold' : 'available'
+          });
         }
 
         // Deduct stock for all accessories (both brinde and venda)

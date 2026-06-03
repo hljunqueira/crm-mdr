@@ -243,7 +243,10 @@ CREATE OR REPLACE FUNCTION handle_new_sale_inventory()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.device_id IS NOT NULL THEN
-        UPDATE devices SET status = 'sold' WHERE id = NEW.device_id;
+        UPDATE devices 
+        SET stock_quantity = GREATEST(0, stock_quantity - 1),
+            status = CASE WHEN GREATEST(0, stock_quantity - 1) = 0 THEN 'sold' ELSE status END
+        WHERE id = NEW.device_id;
     END IF;
     RETURN NEW;
 END;

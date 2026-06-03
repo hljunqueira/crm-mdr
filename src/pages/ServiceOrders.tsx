@@ -385,6 +385,271 @@ export default function ServiceOrders() {
   // Accessories quick suggestions based on selected category
   const activeAccessoriesList = ACCESSORY_SUGGESTIONS[newOs.device_category] || ACCESSORY_SUGGESTIONS.other;
 
+  const today = new Date().toLocaleDateString('pt-BR');
+
+  const renderOsEntryCopy = (copyTitle: string) => {
+    if (!currentServiceOrder) return null;
+    return (
+      <div className="os-thermal-receipt">
+        {/* Copy Indicator */}
+        <div className="copy-indicator" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10px', border: '1px solid #000', padding: '2px', marginBottom: '8px' }}>
+          {copyTitle}
+        </div>
+
+        {/* Company Header */}
+        <div className="header-center">
+          <div className="brand-name">MDR</div>
+          <div className="brand-sub">INFORMÁTICA & CELULARES</div>
+          <div className="unit-details">
+            Rua Principal, 1234 - Centro<br />
+            WhatsApp: (11) 99999-9999
+          </div>
+        </div>
+
+        <div className="double-divider"></div>
+
+        {/* Title and Meta */}
+        <div className="header-center">
+          <div className="receipt-title">ORDEM DE SERVIÇO</div>
+          <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
+          <div className="receipt-date">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Buyer Section */}
+        <div className="section-title">DADOS DO CLIENTE</div>
+        <div className="row">
+          <span>Nome:</span>
+          <span className="align-right">{currentServiceOrder.customers?.name}</span>
+        </div>
+        <div className="row">
+          <span>CPF:</span>
+          <span className="align-right font-mono">{currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</span>
+        </div>
+        <div className="row">
+          <span>Tel:</span>
+          <span className="align-right font-mono">{currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</span>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Device Section */}
+        <div className="section-title">DADOS DO EQUIPAMENTO</div>
+        <div className="row">
+          <span>Aparelho:</span>
+          <span className="align-right">{currentServiceOrder.device_brand} {currentServiceOrder.device_model}</span>
+        </div>
+        <div className="row">
+          <span>Categoria:</span>
+          <span className="align-right">{currentServiceOrder.device_category.toUpperCase()}</span>
+        </div>
+        <div className="row">
+          <span>S/N ou IMEI:</span>
+          <span className="align-right font-mono text-small">{currentServiceOrder.device_serial_number || '—'}</span>
+        </div>
+        {currentServiceOrder.device_passcode && (
+          <div className="row">
+            <span>Senha/PIN:</span>
+            <span className="align-right font-mono">{currentServiceOrder.device_passcode}</span>
+          </div>
+        )}
+
+        <div className="divider"></div>
+
+        {/* Diagnosis Intake Section */}
+        <div className="section-title">VISTORIA E ENTRADA</div>
+        <div className="row">
+          <span>Defeito Relatado:</span>
+          <span className="align-right text-small">{currentServiceOrder.reported_issue}</span>
+        </div>
+        {currentServiceOrder.cosmetic_condition && (
+          <div className="row">
+            <span>Vistoria Visual:</span>
+            <span className="align-right text-small">{currentServiceOrder.cosmetic_condition}</span>
+          </div>
+        )}
+        {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 && (
+          <div className="row">
+            <span>Acessórios Inclusos:</span>
+            <span className="align-right text-small">{currentServiceOrder.accessories_left.join(', ')}</span>
+          </div>
+        )}
+        {currentServiceOrder.estimated_delivery && (
+          <div className="row">
+            <span>Previsão de Entrega:</span>
+            <span className="align-right font-mono">{new Date(currentServiceOrder.estimated_delivery + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+          </div>
+        )}
+
+        <div className="divider"></div>
+
+        {/* Clauses */}
+        <div className="section-title">TERMOS DE RECEBIMENTO</div>
+        <div className="clauses">
+          1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
+          2. <strong>Backup de Dados:</strong> A MDR **NÃO se responsabiliza por perdas de dados** ou arquivos. Faça backup prévio.<br />
+          3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por **mais de 90 dias** após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Signatures */}
+        <div className="sig-line-box">
+          <div className="sig-line"></div>
+          <span className="sig-label">MDR Informática & Celulares</span>
+        </div>
+
+        <div className="sig-line-box" style={{ marginTop: '20px' }}>
+          {currentServiceOrder.signature_entry && (
+            <div className="sig-image-container">
+              <img src={currentServiceOrder.signature_entry} alt="Assinatura Cliente" className="sig-image" />
+            </div>
+          )}
+          <div className="sig-line"></div>
+          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
+        </div>
+
+        <div className="divider"></div>
+
+        <div className="footer-note">
+          Comprovante de Entrada. Obrigado!
+        </div>
+      </div>
+    );
+  };
+
+  const renderOsWarrantyCopy = (copyTitle: string) => {
+    if (!currentServiceOrder) return null;
+    return (
+      <div className="os-thermal-receipt">
+        {/* Copy Indicator */}
+        <div className="copy-indicator" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10px', border: '1px solid #000', padding: '2px', marginBottom: '8px' }}>
+          {copyTitle}
+        </div>
+
+        {/* Company Header */}
+        <div className="header-center">
+          <div className="brand-name">MDR</div>
+          <div className="brand-sub">INFORMÁTICA & CELULARES</div>
+          <div className="unit-details">
+            Rua Principal, 1234 - Centro<br />
+            WhatsApp: (11) 99999-9999
+          </div>
+        </div>
+
+        <div className="double-divider"></div>
+
+        {/* Title and Meta */}
+        <div className="header-center">
+          <div className="receipt-title">COMPROVANTE DE SAÍDA & GARANTIA</div>
+          <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
+          <div className="receipt-date">Data Saída: {today}</div>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Buyer Section */}
+        <div className="section-title">DADOS DO CLIENTE</div>
+        <div className="row">
+          <span>Nome:</span>
+          <span className="align-right">{currentServiceOrder.customers?.name}</span>
+        </div>
+        <div className="row">
+          <span>CPF:</span>
+          <span className="align-right font-mono">{currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</span>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Device Section */}
+        <div className="section-title">DADOS DO EQUIPAMENTO</div>
+        <div className="row">
+          <span>Aparelho:</span>
+          <span className="align-right">{currentServiceOrder.device_brand} {currentServiceOrder.device_model}</span>
+        </div>
+        <div className="row">
+          <span>S/N ou IMEI:</span>
+          <span className="align-right font-mono text-small">{currentServiceOrder.device_serial_number || '—'}</span>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Diagnosis & Fix Section */}
+        <div className="section-title">LAUDO TÉCNICO DE REPARO</div>
+        <div className="row">
+          <span>Problema Original:</span>
+          <span className="align-right text-small">{currentServiceOrder.reported_issue}</span>
+        </div>
+        <div className="row">
+          <span>Laudo Técnico:</span>
+          <span className="align-right text-small">
+            {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim() : 'Reparo concluído.'}
+          </span>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Financial Details */}
+        <div className="section-title">DETALHAMENTO FINANCEIRO</div>
+        <div className="row">
+          <span>Mão de Obra:</span>
+          <span className="align-right font-mono">R$ {Number(currentServiceOrder.labor_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div className="row">
+          <span>Peças Aplicadas:</span>
+          <span className="align-right font-mono">R$ {Number(currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div className="row">
+          <span>Forma Pagamento:</span>
+          <span className="align-right font-mono">{currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / Dinheiro'}</span>
+        </div>
+        
+        <div className="total-box">
+          <div className="total-label">VALOR TOTAL PAGO</div>
+          <div className="total-val">R$ {Number(currentServiceOrder.labor_value + currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Warranty info */}
+        <div className="section-title">CERTIFICADO DE GARANTIA</div>
+        <div className="clauses">
+          Garantia técnica de **{currentServiceOrder.warranty_period || 90} dias** sobre peças/serviços desta OS.<br />
+          <strong>EXCLUSÕES DA GARANTIA:</strong> A garantia será anulada em caso de:<br />
+          • Quedas, quebras, amassados ou mau uso;<br />
+          • Oxidação, umidade ou contato com líquidos;<br />
+          • Rompimento dos lacres MDR aplicados;<br />
+          • Abertura por terceiros.
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Signatures */}
+        <div className="sig-line-box">
+          <div className="sig-line"></div>
+          <span className="sig-label">MDR Informática & Celulares</span>
+        </div>
+
+        <div className="sig-line-box" style={{ marginTop: '20px' }}>
+          {currentServiceOrder.signature_exit && (
+            <div className="sig-image-container">
+              <img src={currentServiceOrder.signature_exit} alt="Assinatura Cliente Saída" className="sig-image" />
+            </div>
+          )}
+          <div className="sig-line"></div>
+          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
+        </div>
+
+        <div className="divider"></div>
+
+        <div className="footer-note">
+          Guarde este certificado. Obrigado!
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
       
@@ -1084,121 +1349,157 @@ export default function ServiceOrders() {
       {/* IMPRESSÕES TÉRMICAS E DE TERMOS (CONTAINERS OCULTOS PRINT:BLOCK) */}
       {currentServiceOrder && (
         <>
+          {/* Style for OS thermal receipts */}
+          <style>{`
+            .os-thermal-receipt {
+              width: 80mm;
+              margin: 0 auto;
+              padding: 4mm;
+              box-sizing: border-box;
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 11px;
+              color: #000;
+              background: #fff;
+              line-height: 1.3;
+            }
+            .os-thermal-receipt .header-center {
+              text-align: center;
+              margin-bottom: 6px;
+            }
+            .os-thermal-receipt .brand-name {
+              font-size: 20px;
+              font-weight: 900;
+              letter-spacing: -1px;
+            }
+            .os-thermal-receipt .brand-sub {
+              font-size: 8px;
+              letter-spacing: 1px;
+              margin-bottom: 4px;
+            }
+            .os-thermal-receipt .unit-details {
+              font-size: 9px;
+              color: #333;
+            }
+            .os-thermal-receipt .receipt-title {
+              font-size: 13px;
+              font-weight: bold;
+              margin-top: 4px;
+              border: 1px solid #000;
+              padding: 2px;
+              background: #f0f0f0;
+            }
+            .os-thermal-receipt .receipt-num {
+              font-size: 11px;
+              font-weight: bold;
+              margin-top: 2px;
+            }
+            .os-thermal-receipt .receipt-date {
+              font-size: 10px;
+            }
+            .os-thermal-receipt .divider {
+              border-top: 1px dashed #000;
+              margin: 6px 0;
+            }
+            .os-thermal-receipt .double-divider {
+              border-top: 1px double #000;
+              border-bottom: 1px double #000;
+              height: 3px;
+              margin: 6px 0;
+            }
+            .os-thermal-receipt .section-title {
+              font-weight: bold;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+              font-size: 10px;
+              letter-spacing: 0.5px;
+              text-decoration: underline;
+            }
+            .os-thermal-receipt .row {
+              display: flex;
+              justify-content: space-between;
+              margin: 2px 0;
+            }
+            .os-thermal-receipt .align-right {
+              text-align: right;
+              max-width: 60%;
+              word-wrap: break-word;
+            }
+            .os-thermal-receipt .font-mono {
+              font-family: 'Courier New', Courier, monospace;
+            }
+            .os-thermal-receipt .text-small {
+              font-size: 9px;
+            }
+            .os-thermal-receipt .clauses {
+              font-size: 8px;
+              text-align: justify;
+              line-height: 1.2;
+              opacity: 0.9;
+            }
+            .os-thermal-receipt .total-box {
+              border: 2px solid #000;
+              padding: 6px;
+              margin: 8px 0;
+              text-align: center;
+            }
+            .os-thermal-receipt .total-label {
+              font-size: 9px;
+              font-weight: bold;
+            }
+            .os-thermal-receipt .total-val {
+              font-size: 16px;
+              font-weight: bold;
+            }
+            .os-thermal-receipt .sig-line-box {
+              margin-top: 25px;
+              text-align: center;
+            }
+            .os-thermal-receipt .sig-line {
+              border-top: 1px solid #000;
+              width: 80%;
+              margin: 0 auto 4px auto;
+            }
+            .os-thermal-receipt .sig-label {
+              font-size: 9px;
+              line-height: 1.1;
+              display: block;
+            }
+            .os-thermal-receipt .sig-image-container {
+              height: 35px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin-bottom: -15px;
+            }
+            .os-thermal-receipt .sig-image {
+              height: 100%;
+              object-fit: contain;
+              filter: grayscale(1) contrast(2);
+            }
+            .os-thermal-receipt .footer-note {
+              font-size: 8px;
+              text-align: center;
+              margin-top: 8px;
+              line-height: 1.2;
+            }
+          `}</style>
+
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) */}
-          <div id="print-os-entry" className="hidden print:block font-sans text-black p-6 space-y-6 max-w-[800px] mx-auto">
-            {/* Header */}
-            <div className="text-center space-y-2 border-b border-black pb-4">
-              <h2 className="text-lg font-black uppercase tracking-wider">MDR Informática & Celulares</h2>
-              <p className="text-xs">Rua Principal, 1234 - Centro • WhatsApp: (11) 99999-9999</p>
-              <h3 className="text-sm font-black bg-black text-white py-1 uppercase tracking-widest mt-2">Termo de Recebimento de Equipamento</h3>
-              <p className="text-xs font-mono font-bold mt-1">Ordem de Serviço (OS) Nº {String(currentServiceOrder.os_number).padStart(4, '0')}</p>
+          <div id="print-os-entry" className="hidden">
+            {renderOsEntryCopy("VIA DO CLIENTE")}
+            <div className="receipt-separator">
+              - - - - - - - - SERRILHA DE CORTE - - - - - - - -
             </div>
-
-            {/* Dados do Cliente */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Dados do Cliente</h4>
-              <p><strong>Nome:</strong> {currentServiceOrder.customers?.name}</p>
-              <p><strong>CPF:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</p>
-              <p><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</p>
-            </div>
-
-            {/* Dados do Equipamento */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Detalhes do Dispositivo</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <p><strong>Categoria:</strong> {currentServiceOrder.device_category.toUpperCase()}</p>
-                <p><strong>Aparelho:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</p>
-                <p className="col-span-2"><strong>Número de Série/IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</p>
-                {currentServiceOrder.device_passcode && <p className="col-span-2"><strong>Senha do Dispositivo:</strong> {currentServiceOrder.device_passcode}</p>}
-              </div>
-            </div>
-
-            {/* Vistoria Técnica */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Defeito & Vistoria Estética</h4>
-              <p><strong>Defeito Relatado:</strong> {currentServiceOrder.reported_issue}</p>
-              <p><strong>Condições Estéticas:</strong> {currentServiceOrder.cosmetic_condition || 'Nenhuma avaria visível anotada'}</p>
-              <p><strong>Acessórios Deixados:</strong> {currentServiceOrder.accessories_left ? currentServiceOrder.accessories_left.join(', ') : 'Nenhum'}</p>
-            </div>
-
-            {/* Cláusulas do Contrato de Entrada */}
-            <div className="text-[9px] leading-relaxed text-justify space-y-1 border border-black p-3 rounded-lg opacity-80">
-              <p>1. <strong>Do Orçamento:</strong> Os orçamentos têm validade de 10 dias. O início dos serviços dar-se-á apenas após aprovação expressa do cliente (WhatsApp ou assinatura).</p>
-              <p>2. <strong>De Backup de Dados:</strong> O cliente declara estar ciente de que a MDR **NÃO se responsabiliza por perdas de dados, softwares ou arquivos** armazenados nos dispositivos sob manutenção. O cliente deve realizar backups prévios.</p>
-              <p>3. <strong>Do Prazo de Descarte:</strong> Conforme lei vigente, equipamentos deixados na assistência **por mais de 90 (noventa) dias** após a notificação de conclusão (Pronto/Devolvido) sem retirada serão considerados **bens abandonados**, ficando a MDR autorizada a descartá-los ou vendê-los para custeio de despesas operacionais e armazenamento.</p>
-            </div>
-
-            {/* Assinaturas */}
-            <div className="grid grid-cols-2 gap-8 pt-8 text-xs text-center">
-              <div className="space-y-4">
-                <div className="border-t border-black w-full mx-auto pt-1"></div>
-                <p>MDR Informática & Celulares</p>
-              </div>
-              <div className="space-y-4">
-                <div className="border-t border-black w-full mx-auto pt-1"></div>
-                <p>Assinatura do Cliente</p>
-              </div>
-            </div>
+            {renderOsEntryCopy("VIA DA ASSISTÊNCIA")}
           </div>
 
           {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) */}
-          <div id="print-os-warranty" className="hidden print:block font-sans text-black p-6 space-y-6 max-w-[800px] mx-auto">
-            {/* Header */}
-            <div className="text-center space-y-2 border-b border-black pb-4">
-              <h2 className="text-lg font-black uppercase tracking-wider">MDR Informática & Celulares</h2>
-              <p className="text-xs">Rua Principal, 1234 - Centro • WhatsApp: (11) 99999-9999</p>
-              <h3 className="text-sm font-black bg-black text-white py-1 uppercase tracking-widest mt-2">Comprovante de Conclusão & Garantia</h3>
-              <p className="text-xs font-mono font-bold mt-1">Ordem de Serviço (OS) Nº {String(currentServiceOrder.os_number).padStart(4, '0')}</p>
+          <div id="print-os-warranty" className="hidden">
+            {renderOsWarrantyCopy("VIA DO CLIENTE")}
+            <div className="receipt-separator">
+              - - - - - - - - SERRILHA DE CORTE - - - - - - - -
             </div>
-
-            {/* Dados do Cliente */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Dados do Cliente</h4>
-              <p><strong>Nome:</strong> {currentServiceOrder.customers?.name}</p>
-              <p><strong>CPF:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</p>
-            </div>
-
-            {/* Detalhes Técnicos do Conserto */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Laudo Técnico de Reparo</h4>
-              <p><strong>Equipamento:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model} (S/N: {currentServiceOrder.device_serial_number || '—'})</p>
-              <p><strong>Defeito Relatado:</strong> {currentServiceOrder.reported_issue}</p>
-              <p><strong>Procedimentos Efetuados (Laudo):</strong> {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim() : 'Reparos e testes diversos executados com sucesso.'}</p>
-            </div>
-
-            {/* Detalhamento Financeiro */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Detalhes Financeiros</h4>
-              <p><strong>Valor de Mão de Obra:</strong> R$ {Number(currentServiceOrder.labor_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              <p><strong>Valor de Peças Aplicadas:</strong> R$ {Number(currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              <p><strong>Valor Total Pago:</strong> <strong>R$ {Number(currentServiceOrder.labor_value + currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></p>
-              {currentServiceOrder.payment_method && <p><strong>Forma de Recebimento:</strong> {currentServiceOrder.payment_method.toUpperCase()}</p>}
-            </div>
-
-            {/* Termos de Garantia */}
-            <div className="text-xs space-y-1.5 border border-black p-3 rounded-lg">
-              <h4 className="font-bold uppercase tracking-wider text-[10px] border-b border-black pb-1 mb-1 bg-gray-100 pl-1">Certificado de Garantia Legal</h4>
-              <p>A MDR Informática & Celulares confere garantia técnica de **{currentServiceOrder.warranty_period || 90} dias** sobre os serviços e peças relacionados nesta Ordem de Serviço, a contar da data de retirada.</p>
-              <p className="text-[10px] leading-relaxed text-justify opacity-80 mt-1">
-                <strong>Cláusulas de Exclusão da Garantia:</strong> A garantia cobre exclusivamente defeitos relativos ao serviço executado e peças trocadas. A garantia será **automaticamente invalidada** caso ocorram indícios de:
-                (a) Mau uso, quedas físicas, amassados ou telas quebradas; 
-                (b) Oxidação, umidade ou contato direto com líquidos; 
-                (c) Rompimento ou violação dos selos de garantia internos aplicados pela MDR; 
-                (d) Abertura do aparelho por terceiros ou assistência técnica não autorizada.
-              </p>
-            </div>
-
-            {/* Assinaturas */}
-            <div className="grid grid-cols-2 gap-8 pt-8 text-xs text-center">
-              <div className="space-y-4">
-                <div className="border-t border-black w-full mx-auto pt-1"></div>
-                <p>MDR Informática & Celulares</p>
-              </div>
-              <div className="space-y-4">
-                <div className="border-t border-black w-full mx-auto pt-1"></div>
-                <p>Assinatura de Retirada do Cliente</p>
-              </div>
-            </div>
+            {renderOsWarrantyCopy("VIA DA ASSISTÊNCIA")}
           </div>
         </>
       )}

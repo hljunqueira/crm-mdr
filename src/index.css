@@ -165,3 +165,20 @@ input.py-4 {
   line-height: 1.25 !important;
 }
 
+/* Print styles for modern direct printing to bypass popup blockers */
+@media print {
+  body.printing-active > *:not(#print-mount-point) {
+    display: none !important;
+  }
+  body.printing-active #print-mount-point {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+

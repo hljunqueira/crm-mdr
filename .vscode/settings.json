@@ -7,5 +7,6 @@
   "files.associations": {
     "Caddyfile": "properties",
     "Caddyfile.*": "properties"
-  }
+  },
+  "css.lint.unknownAtRules": "ignore"
 }

@@ -21,6 +21,9 @@ export interface Customer {
   document_address_url?: string;
   document_id_url?: string;
   document_income_url?: string;
+  desired_device?: string;
+  needed_credit?: number;
+  desired_installment_value?: number;
   classification?: 'BOM' | 'MEDIO' | 'RUIM';
   credit_limit?: number;
   suggested_down_payment?: number;
