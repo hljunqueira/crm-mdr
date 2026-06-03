@@ -365,7 +365,7 @@ export default function CreditAnalysis() {
                     <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
                       <MapPin size={14} className="opacity-40 text-primary" />
                       <div className="min-w-0">
-                        <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Endereço Declarado</p>
+                        <p className="text-[8px] font-black text-on-surface-variant tracking-wider leading-none">Endereço Declarado</p>
                         <p className="font-bold truncate mt-0.5">
                           {selectedCustomer.address}
                           {selectedCustomer.address_number ? `, ${selectedCustomer.address_number}` : ''}
@@ -375,6 +375,39 @@ export default function CreditAnalysis() {
                     </div>
                   )}
                 </div>
+
+                {/* Simulação de Venda */}
+                {(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
+                  <div className="pt-4 border-t border-white/5">
+                    <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest mb-3">Simulação de Venda (Pré-venda)</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                        <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Aparelho Desejado</span>
+                        <h4 className="text-xs font-black text-white leading-tight mt-1.5">
+                          {selectedCustomer.desired_device || 'Não Informado'}
+                        </h4>
+                      </div>
+                      
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                        <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Crédito Necessário</span>
+                        <h4 className="text-xs font-black text-primary font-mono leading-tight mt-1.5">
+                          {selectedCustomer.needed_credit 
+                            ? Number(selectedCustomer.needed_credit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                            : 'R$ 0,00'}
+                        </h4>
+                      </div>
+
+                      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                        <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Parcela Desejada</span>
+                        <h4 className="text-xs font-black text-white font-mono leading-tight mt-1.5">
+                          {selectedCustomer.desired_installment_value 
+                            ? Number(selectedCustomer.desired_installment_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) 
+                            : 'R$ 0,00'}
+                        </h4>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Arquivos do Cliente */}
                 {(selectedCustomer.document_id_url || selectedCustomer.document_address_url || selectedCustomer.document_income_url) && (
