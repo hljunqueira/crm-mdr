@@ -56,7 +56,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
   const { inventory, fetchInventory, isLoading: isLoadingInventory } = useInventoryStore();
 
-  const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number }[]>(() => {
+  const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number }[]>(() => {
     if (!initialData?.desired_device) return [];
     try {
       const parsed = JSON.parse(initialData.desired_device);
@@ -65,7 +65,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           id: item.id || '',
           model: item.model || '',
           brand: item.brand || '',
-          price: Number(item.price) || 0
+          price: Number(item.price) || 0,
+          quantity: Number(item.quantity) || 1
         }));
       }
     } catch (e) {
@@ -74,7 +75,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         id: '',
         model: initialData.desired_device,
         brand: '',
-        price: initialData.needed_credit || 0
+        price: initialData.needed_credit || 0,
+        quantity: 1
       }];
     }
     return [];
@@ -138,27 +140,64 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   }, [availableDevicesForSimulation, deviceSearch]);
 
   const addDeviceToSimulation = (item: typeof inventory[0]) => {
-    if (selectedDevices.find(d => d.id === item.id)) {
-      showNotification('info', 'Este aparelho já foi adicionado.');
-      return;
+    const existingIdx = selectedDevices.findIndex(d => d.id === item.id);
+    const stockItem = inventory.find(i => i.id === item.id);
+    const maxQty = stockItem?.stock_quantity || 1;
+
+    if (existingIdx !== -1) {
+      // Já existe: incrementa quantidade (respeitando estoque)
+      setSelectedDevices(prev => prev.map((d, idx) => {
+        if (idx !== existingIdx) return d;
+        const newQty = d.quantity + 1;
+        if (newQty > maxQty) {
+          showNotification('info', `Estoque máximo atingido (${maxQty} unidades).`);
+          return d;
+        }
+        return { ...d, quantity: newQty };
+      }));
+    } else {
+      setSelectedDevices(prev => [...prev, {
+        id: item.id,
+        model: item.model,
+        brand: item.brand,
+        price: item.price,
+        quantity: 1
+      }]);
     }
-    setSelectedDevices(prev => [...prev, {
-      id: item.id,
-      model: item.model,
-      brand: item.brand,
-      price: item.price
-    }]);
     setDeviceDropdownOpen(false);
     setDeviceSearch('');
   };
 
-  const removeDeviceFromSimulation = (id: string) => {
-    setSelectedDevices(prev => prev.filter(d => d.id !== id));
+  const increaseDeviceQty = (idx: number) => {
+    setSelectedDevices(prev => prev.map((d, i) => {
+      if (i !== idx) return d;
+      const stockItem = inventory.find(inv => inv.id === d.id);
+      const maxQty = stockItem?.stock_quantity || 99;
+      if (d.quantity >= maxQty) {
+        showNotification('info', `Estoque máximo atingido (${maxQty} unidades).`);
+        return d;
+      }
+      return { ...d, quantity: d.quantity + 1 };
+    }));
+  };
+
+  const decreaseDeviceQty = (idx: number) => {
+    setSelectedDevices(prev => {
+      const updated = prev.map((d, i) => {
+        if (i !== idx) return d;
+        return { ...d, quantity: Math.max(1, d.quantity - 1) };
+      });
+      return updated;
+    });
+  };
+
+  const removeDeviceFromSimulation = (idx: number) => {
+    setSelectedDevices(prev => prev.filter((_, i) => i !== idx));
   };
 
   useEffect(() => {
     if (formType === 'complete') {
-      const total = selectedDevices.reduce((sum, d) => sum + d.price, 0);
+      const total = selectedDevices.reduce((sum, d) => sum + d.price * (d.quantity || 1), 0);
       setFormData(prev => ({
         ...prev,
         needed_credit: total
@@ -636,31 +675,63 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
               </div>
             ) : (
               <div className="space-y-2">
-                {selectedDevices.map((device, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
-                        <Smartphone size={16} />
+                {selectedDevices.map((device, idx) => {
+                  const stockItem = inventory.find(i => i.id === device.id);
+                  const maxQty = stockItem?.stock_quantity || 99;
+                  return (
+                    <div key={device.id || `device-${idx}`} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                          <Smartphone size={16} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-white leading-tight">{device.model}</p>
+                          {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-white leading-tight">{device.model}</p>
-                        {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
+                      <div className="flex items-center gap-3">
+                        {/* Quantity controls */}
+                        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => decreaseDeviceQty(idx)}
+                            className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black"
+                          >
+                            −
+                          </button>
+                          <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
+                            {device.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => increaseDeviceQty(idx)}
+                            disabled={device.quantity >= maxQty}
+                            className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono text-xs font-black text-white">
+                            {(device.price * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                          {device.quantity > 1 && (
+                            <p className="text-[9px] text-on-surface-variant/60 font-mono">
+                              {device.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} cada
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDeviceFromSimulation(idx)}
+                          className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="font-mono text-xs font-black text-white">
-                        {device.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeDeviceFromSimulation(device.id)}
-                        className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             
