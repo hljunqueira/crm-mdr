@@ -399,14 +399,26 @@ export default function CreditAnalysis() {
                                       <Smartphone size={14} />
                                     </div>
                                     <div>
-                                      <span className="font-bold text-white">{device.model}</span>
-                                      {device.brand && (
-                                        <span className="text-[9px] text-on-surface-variant uppercase tracking-wider ml-2">({device.brand})</span>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-bold text-white">{device.model}</span>
+                                        {device.brand && (
+                                          <span className="text-[9px] text-on-surface-variant uppercase tracking-wider">({device.brand})</span>
+                                        )}
+                                        {device.store_name && (
+                                          <span className="px-1.5 py-0.5 bg-primary/15 border border-primary/30 text-primary rounded text-[8px] font-black uppercase tracking-wider">
+                                            {device.store_name}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {(device.quantity || 1) > 1 && (
+                                        <p className="text-[9px] text-on-surface-variant/70 mt-0.5">
+                                          {device.quantity}x — {Number(device.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} cada
+                                        </p>
                                       )}
                                     </div>
                                   </div>
                                   <span className="font-mono font-bold text-white">
-                                    {Number(device.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    {(Number(device.price || 0) * (device.quantity || 1)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                   </span>
                                 </div>
                               ))}

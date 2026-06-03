@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Smartphone, Barcode, DollarSign, Save, X, Layers, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Smartphone, Barcode, DollarSign, Save, X, Layers, Loader2, Store } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../../store/useInventoryStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 
 interface InventoryFormProps {
   item?: InventoryItem;
@@ -17,6 +18,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
+    unit_id: item?.unit_id || profile?.unit_id || '',
     brand: item?.brand || '',
     model: item?.model || '',
     price: item?.price !== undefined ? String(item.price) : '',
@@ -28,6 +30,14 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     image_url: item?.image_url || '',
     show_on_landing: item?.show_on_landing || false,
   });
+
+  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    api.get('/units').then((data: any[]) => {
+      setStores(data || []);
+    }).catch(() => {});
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,20 +87,18 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         notes: formData.notes,
         price: priceNum,
         cost_price: costPriceNum,
-        imei: '', // No IMEI in inventory registration
+        imei: '',
         category: formData.category,
         image_url: formData.image_url,
         show_on_landing: formData.show_on_landing,
+        unit_id: formData.unit_id || profile?.unit_id || undefined,
       };
 
       if (item) {
         await updateItem(item.id, payload);
         showNotification('success', 'Item Atualizado');
       } else {
-        await addItem({
-          ...payload,
-          unit_id: profile?.unit_id || undefined,
-        });
+        await addItem(payload);
         showNotification('success', 'Item Adicionado');
       }
       onSuccess();
@@ -103,6 +111,30 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Empresa / Loja */}
+        {profile?.role === 'admin' ? (
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+              <Store size={12} /> Empresa / Loja
+            </label>
+            <select
+              value={formData.unit_id}
+              onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none appearance-none text-white"
+            >
+              <option value="" className="bg-[#121214] text-white">— Selecione a Empresa —</option>
+              {stores.map(s => (
+                <option key={s.id} value={s.id} className="bg-[#121214] text-white">{s.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="md:col-span-2 p-3 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center gap-2 text-xs text-on-surface-variant/60">
+            <Store size={14} />
+            <span>Empresa: <strong className="text-white">{stores.find(s => s.id === formData.unit_id)?.name || 'Sua Loja'}</strong></span>
+          </div>
+        )}
+
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca</label>
           <input

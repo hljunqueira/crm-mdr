@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 export interface InventoryItem {
   id: string;
   unit_id?: string;
+  store_name?: string;
   model: string;
   brand: string;
   imei: string;
@@ -37,6 +38,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       const mapped = (data || []).map((item: any) => ({
         id: item.id,
         unit_id: item.store_id,
+        store_name: item.stores?.name || undefined,
         model: item.model,
         brand: item.brand,
         imei: item.imei || '',

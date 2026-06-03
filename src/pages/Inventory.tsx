@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { 
   Plus, 
@@ -15,7 +15,9 @@ import {
   DollarSign,
   Package,
   Wrench,
-  Monitor
+  Monitor,
+  Store,
+  Building2
 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
 import { useUI } from '../context/UIContext';
@@ -29,19 +31,34 @@ export default function Inventory() {
   const { profile } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedStore, setSelectedStore] = useState('all');
+
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
-    fetchInventory(profile?.unit_id || undefined);
-  }, [profile?.unit_id, fetchInventory]);
+    // Admins load everything; others load only their store
+    fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
+  }, [profile?.unit_id, fetchInventory, isAdmin]);
+
+  // Unique stores extracted from the loaded inventory
+  const availableStores = useMemo(() => {
+    const seen = new Map<string, string>();
+    inventory.forEach(item => {
+      if (item.unit_id && item.store_name) {
+        seen.set(item.unit_id, item.store_name);
+      }
+    });
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [inventory]);
 
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = 
       item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.imei || '').includes(searchTerm) ||
       item.brand.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesStore = !isAdmin || selectedStore === 'all' || item.unit_id === selectedStore;
+    return matchesSearch && matchesCategory && matchesStore;
   });
 
   const getCategoryBadge = (cat?: string) => {
@@ -110,9 +127,9 @@ export default function Inventory() {
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
-          { label: 'Modelos Diferentes', value: inventory.length.toString(), icon: Smartphone, color: 'text-primary' },
-          { label: 'Quantidade em Estoque', value: inventory.reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
-          { label: 'Valor do Estoque (Venda)', value: `R$ ${inventory.reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
+          { label: 'Modelos Diferentes', value: filteredInventory.length.toString(), icon: Smartphone, color: 'text-primary' },
+          { label: 'Quantidade em Estoque', value: filteredInventory.reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
+          { label: 'Valor do Estoque (Venda)', value: `R$ ${filteredInventory.reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
         ].map((stat, i) => (
           <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/[0.02]">
             <div className="flex items-center gap-4">
@@ -127,6 +144,37 @@ export default function Inventory() {
           </div>
         ))}
       </div>
+
+      {/* Store Filter Tabs — visible to admins only */}
+      {isAdmin && availableStores.length > 0 && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedStore('all')}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all",
+              selectedStore === 'all'
+                ? 'bg-white text-black border-white shadow-lg'
+                : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
+            )}
+          >
+            <Building2 size={13} /> Todas as Empresas
+          </button>
+          {availableStores.map(store => (
+            <button
+              key={store.id}
+              onClick={() => setSelectedStore(store.id)}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all",
+                selectedStore === store.id
+                  ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/20'
+                  : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
+              )}
+            >
+              <Store size={13} /> {store.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Category Filters */}
       <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar">

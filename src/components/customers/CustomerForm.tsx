@@ -56,7 +56,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
   const { inventory, fetchInventory, isLoading: isLoadingInventory } = useInventoryStore();
 
-  const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number }[]>(() => {
+  const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number; store_name?: string }[]>(() => {
     if (!initialData?.desired_device) return [];
     try {
       const parsed = JSON.parse(initialData.desired_device);
@@ -66,7 +66,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           model: item.model || '',
           brand: item.brand || '',
           price: Number(item.price) || 0,
-          quantity: Number(item.quantity) || 1
+          quantity: Number(item.quantity) || 1,
+          store_name: item.store_name || undefined
         }));
       }
     } catch (e) {
@@ -161,7 +162,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         model: item.model,
         brand: item.brand,
         price: item.price,
-        quantity: 1
+        quantity: 1,
+        store_name: item.store_name || undefined
       }]);
     }
     setDeviceDropdownOpen(false);
@@ -366,7 +368,15 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         }
       } else {
         // Se for cadastro completo novo ou edição
-        submitData.desired_device = JSON.stringify(selectedDevices);
+        // Serialize with store_name for traceability
+        submitData.desired_device = JSON.stringify(selectedDevices.map(d => ({
+          id: d.id,
+          model: d.model,
+          brand: d.brand,
+          price: d.price,
+          quantity: d.quantity,
+          store_name: d.store_name || null
+        })));
 
         if (!initialData) {
           submitData.registration_status = 'PRE_CADASTRO';
@@ -775,11 +785,18 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                           className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
                         >
                           <div>
-                            <span className="font-bold text-white">{item.model}</span>
-                            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-white">{item.model}</span>
+                              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">({item.brand})</span>
+                              {item.store_name && (
+                                <span className="px-1.5 py-0.5 bg-primary/15 border border-primary/30 text-primary rounded text-[8px] font-black uppercase tracking-wider">
+                                  {item.store_name}
+                                </span>
+                              )}
+                            </div>
                             {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right shrink-0 ml-3">
                             <span className="font-black text-primary font-mono">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                             <p className="text-[9px] text-green-400">Qtd: {item.stock_quantity}</p>
                           </div>
