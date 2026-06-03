@@ -49,6 +49,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
       case 'money': return 'Dinheiro';
       case 'card': return 'Cartão de Crédito';
       case 'crediario': return 'Crediário da Loja';
+      case 'vista': return 'À Vista (Dinheiro/Pix)';
       default: return type ? type.toUpperCase() : 'Não Informado';
     }
   };

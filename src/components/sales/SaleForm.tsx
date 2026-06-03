@@ -177,7 +177,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
   // MDR Coefficient Calculations
-  const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card';
+  const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card' | 'vista';
   const installmentCount = formData.installments || 1;
 
   const baseCoefficient = useMemo(() => {
@@ -200,7 +200,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   // Grace period extra interest: extra days beyond 30 days from today incur pro-rata interest
   // charged exclusively on the 1st installment
   const gracePeriodInterest = useMemo(() => {
-    if (!formData.first_due_date || paymentType === 'card') return 0;
+    if (!formData.first_due_date || paymentType === 'card' || paymentType === 'vista') return 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const firstDue = new Date(formData.first_due_date + 'T12:00:00');
@@ -261,11 +261,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [selectedCustomer, paymentType]);
 
   const installmentValue = useMemo(() => {
+    if (formData.payment_type === 'vista') return 0;
     const financed = formData.total_value - formData.down_payment;
     if (financed <= 0) return 0;
     const finalCoeff = baseCoefficient * riskMultiplier;
     return financed * finalCoeff;
-  }, [formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
+  }, [formData.payment_type, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
 
   // First installment value includes grace period interest (if any)
   const firstInstallmentValue = useMemo(() => {
@@ -278,13 +279,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [firstInstallmentValue, installmentValue, installmentCount]);
 
   const finalValue = useMemo(() => {
+    if (formData.payment_type === 'vista') {
+      return formData.total_value + accessoriesTotal;
+    }
     return formData.down_payment + totalInstallmentsValue + accessoriesTotal;
-  }, [formData.down_payment, totalInstallmentsValue, accessoriesTotal]);
+  }, [formData.payment_type, formData.total_value, formData.down_payment, totalInstallmentsValue, accessoriesTotal]);
 
   const feeValue = useMemo(() => {
+    if (formData.payment_type === 'vista') return 0;
     // Interest = final value minus base device price (accessories 'venda' are transparent cost)
     return Math.max(0, finalValue - formData.total_value - accessoriesTotal);
-  }, [finalValue, formData.total_value, accessoriesTotal]);
+  }, [formData.payment_type, finalValue, formData.total_value, accessoriesTotal]);
 
   const availableInstallmentOptions = useMemo(() => {
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -358,10 +363,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           device_model: formData.device_model,
           imei: formData.imei,
           total_value: finalValue,
-          down_payment: formData.down_payment,
+          down_payment: formData.payment_type === 'vista' ? finalValue : formData.down_payment,
           service_fee: feeValue,
           original_price: formData.total_value,
-          installments: formData.installments,
+          installments: formData.payment_type === 'vista' ? 0 : formData.installments,
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: accessoriesStr,
@@ -377,10 +382,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           device_model: formData.device_model,
           imei: formData.imei,
           total_value: finalValue,
-          down_payment: formData.down_payment,
+          down_payment: formData.payment_type === 'vista' ? finalValue : formData.down_payment,
           service_fee: feeValue,
           original_price: formData.total_value,
-          installments: formData.installments,
+          installments: formData.payment_type === 'vista' ? 0 : formData.installments,
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: accessoriesStr,
@@ -474,18 +479,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         </div>
         <div className="p-4 bg-white/5 rounded-2xl border border-white/10 max-w-sm mx-auto text-left">
           <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Resumo</p>
-          <p className="text-sm text-white font-black">{formData.installments}x de R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          <p className="text-[10px] text-on-surface-variant">Total: R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Entrada: R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <p className="text-sm text-white font-black">
+            {formData.payment_type === 'vista' 
+              ? 'Pagamento À Vista'
+              : `${formData.installments}x de R$ ${installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          </p>
+          <p className="text-[10px] text-on-surface-variant">
+            Total: R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            {formData.payment_type !== 'vista' && ` | Entrada: R$ ${formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
-          <button 
-            onClick={() => printElement('sale-contract')}
-            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
-          >
-            <FileText size={18} />
-            Imprimir Contrato
-          </button>
+          {formData.payment_type !== 'vista' && (
+            <button 
+              onClick={() => printElement('sale-contract')}
+              className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
+            >
+              <FileText size={18} />
+              Imprimir Contrato
+            </button>
+          )}
 
           <button 
             onClick={() => printElement('sale-receipt')}
@@ -684,21 +698,23 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada (R$)</label>
-          <input 
-            type="number" 
-            placeholder="0.00"
-            value={formData.down_payment === 0 ? '' : formData.down_payment}
-            onChange={(e) => {
-              const val = e.target.value;
-              setFormData(prev => ({ ...prev, down_payment: val === '' ? 0 : Number(val) }));
-            }}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-          />
-        </div>
+        {formData.payment_type !== 'vista' && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada (R$)</label>
+            <input 
+              type="number" 
+              placeholder="0.00"
+              value={formData.down_payment === 0 ? '' : formData.down_payment}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFormData(prev => ({ ...prev, down_payment: val === '' ? 0 : Number(val) }));
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+          </div>
+        )}
 
-        {formData.down_payment > 0 && (
+        {formData.payment_type !== 'vista' && formData.down_payment > 0 && (
           <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 p-5 bg-white/5 rounded-[32px] border border-white/10 animate-in fade-in duration-300">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Método de Entrada</label>
@@ -743,11 +759,23 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
           <select 
             value={formData.payment_type}
-            onChange={(e) => setFormData(prev => ({ ...prev, payment_type: e.target.value as any }))}
+            onChange={(e) => {
+              const val = e.target.value;
+              setFormData(prev => {
+                const isVista = val === 'vista';
+                return {
+                  ...prev,
+                  payment_type: val as any,
+                  installments: isVista ? 0 : 12,
+                  down_payment: isVista ? 0 : prev.down_payment
+                };
+              });
+            }}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
           >
             <option value="crediario" className="bg-surface-container-high">Crediário da Loja</option>
             <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+            <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
           </select>
         </div>
 
@@ -766,28 +794,32 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </div>
         )}
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
-          <select 
-            value={formData.installments}
-            onChange={(e) => setFormData(prev => ({ ...prev, installments: Number(e.target.value) }))}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-          >
-            {availableInstallmentOptions.map(n => (
-              <option key={n} value={n} className="bg-surface-container-high">{n} Parcela(s)</option>
-            ))}
-          </select>
-        </div>
+        {formData.payment_type !== 'vista' && (
+          <>
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
+              <select 
+                value={formData.installments}
+                onChange={(e) => setFormData(prev => ({ ...prev, installments: Number(e.target.value) }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                {availableInstallmentOptions.map(n => (
+                  <option key={n} value={n} className="bg-surface-container-high">{n} Parcela(s)</option>
+                ))}
+              </select>
+            </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">1º Vencimento</label>
-          <input 
-            type="date" 
-            value={formData.first_due_date}
-            onChange={(e) => setFormData(prev => ({ ...prev, first_due_date: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-          />
-        </div>
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">1º Vencimento</label>
+              <input 
+                type="date" 
+                value={formData.first_due_date}
+                onChange={(e) => setFormData(prev => ({ ...prev, first_due_date: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+            </div>
+          </>
+        )}
 
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cor do Aparelho</label>
