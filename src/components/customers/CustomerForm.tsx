@@ -59,6 +59,19 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   const [admins, setAdmins] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [formType, setFormType] = useState<'simple' | 'complete'>(() => {
+    if (initialData) {
+      const hasCompleteInfo = 
+        !!initialData.address || 
+        !!initialData.parent_contact_phone || 
+        !!initialData.reference1_name || 
+        !!initialData.document_id_url || 
+        !!initialData.desired_device;
+      return hasCompleteInfo ? 'complete' : 'simple';
+    }
+    return 'simple';
+  });
+
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
@@ -207,22 +220,58 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     setIsSubmitting(true);
 
     try {
-      // Garantir o status correto se for pré-cadastro ou aprovado
       const submitData = { 
         ...formData,
         responsible_analyst_id: formData.responsible_analyst_id || null as any
       };
+
+      if (formType === 'simple') {
+        // Limpar campos não utilizados para o cadastro simples
+        submitData.parent_contact_phone = '';
+        submitData.reference1_name = '';
+        submitData.reference1_phone = '';
+        submitData.reference2_name = '';
+        submitData.reference2_phone = '';
+        submitData.address = '';
+        submitData.address_number = '';
+        submitData.neighborhood = '';
+        submitData.city = '';
+        submitData.state = '';
+        submitData.document_address_url = '';
+        submitData.document_id_url = '';
+        submitData.document_income_url = '';
+        submitData.desired_device = '';
+        submitData.needed_credit = 0;
+        submitData.desired_installment_value = 0;
+
+        if (!initialData) {
+          submitData.registration_status = 'APROVADO';
+          submitData.credit_status = 'APROVADO';
+          submitData.approved_for_purchase = true;
+        }
+      } else {
+        // Se for cadastro completo novo
+        if (!initialData) {
+          submitData.registration_status = 'PRE_CADASTRO';
+          submitData.credit_status = 'EM_ANALISE';
+          submitData.approved_for_purchase = false;
+        } else if (initialData.registration_status === 'APROVADO' && (formData.desired_device || formData.needed_credit > 0)) {
+          // Se o cliente simples já estava aprovado mas agora foi atualizado para completo com simulação de crédito
+          submitData.registration_status = 'PRE_CADASTRO';
+          submitData.credit_status = 'EM_ANALISE';
+          submitData.approved_for_purchase = false;
+        }
+      }
 
       if (initialData) {
         await updateCustomer(initialData.id, submitData);
         showNotification('success', 'Cliente Atualizado com Sucesso!');
       } else {
         await addCustomer(submitData);
-
         showNotification('success', 'Cliente Cadastrado com Sucesso!');
 
-        // Disparar WhatsApp se for um pré-cadastro novo com analista selecionado
-        if (submitData.responsible_analyst_id) {
+        // Disparar WhatsApp se for um cadastro completo novo com analista selecionado
+        if (formType === 'complete' && submitData.responsible_analyst_id) {
           await sendWhatsAppNotification(
             submitData.responsible_analyst_id,
             submitData.name,
@@ -241,6 +290,28 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto px-2 pr-4 custom-scrollbar">
       
+      {/* SELETOR TIPO DE CADASTRO */}
+      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 max-w-md mx-auto mb-2">
+        <button
+          type="button"
+          onClick={() => setFormType('simple')}
+          className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            formType === 'simple' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-on-surface-variant hover:text-white'
+          }`}
+        >
+          Cadastro Simples
+        </button>
+        <button
+          type="button"
+          onClick={() => setFormType('complete')}
+          className={`flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            formType === 'complete' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-on-surface-variant hover:text-white'
+          }`}
+        >
+          Cadastro c/ Análise de Crédito
+        </button>
+      </div>
+
       {/* SEÇÃO 1: INFORMAÇÕES PESSOAIS */}
       <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
@@ -284,7 +355,9 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         </div>
       </div>
 
-      {/* SEÇÃO 2: CONTATOS COMPLEMENTARES */}
+      {formType === 'complete' && (
+        <>
+          {/* SEÇÃO 2: CONTATOS COMPLEMENTARES */}
       <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <Phone size={14} /> Contatos Complementares
@@ -535,6 +608,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           </div>
         </div>
       </div>
+        </>
+      )}
 
 
       {/* BOTÕES DE AÇÃO */}

@@ -190,6 +190,26 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           </>
         )}
 
+        {sale.payment_type === 'card' && (
+          <div className="row">
+            <span>Parcelamento:</span>
+            <span className="align-right font-mono">{sale.installments}x no Cartão</span>
+          </div>
+        )}
+
+        {sale.payment_type === 'vista' && (sale as any).amount_paid > 0 && (
+          <>
+            <div className="row">
+              <span>Valor Recebido:</span>
+              <span className="align-right font-mono">R$ {(sale as any).amount_paid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="row">
+              <span>Troco:</span>
+              <span className="align-right font-mono">R$ {(sale as any).change_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
+        )}
+
         <div className="divider"></div>
 
         {/* Total Box */}
@@ -238,11 +258,20 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
     <div id="sale-receipt" className="hidden">
       <style>{`
         @media print {
+          body {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
           body > *:not(#print-mount-point) { display: none !important; }
           #print-mount-point { display: block !important; }
           @page {
             margin: 0;
             size: auto;
+          }
+          .page-break {
+            page-break-before: always;
+            break-before: page;
           }
         }
         .thermal-receipt {
@@ -250,11 +279,11 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           margin: 0 auto;
           padding: 4mm;
           box-sizing: border-box;
-          font-family: 'Courier New', Courier, monospace;
-          font-size: 11px;
+          font-family: 'Inter', Arial, Helvetica, sans-serif;
+          font-size: 11.5px;
           color: #000;
           background: #fff;
-          line-height: 1.3;
+          line-height: 1.45;
         }
         .copy-indicator {
           text-align: center;
@@ -393,7 +422,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
       `}</style>
 
       {renderReceiptCopy("VIA DO CLIENTE")}
-      <div className="receipt-separator">
+      <div className="page-break receipt-separator">
         - - - - - - - - SERRILHA DE CORTE - - - - - - - -
       </div>
       {renderReceiptCopy("VIA DO ESTABELECIMENTO")}

@@ -48,6 +48,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const { unit } = useUnitStore();
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [amountPaid, setAmountPaid] = useState<number>(0);
 
   const [formData, setFormData] = useState({
     customer_id: initialData?.customer_id || '',
@@ -291,12 +292,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return Math.max(0, finalValue - formData.total_value - accessoriesTotal);
   }, [formData.payment_type, finalValue, formData.total_value, accessoriesTotal]);
 
+  const changeValue = useMemo(() => {
+    if (amountPaid <= 0) return 0;
+    return Math.max(0, amountPaid - finalValue);
+  }, [amountPaid, finalValue]);
+
   const availableInstallmentOptions = useMemo(() => {
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   }, []);
 
   const generatedInstallments = useMemo(() => {
-    if (!formData.customer_id || formData.total_value <= 0) return [];
+    if (!formData.customer_id || formData.total_value <= 0 || formData.payment_type === 'vista') return [];
 
     return customDueDates.map((dueDate, idx) => ({
       number: idx + 1,
@@ -305,7 +311,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       dueDate: dueDate,
       status: 'pending'
     }));
-  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates]);
+  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates, formData.payment_type]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -466,7 +472,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       total_value: finalValue,
       original_price: formData.total_value,
       service_fee: feeValue,
-      accessories: finalAccessoriesStr
+      accessories: finalAccessoriesStr,
+      amount_paid: amountPaid,
+      change_value: changeValue
     };
     return (
       <div className="text-center py-12 space-y-8 animate-in zoom-in duration-500">
@@ -934,7 +942,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       </div>
 
       {/* Preview Section */}
-      {generatedInstallments.length > 0 && (
+      {formData.payment_type !== 'vista' && generatedInstallments.length > 0 && (
         <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
           <div className="flex items-center justify-between pb-6 border-b border-white/5">
             <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação</h4>
@@ -1024,6 +1032,72 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   />
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Section for cash/pix sale (À Vista) with Change (Troco) Calculator */}
+      {formData.payment_type === 'vista' && formData.total_value > 0 && (
+        <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between pb-6 border-b border-white/5">
+            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação (À Vista)</h4>
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[8px] font-black text-green-400 uppercase tracking-widest leading-none">Sem Juros</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
+              <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+            {accessoriesTotal > 0 && (
+              <div>
+                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Acessórios (Venda)</p>
+                <p className="text-sm font-black text-green-400 font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Total a Pagar</p>
+              <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+
+          {/* Troco Calculator */}
+          <div className="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+            <h5 className="text-[9px] font-black text-white uppercase tracking-wider">Calculadora de Troco</h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Pago pelo Cliente (R$)</label>
+                <div className="relative">
+                  <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    placeholder="0.00"
+                    value={amountPaid === 0 ? '' : amountPaid}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAmountPaid(val === '' ? 0 : Number(val));
+                    }}
+                    className="w-full bg-[#121214] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-primary outline-none transition-all"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col justify-end">
+                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1 font-sans">Troco a Devolver</p>
+                <p className={cn(
+                  "text-lg font-black font-mono leading-none",
+                  changeValue < 0 ? "text-error" : changeValue > 0 ? "text-green-400" : "text-white"
+                )}>
+                  R$ {changeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                {amountPaid > 0 && amountPaid < finalValue && (
+                  <p className="text-[9px] text-error font-bold mt-1">Valor pago é menor que o total da venda.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

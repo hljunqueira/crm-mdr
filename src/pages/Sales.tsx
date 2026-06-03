@@ -161,18 +161,26 @@ function SaleDocumentViewer({
               <section className="mb-6">
                 <h2 className="font-bold border-b border-gray-300 mb-2 uppercase text-xs text-black">3. Do Preço, Condições e Desconto por Antecipação</h2>
                 <p>O valor total da transação é de <strong>R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>, conforme as seguintes condições:</p>
-                <p className="mt-1">• <strong>Entrada Paga:</strong> R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                <p className="mt-1">• <strong>Plano de Financiamento:</strong> {sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                {sale.payment_type === 'vista' ? (
+                  <p className="mt-1">• <strong>Forma de Pagamento:</strong> À Vista (Dinheiro/Pix)</p>
+                ) : (
+                  <>
+                    <p className="mt-1">• <strong>Entrada Paga:</strong> R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p className="mt-1">• <strong>Plano de Financiamento:</strong> {sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </>
+                )}
 
-                <div className="my-3 p-4 bg-gray-50 border border-gray-200 rounded-2xl text-[10.5px] text-gray-800 leading-relaxed">
-                  <strong className="text-black uppercase block mb-1.5">⚡ Desconto por Antecipação (Garantia do Art. 52, § 2º do CDC):</strong>
-                  <p>• ✅ <strong>1 parcela adiantada:</strong> Desconto de <strong>3%</strong> sobre o juro embutido da parcela.</p>
-                  <p>• ✅ <strong>2 parcelas adiantadas:</strong> Desconto de <strong>5%</strong> sobre os juros embutidos das parcelas.</p>
-                  <p>• ✅ <strong>3 parcelas adiantadas ou mais:</strong> Desconto de <strong>8%</strong> sobre os juros embutidos das parcelas.</p>
-                  <p>• ✅ <strong>Quitação acima de 50% do contrato:</strong> Negociação especial com abatimento proporcional de juros.</p>
-                </div>
+                {sale.payment_type === 'crediario' && (
+                  <div className="my-3 p-4 bg-gray-50 border border-gray-200 rounded-2xl text-[10.5px] text-gray-800 leading-relaxed">
+                    <strong className="text-black uppercase block mb-1.5">⚡ Desconto por Antecipação (Garantia do Art. 52, § 2º do CDC):</strong>
+                    <p>• ✅ <strong>1 parcela adiantada:</strong> Desconto de <strong>3%</strong> sobre o juro embutido da parcela.</p>
+                    <p>• ✅ <strong>2 parcelas adiantadas:</strong> Desconto de <strong>5%</strong> sobre os juros embutidos das parcelas.</p>
+                    <p>• ✅ <strong>3 parcelas adiantadas ou mais:</strong> Desconto de <strong>8%</strong> sobre os juros embutidos das parcelas.</p>
+                    <p>• ✅ <strong>Quitação acima de 50% do contrato:</strong> Negociação especial com abatimento proporcional de juros.</p>
+                  </div>
+                )}
 
-                {installments.length > 0 && (
+                {sale.payment_type !== 'vista' && installments.length > 0 && (
                   <table className="w-full mt-4 border-collapse text-[10px] text-black">
                     <thead>
                       <tr className="bg-gray-100">
@@ -257,17 +265,25 @@ function SaleDocumentViewer({
                   <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Valor Total da Venda</p>
                   <p className="text-3xl font-black text-black font-mono">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
-                <p>• <strong>Entrada Paga:</strong> R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                <p>• <strong>Financiamento:</strong> {sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                {sale.payment_type === 'vista' ? (
+                  <p>• <strong>Forma de Pagamento:</strong> À Vista (Dinheiro/Pix)</p>
+                ) : (
+                  <>
+                    <p>• <strong>Entrada Paga:</strong> R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p>• <strong>Financiamento:</strong> {sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </>
+                )}
               </section>
 
-              <section className="mb-6">
-                <h2 className="font-bold border-b border-gray-300 mb-2 uppercase text-xs text-black">⚡ Desconto Garantido por Antecipação</h2>
-                <p className="text-[10px]">• ✅ <strong>1 parcela adiantada:</strong> Desconto de <strong>3%</strong> nos juros da parcela.</p>
-                <p className="text-[10px]">• ✅ <strong>2 parcelas adiantadas:</strong> Desconto de <strong>5%</strong> nos juros das parcelas.</p>
-                <p className="text-[10px]">• ✅ <strong>3 parcelas adiantadas ou mais:</strong> Desconto de <strong>8%</strong> nos juros das parcelas.</p>
-                <p className="text-[10px]">• ✅ <strong>Quitação acima de 50%:</strong> Abatimento especial negociado.</p>
-              </section>
+              {sale.payment_type === 'crediario' && (
+                <section className="mb-6">
+                  <h2 className="font-bold border-b border-gray-300 mb-2 uppercase text-xs text-black">⚡ Desconto Garantido por Antecipação</h2>
+                  <p className="text-[10px]">• ✅ <strong>1 parcela adiantada:</strong> Desconto de <strong>3%</strong> nos juros da parcela.</p>
+                  <p className="text-[10px]">• ✅ <strong>2 parcelas adiantadas:</strong> Desconto de <strong>5%</strong> nos juros das parcelas.</p>
+                  <p className="text-[10px]">• ✅ <strong>3 parcelas adiantadas ou mais:</strong> Desconto de <strong>8%</strong> nos juros das parcelas.</p>
+                  <p className="text-[10px]">• ✅ <strong>Quitação acima de 50%:</strong> Abatimento especial negociado.</p>
+                </section>
+              )}
 
               <div className="mt-20 flex justify-between gap-10">
                 <div className="flex-1 border-t border-black pt-2 text-center text-[10px]">
@@ -518,7 +534,11 @@ export default function Sales() {
                       <div className="space-y-1">
                         <p className="text-xs font-black text-on-surface">R$ {sale.total_value.toLocaleString('pt-BR')}</p>
                         <p className="text-[9px] text-on-surface-variant font-black uppercase tracking-tight opacity-60">
-                          {sale.installments}x de R$ {(sale.total_value / sale.installments).toFixed(2)}
+                          {sale.payment_type === 'vista'
+                            ? 'À Vista'
+                            : sale.payment_type === 'card'
+                              ? `${sale.installments}x no Cartão`
+                              : `${sale.installments}x de R$ ${sale.installments > 0 ? (sale.total_value / sale.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}`}
                         </p>
                       </div>
                     </td>

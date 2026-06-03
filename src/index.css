@@ -167,6 +167,11 @@ input.py-4 {
 
 /* Print styles for modern direct printing to bypass popup blockers */
 @media print {
+  body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
   body.printing-active > *:not(#print-mount-point) {
     display: none !important;
   }
@@ -178,6 +183,8 @@ input.py-4 {
     width: 100%;
     margin: 0;
     padding: 0;
+    background-color: #ffffff !important;
+    background: #ffffff !important;
   }
 }
 

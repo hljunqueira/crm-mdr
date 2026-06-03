@@ -61,6 +61,11 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
       <style>{`
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body {
+            background-color: #ffffff !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
           body > *:not(#sale-contract) { display: none !important; }
           #sale-contract { display: block !important; }
         }
