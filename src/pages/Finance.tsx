@@ -5,7 +5,7 @@ import {
   Search, Download, Calendar, DollarSign, ArrowUpRight, 
   ArrowDownRight, Smartphone, ShieldAlert, MessageSquare, 
   FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
-  X, Copy, Check, Printer, Send
+  X, Copy, Check, Printer, Send, RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
@@ -21,6 +21,7 @@ interface CustomerGroup {
   totalPaid: number;
   totalOverdue: number;
   installments: Installment[];
+  displayedInstallments: Installment[];
   status: 'paid' | 'pending' | 'overdue' | 'blocked';
   paidCount: number;
   totalCount: number;
@@ -181,6 +182,88 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
   );
 }
 
+function PaymentConfirmationContent({ 
+  item, 
+  fees, 
+  isOverdue, 
+  onMethodChange 
+}: { 
+  item: Installment; 
+  fees: any; 
+  isOverdue: boolean; 
+  onMethodChange: (method: 'pix' | 'money' | 'card') => void;
+}) {
+  const [method, setMethod] = useState<'pix' | 'money' | 'card'>('pix');
+
+  useEffect(() => {
+    onMethodChange(method);
+  }, [method]);
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm">Recebimento da parcela <span className="text-white font-black">{item.number}/{item.total}</span> de <span className="text-white font-black">{item.customer_name}</span>.</p>
+      <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+        <div className="flex justify-between text-xs">
+          <span className="text-on-surface-variant uppercase tracking-widest font-black">Valor Original</span>
+          <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        {isOverdue && (
+          <>
+            <div className="flex justify-between text-xs">
+              <span className="text-error uppercase tracking-widest font-black">Multa (2%)</span>
+              <span className="text-error font-mono font-black">+ R$ {fees.multa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-error uppercase tracking-widest font-black">Juros (1%/mês · {fees.daysLate}d)</span>
+              <span className="text-error font-mono font-black">+ R$ {fees.juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="pt-2 border-t border-white/10 flex justify-between text-sm">
+              <span className="text-white uppercase tracking-widest font-black">Total a Receber</span>
+              <span className="text-white font-mono font-black text-base">R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
+        )}
+        {!isOverdue && (
+          <div className="flex justify-between text-sm pt-1">
+            <span className="text-on-surface-variant uppercase tracking-widest font-black">Total a Receber</span>
+            <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+      </div>
+      {isOverdue && (
+        <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-3 rounded-xl border border-error/20">
+          ⚠️ Multa e juros conforme contrato. Vencida há {fees.daysLate} dia(s).
+        </p>
+      )}
+
+      {/* Payment Method Selector */}
+      <div className="space-y-2">
+        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">Forma de Pagamento</p>
+        <div className="grid grid-cols-3 gap-2">
+          {(['pix', 'money', 'card'] as const).map(m => {
+            const label = m === 'pix' ? 'PIX' : m === 'money' ? 'Dinheiro' : 'Cartão';
+            const active = method === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                  active 
+                    ? 'bg-white text-black border-white' 
+                    : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Finance() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'receivables' | 'overdue'>('receivables');
@@ -189,11 +272,29 @@ export default function Finance() {
   const [pixModalItem, setPixModalItem] = useState<Installment | null | undefined>(undefined); // undefined = closed
   const [sendingWa, setSendingWa] = useState<string | null>(null);
   
-  const { installments, markAsPaid, markAsBlocked, fetchInstallments, isLoading } = useFinanceStore();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue' | 'blocked'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  
+  const { installments, markAsPaid, markAsBlocked, revertPayment, fetchInstallments, isLoading } = useFinanceStore();
   const { customers } = useCustomerStore();
   const { unit } = useUnitStore();
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
+
+  const handleTabChange = (tab: 'receivables' | 'overdue') => {
+    setActiveTab(tab);
+    setStatusFilter('all');
+  };
+
+  const formatPaymentDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const cleanStr = dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`;
+      return new Date(cleanStr).toLocaleDateString('pt-BR');
+    } catch {
+      return '';
+    }
+  };
 
   // Derive PIX data from unit settings (with fallbacks)
   const pixKey = unit?.pix_key || unit?.cnpj || '';
@@ -201,22 +302,30 @@ export default function Finance() {
   const pixPhone = unit?.phone || DEFAULT_PIX_PHONE;
 
   const handleExportCSV = () => {
-    if (installments.length === 0) {
-      showNotification('error', 'Sem dados', 'Não há parcelas para exportar.');
+    const filteredInstallments = filteredGroups.flatMap(group => group.displayedInstallments);
+
+    if (filteredInstallments.length === 0) {
+      showNotification('error', 'Sem dados', 'Não há parcelas filtradas para exportar.');
       return;
     }
 
-    const headers = ['ID Parcela', 'Cliente', 'Parcela', 'Vencimento', 'Valor Original', 'Valor Atual com Mora', 'Status'];
-    const rows = installments.map(inst => {
+    const headers = ['ID Parcela', 'Cliente', 'Parcela', 'Vencimento', 'Valor Original', 'Valor Atual com Mora', 'Status', 'Data Pagto', 'Método Pagto'];
+    const rows = filteredInstallments.map(inst => {
       const fees = calculateOverdueFees(inst);
       return [
         `#${inst.id.split('-')[0]}`,
-        inst.customer_name,
+        inst.customer_name || 'Cliente Sem Nome',
         `${inst.number}/${inst.total}`,
         inst.due_date,
         inst.value.toFixed(2),
         fees.total.toFixed(2),
-        inst.status === 'paid' ? 'Pago' : inst.status === 'blocked' ? 'Bloqueado' : fees.isLate ? 'Atrasado' : 'Pendente'
+        inst.status === 'paid' ? 'Pago' : inst.status === 'blocked' ? 'Bloqueado' : fees.isLate ? 'Atrasado' : 'Pendente',
+        inst.paid_at ? formatPaymentDate(inst.paid_at) : '',
+        inst.payment_method ? (
+          inst.payment_method === 'pix' ? 'PIX' :
+          inst.payment_method === 'money' ? 'Dinheiro' :
+          inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
+        ) : ''
       ];
     });
 
@@ -278,6 +387,7 @@ export default function Finance() {
           totalPaid: 0,
           totalOverdue: 0,
           installments: [],
+          displayedInstallments: [],
           status: 'pending',
           paidCount: 0,
           totalCount: 0
@@ -319,15 +429,69 @@ export default function Finance() {
   }, [installments]);
 
   const filteredGroups = React.useMemo(() => {
-    return customerGroups.filter(group => {
+    const matchesDateFilter = (dueDateStr: string) => {
+      if (dateFilter === 'all') return true;
+      const dueDate = new Date(dueDateStr + 'T12:00:00');
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (dateFilter === 'today') {
+        return dueDate.getFullYear() === today.getFullYear() &&
+               dueDate.getMonth() === today.getMonth() &&
+               dueDate.getDate() === today.getDate();
+      }
+      
+      if (dateFilter === 'week') {
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+        const dueMs = dueDate.getTime();
+        return dueMs >= today.getTime() && dueMs <= nextWeek.getTime();
+      }
+      
+      if (dateFilter === 'month') {
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
+      }
+      
+      return true;
+    };
+
+    return customerGroups.map(group => {
+      const matchingInstallments = group.installments.filter(inst => {
+        const matchesDate = matchesDateFilter(inst.due_date);
+        
+        let matchesStatus = true;
+        if (statusFilter === 'paid') {
+          matchesStatus = inst.status === 'paid';
+        } else if (statusFilter === 'overdue') {
+          const fees = calculateOverdueFees(inst);
+          matchesStatus = fees.isLate;
+        } else if (statusFilter === 'blocked') {
+          matchesStatus = inst.status === 'blocked';
+        }
+
+        return matchesDate && matchesStatus;
+      });
+
+      return {
+        ...group,
+        displayedInstallments: matchingInstallments
+      };
+    }).filter(group => {
       const matchesSearch = group.customerName.toLowerCase().includes(searchTerm.toLowerCase());
       
+      let matchesTab = true;
       if (activeTab === 'overdue') {
-        return (group.status === 'overdue' || group.status === 'blocked') && matchesSearch;
+        matchesTab = group.status === 'overdue' || group.status === 'blocked';
       }
-      return matchesSearch;
+
+      const hasMatchingInstallments = group.displayedInstallments.length > 0;
+
+      return matchesSearch && matchesTab && hasMatchingInstallments;
     });
-  }, [customerGroups, searchTerm, activeTab]);
+  }, [customerGroups, searchTerm, activeTab, statusFilter, dateFilter]);
 
   const totalReceivable = installments.reduce((acc, current) => acc + current.value, 0);
   const totalPaid = installments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0);
@@ -340,55 +504,53 @@ export default function Finance() {
   const handlePayment = (item: Installment) => {
     const fees = calculateOverdueFees(item);
     const isOverdue = fees.isLate;
+    let selectedMethod: 'pix' | 'money' | 'card' = 'pix';
+
     showModal({
       title: isOverdue ? 'Recebimento com Mora' : 'Confirmar Pagamento',
       children: (
-        <div className="space-y-4">
-          <p className="text-sm">Recebimento da parcela <span className="text-white font-black">{item.number}/{item.total}</span> de <span className="text-white font-black">{item.customer_name}</span>.</p>
-          <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
-            <div className="flex justify-between text-xs">
-              <span className="text-on-surface-variant uppercase tracking-widest font-black">Valor Original</span>
-              <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {isOverdue && (
-              <>
-                <div className="flex justify-between text-xs">
-                  <span className="text-error uppercase tracking-widest font-black">Multa (2%)</span>
-                  <span className="text-error font-mono font-black">+ R$ {fees.multa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-error uppercase tracking-widest font-black">Juros (1%/mês · {fees.daysLate}d)</span>
-                  <span className="text-error font-mono font-black">+ R$ {fees.juros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="pt-2 border-t border-white/10 flex justify-between text-sm">
-                  <span className="text-white uppercase tracking-widest font-black">Total a Receber</span>
-                  <span className="text-white font-mono font-black text-base">R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </>
-            )}
-            {!isOverdue && (
-              <div className="flex justify-between text-sm pt-1">
-                <span className="text-on-surface-variant uppercase tracking-widest font-black">Total a Receber</span>
-                <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            )}
-          </div>
-          {isOverdue && (
-            <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-3 rounded-xl border border-error/20">
-              ⚠️ Multa e juros conforme contrato. Vencida há {fees.daysLate} dia(s).
-            </p>
-          )}
-        </div>
+        <PaymentConfirmationContent
+          item={item}
+          fees={fees}
+          isOverdue={isOverdue}
+          onMethodChange={(method) => {
+            selectedMethod = method;
+          }}
+        />
       ),
       confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
       onConfirm: async () => {
         try {
-          // Pass the total with fees so the actual received amount is persisted in DB
-          await markAsPaid(item.id, isOverdue ? fees.total : undefined);
+          await markAsPaid(item.id, isOverdue ? fees.total : undefined, selectedMethod);
           showNotification('success', 'Pagamento Confirmado');
           hideModal();
         } catch (error) {
           showNotification('error', 'Erro no Servidor');
+        }
+      }
+    });
+  };
+
+  const handleRevertPayment = (item: Installment) => {
+    showModal({
+      title: 'Confirmar Estorno de Pagamento',
+      type: 'warning',
+      children: (
+        <div className="space-y-4">
+          <p className="text-sm">Tem certeza de que deseja estornar o pagamento da parcela <span className="text-white font-black">{item.number}/{item.total}</span> de <span className="text-white font-black">{item.customer_name}</span>?</p>
+          <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-3 rounded-xl border border-error/20">
+            ⚠️ Esta ação alterará o status da parcela de volta para "Pendente" (ou "Atrasado" se já estiver vencida) e removerá o registro da data e forma de pagamento.
+          </p>
+        </div>
+      ),
+      confirmText: 'Estornar Pagamento',
+      onConfirm: async () => {
+        try {
+          await revertPayment(item.id);
+          showNotification('success', 'Pagamento Estornado', 'A parcela voltou ao estado pendente.');
+          hideModal();
+        } catch (error) {
+          showNotification('error', 'Erro ao estornar pagamento');
         }
       }
     });
@@ -488,31 +650,43 @@ export default function Finance() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
         {[
-          { label: 'Total a Receber', value: `R$ ${totalReceivable.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-primary' },
-          { label: 'Recebido (Total)', value: `R$ ${totalPaid.toLocaleString('pt-BR')}`, icon: CheckCircle2, color: 'text-success' },
-          { label: 'Em Atraso', value: `R$ ${totalOverdue.toLocaleString('pt-BR')}`, icon: AlertCircle, color: 'text-error' },
-          { label: 'Bloqueados', value: installments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error' },
-        ].map((stat, idx) => (
-          <div key={idx} className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
-            <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${stat.color} mb-4 border border-white/10`}>
-              <stat.icon size={20} />
+          { id: 'all', label: 'Total a Receber', value: `R$ ${totalReceivable.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
+          { id: 'paid', label: 'Recebido (Total)', value: `R$ ${totalPaid.toLocaleString('pt-BR')}`, icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
+          { id: 'overdue', label: 'Em Atraso', value: `R$ ${totalOverdue.toLocaleString('pt-BR')}`, icon: AlertCircle, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
+          { id: 'blocked', label: 'Bloqueados', value: installments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error', activeBorder: 'border-red-500/50 shadow-red-500/5', activeBar: 'bg-red-500' },
+        ].map((stat, idx) => {
+          const isActive = statusFilter === stat.id;
+          return (
+            <div 
+              key={idx} 
+              onClick={() => setStatusFilter(stat.id as any)}
+              className={`bg-white/[0.02] p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.04] ${
+                isActive ? stat.activeBorder : 'border-white/5'
+              }`}
+            >
+              {isActive && (
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
+              )}
+              <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${stat.color} mb-4 border border-white/10`}>
+                <stat.icon size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
+              <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{stat.value}</h3>
             </div>
-            <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
-            <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{stat.value}</h3>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Tabs Switcher */}
       <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-sm">
         <button 
-          onClick={() => setActiveTab('receivables')}
+          onClick={() => handleTabChange('receivables')}
           className={`flex-1 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'receivables' ? 'bg-white text-black shadow-xl shadow-white/5' : 'text-on-surface-variant hover:text-white'}`}
         >
           Recebíveis
         </button>
         <button 
-          onClick={() => setActiveTab('overdue')}
+          onClick={() => handleTabChange('overdue')}
           className={`flex-1 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'overdue' ? 'bg-error text-white shadow-xl shadow-error/20' : 'text-on-surface-variant hover:text-white'}`}
         >
           Inadimplência
@@ -531,6 +705,26 @@ export default function Finance() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
             />
+          </div>
+          
+          {/* Period Filter Dropdown */}
+          <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-[220px]">
+            <Calendar size={16} className="text-on-surface-variant shrink-0" />
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as any)}
+              className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-8 font-display font-black uppercase tracking-wider"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right center',
+              }}
+            >
+              <option value="all" className="bg-[#0f0f1a] text-white">Todos os Períodos</option>
+              <option value="today" className="bg-[#0f0f1a] text-white">Vencendo Hoje</option>
+              <option value="week" className="bg-[#0f0f1a] text-white">Esta Semana</option>
+              <option value="month" className="bg-[#0f0f1a] text-white">Este Mês</option>
+            </select>
           </div>
         </div>
 
@@ -664,7 +858,7 @@ export default function Finance() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-white/5">
-                                {group.installments.map((inst) => {
+                                {group.displayedInstallments.map((inst) => {
                                   const fees = calculateOverdueFees(inst);
                                   const isOverdue = fees.isLate;
                                   return (
@@ -708,16 +902,28 @@ export default function Finance() {
                                         </div>
                                       </td>
                                       <td className="py-4">
-                                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                                          inst.status === 'paid' ? 'bg-success/10 text-success border-success/20' :
-                                          isOverdue ? 'bg-error/10 text-error border-error/20' :
-                                          inst.status === 'pending' ? 'bg-secondary/10 text-secondary border-secondary/20' :
-                                          'bg-error/20 text-white border-error/50'
-                                        }`}>
-                                          <div className="w-1 h-1 rounded-full bg-current" />
-                                          {inst.status === 'paid' ? 'Pago' : 
-                                           inst.status === 'blocked' ? 'Bloqueado' : 
-                                           isOverdue ? 'Atrasado' : 'Pendente'}
+                                        <div className="flex flex-col gap-1 items-start">
+                                          <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                                            inst.status === 'paid' ? 'bg-success/10 text-success border-success/20' :
+                                            isOverdue ? 'bg-error/10 text-error border-error/20' :
+                                            inst.status === 'pending' ? 'bg-secondary/10 text-secondary border-secondary/20' :
+                                            'bg-error/20 text-white border-error/50'
+                                          }`}>
+                                            <div className="w-1 h-1 rounded-full bg-current" />
+                                            {inst.status === 'paid' ? 'Pago' : 
+                                             inst.status === 'blocked' ? 'Bloqueado' : 
+                                             isOverdue ? 'Atrasado' : 'Pendente'}
+                                          </div>
+                                          {inst.status === 'paid' && inst.paid_at && (
+                                            <p className="text-[8px] text-on-surface-variant font-mono mt-0.5">
+                                              {formatPaymentDate(inst.paid_at)}
+                                              {inst.payment_method && ` via ${
+                                                inst.payment_method === 'pix' ? 'PIX' :
+                                                inst.payment_method === 'money' ? 'Dinheiro' :
+                                                inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
+                                              }`}
+                                            </p>
+                                          )}
                                         </div>
                                       </td>
                                       <td className="py-4 text-right pr-4">
@@ -745,6 +951,18 @@ export default function Finance() {
                                                 <ShieldAlert size={14} />
                                               </button>
                                             </>
+                                          )}
+                                          {inst.status === 'paid' && (
+                                            <button 
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRevertPayment(inst);
+                                              }}
+                                              className="p-1.5 bg-error/10 hover:bg-error/20 text-error rounded-lg transition-all border border-error/20"
+                                              title="Estornar Pagamento"
+                                            >
+                                              <RotateCcw size={14} />
+                                            </button>
                                           )}
                                           {/* PIX / Boleto button */}
                                           <button 

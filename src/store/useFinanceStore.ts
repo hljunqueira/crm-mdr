@@ -14,14 +14,16 @@ export interface Installment {
   due_date: string;
   paid_at?: string;
   status: 'paid' | 'pending' | 'overdue' | 'blocked';
+  payment_method?: 'pix' | 'money' | 'card' | 'transfer';
 }
 
 interface FinanceState {
   installments: Installment[];
   isLoading: boolean;
   fetchInstallments: (unitId?: string) => Promise<void>;
-  markAsPaid: (id: string, finalValue?: number) => Promise<void>;
+  markAsPaid: (id: string, finalValue?: number, paymentMethod?: 'pix' | 'money' | 'card') => Promise<void>;
   markAsBlocked: (id: string) => Promise<void>;
+  revertPayment: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<void>;
 }
 
@@ -43,7 +45,8 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         value: Number(i.value),
         due_date: i.due_date,
         paid_at: i.payment_date,
-        status: i.status
+        status: i.status,
+        payment_method: i.payment_method
       }));
 
       // Filter by unitId on the frontend if provided and user is not an admin
@@ -59,7 +62,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       set({ isLoading: false });
     }
   },
-  markAsPaid: async (id, finalValue) => {
+  markAsPaid: async (id, finalValue, paymentMethod) => {
     try {
       const payload: Record<string, any> = {
         status: 'paid',
@@ -68,6 +71,9 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       // If a final value is given (e.g., includes late fees), persist the real amount received
       if (finalValue !== undefined) {
         payload.value = finalValue;
+      }
+      if (paymentMethod !== undefined) {
+        payload.payment_method = paymentMethod;
       }
       const data = await api.patch(`/finance/installments/${id}`, payload);
       
@@ -79,7 +85,8 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         value: Number(data.value),
         due_date: data.due_date,
         paid_at: data.payment_date,
-        status: data.status
+        status: data.status,
+        payment_method: data.payment_method
       };
 
       set((state) => ({
@@ -87,6 +94,33 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error marking as paid:', error);
+    }
+  },
+  revertPayment: async (id) => {
+    try {
+      const data = await api.patch(`/finance/installments/${id}`, {
+        status: 'pending',
+        payment_date: null,
+        payment_method: null
+      });
+      
+      const mapped = {
+        id: data.id,
+        sale_id: data.sale_id,
+        number: data.installment_number,
+        total: data.total_installments,
+        value: Number(data.value),
+        due_date: data.due_date,
+        paid_at: undefined,
+        status: data.status,
+        payment_method: undefined
+      };
+
+      set((state) => ({
+        installments: state.installments.map((i) => i.id === id ? { ...i, ...mapped, paid_at: undefined, payment_method: undefined } : i)
+      }));
+    } catch (error) {
+      console.error('Error reverting payment:', error);
     }
   },
   markAsBlocked: async (id) => {
