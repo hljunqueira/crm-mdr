@@ -118,7 +118,6 @@ export default function Landing() {
   }, [showcaseDevices]);
 
   const [isNavDropdownOpen, setIsNavDropdownOpen] = React.useState(false);
-  const [navCpf, setNavCpf] = React.useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,35 +264,16 @@ export default function Landing() {
                       transition={{ duration: 0.2 }}
                       className="absolute right-0 mt-3 w-72 glass-card border border-white/10 rounded-3xl p-5 shadow-2xl bg-[#121215]/95 backdrop-blur-xl z-50 text-left space-y-4"
                     >
-                      {/* Option 1: Search CPF for Customer OS */}
-                      <div className="space-y-2.5">
-                        <span className="text-[9px] font-black text-primary uppercase tracking-widest block leading-none">Acompanhar Conserto</span>
-                        <p className="text-[10px] text-on-surface-variant/75 leading-tight">Consulte a situação do seu aparelho digitando o seu CPF:</p>
-                        
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="000.000.000-00"
-                            value={navCpf}
-                            onChange={(e) => setNavCpf(formatCPF(e.target.value))}
-                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const cleanCpf = navCpf.replace(/\D/g, '');
-                              if (cleanCpf.length === 11) {
-                                window.location.href = `/consulta-os?cpf=${cleanCpf}`;
-                              } else {
-                                showNotification('error', 'CPF Inválido', 'Digite os 11 dígitos do CPF.');
-                              }
-                            }}
-                            className="bg-white text-black hover:bg-primary hover:text-white px-3.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center"
-                            title="Buscar"
-                          >
-                            <ArrowRight size={14} />
-                          </button>
-                        </div>
+                      {/* Option 1: Track Repair */}
+                      <div className="space-y-1">
+                        <span className="text-[9px] font-black text-primary uppercase tracking-widest block leading-none">Clientes</span>
+                        <Link
+                          to="/consulta-os"
+                          onClick={() => setIsNavDropdownOpen(false)}
+                          className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-[10px] font-black uppercase tracking-wider text-white hover:text-primary transition-all"
+                        >
+                          Acompanhar Conserto <ChevronRight size={14} />
+                        </Link>
                       </div>
 
                       <div className="h-px bg-white/5" />

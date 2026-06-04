@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS sales (
     original_price DECIMAL(12, 2) DEFAULT 0,
     sale_date DATE DEFAULT CURRENT_DATE,
     status TEXT DEFAULT 'completed' CHECK (status IN ('completed', 'cancelled', 'refunded')),
+    payment_type TEXT CHECK (payment_type IN ('crediario', 'card', 'vista')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

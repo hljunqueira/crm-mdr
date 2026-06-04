@@ -20,6 +20,7 @@ import {
   Building2
 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
+import { useUnitStore } from '../store/useUnitStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import InventoryForm from '../components/inventory/InventoryForm';
@@ -27,6 +28,7 @@ import { cn } from '../lib/utils';
 
 export default function Inventory() {
   const { inventory, deleteItem, fetchInventory, isLoading } = useInventoryStore();
+  const { units: allStores, fetchAllUnits } = useUnitStore();
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,16 +42,12 @@ export default function Inventory() {
     fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
   }, [profile?.unit_id, fetchInventory, isAdmin]);
 
-  // Unique stores extracted from the loaded inventory
-  const availableStores = useMemo(() => {
-    const seen = new Map<string, string>();
-    inventory.forEach(item => {
-      if (item.unit_id && item.store_name) {
-        seen.set(item.unit_id, item.store_name);
-      }
-    });
-    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
-  }, [inventory]);
+  useEffect(() => {
+    fetchAllUnits().catch(() => {});
+  }, [fetchAllUnits]);
+
+  // Use all configured stores for filter tabs
+  const availableStores = allStores;
 
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Smartphone, Barcode, DollarSign, Save, X, Layers, Loader2, Store } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../../store/useInventoryStore';
+import { useUnitStore } from '../../store/useUnitStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
@@ -31,13 +32,13 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     show_on_landing: item?.show_on_landing || false,
   });
 
-  const [stores, setStores] = useState<{ id: string; name: string }[]>([]);
+  const { units: stores, fetchAllUnits } = useUnitStore();
 
   useEffect(() => {
-    api.get('/units').then((data: any[]) => {
-      setStores(data || []);
-    }).catch(() => {});
-  }, []);
+    if (stores.length === 0) {
+      fetchAllUnits().catch(() => {});
+    }
+  }, [stores.length, fetchAllUnits]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

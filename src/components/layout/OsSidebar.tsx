@@ -10,6 +10,8 @@ interface OsSidebarProps {
   setSearchTerm: (term: string) => void;
   isLoading: boolean;
   getStatusInfo: (status: string) => { label: string; color: string };
+  osFilterTab: 'active' | 'canceled';
+  setOsFilterTab: (tab: 'active' | 'canceled') => void;
 }
 
 export default function OsSidebar({
@@ -19,7 +21,9 @@ export default function OsSidebar({
   searchTerm,
   setSearchTerm,
   isLoading,
-  getStatusInfo
+  getStatusInfo,
+  osFilterTab,
+  setOsFilterTab
 }: OsSidebarProps) {
   return (
     <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
@@ -27,6 +31,34 @@ export default function OsSidebar({
         <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <Wrench size={16} /> Fila de Serviços ({filteredOs.length})
         </h3>
+      </div>
+      
+      {/* Seletor de Abas (Ativos / Cancelados) */}
+      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-full shrink-0">
+        <button
+          type="button"
+          onClick={() => setOsFilterTab('active')}
+          className={cn(
+            "flex-1 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] transition-all",
+            osFilterTab === 'active' 
+              ? "bg-white text-black shadow-lg" 
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Ativas
+        </button>
+        <button
+          type="button"
+          onClick={() => setOsFilterTab('canceled')}
+          className={cn(
+            "flex-1 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] transition-all",
+            osFilterTab === 'canceled' 
+              ? "bg-white text-black shadow-lg" 
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Canceladas
+        </button>
       </div>
       
       {/* Campo de Busca */}

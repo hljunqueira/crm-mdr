@@ -4,6 +4,9 @@
 -- 1. Melhorias na Tabela de Vendas
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS service_fee DECIMAL(12, 2) DEFAULT 0;
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS original_price DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_type TEXT;
+ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_payment_type_check;
+ALTER TABLE sales ADD CONSTRAINT sales_payment_type_check CHECK (payment_type IN ('crediario', 'card', 'vista'));
 
 -- 2. Tabela de Unidades (Suporte a White Label)
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS logo_url TEXT;

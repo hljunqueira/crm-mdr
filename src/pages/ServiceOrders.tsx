@@ -3,13 +3,15 @@ import {
   Wrench, Search, Plus, Loader2, AlertCircle, CheckCircle2, 
   User, Phone, FileText, Printer, ExternalLink, ShieldAlert, 
   Save, ArrowLeft, Trash2, Smartphone, Monitor, PrinterIcon, 
-  Gamepad2, PlusCircle, Check, Info, Calendar, DollarSign, Send
+  Gamepad2, PlusCircle, Check, Info, Calendar, DollarSign, Send,
+  Edit
 } from 'lucide-react';
 import { useServiceOrderStore, ServiceOrder } from '../store/useServiceOrderStore';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
+import { useUnitStore } from '../store/useUnitStore';
 import { formatCPF, formatPhone, printElement } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
@@ -72,13 +74,18 @@ export default function ServiceOrders() {
   const { inventory, fetchInventory } = useInventoryStore();
   const { showNotification } = useUI();
   const { profile } = useAuthStore();
+  const { units, fetchAllUnits } = useUnitStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('all');
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
+  const [osFilterTab, setOsFilterTab] = useState<'active' | 'canceled'>('active');
+  const [isEditingReportedIssue, setIsEditingReportedIssue] = useState(false);
+  const [editedReportedIssue, setEditedReportedIssue] = useState('');
   
   // Navigation / Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [admins, setAdmins] = useState<any[]>([]);
@@ -92,6 +99,7 @@ export default function ServiceOrders() {
   // New OS Form State
   const [newOs, setNewOs] = useState({
     customer_id: '',
+    unit_id: '',
     device_category: 'smartphone' as any,
     custom_category: '',
     device_brand: '',
@@ -117,6 +125,7 @@ export default function ServiceOrders() {
     fetchServiceOrders();
     fetchCustomers();
     fetchInventory();
+    fetchAllUnits();
 
     const fetchAdmins = async () => {
       const { data } = await supabase
@@ -126,12 +135,22 @@ export default function ServiceOrders() {
       if (data) setAdmins(data);
     };
     fetchAdmins();
-  }, [fetchServiceOrders, fetchCustomers, fetchInventory]);
+  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits]);
+
+  // Default unit_id to profile's unit_id when profile/units are loaded
+  useEffect(() => {
+    if (profile?.unit_id) {
+      setNewOs(prev => ({ ...prev, unit_id: profile.unit_id }));
+    } else if (units.length > 0) {
+      setNewOs(prev => ({ ...prev, unit_id: units[0].id }));
+    }
+  }, [profile, units]);
 
   // Load single OS details when selected
   useEffect(() => {
     if (selectedOsId) {
       fetchServiceOrderById(selectedOsId);
+      setIsEditingReportedIssue(false);
     }
   }, [selectedOsId, fetchServiceOrderById]);
 
@@ -163,10 +182,14 @@ export default function ServiceOrders() {
         clientCpf.includes(search) ||
         deviceModel.includes(search) ||
         serialNum.includes(search);
+
+      const matchStatus = osFilterTab === 'active'
+        ? os.status !== 'canceled'
+        : os.status === 'canceled';
         
-      return matchCategory && matchSearch;
+      return matchCategory && matchSearch && matchStatus;
     });
-  }, [serviceOrders, selectedCategoryTab, searchTerm]);
+  }, [serviceOrders, selectedCategoryTab, searchTerm, osFilterTab]);
 
   // Search filtered customers for new OS
   const filteredCustomersForSelect = useMemo(() => {
@@ -228,6 +251,20 @@ export default function ServiceOrders() {
     }));
   };
 
+  const handleDeleteOS = async () => {
+    if (!currentServiceOrder) return;
+    
+    try {
+      await deleteServiceOrder(currentServiceOrder.id);
+      showNotification('success', 'Ordem de Serviço excluída com sucesso!');
+      setSelectedOsId(null);
+      setIsDeleteConfirmOpen(false);
+      fetchServiceOrders();
+    } catch (err) {
+      showNotification('error', 'Falha ao excluir a Ordem de Serviço.');
+    }
+  };
+
   const handleCreateOS = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOs.customer_id || !newOs.device_brand || !newOs.device_model || !newOs.reported_issue) {
@@ -249,6 +286,7 @@ export default function ServiceOrders() {
       const techId = newOs.responsible_technician_id || profile?.id || null;
       const created = await createServiceOrder({
         customer_id: newOs.customer_id,
+        unit_id: newOs.unit_id || null,
         device_category: finalCategory,
         device_brand: newOs.device_brand,
         device_model: newOs.device_model,
@@ -284,6 +322,7 @@ export default function ServiceOrders() {
       setCustomerSearchTerm('');
       setNewOs({
         customer_id: '',
+        unit_id: profile?.unit_id || (units[0]?.id ?? ''),
         device_category: 'smartphone',
         custom_category: '',
         device_brand: '',
@@ -385,10 +424,18 @@ export default function ServiceOrders() {
   // Accessories quick suggestions based on selected category
   const activeAccessoriesList = ACCESSORY_SUGGESTIONS[newOs.device_category] || ACCESSORY_SUGGESTIONS.other;
 
-  const today = new Date().toLocaleDateString('pt-BR');
 
   const renderOsEntryCopy = (copyTitle: string) => {
     if (!currentServiceOrder) return null;
+    const osUnit = units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
+      name: 'MDR Informática & Celulares',
+      address: 'Rua Principal, 1234 - Centro',
+      phone: '(11) 99999-9999'
+    };
+    const unitNameParts = osUnit.name.split(' ');
+    const brandName = unitNameParts[0] || 'MDR';
+    const brandSub = unitNameParts.slice(1).join(' ').toUpperCase() || 'INFORMÁTICA & CELULARES';
+
     return (
       <div className="os-thermal-receipt">
         {/* Copy Indicator */}
@@ -398,11 +445,11 @@ export default function ServiceOrders() {
 
         {/* Company Header */}
         <div className="header-center">
-          <div className="brand-name">MDR</div>
-          <div className="brand-sub">INFORMÁTICA & CELULARES</div>
+          <div className="brand-name">{brandName}</div>
+          <div className="brand-sub">{brandSub}</div>
           <div className="unit-details">
-            Rua Principal, 1234 - Centro<br />
-            WhatsApp: (11) 99999-9999
+            {osUnit.address}<br />
+            WhatsApp: {osUnit.phone}
           </div>
         </div>
 
@@ -488,8 +535,18 @@ export default function ServiceOrders() {
         <div className="section-title">TERMOS DE RECEBIMENTO</div>
         <div className="clauses">
           1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
-          2. <strong>Backup de Dados:</strong> A MDR **NÃO se responsabiliza por perdas de dados** ou arquivos. Faça backup prévio.<br />
+          2. <strong>Backup de Dados:</strong> A {brandName} **NÃO se responsabiliza por perdas de dados** ou arquivos. Faça backup prévio.<br />
           3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por **mais de 90 dias** após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Online Tracking Instruction */}
+        <div className="section-title" style={{ textAlign: 'center' }}>ACOMPANHAR CONSERTO ONLINE</div>
+        <div className="clauses" style={{ textAlign: 'center', fontSize: '9px', marginBottom: '8px' }}>
+          Consulte o status em tempo real do seu aparelho acessando:<br />
+          <strong>mdrinformaticaecelulares.com.br/consulta-os</strong><br />
+          e informe o seu CPF.
         </div>
 
         <div className="divider"></div>
@@ -497,7 +554,7 @@ export default function ServiceOrders() {
         {/* Signatures */}
         <div className="sig-line-box">
           <div className="sig-line"></div>
-          <span className="sig-label">MDR Informática & Celulares</span>
+          <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
         <div className="sig-line-box" style={{ marginTop: '20px' }}>
@@ -521,6 +578,16 @@ export default function ServiceOrders() {
 
   const renderOsWarrantyCopy = (copyTitle: string) => {
     if (!currentServiceOrder) return null;
+    const today = new Date().toLocaleDateString('pt-BR');
+    const osUnit = units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
+      name: 'MDR Informática & Celulares',
+      address: 'Rua Principal, 1234 - Centro',
+      phone: '(11) 99999-9999'
+    };
+    const unitNameParts = osUnit.name.split(' ');
+    const brandName = unitNameParts[0] || 'MDR';
+    const brandSub = unitNameParts.slice(1).join(' ').toUpperCase() || 'INFORMÁTICA & CELULARES';
+
     return (
       <div className="os-thermal-receipt">
         {/* Copy Indicator */}
@@ -530,11 +597,11 @@ export default function ServiceOrders() {
 
         {/* Company Header */}
         <div className="header-center">
-          <div className="brand-name">MDR</div>
-          <div className="brand-sub">INFORMÁTICA & CELULARES</div>
+          <div className="brand-name">{brandName}</div>
+          <div className="brand-sub">{brandSub}</div>
           <div className="unit-details">
-            Rua Principal, 1234 - Centro<br />
-            WhatsApp: (11) 99999-9999
+            {osUnit.address}<br />
+            WhatsApp: {osUnit.phone}
           </div>
         </div>
 
@@ -619,8 +686,18 @@ export default function ServiceOrders() {
           <strong>EXCLUSÕES DA GARANTIA:</strong> A garantia será anulada em caso de:<br />
           • Quedas, quebras, amassados ou mau uso;<br />
           • Oxidação, umidade ou contato com líquidos;<br />
-          • Rompimento dos lacres MDR aplicados;<br />
+          • Rompimento dos lacres {brandName} aplicados;<br />
           • Abertura por terceiros.
+        </div>
+
+        <div className="divider"></div>
+
+        {/* Online Tracking Instruction */}
+        <div className="section-title" style={{ textAlign: 'center' }}>ACOMPANHAR CONSERTO ONLINE</div>
+        <div className="clauses" style={{ textAlign: 'center', fontSize: '9px', marginBottom: '8px' }}>
+          Consulte a situação e a garantia do seu aparelho acessando:<br />
+          <strong>mdrinformaticaecelulares.com.br/consulta-os</strong><br />
+          e informe o seu CPF.
         </div>
 
         <div className="divider"></div>
@@ -628,7 +705,7 @@ export default function ServiceOrders() {
         {/* Signatures */}
         <div className="sig-line-box">
           <div className="sig-line"></div>
-          <span className="sig-label">MDR Informática & Celulares</span>
+          <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
         <div className="sig-line-box" style={{ marginTop: '20px' }}>
@@ -700,6 +777,8 @@ export default function ServiceOrders() {
           setSearchTerm={setSearchTerm}
           isLoading={isLoading}
           getStatusInfo={getStatusInfo}
+          osFilterTab={osFilterTab}
+          setOsFilterTab={setOsFilterTab}
         />
 
         {/* COLUNA 2 E 3: BANCADA DO TÉCNICO & DETALHES DA OS */}
@@ -712,6 +791,34 @@ export default function ServiceOrders() {
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in duration-300">
+              {/* WARNING BANNER FOR CANCELED OS */}
+              {currentServiceOrder.status === 'canceled' && (
+                <div className="p-5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-[32px] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20 shrink-0 text-red-500">
+                      <ShieldAlert size={18} />
+                    </div>
+                    <div>
+                      <p className="font-black uppercase tracking-wider text-[10px]">Ordem de Serviço Cancelada</p>
+                      <p className="text-[11px] opacity-80 leading-snug">Esta OS foi cancelada e não está ativa na fila de serviços.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await updateServiceOrder(currentServiceOrder.id, { status: 'budget_pending' });
+                        showNotification('success', 'Ordem de Serviço reaberta com sucesso!');
+                      } catch (err) {
+                        showNotification('error', 'Falha ao reabrir a Ordem de Serviço.');
+                      }
+                    }}
+                    className="px-5 py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:scale-105 active:scale-95 transition-all shadow-lg shadow-red-500/20 cursor-pointer w-full sm:w-auto text-center"
+                  >
+                    Reabrir OS
+                  </button>
+                </div>
+              )}
               
               {/* FICHA GERAL DO EQUIPAMENTO */}
               <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
@@ -762,6 +869,15 @@ export default function ServiceOrders() {
                     >
                       <Save size={12} /> Assinar Saída
                     </button>
+                    {profile?.role === 'admin' && (
+                      <button
+                        onClick={() => setIsDeleteConfirmOpen(true)}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all cursor-pointer animate-in fade-in"
+                        title="Excluir Ordem de Serviço permanentemente"
+                      >
+                        <Trash2 size={12} /> Excluir OS
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -784,9 +900,49 @@ export default function ServiceOrders() {
 
                   <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5 md:col-span-2">
                     <AlertCircle size={14} className="opacity-40 text-primary mt-0.5" />
-                    <div>
-                      <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Problema Relatado</p>
-                      <p className="font-bold text-on-surface mt-1 leading-relaxed">{currentServiceOrder.reported_issue}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Problema Relatado</p>
+                        {isEditingReportedIssue ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await updateServiceOrder(currentServiceOrder.id, { reported_issue: editedReportedIssue });
+                                setIsEditingReportedIssue(false);
+                                showNotification('success', 'Relato atualizado com sucesso!');
+                              } catch (err) {
+                                showNotification('error', 'Falha ao atualizar o relato.');
+                              }
+                            }}
+                            className="text-primary hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Check size={12} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditedReportedIssue(currentServiceOrder.reported_issue);
+                              setIsEditingReportedIssue(true);
+                            }}
+                            className="text-on-surface-variant hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Edit size={12} />
+                          </button>
+                        )}
+                      </div>
+                      {isEditingReportedIssue ? (
+                        <textarea
+                          value={editedReportedIssue}
+                          onChange={(e) => setEditedReportedIssue(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-primary outline-none transition-all resize-none mt-1.5"
+                          rows={2}
+                          autoFocus
+                        />
+                      ) : (
+                        <p className="font-bold text-on-surface mt-1 leading-relaxed">{currentServiceOrder.reported_issue}</p>
+                      )}
                     </div>
                   </div>
 
@@ -987,6 +1143,23 @@ export default function ServiceOrders() {
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { warranty_period: parseInt(e.target.value) || 0 })}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono"
                     />
+                  </div>
+
+                  {/* Unit Selection */}
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade / Loja</label>
+                    <select
+                      value={currentServiceOrder.unit_id || ''}
+                      onChange={(e) => updateServiceOrder(currentServiceOrder.id, { unit_id: e.target.value || null })}
+                      className="w-full bg-[#121214] border border-primary/20 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                    >
+                      <option value="" disabled>Selecione a Unidade</option>
+                      {units.map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Responsible Technician */}
@@ -1284,8 +1457,23 @@ export default function ServiceOrders() {
                 </div>
               </div>
 
-              {/* Tecnico Responsável e Garantia inicial */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Unidade, Técnico e Garantia inicial */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade / Loja *</label>
+                  <select
+                    required
+                    value={newOs.unit_id}
+                    onChange={(e) => setNewOs(prev => ({ ...prev, unit_id: e.target.value }))}
+                    className="w-full bg-[#121214] border border-primary/30 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                  >
+                    <option value="" disabled>Selecione a Unidade</option>
+                    {units.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Atribuir a um Técnico</label>
                   <select
@@ -1341,6 +1529,44 @@ export default function ServiceOrders() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* MODAL: CONFIRMAÇÃO DE DELEÇÃO */}
+      {isDeleteConfirmOpen && currentServiceOrder && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-red-500/20 w-full max-w-md rounded-[40px] p-6 md:p-8 space-y-6 shadow-[0_24px_50px_rgba(239,68,68,0.15)] animate-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+                <Trash2 size={32} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-md font-black uppercase tracking-wider text-white">Excluir Ordem de Serviço</h3>
+                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Esta ação é permanente e irreversível</p>
+              </div>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                Tem certeza que deseja excluir permanentemente a <span className="font-bold text-white">OS #{String(currentServiceOrder.os_number).padStart(4, '0')}</span> do cliente <span className="font-bold text-white">{currentServiceOrder.customers?.name}</span>?
+              </p>
+            </div>
+
+            <div className="flex gap-4 pt-2">
+              <button 
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="flex-1 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                onClick={handleDeleteOS}
+                className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-red-500/20 cursor-pointer"
+              >
+                Excluir OS
+              </button>
+            </div>
           </div>
         </div>
       )}
