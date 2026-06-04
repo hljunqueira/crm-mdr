@@ -229,7 +229,7 @@ export default function Sidebar() {
       </button>
 
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden md:flex w-64 h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30">
+      <aside translate="no" className="notranslate hidden md:flex w-64 h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30">
         <div className="px-6 mb-8 flex justify-center">
           <img src="/logo-mdr.png" alt="MDR" className="h-24 w-auto object-contain" />
         </div>
@@ -257,7 +257,7 @@ export default function Sidebar() {
           />
 
           {/* Drawer Panel */}
-          <aside className="relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-50 animate-in slide-in-from-left duration-300">
+          <aside translate="no" className="notranslate relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-50 animate-in slide-in-from-left duration-300">
             <div className="flex justify-between items-center px-6 mb-8">
               <img src="/logo-mdr.png" alt="MDR" className="h-16 w-auto object-contain" />
               <button 
