@@ -363,7 +363,7 @@ export default function Reports() {
       s.installments,
       s.date,
       s.payment_type === 'crediario' ? 'Crediário' : s.payment_type === 'card' ? 'Cartão' : 'À Vista',
-      s.status === 'completed' ? 'Completo' : s.status
+      s.status === 'completed' ? 'Completo' : s.status === 'processing' ? 'Pendente' : 'Atrasado'
     ]);
     exportTableCSV(rows, 'relatorio_vendas_filtrado', headers);
   };

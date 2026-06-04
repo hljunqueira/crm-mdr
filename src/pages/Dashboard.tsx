@@ -318,7 +318,8 @@ export default function Dashboard() {
                             ? 'border-error/20 bg-error/10 text-error'
                             : 'border-white/10 text-on-surface-variant'
                         }`}>
-                          {row.status}
+                          {row.status === 'blocked' ? 'Bloqueado' :
+                           row.status === 'overdue' ? 'Atrasado' : 'Pendente'}
                         </span>
                       </td>
                       <td className="px-8 py-5 text-right font-black text-on-surface text-sm font-mono">
