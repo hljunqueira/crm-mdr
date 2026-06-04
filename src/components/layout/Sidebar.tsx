@@ -84,7 +84,7 @@ export default function Sidebar() {
       icon: CreditCard,
       items: [
         { name: 'Financeiro', icon: CreditCard, path: '/finance' },
-        { name: 'Controle de Bloqueio', icon: ShieldCheck, path: '/device-locks' },
+        { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
       ]
     },
@@ -200,7 +200,7 @@ export default function Sidebar() {
                       )}
                     >
                       <item.icon size={16} className={cn(isActive ? "text-on-primary-container" : "text-on-surface-variant group-hover/item:text-primary transition-colors")} />
-                      <span className="font-display text-xs tracking-tight">{item.name}</span>
+                      <span className="font-display text-xs tracking-tight">{item.displayName || item.name}</span>
                       {item.badge && (
                         <span className="ml-auto bg-error text-on-surface text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
                           {item.badge}
