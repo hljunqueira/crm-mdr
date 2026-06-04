@@ -753,7 +753,7 @@ export default function ServiceOrders() {
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
                       title="Imprimir Garantia e Saída"
                     >
-                      <Printer size={12} /> Saída
+                      <Printer size={12} /> Reimprimir
                     </button>
                     <button
                       onClick={() => setSignatureMode('exit')}
