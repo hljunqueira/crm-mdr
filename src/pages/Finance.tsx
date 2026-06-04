@@ -200,6 +200,43 @@ export default function Finance() {
   const pixName = unit?.name || DEFAULT_PIX_NAME;
   const pixPhone = unit?.phone || DEFAULT_PIX_PHONE;
 
+  const handleExportCSV = () => {
+    if (installments.length === 0) {
+      showNotification('error', 'Sem dados', 'Não há parcelas para exportar.');
+      return;
+    }
+
+    const headers = ['ID Parcela', 'Cliente', 'Parcela', 'Vencimento', 'Valor Original', 'Valor Atual com Mora', 'Status'];
+    const rows = installments.map(inst => {
+      const fees = calculateOverdueFees(inst);
+      return [
+        `#${inst.id.split('-')[0]}`,
+        inst.customer_name,
+        `${inst.number}/${inst.total}`,
+        inst.due_date,
+        inst.value.toFixed(2),
+        fees.total.toFixed(2),
+        inst.status === 'paid' ? 'Pago' : inst.status === 'blocked' ? 'Bloqueado' : fees.isLate ? 'Atrasado' : 'Pendente'
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `recebiveis_${activeTab === 'overdue' ? 'inadimplentes' : 'geral'}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification('success', 'Relatório CSV exportado com sucesso!');
+  };
+
   // ─── Late-payment fee calculator ───────────────────────────────────────
   // Contract terms: 2% multa + 1% per month interest after due date
   const calculateOverdueFees = (inst: Installment) => {
@@ -440,11 +477,11 @@ export default function Finance() {
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Recebíveis</p>
         </div>
         <button
-          onClick={() => setPixModalItem(null)}
-          className="flex items-center gap-2 px-5 py-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all"
+          onClick={handleExportCSV}
+          className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
         >
-          <QrCode size={16} />
-          PIX / Boleto da Loja
+          <Download size={16} />
+          Exportar CSV
         </button>
       </div>
 
@@ -528,10 +565,17 @@ export default function Finance() {
                 group.status === 'paid' ? { bg: 'from-green-500/20 to-green-950/40 border-green-500/30 text-green-500', text: 'Pago', badge: 'bg-green-500/10 text-green-500 border-green-500/20' } :
                 { bg: 'from-primary/20 to-primary-container/20 border-primary/30 text-primary', text: 'Pendente', badge: 'bg-secondary/10 text-secondary border-secondary/20' };
 
+              const progressBarColor = 
+                group.status === 'blocked' ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                group.status === 'overdue' ? 'bg-gradient-to-r from-orange-600 to-orange-400' :
+                'bg-gradient-to-r from-primary via-indigo-500 to-green-500';
+
               return (
                 <div 
                   key={group.customerId}
                   className={`bg-white/[0.01] hover:bg-white/[0.03] border rounded-[28px] transition-all duration-300 overflow-hidden ${
+                    group.status === 'blocked' ? 'border-red-500/20 bg-red-500/[0.005] hover:bg-red-500/[0.01]' :
+                    group.status === 'overdue' ? 'border-orange-500/20 bg-orange-500/[0.005] hover:bg-orange-500/[0.01]' :
                     isExpanded ? 'border-white/10 bg-white/[0.02] shadow-2xl' : 'border-white/5'
                   }`}
                 >
@@ -561,7 +605,7 @@ export default function Finance() {
                       </div>
                       <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
                         <motion.div 
-                          className="h-full bg-gradient-to-r from-primary via-indigo-500 to-green-500 rounded-full"
+                          className={`h-full rounded-full ${progressBarColor}`}
                           initial={{ width: 0 }}
                           animate={{ width: `${percentPaid}%` }}
                           transition={{ duration: 0.8, ease: 'easeOut' }}
