@@ -117,7 +117,7 @@ export default function Reports() {
   }, [serviceOrders, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
 
   // Overview metrics calculations
-  const totalSalesValue = useMemo(() => filteredSales.reduce((acc, s) => acc + s.total_value, 0), [filteredSales]);
+  const totalSalesValue = useMemo(() => filteredSales.reduce((acc, s) => acc + (s.original_price ?? s.total_value), 0), [filteredSales]);
   const totalServiceValue = useMemo(() => filteredServiceOrders.reduce((acc, o) => acc + o.total_value, 0), [filteredServiceOrders]);
   const totalRevenue = totalSalesValue + totalServiceValue;
 
@@ -158,7 +158,7 @@ export default function Reports() {
     filteredSales.forEach(s => {
       const name = s.customer_name || 'Cliente Sem Nome';
       if (!customerMap[name]) customerMap[name] = { name, total: 0, count: 0 };
-      customerMap[name].total += s.total_value;
+      customerMap[name].total += s.original_price ?? s.total_value;
       customerMap[name].count += 1;
     });
     filteredServiceOrders.forEach(o => {
@@ -217,7 +217,7 @@ export default function Reports() {
     let receitaServico = 0;
 
     if (accountingRegime === 'competence') {
-      receitaComercio = qSales.reduce((acc, s) => acc + s.total_value, 0);
+      receitaComercio = qSales.reduce((acc, s) => acc + (s.original_price ?? s.total_value), 0);
       receitaServico = qServiceOrders.reduce((acc, o) => acc + o.total_value, 0);
     } else {
       // Regime de Caixa
@@ -351,12 +351,13 @@ export default function Reports() {
       showNotification('warning', 'Sem Dados', 'Não há registros filtrados para exportar.');
       return;
     }
-    const headers = ['ID Venda', 'Vendedor', 'Cliente', 'Modelo Aparelho', 'Valor Total', 'Entrada', 'Parcelas', 'Data', 'Tipo Pagto', 'Status'];
+    const headers = ['ID Venda', 'Vendedor', 'Cliente', 'Modelo Aparelho', 'Preço Base', 'Valor Total', 'Entrada', 'Parcelas', 'Data', 'Tipo Pagto', 'Status'];
     const rows = filteredSales.map(s => [
       s.id.split('-')[0],
       s.seller_id || 'MDR',
       s.customer_name || 'Sem Nome',
       s.device_model,
+      (s.original_price ?? s.total_value).toFixed(2),
       s.total_value.toFixed(2),
       s.down_payment.toFixed(2),
       s.installments,
