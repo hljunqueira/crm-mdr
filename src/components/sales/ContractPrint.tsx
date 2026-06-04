@@ -113,7 +113,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const renderPageFooter = (pageNum: number) => (
     <div className="absolute bottom-6 left-12 right-12 border-t border-black pt-2 flex justify-between items-center text-[7px] text-black font-sans no-print-border">
       <span>Esta página é parte integrante da Cédula de Crédito Bancário nº {contractNumber}, tendo como Emitente {customer.name} e CPF/CNPJ: {formatCPF(customer.cpf)}</span>
-      <span className="font-bold">Página {pageNum} de 9</span>
+      <span className="font-bold">Página {pageNum} de 6</span>
     </div>
   );
 
@@ -122,10 +122,16 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
       <style>{`
         @media print {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          @page {
+            size: A4;
+            margin: 0 !important;
+          }
           body {
             background-color: #ffffff !important;
             background: #ffffff !important;
             color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           body > *:not(#sale-contract) { display: none !important; }
           #sale-contract { display: block !important; }
@@ -133,11 +139,13 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             page-break-after: always !important;
             break-after: page !important;
             height: 297mm !important;
+            width: 210mm !important;
             box-sizing: border-box !important;
             position: relative !important;
             padding: 15mm 12mm 20mm 12mm !important;
             background-color: #ffffff !important;
             color: #000000 !important;
+            margin: 0 !important;
           }
           .contract-page:last-child {
             page-break-after: avoid !important;
@@ -521,7 +529,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
         <div className="clause-text">
           2.2. No caso da aquisição de aparelhos de telefonia móvel (celular) com os recursos oriundos desta CCB, o EMITENTE declara ter ciência e autoriza desde já o CREDOR, em caso de inadimplemento de quaisquer obrigações constantes desta CCB, a realizar o bloqueio do mencionado aparelho por meio de dispositivo a ser instalado no aparelho, sem prévia necessidade de notificação ao EMITENTE. O referido bloqueio do aparelho - e jamais dos direitos de telecomunicação constantes do chip (cartão SIM) da operadora telefônica, que pode ser utilizado normalmente em qualquer outro aparelho de telefonia móvel (celular) - perdurará por todo o período em que o EMITENTE estiver inadimplente com as suas obrigações nos termos desta CCB.
           <br /><br />
-          2.3. A garantia cessará por completo mediante o adimplemento integral das obrigações previstas na presente CCB, inexistindo possibilidade de bloqueios futuros. Com o pagamento integral, o EMITENTE poderá desinstalar o dispositivo de bloqueio instalado em seu aparelho de telefonia móvel (celular) seguindo as instruções de desinstalação indicadas dentro do aplicativo PayJoy / MDR e/ou por meio dos canais de atendimento, passando a deter a propriedade plena do bem.
+          2.3. A garantia cessará por completo mediante o adimplemento integral das obrigações previstas na presente CCB, inexistindo possibilidade de bloqueios futuros. Com o pagamento integral, o EMITENTE poderá desinstalar o dispositivo de bloqueio instalado em seu aparelho de telefonia móvel (celular) seguindo as instruções de desinstalação indicadas dentro do aplicativo MDR e/ou por meio dos canais de atendimento, passando a deter a propriedade plena do bem.
         </div>
 
         <div className="clause-title">3. DO VENCIMENTO ANTECIPADO</div>
@@ -703,204 +711,6 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
 
         {renderPageFooter(6)}
       </div>
-
-      {/* ─── PAGE 7 ─── */}
-      <div className="contract-page">
-        {renderPageHeader(7)}
-
-        <div className="text-center font-bold text-[10px] uppercase tracking-wider mb-3">
-          ANEXO - CARTA DE ENDOSSO<br />
-          CCB Nº {contractNumber}
-        </div>
-
-        <div className="font-bold text-[8px] uppercase mb-1">1. CREDOR-ENDOSSANTE (doravante ENDOSSANTE)</div>
-        <table className="ccb-table mb-3">
-          <tbody>
-            <tr>
-              <td style={{ width: '40%' }}>
-                <span className="label">Razão Social</span>
-                <span className="value">{unit.name || 'MDR Informática & Celulares'}</span>
-              </td>
-              <td style={{ width: '30%' }}>
-                <span className="label">CNPJ / CPF</span>
-                <span className="value">{unit.cnpj || '____________________'}</span>
-              </td>
-              <td style={{ width: '30%' }}>
-                <span className="label">Cidade / UF</span>
-                <span className="value">Balneário Arroio do Silva/SC</span>
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={3}>
-                <span className="label">Endereço</span>
-                <span className="value">{unit.address || '____________________'}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="font-bold text-[8px] uppercase mb-1">2. ENDOSSATÁRIO</div>
-        <table className="ccb-table mb-3">
-          <tbody>
-            <tr>
-              <td style={{ width: '50%' }}>
-                <span className="label">Razão Social</span>
-                <span className="value">PAYJOY TECNOLOGIA E SERVICOS FINANCEIROS LTDA</span>
-              </td>
-              <td style={{ width: '50%' }}>
-                <span className="label">CNPJ / CPF</span>
-                <span className="value">41.069.116/0001-64</span>
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={2}>
-                <span className="label">Endereço</span>
-                <span className="value">Alameda Santos, 2300 - Conj. 11 - Cerqueira Cesar, CEP 01418-200, São Paulo, SP</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="font-bold text-[8px] uppercase mb-1">3. EMITENTE</div>
-        <table className="ccb-table mb-3">
-          <tbody>
-            <tr>
-              <td style={{ width: '50%' }}>
-                <span className="label">Nome / Razão Social</span>
-                <span className="value">{customer.name}</span>
-              </td>
-              <td style={{ width: '50%' }}>
-                <span className="label">CPF / CNPJ</span>
-                <span className="value">{formatCPF(customer.cpf)}</span>
-              </td>
-            </tr>
-            <tr>
-              <td colSpan={2}>
-                <span className="label">Endereço</span>
-                <span className="value">{customer.address || '____________________'}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="font-bold text-[8px] uppercase mb-1">4. OBJETO DO ENDOSSO</div>
-        <table className="ccb-table mb-3">
-          <tbody>
-            <tr>
-              <td>
-                <span className="label">Cédula de Crédito Bancário</span>
-                <span className="value">Nº {contractNumber}</span>
-              </td>
-              <td>
-                <span className="label">Data de Emissão</span>
-                <span className="value">{issueDateFormatted}</span>
-              </td>
-              <td>
-                <span className="label">Vencimento Final</span>
-                <span className="value">{lastInstallmentDate}</span>
-              </td>
-              <td>
-                <span className="label">Valor Principal</span>
-                <span className="value">R$ {valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </td>
-              <td>
-                <span className="label">Prazo Amortização</span>
-                <span className="value">{sale.installments} meses</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div className="clause-text">
-          O Endossatário (i) declara ter conhecimento e experiência em negócios suficientes para avaliar a qualidade e os riscos relacionados ao investimento na CCB e que é capaz de entender e assumir os riscos envolvidos no investimento na(s) CCB, (ii) reconhece que em caso de inadimplência da CCB (por razões financeiras ou não) o Endossante não tem qualquer responsabilidade, podendo o Endossatário buscar ressarcimento somente do Emitente da CCB, observado que o Endossante será responsável perante o Endossatário pela validade, existência e correta formalização da CCB; e (iii) fez sua própria pesquisa, avaliação e investigação independentes sobre a CCB e livremente tomou a decisão de prosseguir com a aquisição da CCB.
-          <br /><br />
-          <strong>1) ENDOSSO:</strong> O Endossante, por meio da presente Carta de Endosso, transfere, sem qualquer tipo de coobrigação, a titularidade da CCB descrita no preâmbulo deste instrumento, incluindo todos os seus direitos e obrigações para o Endossatário. O Endossatário passa a figurar na qualidade de credor, nos termos da CCB, para todos os efeitos legais e jurídicos. O endosso da CCB, feito nos termos da legislação cambiária brasileira, transfere ao Endossatário: (i) todos os direitos acessórios, tais como juros remuneratórios, juros e encargos moratórios, correção monetária, mesmo não sendo este uma instituição financeira ou entidade a ela equiparada; (ii) todas as pretensões, ações e prerrogativas relativas à CCB; (iii) toda e qualquer garantia, real ou pessoal, que seja acessória e que garanta a CCB, toda ou parcialmente, seu pagamento.
-          <br /><br />
-          <strong>2) DECLARAÇÕES DO ENDOSSATÁRIO:</strong> O Endossatário declara-se plenamente ciente de que todos os termos e condições da CCB objeto desta negociação, especialmente no
-        </div>
-
-        {renderPageFooter(7)}
-      </div>
-
-      {/* ─── PAGE 8 ─── */}
-      <div className="contract-page">
-        {renderPageHeader(8)}
-
-        <div className="clause-text">
-          que concerne à inexistência da responsabilidade do Endossante pelo pagamento do título, caso o Emitente e não o faça; (ii) não terá qualquer direito de eventualmente cobrar do Endossante quaisquer valores decorrentes da CCB, incluindo, mas não se limitando, o valor de principal e encargos.
-          <br /><br />
-          <strong>3) DECLARAÇÕES DO ENDOSSANTE:</strong> O Endossante declara que permanecem válidas, completas e corretas todas as declarações prestadas no contrato de promessa de endosso celebrado entre Endossante e Endossatário.
-          <br /><br />
-          <strong>4) DISPOSIÇÕES ESPECIAIS:</strong>
-          <br />
-          4.1. O Endossatário tem conhecimento que o Endossante procedeu à análise de crédito e risco necessária para a realização da operação de crédito que resultou na emissão da CCB.
-          <br />
-          4.2. O Endossatário assume todos os riscos advindos do investimento na CCB, já que: (i) analisou os riscos envolvidos, (ii) tem conhecimento do teor da CCB e da operação que esta representa, e (iii) procedeu a análise de risco pertinente, tendo avaliado a operação representada pela CCB e o Emitente.
-          <br /><br />
-          <strong>5) DISPOSIÇÕES GERAIS:</strong>
-          <br />
-          O Endossante e Endossatário declaram que celebram o presente instrumento de livre e espontânea vontade, sem que pairem quaisquer dúvidas sobre a inexistência de vício de consentimento, na forma do Código Civil, art. 138 e seguintes.
-          <br />
-          5.1. As partes expressamente declaram, também, que o teor deste instrumento reflete os entendimentos e acordos havidos entre elas sem qualquer interferência, sugestão ou imposição do Endossante, ou seja, o Endossatário decidiu celebrar o presente e passar a ser titular da CCB em sua condição atual por livre e espontânea vontade e ciente dos riscos envolvidos.
-          <br />
-          5.2. O Endossante não responde pela solvência do Emitente, já que o Endossante não é coobrigado e não há nada na CCB e na presente Carta de Endosso que implicam em coobrigação do Endossante. O Endossatário reconhece, em caráter irrevogável e irretratável, que não possui qualquer direito de ação contra o Endossante diante de eventual vício ou inadimplemento da CCB, especialmente no tocante ao pagamento e liquidação integral.
-          <br />
-          5.3. O Endossante não será árbitro em eventuais negociações, discussões, pleitos e/ou questionamentos do objeto deste instrumento, devendo o Endossatário e o Emitente se entenderem diretamente.
-          <br />
-          5.4. As partes se comprometem a praticar todo e qualquer ato que seja ou torne-se necessário para que sejam atingidos os objetivos deste instrumento, como titulares ou mandatários, em juízo ou fora dele, especialmente perante a B3 S/A – BRASIL, Bolsa e Balcão (Segmento CETIP – UTVM).
-          <br /><br />
-          <strong>6) OBRIGAÇÕES DO ENDOSSANTE:</strong>
-          <br />
-          Como consequência da presente Carta de Endosso, o Endossante obriga-se em caráter irrevogável e irretratável a: (i) reconhecer o Endossatário, como legítimo e único credor da CCB de sua emissão, (ii) enviar o arquivo padrão CNAB referente ao endosso da CCB ao Endossatário; (iii) recomprar a CCB, no prazo de até 2 dias úteis, após o recebimento de notificação ou qualquer tipo de comunicação do Vendedor, caso o Bem Financiado (conforme definido na CCB) não tenha sido entregue ou tenha sido devolvido, pelo valor recebido do Endossatário em razão do endosso, acrescido dos juros e encargos previstos na CCB.
-          <br /><br />
-          <strong>7) AUTORIZAÇÃO DE INFORMAÇÕES:</strong> O Credor fica desde já autorizado a prestar informações sobre o teor desta Carta de Endosso, as partes ou a movimentação financeira, nas hipóteses de recebimento de requisições oriundas da Receita Federal, ofícios destinados à apuração de ilícito ou ainda
-        </div>
-
-        {renderPageFooter(8)}
-      </div>
-
-      {/* ─── PAGE 9 ─── */}
-      <div className="contract-page">
-        {renderPageHeader(9)}
-
-        <div className="clause-text">
-          por ordem judicial, nos termos da Lei Complementar nº 105, de 10 de janeiro de 2001, e Decreto nº 489, de 28 de novembro de 2002.
-          <br /><br />
-          Esta Carta Endosso poderá ser assinada digitalmente, nos termos da Medida Provisória nº 2.200-2 de 24 de agosto de 2001, conforme alterada. Nesse caso, Endossante e Endossatário reconhecem, para todos os fins, que sua assinatura, nos é prova de sua concordância com este formato de contratação, nos termos do artigo 10°, parágrafo 2°, da Medida Provisória número. 2.200-2/2001.
-          <br /><br />
-          As partes declaram serem verdadeiras as informações prestadas, especialmente acerca da licitude da origem de sua renda e patrimônio, bem como estão cientes do art. 11, II, da Lei n° 9.613 e dos artigos 297, 298 e 299 do Código Penal.
-          <br /><br />
-          As partes elegem o foro da Comarca de São Paulo/SP para dirimir qualquer dúvida oriunda da Carta de Endosso, podendo o Endossante optar pelo foro do domicílio do Emitente.
-          <br /><br />
-          A validade deste documento e cessão de direitos vigora a partir da entrega do bem eletrônico ao Emitente.
-        </div>
-
-        <div className="font-bold text-[9px] uppercase tracking-wider mt-6 mb-2">Assinaturas do Endosso:</div>
-        
-        <div className="signature-box-grid">
-          <div className="signature-line-block">
-            <strong>{unit.name ? unit.name.toUpperCase() : 'MDR INFORMÁTICA & CELULARES'}</strong><br />
-            Endossante (Vendedor)<br />
-            CNPJ: {unit.cnpj || '____________________'}
-          </div>
-          <div className="signature-line-block">
-            <strong>PAYJOY TECNOLOGIA E SERVICOS FINANCEIROS LTDA</strong><br />
-            Endossatário<br />
-            CNPJ: 41.069.116/0001-64
-          </div>
-        </div>
-
-        <div className="signature-box-grid" style={{ marginTop: '20px' }}>
-          <div className="signature-line-block" style={{ gridColumn: 'span 2', maxWidth: '300px', margin: '0 auto' }}>
-            <strong>{customer.name.toUpperCase()}</strong><br />
-            Emitente Anciente<br />
-            CPF: {formatCPF(customer.cpf)}
-          </div>
-        </div>
-
-        {renderPageFooter(9)}
-      </div>
-
     </div>
   );
 }
