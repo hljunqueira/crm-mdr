@@ -61,7 +61,9 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
 
   // Interest calculations
   const interestTable = sale.interest_table || 'standard';
-  const interestRate = interestTable === 'premium' ? 5.00 : interestTable === 'flex' ? 12.00 : 8.00;
+  const interestRate = sale.payment_type === 'card'
+    ? 4.00
+    : (interestTable === 'premium' ? 5.00 : interestTable === 'flex' ? 12.00 : 8.00);
   const interestRateYear = (Math.pow(1 + interestRate / 100, 12) - 1) * 100;
   
   const cetMonth = interestRate + 1.25;

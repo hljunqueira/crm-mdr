@@ -4,7 +4,7 @@ import {
   CheckCircle2, AlertCircle, MoreVertical, Filter,
   DollarSign, Calendar, Layers, ShieldCheck, Tag,
   Package, ArrowRight, Edit, Trash2, TrendingUp,
-  Printer, Loader2
+  Printer, Loader2, Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSaleStore, Sale } from '../store/useSaleStore';
@@ -33,7 +33,9 @@ function SaleDocumentViewer({
   hideModal: () => void;
   showNotification: any;
 }) {
-  const [activeTab, setActiveTab] = useState<'contract' | 'receipt'>('contract');
+  const [activeTab, setActiveTab] = useState<'contract' | 'receipt'>(
+    sale.payment_type === 'vista' ? 'receipt' : 'contract'
+  );
   const today = new Date().toLocaleDateString('pt-BR');
 
   const basePrice = sale.original_price ?? sale.total_value;
@@ -57,7 +59,9 @@ function SaleDocumentViewer({
   // Contract variables
   const contractNumber = sale.id ? sale.id.split('-')[0].toUpperCase() : '85429496';
   const interestTable = (sale as any).interest_table || 'standard';
-  const interestRate = interestTable === 'premium' ? 5.00 : interestTable === 'flex' ? 12.00 : 8.00;
+  const interestRate = sale.payment_type === 'card'
+    ? 4.00
+    : (interestTable === 'premium' ? 5.00 : interestTable === 'flex' ? 12.00 : 8.00);
   const interestRateYear = (Math.pow(1 + interestRate / 100, 12) - 1) * 100;
   const cetMonth = interestRate + 1.25;
   const cetYear = (Math.pow(1 + cetMonth / 100, 12) - 1) * 100;
@@ -205,22 +209,30 @@ function SaleDocumentViewer({
       {/* Tabs */}
       <div className="flex items-center justify-between border-b border-white/5 pb-4">
         <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5">
-          <button
-            type="button"
-            onClick={() => setActiveTab('contract')}
-            className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'contract' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
-              }`}
-          >
-            Contrato de Venda
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('receipt')}
-            className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'receipt' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
-              }`}
-          >
-            Nota de Venda
-          </button>
+          {sale.payment_type !== 'vista' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('contract')}
+                className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'contract' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+                  }`}
+              >
+                Contrato de Venda
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('receipt')}
+                className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'receipt' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+                  }`}
+              >
+                Nota de Venda
+              </button>
+            </>
+          ) : (
+            <span className="px-6 py-2.5 text-white font-black uppercase tracking-widest text-[10px]">
+              Nota de Venda
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20">
@@ -1380,9 +1392,9 @@ export default function Sales() {
                         <button
                           onClick={() => handlePrintContract(sale)}
                           className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
-                          title="Imprimir Contrato"
+                          title={sale.payment_type === 'vista' ? "Imprimir Nota de Venda" : "Imprimir Contrato / Recibo"}
                         >
-                          <Printer size={16} />
+                          {sale.payment_type === 'vista' ? <Receipt size={16} /> : <Printer size={16} />}
                         </button>
                         <button
                           onClick={() => handleEditSale(sale)}
