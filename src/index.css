@@ -198,6 +198,7 @@ input.py-4 {
     color: #000;
     background: #fff;
     line-height: 1.3;
+    font-weight: bold;
   }
   .os-thermal-receipt .header-center {
     text-align: center;

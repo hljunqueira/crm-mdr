@@ -284,6 +284,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           color: #000;
           background: #fff;
           line-height: 1.45;
+          font-weight: bold;
         }
         .copy-indicator {
           text-align: center;
@@ -422,7 +423,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
       `}</style>
 
       {renderReceiptCopy("VIA DO CLIENTE")}
-      <div className="page-break receipt-separator">
+      <div className="receipt-separator">
         - - - - - - - - SERRILHA DE CORTE - - - - - - - -
       </div>
       {renderReceiptCopy("VIA DO ESTABELECIMENTO")}

@@ -828,6 +828,7 @@ function SaleDocumentViewer({
                   color: #000;
                   background: #fff;
                   line-height: 1.45;
+                  font-weight: bold;
                 }
                 #sale-document-preview-area .copy-indicator {
                   text-align: center;
