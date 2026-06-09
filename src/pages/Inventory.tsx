@@ -280,10 +280,11 @@ export default function Inventory() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 group-focus-within:text-white transition-colors" size={20} />
           <input
+            id="inventory-search-input"
             type="text"
             placeholder="Buscar por modelo, marca ou IMEI..."
             value={searchTerm}
@@ -291,6 +292,21 @@ export default function Inventory() {
             className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-white transition-all font-display"
           />
         </div>
+        <button
+          onClick={() => {
+            const input = document.getElementById('inventory-search-input');
+            if (input) {
+              input.focus();
+              setSearchTerm('');
+              showNotification('info', 'Leitor de Código Ativo', 'Bipe o código de barras ou IMEI para buscar.');
+            }
+          }}
+          className="px-6 py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shrink-0"
+          title="Bipar Código de Barras"
+        >
+          <Barcode size={18} className="text-primary animate-pulse" />
+          <span>Bipar Código</span>
+        </button>
       </div>
 
       {/* Grid */}
