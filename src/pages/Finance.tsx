@@ -13,6 +13,7 @@ import { useCustomerStore } from '../store/useCustomerStore';
 import { useUnitStore } from '../store/useUnitStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 
 interface CustomerGroup {
   customerId: string;
@@ -280,6 +281,7 @@ export default function Finance() {
   const { unit } = useUnitStore();
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
+  const { hasPermission, fetchUserPermissions } = usePermissionStore();
 
   const handleTabChange = (tab: 'receivables' | 'overdue') => {
     setActiveTab(tab);
@@ -369,7 +371,8 @@ export default function Finance() {
 
   useEffect(() => {
     fetchInstallments(profile?.unit_id || undefined);
-  }, [profile?.unit_id, fetchInstallments]);
+    fetchUserPermissions();
+  }, [profile?.unit_id, fetchInstallments, fetchUserPermissions]);
 
   // Group installments by customer
   const customerGroups = React.useMemo(() => {
@@ -930,16 +933,18 @@ export default function Finance() {
                                         <div className="flex items-center justify-end gap-1.5">
                                           {inst.status !== 'paid' && (
                                             <>
-                                              <button 
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handlePayment(inst);
-                                                }}
-                                                className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10"
-                                                title="Confirmar Pagamento"
-                                              >
-                                                <CheckCircle2 size={14} />
-                                              </button>
+                                              {hasPermission(profile, 'Financeiro - Registrar Pagamento') && (
+                                                <button 
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handlePayment(inst);
+                                                  }}
+                                                  className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10"
+                                                  title="Confirmar Pagamento"
+                                                >
+                                                  <CheckCircle2 size={14} />
+                                                </button>
+                                              )}
                                               <button 
                                                 onClick={(e) => {
                                                   e.stopPropagation();
@@ -952,7 +957,7 @@ export default function Finance() {
                                               </button>
                                             </>
                                           )}
-                                          {inst.status === 'paid' && (
+                                          {inst.status === 'paid' && hasPermission(profile, 'Financeiro - Registrar Pagamento') && (
                                             <button 
                                               onClick={(e) => {
                                                 e.stopPropagation();

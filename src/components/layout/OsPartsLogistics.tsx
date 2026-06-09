@@ -11,6 +11,7 @@ interface OsPartsLogisticsProps {
   addingPart: boolean;
   handleAddPart: () => void;
   handleDeletePart: (partId: string) => void;
+  disabled?: boolean;
 }
 
 export default function OsPartsLogistics({
@@ -22,7 +23,8 @@ export default function OsPartsLogistics({
   setPartQty,
   addingPart,
   handleAddPart,
-  handleDeletePart
+  handleDeletePart,
+  disabled = false
 }: OsPartsLogisticsProps) {
   return (
     <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
@@ -37,7 +39,8 @@ export default function OsPartsLogistics({
           <select
             value={selectedPartId}
             onChange={(e) => setSelectedPartId(e.target.value)}
-            className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all"
+            disabled={disabled}
+            className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
           >
             <option value="">Nenhuma Peça Selecionada</option>
             {inventory.map(item => (
@@ -55,14 +58,15 @@ export default function OsPartsLogistics({
             min={1}
             value={partQty}
             onChange={(e) => setPartQty(parseInt(e.target.value) || 1)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all text-center"
+            disabled={disabled}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all text-center disabled:opacity-50"
           />
         </div>
 
         <button
           onClick={handleAddPart}
-          disabled={addingPart || !selectedPartId}
-          className="w-full bg-primary hover:scale-[1.01] text-on-primary font-black uppercase tracking-widest text-[9px] py-4 rounded-2xl transition-all disabled:opacity-50"
+          disabled={disabled || addingPart || !selectedPartId}
+          className="w-full bg-primary hover:scale-[1.01] text-on-primary font-black uppercase tracking-widest text-[9px] py-4 rounded-2xl transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {addingPart ? 'Inserindo...' : 'Adicionar Peça'}
         </button>
@@ -95,12 +99,14 @@ export default function OsPartsLogistics({
                   <td className="py-3 text-right font-mono">R$ {Number(part.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="py-3 text-right font-mono text-primary font-bold">R$ {Number(part.quantity * part.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="py-3 text-center">
-                    <button 
-                      onClick={() => handleDeletePart(part.id)}
-                      className="text-on-surface-variant hover:text-error transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {!disabled && (
+                      <button 
+                        onClick={() => handleDeletePart(part.id)}
+                        className="text-on-surface-variant hover:text-error transition-all"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))

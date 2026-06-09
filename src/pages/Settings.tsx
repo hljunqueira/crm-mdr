@@ -748,51 +748,117 @@ export default function Settings() {
                       <p className="text-[10px] leading-relaxed mt-2 opacity-80">Administradores possuem privilégios de acesso globais e irrestritos para gerenciar toda a assistência, lojas e usuários. Não há necessidade de configurar restrições de visibilidade.</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto w-full border border-white/5 rounded-3xl">
+                    <div className="overflow-x-auto w-full border border-white/5 rounded-3xl max-h-[600px] custom-scrollbar">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-white/5 bg-white/[0.02]">
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Página do Sistema</th>
+                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Funcionalidade / Permissão</th>
                             <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant text-center">Permissão de Acesso</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                           {[
-                            'Dashboard',
-                            'Relatórios',
-                            'Leads',
-                            'Clientes',
-                            'Vendas & Celulares',
-                            'Análise de Crédito',
-                            'Estoque',
-                            'Assistência Técnica (OS)',
-                            'WPP / Instagram',
-                            'Gerenciar WPP/IG',
-                            'Financeiro',
-                            'Controle de Bloqueio',
-                            'Fiscal (NFe/NFSe)',
-                            'Configurações'
-                          ].map((pageName) => (
-                            <tr key={pageName} className="hover:bg-white/[0.01] transition-all">
-                              <td className="px-6 py-4 font-display font-semibold text-white text-sm">
-                                {pageName}
-                              </td>
-                              <td className="px-6 py-4 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleUserRbac(pageName)}
-                                  className={cn(
-                                    "mx-auto w-10 h-6 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex items-center border border-white/5",
-                                    isPageVisibleForUser(pageName) ? "bg-primary" : "bg-white/10"
-                                  )}
-                                >
-                                  <div className={cn(
-                                    "w-4 h-4 rounded-full bg-white transition-all duration-300 shadow",
-                                    isPageVisibleForUser(pageName) ? "translate-x-4" : "translate-x-0"
-                                  )} />
-                                </button>
-                              </td>
-                            </tr>
+                            {
+                              title: 'Visibilidade de Páginas (Menu)',
+                              items: [
+                                { key: 'Dashboard', label: 'Dashboard' },
+                                { key: 'Relatórios', label: 'Relatórios' },
+                                { key: 'Leads', label: 'Leads' },
+                                { key: 'Clientes', label: 'Clientes' },
+                                { key: 'Vendas & Celulares', label: 'Vendas & Celulares' },
+                                { key: 'Análise de Crédito', label: 'Análise de Crédito' },
+                                { key: 'Estoque', label: 'Estoque' },
+                                { key: 'Assistência Técnica (OS)', label: 'Assistência Técnica (OS)' },
+                                { key: 'OS Terceirizadas', label: 'OS Terceirizadas' },
+                                { key: 'WPP / Instagram', label: 'WPP / Instagram' },
+                                { key: 'Gerenciar WPP/IG', label: 'Gerenciar WPP/IG' },
+                                { key: 'Financeiro', label: 'Financeiro' },
+                                { key: 'Controle de Bloqueio', label: 'Controle de Bloqueio' },
+                                { key: 'Fiscal (NFe/NFSe)', label: 'Fiscal (NFe/NFSe)' },
+                                { key: 'Configurações', label: 'Configurações' }
+                              ]
+                            },
+                            {
+                              title: 'Ações do Estoque',
+                              items: [
+                                { key: 'Estoque - Adicionar Produto', label: 'Cadastrar Novo Produto' },
+                                { key: 'Estoque - Editar Produto', label: 'Editar Produto' },
+                                { key: 'Estoque - Excluir Produto', label: 'Excluir Produto' },
+                                { key: 'Estoque - Importar Planilha', label: 'Importar Planilha em Lote' },
+                                { key: 'Estoque - Transferir Produto', label: 'Transferir entre Unidades' }
+                              ]
+                            },
+                            {
+                              title: 'Ações de Clientes',
+                              items: [
+                                { key: 'Clientes - Cadastrar', label: 'Cadastrar Novo Cliente' },
+                                { key: 'Clientes - Editar', label: 'Editar Cliente' },
+                                { key: 'Clientes - Excluir', label: 'Excluir Cliente' }
+                              ]
+                            },
+                            {
+                              title: 'Ações de Vendas & Celulares',
+                              items: [
+                                { key: 'Vendas - Registrar Nova Venda', label: 'Registrar Nova Venda' },
+                                { key: 'Vendas - Cancelar Venda', label: 'Estornar/Cancelar Venda' },
+                                { key: 'Vendas - Visualizar Contrato/Recibo', label: 'Visualizar/Reimprimir Contrato/Recibo' }
+                              ]
+                            },
+                            {
+                              title: 'Ações de Assistência Técnica (OS)',
+                              items: [
+                                { key: 'OS - Criar Nova OS', label: 'Abrir Nova OS' },
+                                { key: 'OS - Editar OS', label: 'Editar OS / Orçamento' },
+                                { key: 'OS - Excluir OS', label: 'Excluir OS' },
+                                { key: 'OS - Mudar Status de Bancada', label: 'Mudar Status da Bancada Técnica' }
+                              ]
+                            },
+                            {
+                              title: 'Ações do Financeiro',
+                              items: [
+                                { key: 'Financeiro - Registrar Pagamento', label: 'Baixar Parcela de Crediário' },
+                                { key: 'Financeiro - Lançar Caixa', label: 'Lançar Receita/Despesa Manual' },
+                                { key: 'Financeiro - Excluir Lançamentos', label: 'Excluir Lançamentos de Caixa' }
+                              ]
+                            },
+                            {
+                              title: 'Ações de Leads / CRM',
+                              items: [
+                                { key: 'Leads - Criar Lead', label: 'Cadastrar Novo Lead' },
+                                { key: 'Leads - Mover Kanban', label: 'Mover Kanban' },
+                                { key: 'Leads - Excluir Lead', label: 'Excluir Lead' }
+                              ]
+                            }
+                          ].map((group) => (
+                            <React.Fragment key={group.title}>
+                              <tr className="bg-white/[0.04]">
+                                <td colSpan={2} className="px-6 py-2 text-[9px] font-black text-primary uppercase tracking-widest bg-white/[0.03] border-y border-white/5">
+                                  {group.title}
+                                </td>
+                              </tr>
+                              {group.items.map((item) => (
+                                <tr key={item.key} className="hover:bg-white/[0.01] transition-all">
+                                  <td className="px-8 py-3.5 font-display font-semibold text-white text-xs">
+                                    {item.label}
+                                  </td>
+                                  <td className="px-6 py-3.5 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleUserRbac(item.key)}
+                                      className={cn(
+                                        "mx-auto w-10 h-6 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex items-center border border-white/5",
+                                        isPageVisibleForUser(item.key) ? "bg-primary" : "bg-white/10"
+                                      )}
+                                    >
+                                      <div className={cn(
+                                        "w-4 h-4 rounded-full bg-white transition-all duration-300 shadow",
+                                        isPageVisibleForUser(item.key) ? "translate-x-4" : "translate-x-0"
+                                      )} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>

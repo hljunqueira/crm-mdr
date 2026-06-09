@@ -7,13 +7,15 @@ interface OsTechWorkbenchProps {
   activeChecklist: any[];
   isChecklistItemOk: (itemId: string) => boolean;
   handleToggleChecklist: (itemId: string) => void;
+  disabled?: boolean;
 }
 
 export default function OsTechWorkbench({
   currentServiceOrder,
   activeChecklist,
   isChecklistItemOk,
-  handleToggleChecklist
+  handleToggleChecklist,
+  disabled = false
 }: OsTechWorkbenchProps) {
   return (
     <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
@@ -32,8 +34,9 @@ export default function OsTechWorkbench({
             <button
               key={item.id}
               onClick={() => handleToggleChecklist(item.id)}
+              disabled={disabled}
               className={cn(
-                "flex items-center gap-3 p-3 rounded-2xl border text-[10px] font-black uppercase tracking-wider transition-all",
+                "flex items-center gap-3 p-3 rounded-2xl border text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 disabled:pointer-events-none",
                 isOk 
                   ? "bg-success/10 border-success/30 text-success" 
                   : "bg-white/[0.01] border-white/5 text-on-surface-variant/70 hover:bg-white/5"

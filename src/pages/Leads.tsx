@@ -20,6 +20,7 @@ import { useKanbanStore, KanbanCard } from '../store/useKanbanStore';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import LeadForm from '../components/leads/LeadForm';
 import KanbanCardForm from '../components/kanban/KanbanCardForm';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,12 +34,14 @@ export default function Leads() {
   const { fetchCustomers } = useCustomerStore();
   const { profile } = useAuthStore();
   const { showModal, showNotification, hideModal } = useUI();
+  const { hasPermission, fetchUserPermissions } = usePermissionStore();
 
   useEffect(() => {
     fetchLeads(profile?.unit_id || undefined);
     fetchKanban(profile?.unit_id || undefined);
     fetchCustomers(profile?.unit_id || undefined);
-  }, [profile?.unit_id, fetchLeads, fetchKanban, fetchCustomers]);
+    fetchUserPermissions();
+  }, [profile?.unit_id, fetchLeads, fetchKanban, fetchCustomers, fetchUserPermissions]);
 
   // Derived metrics
   const totalLeads = leads.length;
@@ -128,20 +131,22 @@ export default function Leads() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Prospecção de Leads</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Aquisição e Funil de Vendas</p>
         </div>
-        <button 
-          onClick={activeTab === 'list' ? handleAddLead : () => handleAddCard(columns[0]?.id)}
-          className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-display font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
-        >
-          {activeTab === 'list' ? (
-            <>
-              <UserPlus size={18} /> Novo Lead
-            </>
-          ) : (
-            <>
-              <Plus size={18} /> Novo Negócio
-            </>
-          )}
-        </button>
+        {hasPermission(profile, 'Leads - Criar Lead') && (
+          <button 
+            onClick={activeTab === 'list' ? handleAddLead : () => handleAddCard(columns[0]?.id)}
+            className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-display font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
+          >
+            {activeTab === 'list' ? (
+              <>
+                <UserPlus size={18} /> Novo Lead
+              </>
+            ) : (
+              <>
+                <Plus size={18} /> Novo Negócio
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -233,13 +238,15 @@ export default function Leads() {
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button 
-                            onClick={() => handleDeleteLead(lead.id)}
-                            className="p-2 text-on-surface-variant hover:text-error transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {hasPermission(profile, 'Leads - Excluir Lead') && (
+                            <button 
+                              onClick={() => handleDeleteLead(lead.id)}
+                              className="p-2 text-on-surface-variant hover:text-error transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
 
                         {/* Avatar / Initials */}
@@ -339,59 +346,77 @@ export default function Leads() {
                         className="flex-1 flex flex-col gap-6 min-h-[300px] p-2 bg-white/[0.005] rounded-3xl border border-white/5 border-dashed"
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
-                          const cardId = e.dataTransfer.getData('cardId');
-                          handleMoveCard(cardId, column.id);
+                          if (hasPermission(profile, 'Leads - Mover Kanban')) {
+                            const cardId = e.dataTransfer.getData('cardId');
+                            handleMoveCard(cardId, column.id);
+                          } else {
+                            showNotification('error', 'Sem Permissão', 'Você não tem permissão para mover cards no Kanban.');
+                          }
                         }}
                       >
-                        {cards.filter(c => c.column_id === column.id).map((card) => (
-                          <div 
-                            key={card.id} 
-                            draggable
-                            onDragStart={(e) => e.dataTransfer.setData('cardId', card.id)}
-                            className="glass-card p-6 border border-outline-variant/30 rounded-[28px] hover:border-white/30 hover:shadow-2xl transition-all cursor-grab active:cursor-grabbing group relative overflow-hidden bg-white/[0.01] hover:bg-white/[0.02]"
-                          >
-                            {/* Action buttons */}
-                            <div className="absolute top-0 right-0 p-4 flex gap-2">
-                              <button onClick={() => handleEditCard(card)} className="p-1 hover:text-white text-on-surface-variant transition-colors">
-                                <Edit2 size={14} />
-                              </button>
-                              <button onClick={() => handleDeleteCard(card.id)} className="p-1 hover:text-error text-on-surface-variant transition-colors">
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-
-                            {/* Card priority tag */}
-                            <div className="flex items-start justify-between mb-4">
-                              <span className={`text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
-                                card.priority === 'Alta' ? 'border-red-500/20 bg-red-500/10 text-red-500' : 
-                                card.priority === 'Media' ? 'border-warning/20 bg-warning/10 text-warning' :
-                                'border-white/5 text-on-surface-variant/40 bg-white/5'
-                              }`}>
-                                {card.priority}
-                              </span>
-                            </div>
-                            
-                            <h4 className="font-black text-on-surface text-sm mb-1 tracking-tight group-hover:text-white transition-colors">{card.title}</h4>
-                            <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-4 opacity-60">{card.customer_name || 'Sem Cliente'}</p>
-                            
-                            <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
-                              <div className="flex items-center gap-2 text-on-surface-variant/40 group-hover:text-white transition-colors">
-                                <MessageSquare size={12} />
-                                <span className="text-[9px] font-black uppercase tracking-widest">0</span>
+                        {cards.filter(c => c.column_id === column.id).map((card) => {
+                          const canDrag = hasPermission(profile, 'Leads - Mover Kanban');
+                          return (
+                            <div 
+                              key={card.id} 
+                              draggable={canDrag}
+                              onDragStart={(e) => {
+                                if (canDrag) {
+                                  e.dataTransfer.setData('cardId', card.id);
+                                }
+                              }}
+                              className={cn(
+                                "glass-card p-6 border border-outline-variant/30 rounded-[28px] hover:border-white/30 hover:shadow-2xl transition-all group relative overflow-hidden bg-white/[0.01] hover:bg-white/[0.02]",
+                                canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-default"
+                              )}
+                            >
+                              {/* Action buttons */}
+                              <div className="absolute top-0 right-0 p-4 flex gap-2">
+                                <button onClick={() => handleEditCard(card)} className="p-1 hover:text-white text-on-surface-variant transition-colors">
+                                  <Edit2 size={14} />
+                                </button>
+                                {hasPermission(profile, 'Leads - Excluir Lead') && (
+                                  <button onClick={() => handleDeleteCard(card.id)} className="p-1 hover:text-error text-on-surface-variant transition-colors">
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
                               </div>
-                              <span className="font-black text-white text-xs tracking-tight font-mono">R$ {card.value.toLocaleString('pt-BR')}</span>
+
+                              {/* Card priority tag */}
+                              <div className="flex items-start justify-between mb-4">
+                                <span className={`text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
+                                  card.priority === 'Alta' ? 'border-red-500/20 bg-red-500/10 text-red-500' : 
+                                  card.priority === 'Media' ? 'border-warning/20 bg-warning/10 text-warning' :
+                                  'border-white/5 text-on-surface-variant/40 bg-white/5'
+                                }`}>
+                                  {card.priority}
+                                </span>
+                              </div>
+                              
+                              <h4 className="font-black text-on-surface text-sm mb-1 tracking-tight group-hover:text-white transition-colors">{card.title}</h4>
+                              <p className="text-on-surface-variant text-[9px] uppercase font-bold tracking-widest mb-4 opacity-60">{card.customer_name || 'Sem Cliente'}</p>
+                              
+                              <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                                <div className="flex items-center gap-2 text-on-surface-variant/40 group-hover:text-white transition-colors">
+                                  <MessageSquare size={12} />
+                                  <span className="text-[9px] font-black uppercase tracking-widest">0</span>
+                                </div>
+                                <span className="font-black text-white text-xs tracking-tight font-mono">R$ {card.value.toLocaleString('pt-BR')}</span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         
                         {/* Add business card button inside column */}
-                        <button 
-                          onClick={() => handleAddCard(column.id)}
-                          className="w-full py-5 border-2 border-dashed border-outline-variant/30 rounded-[28px] text-on-surface-variant/40 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-white/[0.02] hover:border-white/30 hover:text-white transition-all flex items-center justify-center gap-3 group"
-                        >
-                          <Plus size={14} className="group-hover:rotate-90 transition-transform" />
-                          <span>Novo Card</span>
-                        </button>
+                        {hasPermission(profile, 'Leads - Criar Lead') && (
+                          <button 
+                            onClick={() => handleAddCard(column.id)}
+                            className="w-full py-5 border-2 border-dashed border-outline-variant/30 rounded-[28px] text-on-surface-variant/40 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-white/[0.02] hover:border-white/30 hover:text-white transition-all flex items-center justify-center gap-3 group"
+                          >
+                            <Plus size={14} className="group-hover:rotate-90 transition-transform" />
+                            <span>Novo Card</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -30,13 +30,28 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     category: item?.category || 'smartphone',
     image_url: item?.image_url || '',
     show_on_landing: item?.show_on_landing || false,
+    barcode: item?.barcode || '',
   });
+
+  const generateBarcode = () => {
+    const selectedStoreId = formData.unit_id || profile?.unit_id || '';
+    const storeObj = stores.find(s => s.id === selectedStoreId);
+    const storeName = storeObj ? storeObj.name.toUpperCase() : 'GERAL';
+
+    let prefix = 'MDR-COD';
+    if (storeName.includes('ARROIO')) prefix = 'MDR-ARROIO';
+    if (storeName.includes('GAIVOTA')) prefix = 'MDR-GAIVOTA';
+
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    const generated = `${prefix}-${randomNum}`;
+    setFormData(prev => ({ ...prev, barcode: generated }));
+  };
 
   const { units: stores, fetchAllUnits } = useUnitStore();
 
   useEffect(() => {
     if (stores.length === 0) {
-      fetchAllUnits().catch(() => {});
+      fetchAllUnits().catch(() => { });
     }
   }, [stores.length, fetchAllUnits]);
 
@@ -93,6 +108,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         image_url: formData.image_url,
         show_on_landing: formData.show_on_landing,
         unit_id: formData.unit_id || profile?.unit_id || undefined,
+        barcode: formData.barcode,
       };
 
       if (item) {
@@ -224,6 +240,28 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             placeholder="1"
           />
         </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+            <Barcode size={12} /> Código de Barras
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={formData.barcode}
+              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-primary transition-all outline-none font-mono"
+              placeholder="Bipe com o leitor ou digite"
+            />
+            <button
+              type="button"
+              onClick={generateBarcode}
+              className="px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+            >
+              Gerar
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -245,8 +283,8 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             <p className="text-[9px] text-on-surface-variant/70 leading-normal">Exibir este celular no carrossel 3D giratório da página pública principal.</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer select-none">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               checked={formData.show_on_landing}
               onChange={(e) => setFormData({ ...formData, show_on_landing: e.target.checked })}
               className="sr-only peer"
@@ -259,7 +297,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       {/* Imagem do Aparelho (Upload ou Link) */}
       <div className="space-y-3 p-5 bg-white/[0.02] border border-white/5 rounded-3xl">
         <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest block pl-1">Foto do Aparelho (Vitrine)</label>
-        
+
         <div className="flex flex-col sm:flex-row items-center gap-4">
           {/* Preview da foto se existir */}
           <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
@@ -269,7 +307,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               <Smartphone size={24} className="opacity-20" />
             )}
           </div>
-          
+
           <div className="flex-1 w-full space-y-3">
             {/* Input de URL */}
             <input
@@ -279,7 +317,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-xs focus:border-primary transition-all outline-none"
               placeholder="Cole o link da foto (URL) ou selecione um arquivo abaixo..."
             />
-            
+
             {/* Botão de Upload */}
             <div className="flex items-center gap-2">
               <label className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-[9px] font-black uppercase tracking-wider py-3.5 rounded-2xl cursor-pointer transition-all active:scale-95">
@@ -300,7 +338,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                   className="hidden"
                 />
               </label>
-              
+
               {formData.image_url && (
                 <button
                   type="button"

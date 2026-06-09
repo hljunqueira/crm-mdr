@@ -14,6 +14,7 @@ interface PermissionState {
   isLoading: boolean;
   fetchUserPermissions: () => Promise<void>;
   toggleUserPermission: (profileId: string, pageName: string, visible: boolean) => Promise<void>;
+  hasPermission: (profile: any, pageName: string) => boolean;
 }
 
 export const usePermissionStore = create<PermissionState>()((set, get) => ({
@@ -33,6 +34,14 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  hasPermission: (profile, pageName) => {
+    if (!profile) return false;
+    if (profile.role === 'admin') return true;
+    const permissions = get().userPermissions;
+    const perm = permissions.find(p => p.profile_id === profile.id && p.page_name === pageName);
+    return perm ? perm.visible : true;
   },
 
   toggleUserPermission: async (profileId, pageName, visible) => {

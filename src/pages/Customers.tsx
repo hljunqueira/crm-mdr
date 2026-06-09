@@ -8,6 +8,7 @@ import {
 import { useCustomerStore, Customer } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import CustomerForm from '../components/customers/CustomerForm';
 
 export default function Customers() {
@@ -15,6 +16,11 @@ export default function Customers() {
   const { customers, deleteCustomer, fetchCustomers, isLoading } = useCustomerStore();
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
+  const { hasPermission, fetchUserPermissions } = usePermissionStore();
+
+  useEffect(() => {
+    fetchUserPermissions();
+  }, [fetchUserPermissions]);
 
   useEffect(() => {
     fetchCustomers(profile?.unit_id || undefined);
@@ -78,13 +84,15 @@ export default function Customers() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Gestão de Clientes</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Base de Compradores</p>
         </div>
-        <button 
-          onClick={handleAddClient}
-          className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
-        >
-          <UserPlus size={18} />
-          Novo Cliente
-        </button>
+        {hasPermission(profile, 'Clientes - Cadastrar') && (
+          <button 
+            onClick={handleAddClient}
+            className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
+          >
+            <UserPlus size={18} />
+            Novo Cliente
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
@@ -238,18 +246,22 @@ export default function Customers() {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleEditClient(customer)}
-                          className="p-2 hover:bg-white/10 text-on-surface-variant hover:text-white rounded-xl transition-all"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(customer)}
-                          className="p-2 hover:bg-error/10 text-on-surface-variant hover:text-error rounded-xl transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {hasPermission(profile, 'Clientes - Editar') && (
+                          <button 
+                            onClick={() => handleEditClient(customer)}
+                            className="p-2 hover:bg-white/10 text-on-surface-variant hover:text-white rounded-xl transition-all"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
+                        {hasPermission(profile, 'Clientes - Excluir') && (
+                          <button 
+                            onClick={() => handleDelete(customer)}
+                            className="p-2 hover:bg-error/10 text-on-surface-variant hover:text-error rounded-xl transition-all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

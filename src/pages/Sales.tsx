@@ -13,6 +13,7 @@ import { useFinanceStore } from '../store/useFinanceStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { formatCPF, formatPhone } from '../lib/utils';
 import SaleForm from '../components/sales/SaleForm';
 import SaleContract from '../components/sales/SaleContract';
@@ -1167,6 +1168,11 @@ export default function Sales() {
   const { units, fetchAllUnits } = useUnitStore();
   const { profile } = useAuthStore();
   const { showNotification, showModal, hideModal } = useUI();
+  const { hasPermission, fetchUserPermissions } = usePermissionStore();
+
+  useEffect(() => {
+    fetchUserPermissions();
+  }, [fetchUserPermissions]);
 
   useEffect(() => {
     fetchSales(profile?.unit_id || undefined);
@@ -1270,13 +1276,15 @@ export default function Sales() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Vendas & Contratos</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Aparelhos e Financeiro</p>
         </div>
-        <button
-          onClick={handleNewSale}
-          className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
-        >
-          <Smartphone size={18} />
-          Nova Venda
-        </button>
+        {hasPermission(profile, 'Vendas - Registrar Nova Venda') && (
+          <button
+            onClick={handleNewSale}
+            className="flex items-center gap-3 bg-white text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5"
+          >
+            <Smartphone size={18} />
+            Nova Venda
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -1393,27 +1401,33 @@ export default function Sales() {
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handlePrintContract(sale)}
-                          className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
-                          title={(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? "Imprimir Nota de Venda" : "Imprimir Contrato / Recibo"}
-                        >
-                          {(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? <Receipt size={16} /> : <Printer size={16} />}
-                        </button>
-                        <button
-                          onClick={() => handleEditSale(sale)}
-                          className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-primary"
-                          title="Editar Venda"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSale(sale)}
-                          className="p-2 hover:bg-error/10 rounded-xl transition-all text-on-surface-variant hover:text-error"
-                          title="Excluir Venda"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {hasPermission(profile, 'Vendas - Visualizar Contrato/Recibo') && (
+                          <button
+                            onClick={() => handlePrintContract(sale)}
+                            className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
+                            title={(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? "Imprimir Nota de Venda" : "Imprimir Contrato / Recibo"}
+                          >
+                            {(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? <Receipt size={16} /> : <Printer size={16} />}
+                          </button>
+                        )}
+                        {hasPermission(profile, 'Vendas - Registrar Nova Venda') && (
+                          <button
+                            onClick={() => handleEditSale(sale)}
+                            className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-primary"
+                            title="Editar Venda"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
+                        {hasPermission(profile, 'Vendas - Cancelar Venda') && (
+                          <button
+                            onClick={() => handleDeleteSale(sale)}
+                            className="p-2 hover:bg-error/10 rounded-xl transition-all text-on-surface-variant hover:text-error"
+                            title="Excluir Venda"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>

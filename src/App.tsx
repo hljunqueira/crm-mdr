@@ -44,23 +44,23 @@ export default function App() {
           <Route path="/consulta-os" element={<CustomerOSPortal />} />
           
           {/* App protected routes */}
-          <Route path="/dashboard" element={<PrivateRoute><AppLayout><Dashboard /></AppLayout></PrivateRoute>} />
-          <Route path="/customers" element={<PrivateRoute><AppLayout><Customers /></AppLayout></PrivateRoute>} />
-          <Route path="/credit-analysis" element={<PrivateRoute><AppLayout><CreditAnalysis /></AppLayout></PrivateRoute>} />
-          <Route path="/sales" element={<PrivateRoute><AppLayout><Sales /></AppLayout></PrivateRoute>} />
-          <Route path="/service-orders" element={<PrivateRoute><AppLayout><ServiceOrders /></AppLayout></PrivateRoute>} />
-          <Route path="/outsourcing" element={<PrivateRoute><AppLayout><OutsourcedOrders /></AppLayout></PrivateRoute>} />
-          <Route path="/inventory" element={<PrivateRoute><AppLayout><Inventory /></AppLayout></PrivateRoute>} />
-          <Route path="/finance" element={<PrivateRoute><AppLayout><Finance /></AppLayout></PrivateRoute>} />
-          <Route path="/device-locks" element={<PrivateRoute><AppLayout><DeviceLockPanel /></AppLayout></PrivateRoute>} />
-          <Route path="/fiscal" element={<PrivateRoute><AppLayout><Fiscal /></AppLayout></PrivateRoute>} />
-          <Route path="/automation" element={<PrivateRoute><AppLayout><Automation /></AppLayout></PrivateRoute>} />
-          <Route path="/connections" element={<PrivateRoute><AppLayout><Connections /></AppLayout></PrivateRoute>} />
-          <Route path="/reports" element={<PrivateRoute><AppLayout><Reports /></AppLayout></PrivateRoute>} />
-          <Route path="/leads" element={<PrivateRoute><AppLayout><Leads /></AppLayout></PrivateRoute>} />
+          <Route path="/dashboard" element={<PrivateRoute pageName="Dashboard"><AppLayout><Dashboard /></AppLayout></PrivateRoute>} />
+          <Route path="/customers" element={<PrivateRoute pageName="Clientes"><AppLayout><Customers /></AppLayout></PrivateRoute>} />
+          <Route path="/credit-analysis" element={<PrivateRoute pageName="Análise de Crédito"><AppLayout><CreditAnalysis /></AppLayout></PrivateRoute>} />
+          <Route path="/sales" element={<PrivateRoute pageName="Vendas & Celulares"><AppLayout><Sales /></AppLayout></PrivateRoute>} />
+          <Route path="/service-orders" element={<PrivateRoute pageName="Assistência Técnica (OS)"><AppLayout><ServiceOrders /></AppLayout></PrivateRoute>} />
+          <Route path="/outsourcing" element={<PrivateRoute pageName="OS Terceirizadas"><AppLayout><OutsourcedOrders /></AppLayout></PrivateRoute>} />
+          <Route path="/inventory" element={<PrivateRoute pageName="Estoque"><AppLayout><Inventory /></AppLayout></PrivateRoute>} />
+          <Route path="/finance" element={<PrivateRoute pageName="Financeiro"><AppLayout><Finance /></AppLayout></PrivateRoute>} />
+          <Route path="/device-locks" element={<PrivateRoute pageName="Controle de Bloqueio"><AppLayout><DeviceLockPanel /></AppLayout></PrivateRoute>} />
+          <Route path="/fiscal" element={<PrivateRoute pageName="Fiscal (NFe/NFSe)"><AppLayout><Fiscal /></AppLayout></PrivateRoute>} />
+          <Route path="/automation" element={<PrivateRoute pageName="WPP / Instagram"><AppLayout><Automation /></AppLayout></PrivateRoute>} />
+          <Route path="/connections" element={<PrivateRoute pageName="Gerenciar WPP/IG"><AppLayout><Connections /></AppLayout></PrivateRoute>} />
+          <Route path="/reports" element={<PrivateRoute pageName="Relatórios"><AppLayout><Reports /></AppLayout></PrivateRoute>} />
+          <Route path="/leads" element={<PrivateRoute pageName="Leads"><AppLayout><Leads /></AppLayout></PrivateRoute>} />
           <Route path="/kanban" element={<Navigate to="/leads" replace />} />
-          <Route path="/chat" element={<PrivateRoute><AppLayout><Chat /></AppLayout></PrivateRoute>} />
-          <Route path="/settings" element={<PrivateRoute><AppLayout><Settings /></AppLayout></PrivateRoute>} />
+          <Route path="/chat" element={<PrivateRoute pageName="WPP / Instagram"><AppLayout><Chat /></AppLayout></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute pageName="Configurações"><AppLayout><Settings /></AppLayout></PrivateRoute>} />
           
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />

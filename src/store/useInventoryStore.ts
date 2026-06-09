@@ -17,6 +17,7 @@ export interface InventoryItem {
   category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other';
   image_url?: string;
   show_on_landing?: boolean;
+  barcode?: string;
 }
 
 interface InventoryState {
@@ -51,6 +52,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         category: item.category || 'smartphone',
         image_url: item.image_url || '',
         show_on_landing: !!item.show_on_landing,
+        barcode: item.barcode || '',
       }));
       set({ inventory: mapped });
     } catch (error) {
@@ -75,6 +77,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         category: item.category || 'smartphone',
         image_url: item.image_url || null,
         show_on_landing: item.show_on_landing || false,
+        barcode: item.barcode || null,
       };
       const data = await api.post('/inventory', dbItem);
       const newFrontendItem = {
@@ -84,6 +87,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         notes: data.notes || '',
         image_url: data.image_url || '',
         show_on_landing: !!data.show_on_landing,
+        barcode: data.barcode || '',
       };
       set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
     } catch (error) {
@@ -107,6 +111,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.category !== undefined) dbFields.category = updatedFields.category;
       if (updatedFields.image_url !== undefined) dbFields.image_url = updatedFields.image_url || null;
       if (updatedFields.show_on_landing !== undefined) dbFields.show_on_landing = updatedFields.show_on_landing;
+      if (updatedFields.barcode !== undefined) dbFields.barcode = updatedFields.barcode || null;
 
       const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({
@@ -117,6 +122,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
           notes: data.notes || '',
           image_url: data.image_url || '',
           show_on_landing: !!data.show_on_landing,
+          barcode: data.barcode || '',
         } : i)
       }));
     } catch (error) {

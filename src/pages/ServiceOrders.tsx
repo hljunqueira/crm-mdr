@@ -12,6 +12,7 @@ import { useInventoryStore } from '../store/useInventoryStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
+import { usePermissionStore } from '../store/usePermissionStore';
 import { formatCPF, formatPhone, printElement } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
@@ -76,6 +77,7 @@ export default function ServiceOrders() {
   const { showNotification } = useUI();
   const { profile } = useAuthStore();
   const { units, fetchAllUnits } = useUnitStore();
+  const { hasPermission, fetchUserPermissions } = usePermissionStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('all');
@@ -142,6 +144,7 @@ export default function ServiceOrders() {
     fetchCustomers();
     fetchInventory();
     fetchAllUnits();
+    fetchUserPermissions();
 
     const fetchAdmins = async () => {
       const { data } = await supabase
@@ -151,7 +154,7 @@ export default function ServiceOrders() {
       if (data) setAdmins(data);
     };
     fetchAdmins();
-  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits]);
+  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions]);
 
   // Default unit_id to profile's unit_id when profile/units are loaded
   useEffect(() => {
@@ -836,12 +839,14 @@ export default function ServiceOrders() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Assistência Técnica</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Ordens de Serviço (OS) & Manutenções</p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
-        >
-          <Plus size={16} /> Nova Ordem de Serviço
-        </button>
+        {hasPermission(profile, 'OS - Criar Nova OS') && (
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
+          >
+            <Plus size={16} /> Nova Ordem de Serviço
+          </button>
+        )}
       </div>
 
       {/* TABS DE CATEGORIAS */}
@@ -1160,6 +1165,7 @@ export default function ServiceOrders() {
                 activeChecklist={activeChecklist}
                 isChecklistItemOk={isChecklistItemOk}
                 handleToggleChecklist={handleToggleChecklist}
+                disabled={!hasPermission(profile, 'OS - Mudar Status de Bancada')}
               />
 
               {/* CONTROLE DE PEÇAS CONSUMIDAS DO ESTOQUE */}
@@ -1173,6 +1179,7 @@ export default function ServiceOrders() {
                 addingPart={addingPart}
                 handleAddPart={handleAddPart}
                 handleDeletePart={handleDeletePart}
+                disabled={!hasPermission(profile, 'OS - Editar OS')}
               />
 
               {/* MOTOR DE DECISÃO TÉCNICA E HOMOLOGAÇÃO FINANCEIRA */}
@@ -1187,8 +1194,9 @@ export default function ServiceOrders() {
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Status da Manutenção</label>
                     <select
                       value={currentServiceOrder.status}
+                      disabled={!hasPermission(profile, 'OS - Editar OS')}
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { status: e.target.value as any })}
-                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="budget_pending">🔴 Orçamento Pendente</option>
                       <option value="awaiting_approval">🟡 Aguardando Aprovação</option>
@@ -1209,8 +1217,9 @@ export default function ServiceOrders() {
                         type="number" 
                         step="0.01"
                         value={currentServiceOrder.labor_value}
+                        disabled={!hasPermission(profile, 'OS - Editar OS')}
                         onChange={(e) => updateServiceOrder(currentServiceOrder.id, { labor_value: parseFloat(e.target.value) || 0 })}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -1275,8 +1284,9 @@ export default function ServiceOrders() {
                       rows={3}
                       placeholder="Descreva o laudo detalhado do reparo (Ex: Substituição da tela quebrada por tela original de reposição. Efetuado testes de toque e carga que operam 100%.)"
                       value={currentServiceOrder.technical_diagnosis || ''}
+                      disabled={!hasPermission(profile, 'OS - Editar OS')}
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { technical_diagnosis: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed disabled:opacity-50"
                     />
                   </div>
 
@@ -1286,8 +1296,9 @@ export default function ServiceOrders() {
                     <input 
                       type="number" 
                       value={currentServiceOrder.warranty_period}
+                      disabled={!hasPermission(profile, 'OS - Editar OS')}
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { warranty_period: parseInt(e.target.value) || 0 })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono disabled:opacity-50"
                     />
                   </div>
 
@@ -1296,8 +1307,9 @@ export default function ServiceOrders() {
                     <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade / Loja</label>
                     <select
                       value={currentServiceOrder.unit_id || ''}
+                      disabled={!hasPermission(profile, 'OS - Editar OS')}
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { unit_id: e.target.value || null })}
-                      className="w-full bg-[#121214] border border-primary/20 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                      className="w-full bg-[#121214] border border-primary/20 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="" disabled>Selecione a Unidade</option>
                       {units.map(u => (
@@ -1313,8 +1325,9 @@ export default function ServiceOrders() {
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Técnico Responsável</label>
                     <select
                       value={currentServiceOrder.responsible_technician_id || ''}
+                      disabled={!hasPermission(profile, 'OS - Editar OS')}
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { responsible_technician_id: e.target.value || null as any })}
-                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="">Não Atribuído</option>
                       {admins.map(adm => (
@@ -1336,16 +1349,18 @@ export default function ServiceOrders() {
                   >
                     Voltar
                   </button>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setSelectedOsId(null);
-                      showNotification('success', 'Procedimento de homologação salvo com sucesso!');
-                    }}
-                    className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-                  >
-                    <Check size={16} /> Salvar OS & Sincronizar
-                  </button>
+                  {hasPermission(profile, 'OS - Editar OS') && (
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setSelectedOsId(null);
+                        showNotification('success', 'Procedimento de homologação salvo com sucesso!');
+                      }}
+                      className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                    >
+                      <Check size={16} /> Salvar OS & Sincronizar
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

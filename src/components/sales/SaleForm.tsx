@@ -206,9 +206,36 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       }
       return item.model.toLowerCase().includes(search) ||
              item.brand.toLowerCase().includes(search) ||
+             (item.barcode && item.barcode.toLowerCase().includes(search)) ||
              (item.imei && item.imei.toLowerCase().includes(search));
     });
   }, [availableDevices, deviceSearch, saleType]);
+
+  // Auto-select product on barcode scan (exact match)
+  React.useEffect(() => {
+    if (!deviceSearch) return;
+    const match = availableDevices.find(item => 
+      item.barcode && item.barcode.toLowerCase() === deviceSearch.trim().toLowerCase()
+    );
+    if (match) {
+      addDeviceToSale(match);
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.1);
+      } catch (e) {
+        console.warn('AudioContext failed:', e);
+      }
+      showNotification('success', 'Produto Bipado', `${match.brand} ${match.model} adicionado!`);
+    }
+  }, [deviceSearch, availableDevices]);
 
   const addDeviceToSale = (item: typeof inventory[0]) => {
     if (selectedDevices.find(d => d.id === item.id)) return;
