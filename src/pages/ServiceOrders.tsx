@@ -124,7 +124,6 @@ export default function ServiceOrders() {
 
   const [justCreatedOs, setJustCreatedOs] = useState<ServiceOrder | null>(null);
   const [signatureMode, setSignatureMode] = useState<'entry' | 'exit' | null>(null);
-  const [passcodeType, setPasscodeType] = useState<'text' | 'pattern'>('text');
 
   // Load and fetch initial states
   useEffect(() => {
@@ -1470,59 +1469,28 @@ export default function ServiceOrders() {
                   />
                 </div>
 
-                {/* Senha / Padrão do Aparelho */}
-                <div className="space-y-2 md:col-span-2">
-                  <div className="flex justify-between items-center pl-1">
-                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest">Método de Bloqueio / Senha</label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPasscodeType('text');
-                          setNewOs(p => ({ ...p, device_pattern_lock: '' }));
-                        }}
-                        className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all ${
-                          passcodeType === 'text'
-                            ? 'bg-primary text-on-primary font-bold'
-                            : 'bg-white/5 border border-white/10 text-on-surface-variant'
-                        }`}
-                      >
-                        Senha / PIN
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPasscodeType('pattern');
-                          setNewOs(p => ({ ...p, device_passcode: '' }));
-                        }}
-                        className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all ${
-                          passcodeType === 'pattern'
-                            ? 'bg-primary text-on-primary font-bold'
-                            : 'bg-white/5 border border-white/10 text-on-surface-variant'
-                        }`}
-                      >
-                        Desenho (Padrão)
-                      </button>
-                    </div>
-                  </div>
+                {/* Senha do Aparelho (Texto/PIN) */}
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Entrada / PIN</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 1234, admin, sem senha"
+                    value={newOs.device_passcode}
+                    onChange={(e) => setNewOs(p => ({ ...p, device_passcode: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
+                  />
+                </div>
 
-                  {passcodeType === 'text' ? (
-                    <input
-                      type="text"
-                      placeholder="Senha para testes (Ex: 1234, admin, etc.)"
-                      value={newOs.device_passcode}
-                      onChange={(e) => setNewOs(p => ({ ...p, device_passcode: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
+                {/* Senha por Desenho (Padrão) */}
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha por Desenho (Padrão)</label>
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center">
+                    <PatternLockCanvas
+                      onSave={(base64) => setNewOs(p => ({ ...p, device_pattern_lock: base64 }))}
+                      onClear={() => setNewOs(p => ({ ...p, device_pattern_lock: '' }))}
+                      title="Desenhe o Padrão de Desbloqueio"
                     />
-                  ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center">
-                      <PatternLockCanvas
-                        onSave={(base64) => setNewOs(p => ({ ...p, device_pattern_lock: base64 }))}
-                        onClear={() => setNewOs(p => ({ ...p, device_pattern_lock: '' }))}
-                        title="Desenhe o Padrão de Desbloqueio"
-                      />
-                    </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Previsão de Entrega */}
