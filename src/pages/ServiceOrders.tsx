@@ -635,12 +635,16 @@ export default function ServiceOrders() {
             <span className="align-right text-small">{currentServiceOrder.accessories_left.join(', ')}</span>
           </div>
         )}
-        {currentServiceOrder.estimated_delivery && (
-          <div className="row">
-            <span>Previsão de Entrega:</span>
-            <span className="align-right font-mono">{new Date(currentServiceOrder.estimated_delivery + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-          </div>
-        )}
+        <div className="row">
+          <span>Previsão de Entrega:</span>
+          <span className="align-right font-mono">
+            {(() => {
+              if (!currentServiceOrder.estimated_delivery) return 'Sem Previsão';
+              const date = new Date(currentServiceOrder.estimated_delivery + 'T12:00:00');
+              return isNaN(date.getTime()) ? 'Sem Previsão' : date.toLocaleDateString('pt-BR');
+            })()}
+          </span>
+        </div>
 
         <div className="divider"></div>
 
