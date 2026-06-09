@@ -163,7 +163,7 @@ function SaleDocumentViewer({
           </style>
         </head>
         <body>
-          <div style="${isReceipt ? 'width: 80mm; margin: 0;' : 'max-width: 800px; margin: 0 auto;'}">
+          <div id="sale-document-preview-area" style="${isReceipt ? 'width: 80mm; margin: 0;' : 'max-width: 800px; margin: 0 auto;'}">
             ${element.innerHTML}
           </div>
           <script>
