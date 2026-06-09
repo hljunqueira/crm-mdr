@@ -618,7 +618,7 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Diagnosis Intake Section */}
-        <div className="section-title">VISTORIA E ENTRADA</div>
+        <div className="section-title" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>VISTORIA E ENTRADA</div>
         <div className="row">
           <span>Defeito Relatado:</span>
           <span className="align-right text-small">{currentServiceOrder.reported_issue}</span>
