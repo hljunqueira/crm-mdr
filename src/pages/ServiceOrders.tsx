@@ -588,6 +588,7 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Clauses */}
+        <div className="page-break"></div>
         <div className="section-title">TERMOS DE RECEBIMENTO</div>
         <div className="clauses">
           1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
@@ -736,6 +737,7 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Warranty info */}
+        <div className="page-break"></div>
         <div className="section-title">CERTIFICADO DE GARANTIA</div>
         <div className="clauses">
           Garantia técnica de **{currentServiceOrder.warranty_period || 90} dias** sobre peças/serviços desta OS.<br />
@@ -902,7 +904,7 @@ export default function ServiceOrders() {
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
                       title="Imprimir Termo de Entrada"
                     >
-                      <Printer size={12} /> Entrada
+                      <Printer size={12} /> Imprimir Entrada
                     </button>
                     <button
                       onClick={() => setSignatureMode('entry')}
@@ -912,11 +914,18 @@ export default function ServiceOrders() {
                       <Save size={12} /> Assinar Entrada
                     </button>
                     <button
+                      onClick={() => handlePrintDocument('print-os-entry')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
+                      title="Reimprimir Termo de Entrada"
+                    >
+                      <Printer size={12} /> Reimprimir Entrada
+                    </button>
+                    <button
                       onClick={() => handlePrintDocument('print-os-warranty')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
                       title="Imprimir Garantia e Saída"
                     >
-                      <Printer size={12} /> Reimprimir
+                      <Printer size={12} /> Imprimir Saída
                     </button>
                     <button
                       onClick={() => setSignatureMode('exit')}
