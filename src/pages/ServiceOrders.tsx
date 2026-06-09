@@ -1216,9 +1216,9 @@ export default function ServiceOrders() {
                       <input 
                         type="number" 
                         step="0.01"
-                        value={currentServiceOrder.labor_value}
+                        value={currentServiceOrder.labor_value || ''}
                         disabled={!hasPermission(profile, 'OS - Editar OS')}
-                        onChange={(e) => updateServiceOrder(currentServiceOrder.id, { labor_value: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => updateServiceOrder(currentServiceOrder.id, { labor_value: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono disabled:opacity-50"
                       />
                     </div>
@@ -1531,28 +1531,32 @@ export default function ServiceOrders() {
                 )}
 
                 {/* Senha do Aparelho (Texto/PIN) */}
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Entrada / PIN</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 1234, admin, sem senha"
-                    value={newOs.device_passcode}
-                    onChange={(e) => setNewOs(p => ({ ...p, device_passcode: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
-                  />
-                </div>
-
-                {/* Senha por Desenho (Padrão) */}
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha por Desenho (Padrão)</label>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center">
-                    <PatternLockCanvas
-                      onSave={(base64) => setNewOs(p => ({ ...p, device_pattern_lock: base64 }))}
-                      onClear={() => setNewOs(p => ({ ...p, device_pattern_lock: '' }))}
-                      title="Desenhe o Padrão de Desbloqueio"
+                {['smartphone', 'notebook', 'desktop'].includes(newOs.device_category) && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Entrada / PIN</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 1234, admin, sem senha"
+                      value={newOs.device_passcode}
+                      onChange={(e) => setNewOs(p => ({ ...p, device_passcode: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
                     />
                   </div>
-                </div>
+                )}
+
+                {/* Senha por Desenho (Padrão) */}
+                {newOs.device_category === 'smartphone' && (
+                  <div className="space-y-2 md:col-span-2 animate-in fade-in duration-200">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha por Desenho (Padrão)</label>
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center">
+                      <PatternLockCanvas
+                        onSave={(base64) => setNewOs(p => ({ ...p, device_pattern_lock: base64 }))}
+                        onClear={() => setNewOs(p => ({ ...p, device_pattern_lock: '' }))}
+                        title="Desenhe o Padrão de Desbloqueio"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Previsão de Entrega */}
                 <div className="space-y-2">
@@ -1687,8 +1691,8 @@ export default function ServiceOrders() {
                     <input 
                       type="number" 
                       placeholder="0.00"
-                      value={newOs.labor_value}
-                      onChange={(e) => setNewOs(prev => ({ ...prev, labor_value: parseFloat(e.target.value) || 0 }))}
+                      value={newOs.labor_value || ''}
+                      onChange={(e) => setNewOs(prev => ({ ...prev, labor_value: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 }))}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono"
                     />
                   </div>
