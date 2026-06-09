@@ -257,7 +257,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
   // MDR Coefficient Calculations
-  const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card' | 'vista';
+  const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card' | 'vista' | 'debit';
+  const isCashLike = paymentType === 'vista' || paymentType === 'debit';
   const installmentCount = formData.installments || 1;
 
   const baseCoefficient = useMemo(() => {
@@ -280,7 +281,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   // Grace period extra interest: extra days beyond 30 days from today incur pro-rata interest
   // charged exclusively on the 1st installment
   const gracePeriodInterest = useMemo(() => {
-    if (!formData.first_due_date || paymentType === 'card' || paymentType === 'vista') return 0;
+    if (!formData.first_due_date || paymentType === 'card' || isCashLike) return 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const firstDue = new Date(formData.first_due_date + 'T12:00:00');
@@ -325,12 +326,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [formData.payment_type, selectedCustomer, newFinancedAmount, availableLimit]);
 
   const minDownPayment = useMemo(() => {
-    if (formData.payment_type === 'vista' || !selectedCustomer) return 0;
+    if (isCashLike || !selectedCustomer) return 0;
     const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
     if (classification === 'RUIM') return formData.total_value * 0.5;
     if (classification === 'MEDIO') return formData.total_value * 0.2;
     return 0;
-  }, [selectedCustomer, formData.total_value, formData.payment_type]);
+  }, [selectedCustomer, formData.total_value, isCashLike]);
 
   const riskMultiplier = useMemo(() => {
     if (paymentType === 'card' || !selectedCustomer) return 1.00;
@@ -341,12 +342,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [selectedCustomer, paymentType]);
 
   const installmentValue = useMemo(() => {
-    if (formData.payment_type === 'vista') return 0;
+    if (isCashLike) return 0;
     const financed = formData.total_value - formData.down_payment;
     if (financed <= 0) return 0;
     const finalCoeff = baseCoefficient * riskMultiplier;
     return financed * finalCoeff;
-  }, [formData.payment_type, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
+  }, [isCashLike, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
 
   // First installment value includes grace period interest (if any)
   const firstInstallmentValue = useMemo(() => {
@@ -359,17 +360,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [firstInstallmentValue, installmentValue, installmentCount]);
 
   const finalValue = useMemo(() => {
-    if (formData.payment_type === 'vista') {
+    if (isCashLike) {
       return formData.total_value + accessoriesTotal;
     }
     return formData.down_payment + totalInstallmentsValue + accessoriesTotal;
-  }, [formData.payment_type, formData.total_value, formData.down_payment, totalInstallmentsValue, accessoriesTotal]);
+  }, [isCashLike, formData.total_value, formData.down_payment, totalInstallmentsValue, accessoriesTotal]);
 
   const feeValue = useMemo(() => {
-    if (formData.payment_type === 'vista') return 0;
+    if (isCashLike) return 0;
     // Interest = final value minus base device price (accessories 'venda' are transparent cost)
     return Math.max(0, finalValue - formData.total_value - accessoriesTotal);
-  }, [formData.payment_type, finalValue, formData.total_value, accessoriesTotal]);
+  }, [isCashLike, finalValue, formData.total_value, accessoriesTotal]);
 
   const changeValue = useMemo(() => {
     if (amountPaid <= 0) return 0;
@@ -381,7 +382,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, []);
 
   const generatedInstallments = useMemo(() => {
-    if (!formData.customer_id || formData.total_value <= 0 || formData.payment_type === 'vista') return [];
+    if (!formData.customer_id || formData.total_value <= 0 || isCashLike) return [];
 
     return customDueDates.map((dueDate, idx) => ({
       number: idx + 1,
@@ -390,7 +391,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       dueDate: dueDate,
       status: 'pending'
     }));
-  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates, formData.payment_type]);
+  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates, isCashLike]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,7 +406,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       return;
     }
 
-    if (formData.payment_type !== 'vista' && formData.down_payment < minDownPayment) {
+    if (!isCashLike && formData.down_payment < minDownPayment) {
       const pct = selectedCustomer?.classification === 'RUIM' ? '50%' : '20%';
       showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
       return;
@@ -448,10 +449,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           device_model: formData.device_model,
           imei: formData.imei,
           total_value: finalValue,
-          down_payment: formData.payment_type === 'vista' ? finalValue : formData.down_payment,
+          down_payment: isCashLike ? finalValue : formData.down_payment,
           service_fee: feeValue,
           original_price: formData.total_value,
-          installments: formData.payment_type === 'vista' ? 0 : formData.installments,
+          installments: isCashLike ? 0 : formData.installments,
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: accessoriesStr,
@@ -467,10 +468,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           device_model: formData.device_model,
           imei: formData.imei,
           total_value: finalValue,
-          down_payment: formData.payment_type === 'vista' ? finalValue : formData.down_payment,
+          down_payment: isCashLike ? finalValue : formData.down_payment,
           service_fee: feeValue,
           original_price: formData.total_value,
-          installments: formData.payment_type === 'vista' ? 0 : formData.installments,
+          installments: isCashLike ? 0 : formData.installments,
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: accessoriesStr,
@@ -569,18 +570,18 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         <div className="p-4 bg-white/5 rounded-2xl border border-white/10 max-w-sm mx-auto text-left">
           <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Resumo</p>
           <p className="text-sm text-white font-black">
-            {formData.payment_type === 'vista' 
+            {isCashLike 
               ? 'Pagamento À Vista'
               : `${formData.installments}x de R$ ${installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           </p>
           <p className="text-[10px] text-on-surface-variant">
             Total: R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            {formData.payment_type !== 'vista' && ` | Entrada: R$ ${formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            {!isCashLike && ` | Entrada: R$ ${formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
-          {formData.payment_type !== 'vista' && (
+          {!isCashLike && (
             <button 
               onClick={() => printElement('sale-contract')}
               className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
@@ -630,7 +631,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {selectedCustomer && (
+      {saleType !== 'general' && selectedCustomer && (
         <>
           <div className={cn(
             "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
@@ -868,7 +869,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <input 
             type="text" 
             required
-            placeholder="Ex: iPhone 15 Pro Max"
+            placeholder={saleType === 'cellphone' ? "Ex: iPhone 15 Pro Max" : "Ex: Teclado Mecânico, Notebook Dell, Caixa de Som, Formatação"}
             value={formData.device_model}
             onChange={(e) => setFormData(prev => ({ ...prev, device_model: e.target.value }))}
             readOnly={selectedDevices.length > 0}
@@ -1017,6 +1018,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <option value="crediario" className="bg-surface-container-high">Crediário da Loja</option>
             )}
             <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+            <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
             <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
           </select>
         </div>
@@ -1036,7 +1038,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </div>
         )}
 
-        {formData.payment_type !== 'vista' && (
+        {formData.payment_type !== 'vista' && formData.payment_type !== 'debit' && (
           <>
             <div className="space-y-2 animate-in fade-in duration-300">
               <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
@@ -1067,7 +1069,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cor do Aparelho</label>
           <input 
             type="text" 
-            placeholder="Ex: Titânio Natural"
+            placeholder={saleType === 'cellphone' ? "Ex: Titânio Natural" : "Ex: Preto, Cinza, N/A"}
             value={formData.device_color}
             onChange={(e) => setFormData(prev => ({ ...prev, device_color: e.target.value }))}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
@@ -1271,11 +1273,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         </div>
       )}
 
-      {/* Preview Section for cash/pix sale (À Vista) with Change (Troco) Calculator */}
-      {formData.payment_type === 'vista' && formData.total_value > 0 && (
+      {/* Preview Section for cash/pix sale (À Vista) or Debit with Change (Troco) Calculator */}
+      {isCashLike && formData.total_value > 0 && (
         <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6 animate-in fade-in duration-300">
           <div className="flex items-center justify-between pb-6 border-b border-white/5">
-            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação (À Vista)</h4>
+            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{paymentType === 'debit' ? "Resumo da Negociação (Débito)" : "Resumo da Negociação (À Vista)"}</h4>
             <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
               <span className="text-[8px] font-black text-green-400 uppercase tracking-widest leading-none">Sem Juros</span>

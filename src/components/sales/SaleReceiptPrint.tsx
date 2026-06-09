@@ -48,6 +48,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
       case 'pix': return 'PIX';
       case 'money': return 'Dinheiro';
       case 'card': return 'Cartão de Crédito';
+      case 'debit': return 'Cartão de Débito';
       case 'crediario': return 'Crediário da Loja';
       case 'vista': return 'À Vista (Dinheiro/Pix)';
       default: return type ? type.toUpperCase() : 'Não Informado';
@@ -197,7 +198,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           </div>
         )}
 
-        {sale.payment_type === 'vista' && (sale as any).amount_paid > 0 && (
+        {(sale.payment_type === 'vista' || sale.payment_type === 'debit') && (sale as any).amount_paid > 0 && (
           <>
             <div className="row">
               <span>Valor Recebido:</span>

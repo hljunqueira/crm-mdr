@@ -17,7 +17,7 @@ export interface Sale {
   device_color?: string;
   accessories?: string;
   status: 'completed' | 'processing' | 'overdue' | 'cancelled';
-  payment_type?: 'crediario' | 'card' | 'vista';
+  payment_type?: 'crediario' | 'card' | 'vista' | 'debit';
 }
 
 interface SaleState {

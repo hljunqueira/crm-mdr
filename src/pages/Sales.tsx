@@ -102,6 +102,7 @@ function SaleDocumentViewer({
       case 'pix': return 'PIX';
       case 'money': return 'Dinheiro';
       case 'card': return 'Cartão de Crédito';
+      case 'debit': return 'Cartão de Débito';
       case 'crediario': return 'Crediário da Loja';
       case 'vista': return 'À Vista (Dinheiro/Pix)';
       default: return type ? type.toUpperCase() : 'Não Informado';
@@ -1372,9 +1373,11 @@ export default function Sales() {
                         <p className="text-[9px] text-on-surface-variant font-black uppercase tracking-tight opacity-60">
                           {sale.payment_type === 'vista'
                             ? 'À Vista'
-                            : sale.payment_type === 'card'
-                              ? `${sale.installments}x no Cartão`
-                              : `${sale.installments}x de R$ ${sale.installments > 0 ? (sale.total_value / sale.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}`}
+                            : sale.payment_type === 'debit'
+                              ? 'Cartão de Débito'
+                              : sale.payment_type === 'card'
+                                ? `${sale.installments}x no Cartão`
+                                : `${sale.installments}x de R$ ${sale.installments > 0 ? (sale.total_value / sale.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}`}
                         </p>
                       </div>
                     </td>
@@ -1393,9 +1396,9 @@ export default function Sales() {
                         <button
                           onClick={() => handlePrintContract(sale)}
                           className="p-2 hover:bg-white/10 rounded-xl transition-all text-on-surface-variant hover:text-white"
-                          title={sale.payment_type === 'vista' ? "Imprimir Nota de Venda" : "Imprimir Contrato / Recibo"}
+                          title={(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? "Imprimir Nota de Venda" : "Imprimir Contrato / Recibo"}
                         >
-                          {sale.payment_type === 'vista' ? <Receipt size={16} /> : <Printer size={16} />}
+                          {(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? <Receipt size={16} /> : <Printer size={16} />}
                         </button>
                         <button
                           onClick={() => handleEditSale(sale)}
