@@ -126,7 +126,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const availableAccessories = useMemo(() =>
     inventory.filter(item =>
       !selectedDevices.some(d => d.id === item.id) &&
-      (item.stock_quantity || 0) > 0
+      (item.stock_quantity || 0) > 0 &&
+      (item.category === 'accessory_mobile' || item.category === 'accessory_it')
     ),
   [inventory, selectedDevices]);
 
