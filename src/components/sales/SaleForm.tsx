@@ -700,7 +700,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Customer Section */}
-        <div className="space-y-2">
+        <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
           <select 
             required
