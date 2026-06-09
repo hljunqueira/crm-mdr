@@ -504,6 +504,20 @@ export default function ServiceOrders() {
     printElement(id);
   };
 
+  const handlePrintBothVias = (type: 'entry' | 'warranty') => {
+    if (type === 'entry') {
+      handlePrintDocument('print-os-entry-client');
+      setTimeout(() => {
+        handlePrintDocument('print-os-entry-shop');
+      }, 1000);
+    } else {
+      handlePrintDocument('print-os-warranty-client');
+      setTimeout(() => {
+        handlePrintDocument('print-os-warranty-shop');
+      }, 1000);
+    }
+  };
+
   // Map status labels
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -951,6 +965,13 @@ export default function ServiceOrders() {
 
                   <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <button
+                      onClick={() => handlePrintBothVias('entry')}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
+                      title="Imprimir Via do Cliente e Via da Loja sequencialmente"
+                    >
+                      <Printer size={12} /> Imprimir 2 Vias (Entrada)
+                    </button>
+                    <button
                       onClick={() => handlePrintDocument('print-os-entry-client')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
                       title="Imprimir Via do Cliente (Entrada)"
@@ -963,6 +984,14 @@ export default function ServiceOrders() {
                       title="Imprimir Via da Assistência (Entrada)"
                     >
                       <Printer size={12} /> Via Loja (Entrada)
+                    </button>
+                    <button
+                      onClick={() => handlePrintBothVias('warranty')}
+                      disabled={currentServiceOrder.status !== 'delivered'}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Via do Cliente e Via da Loja (Saída)" : "Disponível apenas após a OS ser concluída/entregue"}
+                    >
+                      <Printer size={12} /> Imprimir 2 Vias (Saída)
                     </button>
                     <button
                       onClick={() => handlePrintDocument('print-os-warranty-client')}
@@ -2260,8 +2289,14 @@ export default function ServiceOrders() {
 
             <div className="flex flex-col gap-3 pt-2">
               <button
-                onClick={() => handlePrintDocument('print-os-entry-client')}
+                onClick={() => handlePrintBothVias('entry')}
                 className="w-full py-3.5 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Printer size={14} /> Imprimir Ambas as Vias (Cliente + Loja)
+              </button>
+              <button
+                onClick={() => handlePrintDocument('print-os-entry-client')}
+                className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Printer size={14} /> Imprimir Via do Cliente
               </button>
