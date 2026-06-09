@@ -20,7 +20,6 @@ import { cn } from '../lib/utils';
 import OsSidebar from '../components/layout/OsSidebar';
 import OsTechWorkbench from '../components/layout/OsTechWorkbench';
 import OsPartsLogistics from '../components/layout/OsPartsLogistics';
-import SignatureCanvas from '../components/layout/SignatureCanvas';
 import PatternLockCanvas from '../components/layout/PatternLockCanvas';
 
 const DEVICE_CATEGORIES = [
@@ -123,7 +122,6 @@ export default function ServiceOrders() {
   });
 
   const [justCreatedOs, setJustCreatedOs] = useState<ServiceOrder | null>(null);
-  const [signatureMode, setSignatureMode] = useState<'entry' | 'exit' | null>(null);
 
   // Load and fetch initial states
   useEffect(() => {
@@ -639,11 +637,6 @@ export default function ServiceOrders() {
         </div>
 
         <div className="sig-line-box" style={{ marginTop: '20px' }}>
-          {currentServiceOrder.signature_entry && (
-            <div className="sig-image-container">
-              <img src={currentServiceOrder.signature_entry} alt="Assinatura Cliente" className="sig-image" />
-            </div>
-          )}
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
@@ -791,11 +784,6 @@ export default function ServiceOrders() {
         </div>
 
         <div className="sig-line-box" style={{ marginTop: '20px' }}>
-          {currentServiceOrder.signature_exit && (
-            <div className="sig-image-container">
-              <img src={currentServiceOrder.signature_exit} alt="Assinatura Cliente Saída" className="sig-image" />
-            </div>
-          )}
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
@@ -931,13 +919,6 @@ export default function ServiceOrders() {
                       <Printer size={12} /> Imprimir Entrada
                     </button>
                     <button
-                      onClick={() => setSignatureMode('entry')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all cursor-pointer"
-                      title="Coletar Assinatura Digital de Entrada"
-                    >
-                      <Save size={12} /> Assinar Entrada
-                    </button>
-                    <button
                       onClick={() => handlePrintDocument('print-os-entry')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
                       title="Reimprimir Termo de Entrada"
@@ -951,13 +932,6 @@ export default function ServiceOrders() {
                       title={currentServiceOrder.status === 'delivered' ? "Imprimir Garantia e Saída" : "Disponível apenas após a OS ser concluída/entregue"}
                     >
                       <Printer size={12} /> Imprimir Saída
-                    </button>
-                    <button
-                      onClick={() => setSignatureMode('exit')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all cursor-pointer"
-                      title="Coletar Assinatura Digital de Saída"
-                    >
-                      <Save size={12} /> Assinar Saída
                     </button>
                     {profile?.role === 'admin' && (
                       <button
@@ -2192,31 +2166,7 @@ export default function ServiceOrders() {
         </div>
       )}
 
-      {/* MODAL DE ASSINATURA ELETRÔNICA */}
-      {signatureMode && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-lg">
-            <SignatureCanvas
-              title={signatureMode === 'entry' ? "Assinatura de Entrada do Cliente" : "Assinatura de Retirada do Cliente"}
-              onCancel={() => setSignatureMode(null)}
-              onSave={async (base64) => {
-                if (!currentServiceOrder) return;
-                try {
-                  if (signatureMode === 'entry') {
-                    await updateServiceOrder(currentServiceOrder.id, { signature_entry: base64 });
-                  } else {
-                    await updateServiceOrder(currentServiceOrder.id, { signature_exit: base64 });
-                  }
-                  showNotification('success', 'Assinatura Registrada', 'Rubrica salva e vinculada à OS!');
-                  setSignatureMode(null);
-                } catch (err) {
-                  showNotification('error', 'Erro ao salvar assinatura');
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
+
 
       {/* MODAL: CADASTRO RÁPIDO DE CLIENTE */}
       {isQuickCustomerOpen && (
