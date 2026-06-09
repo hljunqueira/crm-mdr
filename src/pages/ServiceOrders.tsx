@@ -21,6 +21,7 @@ import OsSidebar from '../components/layout/OsSidebar';
 import OsTechWorkbench from '../components/layout/OsTechWorkbench';
 import OsPartsLogistics from '../components/layout/OsPartsLogistics';
 import SignatureCanvas from '../components/layout/SignatureCanvas';
+import PatternLockCanvas from '../components/layout/PatternLockCanvas';
 
 const DEVICE_CATEGORIES = [
   { id: 'all', label: 'Tudo', icon: Wrench },
@@ -109,6 +110,7 @@ export default function ServiceOrders() {
     device_model: '',
     device_serial_number: '',
     device_passcode: '',
+    device_pattern_lock: '',
     cosmetic_condition: '',
     accessories_left: [] as string[],
     reported_issue: '',
@@ -122,6 +124,7 @@ export default function ServiceOrders() {
 
   const [justCreatedOs, setJustCreatedOs] = useState<ServiceOrder | null>(null);
   const [signatureMode, setSignatureMode] = useState<'entry' | 'exit' | null>(null);
+  const [passcodeType, setPasscodeType] = useState<'text' | 'pattern'>('text');
 
   // Load and fetch initial states
   useEffect(() => {
@@ -348,6 +351,7 @@ export default function ServiceOrders() {
         device_model: newOs.device_model,
         device_serial_number: newOs.device_serial_number || null,
         device_passcode: newOs.device_passcode || null,
+        device_pattern_lock: newOs.device_pattern_lock || null,
         cosmetic_condition: newOs.cosmetic_condition || null,
         accessories_left: newOs.accessories_left.length > 0 ? newOs.accessories_left : null,
         reported_issue: newOs.reported_issue,
@@ -385,6 +389,7 @@ export default function ServiceOrders() {
         device_model: '',
         device_serial_number: '',
         device_passcode: '',
+        device_pattern_lock: '',
         cosmetic_condition: '',
         accessories_left: [],
         reported_issue: '',
@@ -567,6 +572,14 @@ export default function ServiceOrders() {
           <div className="row">
             <span>Senha/PIN:</span>
             <span className="align-right font-mono">{currentServiceOrder.device_passcode}</span>
+          </div>
+        )}
+        {currentServiceOrder.device_pattern_lock && (
+          <div className="row" style={{ flexDirection: 'column', alignItems: 'center', marginTop: '6px' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold' }}>Padrão de Desbloqueio:</span>
+            <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px', border: '1px solid #000000', marginTop: '4px', display: 'inline-block' }}>
+              <img src={currentServiceOrder.device_pattern_lock} style={{ width: '90px', height: '90px', display: 'block' }} />
+            </div>
           </div>
         )}
 
@@ -934,8 +947,9 @@ export default function ServiceOrders() {
                     </button>
                     <button
                       onClick={() => handlePrintDocument('print-os-warranty')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
-                      title="Imprimir Garantia e Saída"
+                      disabled={currentServiceOrder.status !== 'delivered'}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Garantia e Saída" : "Disponível apenas após a OS ser concluída/entregue"}
                     >
                       <Printer size={12} /> Imprimir Saída
                     </button>
@@ -1029,6 +1043,18 @@ export default function ServiceOrders() {
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Senha do Dispositivo</p>
                         <p className="font-bold font-mono mt-0.5 text-warning">{currentServiceOrder.device_passcode}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {currentServiceOrder.device_pattern_lock && (
+                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                      <Info size={14} className="opacity-40 text-primary mt-0.5" />
+                      <div>
+                        <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Padrão de Desbloqueio</p>
+                        <div className="mt-1.5 bg-white p-1.5 rounded-xl inline-block border border-white/10">
+                          <img src={currentServiceOrder.device_pattern_lock} className="w-16 h-16 object-contain block" />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1444,16 +1470,59 @@ export default function ServiceOrders() {
                   />
                 </div>
 
-                {/* Senha do Aparelho */}
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Entrada / PIN</label>
-                  <input
-                    type="text"
-                    placeholder="Senha para testes"
-                    value={newOs.device_passcode}
-                    onChange={(prev) => setNewOs(p => ({ ...p, device_passcode: prev.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
-                  />
+                {/* Senha / Padrão do Aparelho */}
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex justify-between items-center pl-1">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest">Método de Bloqueio / Senha</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPasscodeType('text');
+                          setNewOs(p => ({ ...p, device_pattern_lock: '' }));
+                        }}
+                        className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all ${
+                          passcodeType === 'text'
+                            ? 'bg-primary text-on-primary font-bold'
+                            : 'bg-white/5 border border-white/10 text-on-surface-variant'
+                        }`}
+                      >
+                        Senha / PIN
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPasscodeType('pattern');
+                          setNewOs(p => ({ ...p, device_passcode: '' }));
+                        }}
+                        className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider transition-all ${
+                          passcodeType === 'pattern'
+                            ? 'bg-primary text-on-primary font-bold'
+                            : 'bg-white/5 border border-white/10 text-on-surface-variant'
+                        }`}
+                      >
+                        Desenho (Padrão)
+                      </button>
+                    </div>
+                  </div>
+
+                  {passcodeType === 'text' ? (
+                    <input
+                      type="text"
+                      placeholder="Senha para testes (Ex: 1234, admin, etc.)"
+                      value={newOs.device_passcode}
+                      onChange={(e) => setNewOs(p => ({ ...p, device_passcode: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
+                    />
+                  ) : (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center">
+                      <PatternLockCanvas
+                        onSave={(base64) => setNewOs(p => ({ ...p, device_pattern_lock: base64 }))}
+                        onClear={() => setNewOs(p => ({ ...p, device_pattern_lock: '' }))}
+                        title="Desenhe o Padrão de Desbloqueio"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Previsão de Entrega */}

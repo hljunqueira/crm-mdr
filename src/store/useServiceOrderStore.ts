@@ -22,6 +22,7 @@ export interface ServiceOrder {
   device_model: string;
   device_serial_number?: string;
   device_passcode?: string;
+  device_pattern_lock?: string;
   cosmetic_condition?: string;
   accessories_left?: string[];
   reported_issue: string;
