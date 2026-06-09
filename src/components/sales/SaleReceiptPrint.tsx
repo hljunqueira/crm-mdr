@@ -423,7 +423,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
       `}</style>
 
       {renderReceiptCopy("VIA DO CLIENTE")}
-      <div className="receipt-separator">
+      <div className="page-break receipt-separator">
         - - - - - - - - SERRILHA DE CORTE - - - - - - - -
       </div>
       {renderReceiptCopy("VIA DO ESTABELECIMENTO")}
