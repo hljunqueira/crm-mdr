@@ -379,32 +379,35 @@ export default function Inventory() {
                   </div>
                 </div>
 
-                <div className="p-3 bg-white/5 flex items-center justify-end gap-2 border-t border-white/5">
+                <div className="p-3 bg-white/5 flex items-center justify-end gap-3 border-t border-white/5 flex-wrap">
                   {hasPermission(profile, 'Estoque - Transferir Produto') && (
                     <button
                       onClick={() => handleOpenTransferModal(item)}
-                      className="p-2 text-white/75 hover:text-primary transition-colors hover:scale-110"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-primary hover:bg-primary/5 transition-all"
                       title="Transferir Unidade"
                     >
-                      <ArrowRightLeft size={16} />
+                      <ArrowRightLeft size={13} />
+                      <span>Transferir</span>
                     </button>
                   )}
                   {hasPermission(profile, 'Estoque - Editar Produto') && (
                     <button
                       onClick={() => handleEditItem(item)}
-                      className="p-2 text-white/75 hover:text-white transition-colors hover:scale-110"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-white hover:bg-white/5 transition-all"
                       title="Editar"
                     >
-                      <Edit2 size={18} />
+                      <Edit2 size={13} />
+                      <span>Editar</span>
                     </button>
                   )}
                   {hasPermission(profile, 'Estoque - Excluir Produto') && (
                     <button
                       onClick={() => handleDeleteItem(item.id)}
-                      className="p-2 text-white/75 hover:text-error transition-colors hover:scale-110"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-error hover:bg-error/5 transition-all"
                       title="Excluir"
                     >
-                      <Trash2 size={18} />
+                      <Trash2 size={13} />
+                      <span>Excluir</span>
                     </button>
                   )}
                 </div>
