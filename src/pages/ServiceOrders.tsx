@@ -1796,46 +1796,65 @@ export default function ServiceOrders() {
                 body {
                   margin: 0 !important;
                   padding: 0 !important;
+                  background-color: #ffffff !important;
                 }
                 .os-thermal-receipt {
                   width: 80mm !important;
                   margin: 0 auto !important;
                   padding: 4mm 4mm 8mm 4mm !important;
-                  font-size: 13.5px !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
+                  font-size: 12px !important;
+                  color: #000000 !important;
                   line-height: 1.4 !important;
+                  font-weight: 700 !important;
                 }
-                .os-thermal-receipt * {
-                  font-size: 13.5px !important;
+                .os-thermal-receipt strong,
+                .os-thermal-receipt b {
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .brand-name {
-                  font-size: 24px !important;
+                  font-size: 22px !important;
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .brand-sub {
                   font-size: 10px !important;
+                  font-weight: 800 !important;
                 }
                 .os-thermal-receipt .unit-details {
                   font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .receipt-title {
-                  font-size: 15px !important;
+                  font-size: 13.5px !important;
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .receipt-num {
                   font-size: 13px !important;
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .section-title {
+                  font-size: 12.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .row span {
                   font-size: 12px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .text-small {
                   font-size: 11.5px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .clauses {
-                  font-size: 10.5px !important;
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .sig-label {
                   font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .footer-note {
-                  font-size: 10.5px !important;
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .page-break {
                   page-break-before: always !important;
@@ -1861,46 +1880,65 @@ export default function ServiceOrders() {
                 body {
                   margin: 0 !important;
                   padding: 0 !important;
+                  background-color: #ffffff !important;
                 }
                 .os-thermal-receipt {
                   width: 80mm !important;
                   margin: 0 auto !important;
                   padding: 4mm 4mm 8mm 4mm !important;
-                  font-size: 13.5px !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
+                  font-size: 12px !important;
+                  color: #000000 !important;
                   line-height: 1.4 !important;
+                  font-weight: 700 !important;
                 }
-                .os-thermal-receipt * {
-                  font-size: 13.5px !important;
+                .os-thermal-receipt strong,
+                .os-thermal-receipt b {
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .brand-name {
-                  font-size: 24px !important;
+                  font-size: 22px !important;
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .brand-sub {
                   font-size: 10px !important;
+                  font-weight: 800 !important;
                 }
                 .os-thermal-receipt .unit-details {
                   font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .receipt-title {
-                  font-size: 15px !important;
+                  font-size: 13.5px !important;
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .receipt-num {
                   font-size: 13px !important;
+                  font-weight: 900 !important;
                 }
                 .os-thermal-receipt .section-title {
+                  font-size: 12.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .row span {
                   font-size: 12px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .text-small {
                   font-size: 11.5px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .clauses {
-                  font-size: 10.5px !important;
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .sig-label {
                   font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .os-thermal-receipt .footer-note {
-                  font-size: 10.5px !important;
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
                 }
                 .page-break {
                   page-break-before: always !important;
