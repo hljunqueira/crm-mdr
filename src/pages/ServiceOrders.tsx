@@ -452,7 +452,19 @@ export default function ServiceOrders() {
   };
 
   const handlePrintDocument = (id: string) => {
-    printElement(id);
+    if (id === 'print-os-entry') {
+      printElement('print-os-entry-client');
+      setTimeout(() => {
+        printElement('print-os-entry-shop');
+      }, 500);
+    } else if (id === 'print-os-warranty') {
+      printElement('print-os-warranty-client');
+      setTimeout(() => {
+        printElement('print-os-warranty-shop');
+      }, 500);
+    } else {
+      printElement(id);
+    }
   };
 
   // Map status labels
@@ -1786,7 +1798,7 @@ export default function ServiceOrders() {
           `}</style>
 
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) */}
-          <div id="print-os-entry" className="hidden">
+          <div id="print-os-entry-client" className="hidden">
             <style>{`
               @media print {
                 @page {
@@ -1863,14 +1875,89 @@ export default function ServiceOrders() {
               }
             `}</style>
             {renderOsEntryCopy("VIA DO CLIENTE")}
-            <div className="page-break receipt-separator">
-              - - - - - - - - SERRILHA DE CORTE - - - - - - - -
-            </div>
+          </div>
+
+          <div id="print-os-entry-shop" className="hidden">
+            <style>{`
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0 !important;
+                }
+                body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background-color: #ffffff !important;
+                }
+                .os-thermal-receipt {
+                  width: 80mm !important;
+                  margin: 0 auto !important;
+                  padding: 4mm 4mm 8mm 4mm !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
+                  font-size: 12px !important;
+                  color: #000000 !important;
+                  line-height: 1.4 !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt strong,
+                .os-thermal-receipt b {
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-name {
+                  font-size: 22px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-sub {
+                  font-size: 10px !important;
+                  font-weight: 800 !important;
+                }
+                .os-thermal-receipt .unit-details {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .receipt-title {
+                  font-size: 13.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .receipt-num {
+                  font-size: 13px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .section-title {
+                  font-size: 12.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .row span {
+                  font-size: 12px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .text-small {
+                  font-size: 11.5px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .clauses {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .sig-label {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .footer-note {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .page-break {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                }
+              }
+            `}</style>
             {renderOsEntryCopy("VIA DA ASSISTÊNCIA")}
           </div>
 
           {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) */}
-          <div id="print-os-warranty" className="hidden">
+          <div id="print-os-warranty-client" className="hidden">
             <style>{`
               @media print {
                 @page {
@@ -1947,9 +2034,84 @@ export default function ServiceOrders() {
               }
             `}</style>
             {renderOsWarrantyCopy("VIA DO CLIENTE")}
-            <div className="page-break receipt-separator">
-              - - - - - - - - SERRILHA DE CORTE - - - - - - - -
-            </div>
+          </div>
+
+          <div id="print-os-warranty-shop" className="hidden">
+            <style>{`
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0 !important;
+                }
+                body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background-color: #ffffff !important;
+                }
+                .os-thermal-receipt {
+                  width: 80mm !important;
+                  margin: 0 auto !important;
+                  padding: 4mm 4mm 8mm 4mm !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
+                  font-size: 12px !important;
+                  color: #000000 !important;
+                  line-height: 1.4 !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt strong,
+                .os-thermal-receipt b {
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-name {
+                  font-size: 22px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-sub {
+                  font-size: 10px !important;
+                  font-weight: 800 !important;
+                }
+                .os-thermal-receipt .unit-details {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .receipt-title {
+                  font-size: 13.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .receipt-num {
+                  font-size: 13px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .section-title {
+                  font-size: 12.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .row span {
+                  font-size: 12px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .text-small {
+                  font-size: 11.5px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .clauses {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .sig-label {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .footer-note {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .page-break {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                }
+              }
+            `}</style>
             {renderOsWarrantyCopy("VIA DA ASSISTÊNCIA")}
           </div>
         </>
@@ -1975,7 +2137,7 @@ export default function ServiceOrders() {
             <div className="flex flex-col gap-3 pt-2">
               <button
                 onClick={() => {
-                  printElement('print-os-entry');
+                  handlePrintDocument('print-os-entry');
                   setJustCreatedOs(null);
                 }}
                 className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
