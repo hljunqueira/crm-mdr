@@ -674,7 +674,7 @@ export default function ServiceOrders() {
           <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '20px' }}>
+        <div className="sig-line-box" style={{ marginTop: '45px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
@@ -820,7 +820,7 @@ export default function ServiceOrders() {
           <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '20px' }}>
+        <div className="sig-line-box" style={{ marginTop: '45px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
