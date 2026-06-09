@@ -18,6 +18,7 @@ import Inventory from './pages/Inventory';
 import Connections from './pages/Connections'; // Conexões multicanais
 import CreditAnalysis from './pages/CreditAnalysis';
 import ServiceOrders from './pages/ServiceOrders';
+import OutsourcedOrders from './pages/OutsourcedOrders';
 import Fiscal from './pages/Fiscal';
 import CustomerOSPortal from './pages/CustomerOSPortal';
 import DeviceLockPanel from './pages/DeviceLockPanel';
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/credit-analysis" element={<PrivateRoute><AppLayout><CreditAnalysis /></AppLayout></PrivateRoute>} />
           <Route path="/sales" element={<PrivateRoute><AppLayout><Sales /></AppLayout></PrivateRoute>} />
           <Route path="/service-orders" element={<PrivateRoute><AppLayout><ServiceOrders /></AppLayout></PrivateRoute>} />
+          <Route path="/outsourcing" element={<PrivateRoute><AppLayout><OutsourcedOrders /></AppLayout></PrivateRoute>} />
           <Route path="/inventory" element={<PrivateRoute><AppLayout><Inventory /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute><AppLayout><Finance /></AppLayout></PrivateRoute>} />
           <Route path="/device-locks" element={<PrivateRoute><AppLayout><DeviceLockPanel /></AppLayout></PrivateRoute>} />

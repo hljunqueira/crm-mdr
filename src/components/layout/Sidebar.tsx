@@ -16,7 +16,8 @@ import {
   Wrench,
   FileText,
   Menu,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -58,6 +59,7 @@ export default function Sidebar() {
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
       ]
     },
+
     {
       title: 'Serviços & Estoque',
       subtitle: 'OS e Controle Físico',
@@ -65,8 +67,10 @@ export default function Sidebar() {
       items: [
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
         { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
+        { name: 'OS Terceirizadas', icon: ExternalLink, path: '/outsourcing' },
       ]
     },
+
     {
       title: 'Canais & WhatsApp',
       subtitle: 'Conversas e Conexão',

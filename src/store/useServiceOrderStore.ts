@@ -40,6 +40,7 @@ export interface ServiceOrder {
   responsible_technician_id?: string;
   signature_entry?: string;
   signature_exit?: string;
+  device_photos?: string[];
   created_at?: string;
   updated_at?: string;
   
@@ -67,6 +68,11 @@ interface ServiceOrderState {
   addPartToOs: (id: string, part: Omit<ServiceOrderPart, 'id' | 'os_id' | 'total_price'>) => Promise<void>;
   deletePartFromOs: (id: string, partId: string) => Promise<void>;
   notifyOsStatus: (id: string, templateType: 'entry' | 'budget' | 'ready') => Promise<void>;
+  fetchOutsourcedInfo: (osId: string) => Promise<any>;
+  fetchGlobalOutsourced: () => Promise<any[]>;
+  outsourceOs: (osId: string, info: any) => Promise<any>;
+  updateOutsourcedOs: (osId: string, outsourceId: string, info: any) => Promise<any>;
+  removeOutsourceOs: (osId: string, outsourceId: string) => Promise<void>;
 }
 
 export const useServiceOrderStore = create<ServiceOrderState>()((set, get) => ({
@@ -172,6 +178,56 @@ export const useServiceOrderStore = create<ServiceOrderState>()((set, get) => ({
       await api.post(`/os/${id}/notify`, { templateType });
     } catch (error) {
       console.error('Error sending WhatsApp OS notification:', error);
+      throw error;
+    }
+  },
+
+  fetchOutsourcedInfo: async (osId) => {
+    try {
+      return await api.get(`/os/${osId}/outsource`);
+    } catch (error) {
+      console.error('Error fetching outsourced info:', error);
+      return null;
+    }
+  },
+
+  fetchGlobalOutsourced: async () => {
+    try {
+      return await api.get('/os/global/outsourced');
+    } catch (error) {
+      console.error('Error fetching global outsourced list:', error);
+      return [];
+    }
+  },
+
+  outsourceOs: async (osId, info) => {
+    try {
+      const data = await api.post(`/os/${osId}/outsource`, info);
+      await get().fetchServiceOrderById(osId);
+      return data;
+    } catch (error) {
+      console.error('Error outsourcing OS:', error);
+      throw error;
+    }
+  },
+
+  updateOutsourcedOs: async (osId, outsourceId, info) => {
+    try {
+      const data = await api.patch(`/os/${osId}/outsource/${outsourceId}`, info);
+      await get().fetchServiceOrderById(osId);
+      return data;
+    } catch (error) {
+      console.error('Error updating outsourced OS:', error);
+      throw error;
+    }
+  },
+
+  removeOutsourceOs: async (osId, outsourceId) => {
+    try {
+      await api.delete(`/os/${osId}/outsource/${outsourceId}`);
+      await get().fetchServiceOrderById(osId);
+    } catch (error) {
+      console.error('Error removing outsourced OS:', error);
       throw error;
     }
   }

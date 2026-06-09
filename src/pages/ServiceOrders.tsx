@@ -21,6 +21,7 @@ import OsSidebar from '../components/layout/OsSidebar';
 import OsTechWorkbench from '../components/layout/OsTechWorkbench';
 import OsPartsLogistics from '../components/layout/OsPartsLogistics';
 import PatternLockCanvas from '../components/layout/PatternLockCanvas';
+import DevicePhotoManager from '../components/layout/DevicePhotoManager';
 
 const DEVICE_CATEGORIES = [
   { id: 'all', label: 'Tudo', icon: Wrench },
@@ -67,7 +68,7 @@ export default function ServiceOrders() {
   const { 
     serviceOrders, fetchServiceOrders, currentServiceOrder, fetchServiceOrderById,
     createServiceOrder, updateServiceOrder, deleteServiceOrder, addPartToOs,
-    deletePartFromOs, notifyOsStatus, isLoading 
+    deletePartFromOs, notifyOsStatus, fetchOutsourcedInfo, outsourceOs, isLoading 
   } = useServiceOrderStore();
   
   const { customers, fetchCustomers, addCustomer } = useCustomerStore();
@@ -82,6 +83,17 @@ export default function ServiceOrders() {
   const [osFilterTab, setOsFilterTab] = useState<'active' | 'canceled'>('active');
   const [isEditingReportedIssue, setIsEditingReportedIssue] = useState(false);
   const [editedReportedIssue, setEditedReportedIssue] = useState('');
+  
+  // Outsourcing State
+  const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
+  const [outsourcedInfo, setOutsourcedInfo] = useState<any | null>(null);
+  const [outsourceForm, setOutsourceForm] = useState({
+    partner_shop_name: '',
+    partner_technician_name: '',
+    external_cost: 0,
+    tracking_code: '',
+    notes: ''
+  });
   
   // Navigation / Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -110,6 +122,7 @@ export default function ServiceOrders() {
     device_serial_number: '',
     device_passcode: '',
     device_pattern_lock: '',
+    device_photos: [] as string[],
     cosmetic_condition: '',
     accessories_left: [] as string[],
     reported_issue: '',
@@ -154,8 +167,18 @@ export default function ServiceOrders() {
     if (selectedOsId) {
       fetchServiceOrderById(selectedOsId);
       setIsEditingReportedIssue(false);
+      
+      const loadOutsourceData = async () => {
+        try {
+          const info = await fetchOutsourcedInfo(selectedOsId);
+          setOutsourcedInfo(info || null);
+        } catch (e) {
+          console.warn('Error loading outsourced info:', e);
+        }
+      };
+      loadOutsourceData();
     }
-  }, [selectedOsId, fetchServiceOrderById]);
+  }, [selectedOsId, fetchServiceOrderById, fetchOutsourcedInfo]);
 
   const handleQuickCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -349,6 +372,7 @@ export default function ServiceOrders() {
         device_serial_number: newOs.device_serial_number || null,
         device_passcode: newOs.device_passcode || null,
         device_pattern_lock: newOs.device_pattern_lock || null,
+        device_photos: newOs.device_photos,
         cosmetic_condition: newOs.cosmetic_condition || null,
         accessories_left: newOs.accessories_left.length > 0 ? newOs.accessories_left : null,
         reported_issue: newOs.reported_issue,
@@ -387,6 +411,7 @@ export default function ServiceOrders() {
         device_serial_number: '',
         device_passcode: '',
         device_pattern_lock: '',
+        device_photos: [],
         cosmetic_condition: '',
         accessories_left: [],
         reported_issue: '',
@@ -402,6 +427,25 @@ export default function ServiceOrders() {
       showNotification('error', 'Erro', 'Falha ao salvar Ordem de Serviço.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleOutsourceOS = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentServiceOrder) return;
+    if (!outsourceForm.partner_shop_name.trim()) {
+      showNotification('error', 'Nome do Laboratório Parceiro é obrigatório.');
+      return;
+    }
+
+    try {
+      const data = await outsourceOs(currentServiceOrder.id, outsourceForm);
+      setOutsourcedInfo(data);
+      setIsOutsourceModalOpen(false);
+      showNotification('success', 'Ordem de Serviço enviada para parceiro terceirizado!');
+      await updateServiceOrder(currentServiceOrder.id, { status: 'in_progress' });
+    } catch (err) {
+      showNotification('error', 'Erro ao vincular terceirização.');
     }
   };
 
@@ -454,19 +498,7 @@ export default function ServiceOrders() {
   };
 
   const handlePrintDocument = (id: string) => {
-    if (id === 'print-os-entry') {
-      printElement('print-os-entry-client');
-      setTimeout(() => {
-        printElement('print-os-entry-shop');
-      }, 500);
-    } else if (id === 'print-os-warranty') {
-      printElement('print-os-warranty-client');
-      setTimeout(() => {
-        printElement('print-os-warranty-shop');
-      }, 500);
-    } else {
-      printElement(id);
-    }
+    printElement(id);
   };
 
   // Map status labels
@@ -610,7 +642,6 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Clauses */}
-        <div className="page-break"></div>
         <div className="section-title">TERMOS DE RECEBIMENTO</div>
         <div className="clauses">
           1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
@@ -754,7 +785,6 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Warranty info */}
-        <div className="page-break"></div>
         <div className="section-title">CERTIFICADO DE GARANTIA</div>
         <div className="clauses">
           Garantia técnica de **{currentServiceOrder.warranty_period || 90} dias** sobre peças/serviços desta OS.<br />
@@ -933,6 +963,31 @@ export default function ServiceOrders() {
                     >
                       <Printer size={12} /> Imprimir Saída
                     </button>
+                    <button
+                      onClick={() => {
+                        if (outsourcedInfo) {
+                          window.location.href = `/outsourcing?search=${currentServiceOrder.os_number}`;
+                        } else {
+                          setOutsourceForm({
+                            partner_shop_name: '',
+                            partner_technician_name: '',
+                            external_cost: 0,
+                            tracking_code: '',
+                            notes: ''
+                          });
+                          setIsOutsourceModalOpen(true);
+                        }
+                      }}
+                      className={cn(
+                        "flex-1 md:flex-none flex items-center justify-center gap-2 font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all border cursor-pointer",
+                        outsourcedInfo 
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20 animate-pulse" 
+                          : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                      )}
+                      title={outsourcedInfo ? "Visualizar status no laboratório externo" : "Terceirizar serviço para laboratório parceiro"}
+                    >
+                      <ExternalLink size={12} /> {outsourcedInfo ? "Terceirizada" : "Terceirizar OS"}
+                    </button>
                     {profile?.role === 'admin' && (
                       <button
                         onClick={() => setIsDeleteConfirmOpen(true)}
@@ -1081,6 +1136,21 @@ export default function ServiceOrders() {
                       </div>
                     </div>
                   )}
+
+                  <div className="md:col-span-2 border-t border-white/5 pt-4">
+                    <DevicePhotoManager
+                      photos={currentServiceOrder.device_photos || []}
+                      onChange={async (urls) => {
+                        try {
+                          await updateServiceOrder(currentServiceOrder.id, { device_photos: urls });
+                          showNotification('success', 'Galeria de fotos atualizada!');
+                        } catch (err) {
+                          showNotification('error', 'Falha ao atualizar fotos.');
+                        }
+                      }}
+                      title="Galeria de Fotos da Vistoria (Apenas Registro)"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1432,16 +1502,18 @@ export default function ServiceOrders() {
                 </div>
 
                 {/* Serial / IMEI */}
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Número de Série / IMEI</label>
-                  <input
-                    type="text"
-                    placeholder="N/S ou IMEI"
-                    value={newOs.device_serial_number}
-                    onChange={(e) => setNewOs(prev => ({ ...prev, device_serial_number: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono"
-                  />
-                </div>
+                {['smartphone', 'notebook', 'desktop'].includes(newOs.device_category) && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Número de Série / IMEI</label>
+                    <input
+                      type="text"
+                      placeholder="N/S ou IMEI"
+                      value={newOs.device_serial_number}
+                      onChange={(e) => setNewOs(prev => ({ ...prev, device_serial_number: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono"
+                    />
+                  </div>
+                )}
 
                 {/* Senha do Aparelho (Texto/PIN) */}
                 <div className="space-y-2">
@@ -1507,6 +1579,13 @@ export default function ServiceOrders() {
                   />
                 </div>
               </div>
+
+              {/* Fotos de Vistoria (Registro Opcional) */}
+              <DevicePhotoManager
+                photos={newOs.device_photos}
+                onChange={(urls) => setNewOs(prev => ({ ...prev, device_photos: urls }))}
+                title="Fotos do Aparelho (Vistoria de Entrada - Apenas Registro)"
+              />
 
               {/* Vistoria de Acessórios Deixados */}
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4">
@@ -1809,7 +1888,7 @@ export default function ServiceOrders() {
           `}</style>
 
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) */}
-          <div id="print-os-entry-client" className="hidden">
+          <div id="print-os-entry" className="hidden">
             <style>{`
               @media print {
                 @page {
@@ -1886,89 +1965,12 @@ export default function ServiceOrders() {
               }
             `}</style>
             {renderOsEntryCopy("VIA DO CLIENTE")}
-          </div>
-
-          <div id="print-os-entry-shop" className="hidden">
-            <style>{`
-              @media print {
-                @page {
-                  size: 80mm auto;
-                  margin: 0 !important;
-                }
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background-color: #ffffff !important;
-                }
-                .os-thermal-receipt {
-                  width: 80mm !important;
-                  margin: 0 auto !important;
-                  padding: 4mm 4mm 8mm 4mm !important;
-                  font-family: Arial, Helvetica, sans-serif !important;
-                  font-size: 12px !important;
-                  color: #000000 !important;
-                  line-height: 1.4 !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt strong,
-                .os-thermal-receipt b {
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-name {
-                  font-size: 22px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-sub {
-                  font-size: 10px !important;
-                  font-weight: 800 !important;
-                }
-                .os-thermal-receipt .unit-details {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .receipt-title {
-                  font-size: 13.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .receipt-num {
-                  font-size: 13px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .section-title {
-                  font-size: 12.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .row span {
-                  font-size: 12px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .text-small {
-                  font-size: 11.5px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .clauses {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .sig-label {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .footer-note {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .page-break {
-                  page-break-before: always !important;
-                  break-before: page !important;
-                }
-              }
-            `}</style>
+            <div className="page-break"></div>
             {renderOsEntryCopy("VIA DA ASSISTÊNCIA")}
           </div>
 
           {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) */}
-          <div id="print-os-warranty-client" className="hidden">
+          <div id="print-os-warranty" className="hidden">
             <style>{`
               @media print {
                 @page {
@@ -2045,84 +2047,7 @@ export default function ServiceOrders() {
               }
             `}</style>
             {renderOsWarrantyCopy("VIA DO CLIENTE")}
-          </div>
-
-          <div id="print-os-warranty-shop" className="hidden">
-            <style>{`
-              @media print {
-                @page {
-                  size: 80mm auto;
-                  margin: 0 !important;
-                }
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background-color: #ffffff !important;
-                }
-                .os-thermal-receipt {
-                  width: 80mm !important;
-                  margin: 0 auto !important;
-                  padding: 4mm 4mm 8mm 4mm !important;
-                  font-family: Arial, Helvetica, sans-serif !important;
-                  font-size: 12px !important;
-                  color: #000000 !important;
-                  line-height: 1.4 !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt strong,
-                .os-thermal-receipt b {
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-name {
-                  font-size: 22px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-sub {
-                  font-size: 10px !important;
-                  font-weight: 800 !important;
-                }
-                .os-thermal-receipt .unit-details {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .receipt-title {
-                  font-size: 13.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .receipt-num {
-                  font-size: 13px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .section-title {
-                  font-size: 12.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .row span {
-                  font-size: 12px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .text-small {
-                  font-size: 11.5px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .clauses {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .sig-label {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .footer-note {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .page-break {
-                  page-break-before: always !important;
-                  break-before: page !important;
-                }
-              }
-            `}</style>
+            <div className="page-break"></div>
             {renderOsWarrantyCopy("VIA DA ASSISTÊNCIA")}
           </div>
         </>
@@ -2250,6 +2175,103 @@ export default function ServiceOrders() {
                   ) : (
                     'Cadastrar'
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TERCEIRIZAR ORDEM DE SERVIÇO */}
+      {isOutsourceModalOpen && currentServiceOrder && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[32px] p-6 space-y-6 animate-in zoom-in duration-200 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-white/5 pb-4">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-white">Terceirizar OS</h3>
+                <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Enviar equipamento para laboratório parceiro</p>
+              </div>
+              <button 
+                onClick={() => setIsOutsourceModalOpen(false)}
+                className="text-on-surface-variant hover:text-white transition-all text-lg font-black"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleOutsourceOS} className="space-y-4 text-xs">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Laboratório / Loja Parceira *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Lab Cell, Assistência X"
+                  value={outsourceForm.partner_shop_name}
+                  onChange={(e) => setOutsourceForm(prev => ({ ...prev, partner_shop_name: e.target.value }))}
+                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Técnico Externo Responsável</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Carlos, Técnico Responsável"
+                  value={outsourceForm.partner_technician_name}
+                  onChange={(e) => setOutsourceForm(prev => ({ ...prev, partner_technician_name: e.target.value }))}
+                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Custo Estimado (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={outsourceForm.external_cost}
+                    onChange={(e) => setOutsourceForm(prev => ({ ...prev, external_cost: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cód. Rastreio / Motoboy</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Rastreio correios ou motoboy"
+                    value={outsourceForm.tracking_code}
+                    onChange={(e) => setOutsourceForm(prev => ({ ...prev, tracking_code: e.target.value }))}
+                    className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Observações de Envio</label>
+                <textarea
+                  rows={3}
+                  placeholder="Notas de defeito ou peças para o laboratório externo..."
+                  value={outsourceForm.notes}
+                  onChange={(e) => setOutsourceForm(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none resize-none leading-relaxed"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsOutsourceModalOpen(false)}
+                  className="flex-1 py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-amber-500/20"
+                >
+                  <ExternalLink size={12} /> Confirmar Envio
                 </button>
               </div>
             </form>

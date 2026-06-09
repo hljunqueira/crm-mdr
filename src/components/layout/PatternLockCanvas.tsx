@@ -105,7 +105,12 @@ export default function PatternLockCanvas({ onSave, onClear, defaultValue, title
 
     const circlesHtml = NODES.map(node => {
       const isSelected = activeNodes.includes(node.id);
-      return `<circle cx="${node.x}" cy="${node.y}" r="${isSelected ? 8 : 5}" fill="${isSelected ? '#000000' : '#888888'}" />`;
+      const isFirst = activeNodes[0] === node.id;
+      let startRing = '';
+      if (isFirst) {
+        startRing = `<circle cx="${node.x}" cy="${node.y}" r="15" fill="none" stroke="#000000" stroke-width="2.5" />`;
+      }
+      return `${startRing}<circle cx="${node.x}" cy="${node.y}" r="${isSelected ? 8 : 5}" fill="${isSelected ? '#000000' : '#888888'}" />`;
     }).join('\n');
 
     // Montar o arquivo SVG puro em alta resolução e fundo branco
@@ -186,6 +191,7 @@ export default function PatternLockCanvas({ onSave, onClear, defaultValue, title
           {/* Círculos do Grid */}
           {NODES.map(node => {
             const isNodeSelected = selected.includes(node.id);
+            const isFirstNode = selected[0] === node.id;
             return (
               <g key={`node-group-${node.id}`}>
                 {/* Zona invisível maior para detecção de colisão */}
@@ -203,8 +209,27 @@ export default function PatternLockCanvas({ onSave, onClear, defaultValue, title
                   r={isNodeSelected ? 8 : 5}
                   className={isNodeSelected ? "fill-primary transition-all duration-150 scale-125" : "fill-white/30 transition-all duration-150"}
                 />
-                {/* Efeito luminoso para selecionados */}
-                {isNodeSelected && (
+                {/* Indicador de Início */}
+                {isFirstNode && (
+                  <>
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r="16"
+                      className="fill-none stroke-emerald-500 stroke-[2.5] animate-pulse"
+                    />
+                    <text
+                      x={node.x}
+                      y={node.y - 12}
+                      className="fill-emerald-400 font-black text-[8px] select-none pointer-events-none"
+                      textAnchor="middle"
+                    >
+                      INÍCIO
+                    </text>
+                  </>
+                )}
+                {/* Efeito luminoso para selecionados que não são o primeiro */}
+                {isNodeSelected && !isFirstNode && (
                   <circle
                     cx={node.x}
                     cy={node.y}

@@ -288,4 +288,109 @@ router.post("/:id/notify", async (req, res) => {
   }
 });
 
+// Sub-routes: Get outsourced order details for a specific OS
+router.get("/:id/outsource", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('outsourced_orders')
+      .select('*')
+      .eq('os_id', req.params.id)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sub-routes: Get all outsourced orders (for the global outsourcing panel)
+router.get("/global/outsourced", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('outsourced_orders')
+      .select('*, service_orders(*, customers(name, phone))')
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sub-routes: Outsource an OS
+router.post("/:id/outsource", async (req, res) => {
+  try {
+    const { partner_shop_name, partner_technician_name, external_cost, tracking_code, notes } = req.body;
+    
+    // Create outsourced record
+    const { data, error } = await supabase
+      .from('outsourced_orders')
+      .insert([{
+        os_id: req.params.id,
+        partner_shop_name,
+        partner_technician_name,
+        external_cost: Number(external_cost) || 0,
+        tracking_code,
+        notes,
+        external_status: 'sent'
+      }])
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.status(201).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sub-routes: Update outsourced order details
+router.patch("/:id/outsource/:outsourceId", async (req, res) => {
+  try {
+    const { external_status, partner_shop_name, partner_technician_name, external_cost, tracking_code, notes } = req.body;
+    
+    const updateData: any = {};
+    if (external_status !== undefined) updateData.external_status = external_status;
+    if (partner_shop_name !== undefined) updateData.partner_shop_name = partner_shop_name;
+    if (partner_technician_name !== undefined) updateData.partner_technician_name = partner_technician_name;
+    if (external_cost !== undefined) updateData.external_cost = Number(external_cost) || 0;
+    if (tracking_code !== undefined) updateData.tracking_code = tracking_code;
+    if (notes !== undefined) updateData.notes = notes;
+
+    if (external_status === 'ready' || external_status === 'returned') {
+      updateData.returned_at = new Date().toISOString();
+    }
+
+    const { data, error } = await supabase
+      .from('outsourced_orders')
+      .update(updateData)
+      .eq('id', req.params.outsourceId)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sub-routes: Delete/Cancel outsourced record
+router.delete("/:id/outsource/:outsourceId", async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('outsourced_orders')
+      .delete()
+      .eq('id', req.params.outsourceId);
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

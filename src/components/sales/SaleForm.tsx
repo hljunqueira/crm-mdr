@@ -50,6 +50,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [isSuccess, setIsSuccess] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
 
+  const [saleType, setSaleType] = useState<'cellphone' | 'general'>('cellphone');
+  const [manualCategory, setManualCategory] = useState<string>('smartphone');
+  const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number; imei: string; category?: string }[]>([]);
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     customer_id: initialData?.customer_id || '',
     device_id: '',
@@ -68,6 +74,40 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     trade_device_imei: ''
   });
 
+  // Automatically calculate total value, concatenated model names and IMEIs when selectedDevices changes
+  React.useEffect(() => {
+    if (selectedDevices.length > 0) {
+      const total = selectedDevices.reduce((sum, d) => sum + d.price * d.quantity, 0);
+      const models = selectedDevices.map(d => `${d.model} (x${d.quantity})`).join(' + ');
+      const imeis = selectedDevices.map(d => d.imei || 'N/A').filter(val => val !== 'N/A').join(', ');
+      
+      setFormData(prev => ({
+        ...prev,
+        total_value: total,
+        device_model: models,
+        imei: imeis
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        total_value: 0,
+        device_model: '',
+        imei: ''
+      }));
+    }
+  }, [selectedDevices]);
+
+  // Prevent crediario on general/IT sales
+  React.useEffect(() => {
+    if (saleType === 'general' && formData.payment_type === 'crediario') {
+      setFormData(prev => ({
+        ...prev,
+        payment_type: 'card',
+        installments: 12
+      }));
+    }
+  }, [saleType, formData.payment_type]);
+
   // ─── Accessories from inventory ─────────────────────────────────────
   type SelectedAccessory = {
     id: string;
@@ -82,13 +122,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [accessoryDropdownOpen, setAccessoryDropdownOpen] = useState(false);
   const [accessorySearch, setAccessorySearch] = useState('');
 
-  // Items available as accessories (with stock, excluding the selected device)
+  // Items available as accessories (with stock, excluding the selected devices)
   const availableAccessories = useMemo(() =>
     inventory.filter(item =>
-      item.id !== formData.device_id &&
+      !selectedDevices.some(d => d.id === item.id) &&
       (item.stock_quantity || 0) > 0
     ),
-  [inventory, formData.device_id]);
+  [inventory, selectedDevices]);
 
   const filteredAccessories = useMemo(() =>
     availableAccessories.filter(item =>
@@ -151,29 +191,67 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [formData.customer_id, fetchInstallments]);
 
   const availableDevices = useMemo(() => 
-    inventory.filter(item => item.status === 'available' || (item.stock_quantity || 0) > 0), 
+    inventory.filter(item => item.status === 'available' && (item.stock_quantity || 0) > 0), 
   [inventory]);
 
-  const handleDeviceChange = (deviceId: string) => {
-    const device = inventory.find(d => d.id === deviceId);
-    if (device) {
-      setFormData(prev => ({
-        ...prev,
-        device_id: deviceId,
-        device_model: device.model,
-        imei: device.imei,
-        total_value: device.price
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        device_id: '',
-        device_model: '',
-        imei: '',
-        total_value: 0
-      }));
-    }
+  const filteredDevices = useMemo(() => {
+    const search = deviceSearch.toLowerCase();
+    return availableDevices.filter(item => {
+      if (saleType === 'cellphone' && item.category !== 'smartphone') {
+        return false;
+      }
+      return item.model.toLowerCase().includes(search) ||
+             item.brand.toLowerCase().includes(search) ||
+             (item.imei && item.imei.toLowerCase().includes(search));
+    });
+  }, [availableDevices, deviceSearch, saleType]);
+
+  const addDeviceToSale = (item: typeof inventory[0]) => {
+    if (selectedDevices.find(d => d.id === item.id)) return;
+    setSelectedDevices(prev => [...prev, {
+      id: item.id,
+      model: item.model,
+      brand: item.brand,
+      price: item.price,
+      quantity: 1,
+      imei: item.imei || '',
+      category: item.category
+    }]);
+    setDeviceDropdownOpen(false);
+    setDeviceSearch('');
   };
+
+  const increaseDeviceQty = (idx: number) => {
+    setSelectedDevices(prev => prev.map((d, i) => {
+      if (i !== idx) return d;
+      const stockItem = inventory.find(inv => inv.id === d.id);
+      const maxQty = stockItem?.stock_quantity || 99;
+      if (d.quantity >= maxQty) {
+        showNotification('info', `Estoque máximo atingido (${maxQty} unidades).`);
+        return d;
+      }
+      return { ...d, quantity: d.quantity + 1 };
+    }));
+  };
+
+  const decreaseDeviceQty = (idx: number) => {
+    setSelectedDevices(prev => prev.map((d, i) => {
+      if (i !== idx) return d;
+      return { ...d, quantity: Math.max(1, d.quantity - 1) };
+    }));
+  };
+
+  const removeDeviceFromSale = (idx: number) => {
+    setSelectedDevices(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const showImeiField = useMemo(() => {
+    if (saleType === 'cellphone') return true;
+    if (selectedDevices.length > 0) {
+      return selectedDevices.some(d => d.category === 'smartphone' || d.category === 'notebook' || d.category === 'desktop');
+    }
+    return ['smartphone', 'notebook', 'desktop'].includes(manualCategory);
+  }, [saleType, selectedDevices, manualCategory]);
 
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
@@ -399,15 +477,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           payment_type: formData.payment_type as any
         });
 
-        // Mark main device as sold
-        if (formData.device_id) {
-          const deviceItem = inventory.find(d => d.id === formData.device_id);
-          const currentStock = deviceItem?.stock_quantity || 0;
-          const newQty = Math.max(0, currentStock - 1);
-          await updateItem(formData.device_id, {
-            stock_quantity: newQty,
-            status: newQty === 0 ? 'sold' : 'available'
-          });
+        // Decrement stock for all selected devices
+        for (const device of selectedDevices) {
+          const deviceItem = inventory.find(d => d.id === device.id);
+          if (deviceItem) {
+            const currentStock = deviceItem.stock_quantity || 0;
+            const newQty = Math.max(0, currentStock - device.quantity);
+            await updateItem(device.id, {
+              stock_quantity: newQty,
+              status: newQty === 0 ? 'sold' : 'available'
+            });
+          }
         }
 
         // Deduct stock for all accessories (both brinde and venda)
@@ -640,24 +720,148 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </select>
         </div>
 
-        {/* Selection Strategy Section */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Vincular do Estoque</label>
-          <select 
-            value={formData.device_id}
-            onChange={(e) => handleDeviceChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-          >
-            <option value="" className="bg-surface-container-high">-- Entrada Manual --</option>
-            {availableDevices.map(d => (
-              <option key={d.id} value={d.id} className="bg-surface-container-high">
-                {d.model}{d.imei ? ` - ${d.imei}` : ''}
-              </option>
-            ))}
-          </select>
+        {/* Seletor do Tipo de Venda */}
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
+          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('cellphone');
+                setSelectedDevices([]);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Venda de Celulares
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('general');
+                setSelectedDevices([]);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Venda de Informática e Geral
+            </button>
+          </div>
         </div>
 
-        {/* Device Section */}
+        {/* Vincular do Estoque (Múltiplos Itens) */}
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Itens Vinculados do Estoque</label>
+          
+          {selectedDevices.length === 0 ? (
+            <div className="p-4 bg-white/5 border border-white/5 border-dashed rounded-2xl text-center text-xs text-on-surface-variant/50">
+              Nenhum item do estoque vinculado. Busque itens no estoque abaixo.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedDevices.map((device, idx) => {
+                const stockItem = inventory.find(i => i.id === device.id);
+                const maxQty = stockItem?.stock_quantity || 99;
+                return (
+                  <div key={device.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                        <Smartphone size={16} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white leading-tight">{device.model}</p>
+                        {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Controles de Quantidade */}
+                      <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => decreaseDeviceQty(idx)}
+                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black"
+                        >
+                          −
+                        </button>
+                        <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
+                          {device.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => increaseDeviceQty(idx)}
+                          disabled={device.quantity >= maxQty}
+                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-xs font-black text-white">
+                          {(device.price * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDeviceFromSale(idx)}
+                        className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Campo de Busca de Estoque */}
+          <div className="relative mt-2 font-display">
+            <input
+              type="text"
+              placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
+              value={deviceSearch}
+              onChange={(e) => {
+                setDeviceSearch(e.target.value);
+                setDeviceDropdownOpen(true);
+              }}
+              onFocus={() => setDeviceDropdownOpen(true)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+            />
+            
+            {deviceDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
+                <div className="absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
+                  {filteredDevices.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
+                  ) : (
+                    filteredDevices.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => addDeviceToSale(item)}
+                        className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <span className="font-bold text-white">{item.model}</span>
+                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
+                          {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
+                        </div>
+                        <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Modelo do Aparelho */}
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Aparelho</label>
           <input 
@@ -666,27 +870,54 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             placeholder="Ex: iPhone 15 Pro Max"
             value={formData.device_model}
             onChange={(e) => setFormData(prev => ({ ...prev, device_model: e.target.value }))}
-            readOnly={!!formData.device_id}
+            readOnly={selectedDevices.length > 0}
             className={cn(
               "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-              formData.device_id && "opacity-50 cursor-not-allowed"
+              selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
             )}
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
-          <input 
-            type="text" 
-            required
-            placeholder="Número do IMEI"
-            value={formData.imei}
-            onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-          />
-          {formData.device_id && <p className="text-[10px] text-on-surface-variant pl-1 opacity-60">Preenchido do estoque — edite se necessário</p>}
-        </div>
+        {/* Categoria Manual se for Geral sem vinculo de estoque */}
+        {saleType === 'general' && selectedDevices.length === 0 && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
+            <select
+              value={manualCategory}
+              onChange={(e) => setManualCategory(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              <option value="accessory_mobile" className="bg-[#121214]">🔌 Acessório Celular</option>
+              <option value="accessory_it" className="bg-[#121214]">💻 Acessório Informática</option>
+              <option value="notebook" className="bg-[#121214]">💻 Notebook</option>
+              <option value="desktop" className="bg-[#121214]">🖥️ Computador Desktop</option>
+              <option value="part" className="bg-[#121214]">🔧 Peça de Reposição</option>
+              <option value="other" className="bg-[#121214]">📦 Outros</option>
+            </select>
+          </div>
+        )}
 
+        {/* IMEI / Serial Condicional */}
+        {showImeiField && (
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+            <input 
+              type="text" 
+              required
+              placeholder="Número do IMEI"
+              value={formData.imei}
+              onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
+              readOnly={selectedDevices.length > 0}
+              className={cn(
+                "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
+                selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
+              )}
+            />
+            {selectedDevices.length > 0 && <p className="text-[10px] text-on-surface-variant pl-1 opacity-60">Preenchido do estoque</p>}
+          </div>
+        )}
+
+        {/* Valor Total */}
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Total (R$)</label>
           <input 
@@ -698,10 +929,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               const val = e.target.value;
               setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
             }}
-            readOnly={!!formData.device_id}
+            readOnly={selectedDevices.length > 0}
             className={cn(
               "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-              formData.device_id && "opacity-50 cursor-not-allowed"
+              selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
             )}
           />
         </div>
@@ -781,7 +1012,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             }}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
           >
-            <option value="crediario" className="bg-surface-container-high">Crediário da Loja</option>
+            {saleType !== 'general' && (
+              <option value="crediario" className="bg-surface-container-high">Crediário da Loja</option>
+            )}
             <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
             <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
           </select>
