@@ -367,7 +367,7 @@ export default function Inventory() {
                   {hasPermission(profile, 'Estoque - Transferir Produto') && (
                     <button
                       onClick={() => handleOpenTransferModal(item)}
-                      className="p-2 text-on-surface-variant hover:text-primary transition-colors"
+                      className="p-2 text-white/75 hover:text-primary transition-colors hover:scale-110"
                       title="Transferir Unidade"
                     >
                       <ArrowRightLeft size={16} />
@@ -376,7 +376,7 @@ export default function Inventory() {
                   {hasPermission(profile, 'Estoque - Editar Produto') && (
                     <button
                       onClick={() => handleEditItem(item)}
-                      className="p-2 text-on-surface-variant hover:text-white transition-colors"
+                      className="p-2 text-white/75 hover:text-white transition-colors hover:scale-110"
                       title="Editar"
                     >
                       <Edit2 size={18} />
@@ -385,7 +385,7 @@ export default function Inventory() {
                   {hasPermission(profile, 'Estoque - Excluir Produto') && (
                     <button
                       onClick={() => handleDeleteItem(item.id)}
-                      className="p-2 text-on-surface-variant hover:text-error transition-colors"
+                      className="p-2 text-white/75 hover:text-error transition-colors hover:scale-110"
                       title="Excluir"
                     >
                       <Trash2 size={18} />
@@ -674,11 +674,26 @@ function InventoryTransfer({ item, onSuccess }: { item: InventoryItem; onSuccess
 
     setLoading(true);
     try {
-      if (isDevice) {
+      if (qty === maxQty) {
+        // Move the entire record
         await updateItem(item.id, { unit_id: targetUnit });
       } else {
+        // Partial transfer
+        // 1. Subtract qty from source item
         await updateItem(item.id, { stock_quantity: maxQty - qty });
-        const existing = inventory.find(i => i.unit_id === targetUnit && i.barcode === item.barcode);
+
+        // 2. Find if matching item already exists in target unit to merge
+        const existing = isDevice
+          ? inventory.find(
+              (i) =>
+                i.unit_id === targetUnit &&
+                i.model.toLowerCase() === item.model.toLowerCase() &&
+                i.brand.toLowerCase() === item.brand.toLowerCase() &&
+                i.condition === item.condition &&
+                i.imei === item.imei
+            )
+          : inventory.find((i) => i.unit_id === targetUnit && i.barcode === item.barcode);
+
         if (existing) {
           await updateItem(existing.id, { stock_quantity: existing.stock_quantity + qty });
         } else {
@@ -691,7 +706,7 @@ function InventoryTransfer({ item, onSuccess }: { item: InventoryItem; onSuccess
             cost_price: item.cost_price,
             price: item.price,
             stock_quantity: qty,
-            imei: '',
+            imei: item.imei || '',
             barcode: item.barcode || '',
             status: 'available'
           });
@@ -730,7 +745,7 @@ function InventoryTransfer({ item, onSuccess }: { item: InventoryItem; onSuccess
         </select>
       </div>
 
-      {!isDevice && maxQty > 1 && (
+      {maxQty > 1 && (
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Quantidade a Transferir (Max: {maxQty})</label>
           <input
