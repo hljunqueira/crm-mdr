@@ -1517,7 +1517,7 @@ export default function ServiceOrders() {
                 </div>
 
                 {/* Serial / IMEI */}
-                {['smartphone', 'notebook', 'desktop'].includes(newOs.device_category) && (
+                {['smartphone', 'tablet', 'notebook', 'desktop'].includes(newOs.device_category) && (
                   <div className="space-y-2 animate-in fade-in duration-200">
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Número de Série / IMEI</label>
                     <input
@@ -1531,7 +1531,7 @@ export default function ServiceOrders() {
                 )}
 
                 {/* Senha do Aparelho (Texto/PIN) */}
-                {['smartphone', 'notebook', 'desktop'].includes(newOs.device_category) && (
+                {['smartphone', 'tablet', 'notebook', 'desktop'].includes(newOs.device_category) && (
                   <div className="space-y-2 animate-in fade-in duration-200">
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Entrada / PIN</label>
                     <input
@@ -1545,7 +1545,7 @@ export default function ServiceOrders() {
                 )}
 
                 {/* Senha por Desenho (Padrão) */}
-                {newOs.device_category === 'smartphone' && (
+                {['smartphone', 'tablet'].includes(newOs.device_category) && (
                   <div className="space-y-2 md:col-span-2 animate-in fade-in duration-200">
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha por Desenho (Padrão)</label>
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center">
