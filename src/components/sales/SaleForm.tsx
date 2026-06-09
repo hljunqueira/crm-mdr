@@ -201,6 +201,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       if (saleType === 'cellphone' && item.category !== 'smartphone') {
         return false;
       }
+      if (saleType === 'general' && item.category === 'smartphone') {
+        return false;
+      }
       return item.model.toLowerCase().includes(search) ||
              item.brand.toLowerCase().includes(search) ||
              (item.imei && item.imei.toLowerCase().includes(search));
