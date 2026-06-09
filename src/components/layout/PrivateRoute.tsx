@@ -8,6 +8,24 @@ interface PrivateRouteProps {
   pageName?: string;
 }
 
+const PAGE_ROUTES = [
+  { name: 'Dashboard', path: '/dashboard' },
+  { name: 'Relatórios', path: '/reports' },
+  { name: 'Leads', path: '/leads' },
+  { name: 'Clientes', path: '/customers' },
+  { name: 'Vendas & Celulares', path: '/sales' },
+  { name: 'Análise de Crédito', path: '/credit-analysis' },
+  { name: 'Estoque', path: '/inventory' },
+  { name: 'Assistência Técnica (OS)', path: '/service-orders' },
+  { name: 'OS Terceirizadas', path: '/outsourcing' },
+  { name: 'WPP / Instagram', path: '/automation' },
+  { name: 'Gerenciar WPP/IG', path: '/connections' },
+  { name: 'Financeiro', path: '/finance' },
+  { name: 'Controle de Bloqueio', path: '/device-locks' },
+  { name: 'Fiscal (NFe/NFSe)', path: '/fiscal' },
+  { name: 'Configurações', path: '/settings' },
+];
+
 export default function PrivateRoute({ children, pageName }: PrivateRouteProps) {
   const { session, profile, isLoading } = useAuthStore();
   const { userPermissions, fetchUserPermissions } = usePermissionStore();
@@ -34,7 +52,12 @@ export default function PrivateRoute({ children, pageName }: PrivateRouteProps) 
   if (pageName && profile?.role !== 'admin') {
     const perm = userPermissions.find(p => p.profile_id === profile?.id && p.page_name === pageName);
     if (perm && perm.visible === false) {
-      return <Navigate to="/dashboard" replace />;
+      const firstAllowedPage = PAGE_ROUTES.find(route => {
+        const routePerm = userPermissions.find(p => p.profile_id === profile?.id && p.page_name === route.name);
+        return !routePerm || routePerm.visible !== false;
+      });
+      const targetPath = firstAllowedPage ? firstAllowedPage.path : '/login';
+      return <Navigate to={targetPath} replace />;
     }
   }
 
