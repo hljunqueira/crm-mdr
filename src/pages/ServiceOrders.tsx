@@ -951,26 +951,34 @@ export default function ServiceOrders() {
 
                   <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <button
-                      onClick={() => handlePrintDocument('print-os-entry')}
+                      onClick={() => handlePrintDocument('print-os-entry-client')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
-                      title="Imprimir Termo de Entrada"
+                      title="Imprimir Via do Cliente (Entrada)"
                     >
-                      <Printer size={12} /> Imprimir Entrada
+                      <Printer size={12} /> Via Cliente (Entrada)
                     </button>
                     <button
-                      onClick={() => handlePrintDocument('print-os-entry')}
+                      onClick={() => handlePrintDocument('print-os-entry-shop')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
-                      title="Reimprimir Termo de Entrada"
+                      title="Imprimir Via da Assistência (Entrada)"
                     >
-                      <Printer size={12} /> Reimprimir Entrada
+                      <Printer size={12} /> Via Loja (Entrada)
                     </button>
                     <button
-                      onClick={() => handlePrintDocument('print-os-warranty')}
+                      onClick={() => handlePrintDocument('print-os-warranty-client')}
                       disabled={currentServiceOrder.status !== 'delivered'}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
-                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Garantia e Saída" : "Disponível apenas após a OS ser concluída/entregue"}
+                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Via do Cliente (Saída/Garantia)" : "Disponível apenas após a OS ser concluída/entregue"}
                     >
-                      <Printer size={12} /> Imprimir Saída
+                      <Printer size={12} /> Via Cliente (Saída)
+                    </button>
+                    <button
+                      onClick={() => handlePrintDocument('print-os-warranty-shop')}
+                      disabled={currentServiceOrder.status !== 'delivered'}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Via da Assistência (Saída/Garantia)" : "Disponível apenas após a OS ser concluída/entregue"}
+                    >
+                      <Printer size={12} /> Via Loja (Saída)
                     </button>
                     <button
                       onClick={() => {
@@ -1911,7 +1919,8 @@ export default function ServiceOrders() {
           `}</style>
 
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) */}
-          <div id="print-os-entry" className="hidden">
+          {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) - CLIENTE */}
+          <div id="print-os-entry-client" className="hidden">
             <style>{`
               @media print {
                 @page {
@@ -1988,12 +1997,90 @@ export default function ServiceOrders() {
               }
             `}</style>
             {renderOsEntryCopy("VIA DO CLIENTE")}
-            <div className="page-break"></div>
+          </div>
+
+          {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) - LOJA */}
+          <div id="print-os-entry-shop" className="hidden">
+            <style>{`
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0 !important;
+                }
+                body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background-color: #ffffff !important;
+                }
+                .os-thermal-receipt {
+                  width: 80mm !important;
+                  margin: 0 auto !important;
+                  padding: 4mm 4mm 8mm 4mm !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
+                  font-size: 12px !important;
+                  color: #000000 !important;
+                  line-height: 1.4 !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt strong,
+                .os-thermal-receipt b {
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-name {
+                  font-size: 22px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-sub {
+                  font-size: 10px !important;
+                  font-weight: 800 !important;
+                }
+                .os-thermal-receipt .unit-details {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .receipt-title {
+                  font-size: 13.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .receipt-num {
+                  font-size: 13px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .section-title {
+                  font-size: 12.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .row span {
+                  font-size: 12px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .text-small {
+                  font-size: 11.5px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .clauses {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .sig-label {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .footer-note {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .page-break {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                }
+              }
+            `}</style>
             {renderOsEntryCopy("VIA DA ASSISTÊNCIA")}
           </div>
 
-          {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) */}
-          <div id="print-os-warranty" className="hidden">
+          {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) - CLIENTE */}
+          <div id="print-os-warranty-client" className="hidden">
             <style>{`
               @media print {
                 @page {
@@ -2070,7 +2157,85 @@ export default function ServiceOrders() {
               }
             `}</style>
             {renderOsWarrantyCopy("VIA DO CLIENTE")}
-            <div className="page-break"></div>
+          </div>
+
+          {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) - LOJA */}
+          <div id="print-os-warranty-shop" className="hidden">
+            <style>{`
+              @media print {
+                @page {
+                  size: 80mm auto;
+                  margin: 0 !important;
+                }
+                body {
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background-color: #ffffff !important;
+                }
+                .os-thermal-receipt {
+                  width: 80mm !important;
+                  margin: 0 auto !important;
+                  padding: 4mm 4mm 8mm 4mm !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
+                  font-size: 12px !important;
+                  color: #000000 !important;
+                  line-height: 1.4 !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt strong,
+                .os-thermal-receipt b {
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-name {
+                  font-size: 22px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .brand-sub {
+                  font-size: 10px !important;
+                  font-weight: 800 !important;
+                }
+                .os-thermal-receipt .unit-details {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .receipt-title {
+                  font-size: 13.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .receipt-num {
+                  font-size: 13px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .section-title {
+                  font-size: 12.5px !important;
+                  font-weight: 900 !important;
+                }
+                .os-thermal-receipt .row span {
+                  font-size: 12px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .text-small {
+                  font-size: 11.5px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .clauses {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .sig-label {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .os-thermal-receipt .footer-note {
+                  font-size: 11px !important;
+                  font-weight: 700 !important;
+                }
+                .page-break {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                }
+              }
+            `}</style>
             {renderOsWarrantyCopy("VIA DA ASSISTÊNCIA")}
           </div>
         </>
@@ -2095,19 +2260,22 @@ export default function ServiceOrders() {
 
             <div className="flex flex-col gap-3 pt-2">
               <button
-                onClick={() => {
-                  handlePrintDocument('print-os-entry');
-                  setJustCreatedOs(null);
-                }}
-                className="w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+                onClick={() => handlePrintDocument('print-os-entry-client')}
+                className="w-full py-3.5 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Printer size={14} /> Imprimir Termo de Entrada
+                <Printer size={14} /> Imprimir Via do Cliente
+              </button>
+              <button
+                onClick={() => handlePrintDocument('print-os-entry-shop')}
+                className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Printer size={14} /> Imprimir Via da Loja
               </button>
               <button
                 onClick={() => setJustCreatedOs(null)}
-                className="w-full py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
               >
-                Fechar Sem Imprimir
+                Fechar / Concluir
               </button>
             </div>
           </div>
