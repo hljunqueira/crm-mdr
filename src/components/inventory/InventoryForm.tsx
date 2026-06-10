@@ -244,7 +244,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço Sugerido (R$)</label>
           <input
             type="number"
             required
