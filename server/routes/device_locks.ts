@@ -81,7 +81,34 @@ router.post("/:id/lock", async (req, res) => {
     }
 
     if (lock.lock_type === 'headwind') {
-      return res.status(400).json({ error: 'O serviço de MDM Android (Headwind) foi desativado.' });
+      // Manual Google Device Lock Controller locking for Android
+      const { data: updatedLock, error: updateError } = await supabase
+        .from('device_locks')
+        .update({
+          mdm_locked: true,
+          mdm_last_sync_at: new Date().toISOString(),
+          mdm_kiosk_message: kioskMessage || 'Aparelho bloqueado por atraso no crediário.'
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Registrar log
+      await supabase.from('device_block_logs').insert([{
+        customer_id: req.body.customerId || null,
+        imei: lock.device?.imei || 'MANUAL_IMEI',
+        action: 'block',
+        reason: 'Bloqueio do Google Device Lock Controller Confirmado Manualmente',
+        success: true
+      }]);
+
+      return res.json({
+        success: true,
+        data: updatedLock,
+        message: 'Confirmação do bloqueio manual do Android gravado com sucesso!'
+      });
     } else {
       // Manual iCloud locking for iOS
       const { data: updatedLock, error: updateError } = await supabase
@@ -136,7 +163,33 @@ router.post("/:id/unlock", async (req, res) => {
     }
 
     if (lock.lock_type === 'headwind') {
-      return res.status(400).json({ error: 'O serviço de MDM Android (Headwind) foi desativado.' });
+      // Manual Google Device Lock Controller unlocking for Android
+      const { data: updatedLock, error: updateError } = await supabase
+        .from('device_locks')
+        .update({
+          mdm_locked: false,
+          mdm_last_sync_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Registrar log
+      await supabase.from('device_block_logs').insert([{
+        customer_id: req.body.customerId || null,
+        imei: lock.device?.imei || 'MANUAL_IMEI',
+        action: 'unblock',
+        reason: 'Desbloqueio do Google Device Lock Controller Confirmado Manualmente',
+        success: true
+      }]);
+
+      return res.json({
+        success: true,
+        data: updatedLock,
+        message: 'Confirmação de liberação manual do Android gravado com sucesso!'
+      });
     } else {
       // Manual iCloud unlocking for iOS
       const { data: updatedLock, error: updateError } = await supabase

@@ -116,6 +116,14 @@ export const useDeviceLockStore = create<DeviceLockState>()((set) => ({
         set((state) => ({
           deviceLocks: state.deviceLocks.map((item) => {
             if (item.id === id) {
+              if (item.lock_type === 'headwind') {
+                return {
+                  ...item,
+                  mdm_locked: true,
+                  mdm_last_sync_at: new Date().toISOString(),
+                  mdm_kiosk_message: kioskMessage
+                };
+              }
               return {
                 ...item,
                 icloud_locked: true,
@@ -145,6 +153,13 @@ export const useDeviceLockStore = create<DeviceLockState>()((set) => ({
         set((state) => ({
           deviceLocks: state.deviceLocks.map((item) => {
             if (item.id === id) {
+              if (item.lock_type === 'headwind') {
+                return {
+                  ...item,
+                  mdm_locked: false,
+                  mdm_last_sync_at: new Date().toISOString()
+                };
+              }
               return {
                 ...item,
                 icloud_locked: false,
