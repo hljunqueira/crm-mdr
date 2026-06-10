@@ -820,6 +820,7 @@ export default function ServiceOrders() {
     if (activeFormat === 'a4') {
       return (
         <div className="os-a4-receipt text-left">
+          <style>{getPrintStyles('a4')}</style>
           {/* Header */}
           <div className="a4-header">
             <div>
@@ -848,27 +849,38 @@ export default function ServiceOrders() {
           <table className="a4-grid-table border border-black text-black">
             <tbody>
               <tr>
-                <td style={{ width: '60%' }}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
-                <td style={{ width: '40%' }}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
               </tr>
               {(() => {
                 const parsed = parseAddress(currentServiceOrder.customers?.address);
+                let city = parsed.cityState;
+                let uf = '—';
+                if (parsed.cityState && parsed.cityState !== '—') {
+                  const parts = parsed.cityState.split(/\s*[-/]\s*/);
+                  if (parts.length >= 2) {
+                    city = parts[0];
+                    uf = parts[1];
+                  }
+                }
                 return (
                   <>
                     <tr>
-                      <td><strong>Endereço:</strong> {parsed.street}</td>
-                      <td><strong>Bairro:</strong> {parsed.neighborhood}</td>
+                      <td colSpan={2}><strong>Endereço:</strong> {parsed.street}</td>
+                      <td colSpan={2}><strong>Bairro:</strong> {parsed.neighborhood}</td>
                     </tr>
                     <tr>
-                      <td><strong>Cidade / UF:</strong> {parsed.cityState}</td>
-                      <td><strong>CEP:</strong> {parsed.cep}</td>
+                      <td style={{ width: '45%' }}><strong>Cidade:</strong> {city}</td>
+                      <td style={{ width: '15%' }}><strong>UF:</strong> {uf}</td>
+                      <td style={{ width: '40%' }} colSpan={2}><strong>CEP:</strong> {parsed.cep}</td>
                     </tr>
                   </>
                 );
               })()}
               <tr>
-                <td><strong>CPF:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
-                <td><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
+                <td style={{ width: '45%' }}><strong>CPF/CNPJ:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
+                <td style={{ width: '15%' }}><strong>RG/IE:</strong> —</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
               </tr>
             </tbody>
           </table>
@@ -877,18 +889,20 @@ export default function ServiceOrders() {
           <table className="a4-grid-table border border-black text-black">
             <tbody>
               <tr>
-                <td style={{ width: '60%' }}><strong>Aparelho / Modelo:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
-                <td style={{ width: '40%' }}><strong>Categoria:</strong> {currentServiceOrder.device_category.toUpperCase()}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Equipamento:</strong> {currentServiceOrder.device_category ? currentServiceOrder.device_category.toUpperCase() : '—'}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Operadora:</strong> —</td>
               </tr>
               <tr>
-                <td><strong>S/N ou IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
-                <td>
-                  <strong>Senha/PIN:</strong> {currentServiceOrder.device_passcode || '—'}
-                </td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Modelo/Marca:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Nº Patrimônio:</strong> —</td>
+              </tr>
+              <tr>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Serial / IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Senha/PIN:</strong> {currentServiceOrder.device_passcode || '—'}</td>
               </tr>
               {currentServiceOrder.device_pattern_lock && (
                 <tr>
-                  <td colSpan={2}>
+                  <td colSpan={4}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                       <strong>Padrão de Desbloqueio:</strong>
                       <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px', border: '1px solid #000000', display: 'inline-block' }}>
@@ -899,16 +913,16 @@ export default function ServiceOrders() {
                 </tr>
               )}
               <tr>
-                <td colSpan={2}><strong>Defeito Relatado:</strong> {currentServiceOrder.reported_issue}</td>
+                <td colSpan={4}><strong>Acessórios Inclusos:</strong> {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 ? currentServiceOrder.accessories_left.join(', ') : 'Nenhum'}</td>
               </tr>
               <tr>
-                <td colSpan={2}><strong>Vistoria Visual:</strong> {currentServiceOrder.cosmetic_condition || 'Nenhuma observação estética'}</td>
+                <td colSpan={4}><strong>Sintomas / Defeito Relatado:</strong> {currentServiceOrder.reported_issue}</td>
               </tr>
               <tr>
-                <td colSpan={2}><strong>Acessórios Inclusos:</strong> {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 ? currentServiceOrder.accessories_left.join(', ') : 'Nenhum'}</td>
+                <td colSpan={4}><strong>Observações / Vistoria Visual:</strong> {currentServiceOrder.cosmetic_condition || 'Nenhuma observação estética'}</td>
               </tr>
               <tr>
-                <td colSpan={2}>
+                <td colSpan={4}>
                   <strong>Previsão de Entrega:</strong>{' '}
                   {(() => {
                     if (!currentServiceOrder.estimated_delivery) return 'Sem Previsão';
@@ -945,6 +959,7 @@ export default function ServiceOrders() {
 
     return (
       <div className="os-thermal-receipt">
+        <style>{getPrintStyles('thermal')}</style>
         {/* Copy Indicator */}
         <div className="copy-indicator" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10px', border: '1px solid #000', padding: '2px', marginBottom: '8px' }}>
           {copyTitle}
@@ -1101,6 +1116,7 @@ export default function ServiceOrders() {
     if (activeFormat === 'a4') {
       return (
         <div className="os-a4-receipt text-left">
+          <style>{getPrintStyles('a4')}</style>
           {/* Header */}
           <div className="a4-header">
             <div>
@@ -1129,27 +1145,38 @@ export default function ServiceOrders() {
           <table className="a4-grid-table border border-black text-black">
             <tbody>
               <tr>
-                <td style={{ width: '60%' }}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
-                <td style={{ width: '40%' }}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
               </tr>
               {(() => {
                 const parsed = parseAddress(currentServiceOrder.customers?.address);
+                let city = parsed.cityState;
+                let uf = '—';
+                if (parsed.cityState && parsed.cityState !== '—') {
+                  const parts = parsed.cityState.split(/\s*[-/]\s*/);
+                  if (parts.length >= 2) {
+                    city = parts[0];
+                    uf = parts[1];
+                  }
+                }
                 return (
                   <>
                     <tr>
-                      <td><strong>Endereço:</strong> {parsed.street}</td>
-                      <td><strong>Bairro:</strong> {parsed.neighborhood}</td>
+                      <td colSpan={2}><strong>Endereço:</strong> {parsed.street}</td>
+                      <td colSpan={2}><strong>Bairro:</strong> {parsed.neighborhood}</td>
                     </tr>
                     <tr>
-                      <td><strong>Cidade / UF:</strong> {parsed.cityState}</td>
-                      <td><strong>CEP:</strong> {parsed.cep}</td>
+                      <td style={{ width: '45%' }}><strong>Cidade:</strong> {city}</td>
+                      <td style={{ width: '15%' }}><strong>UF:</strong> {uf}</td>
+                      <td style={{ width: '40%' }} colSpan={2}><strong>CEP:</strong> {parsed.cep}</td>
                     </tr>
                   </>
                 );
               })()}
               <tr>
-                <td><strong>CPF:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
-                <td><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
+                <td style={{ width: '45%' }}><strong>CPF/CNPJ:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
+                <td style={{ width: '15%' }}><strong>RG/IE:</strong> —</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
               </tr>
             </tbody>
           </table>
@@ -1158,14 +1185,22 @@ export default function ServiceOrders() {
           <table className="a4-grid-table border border-black text-black">
             <tbody>
               <tr>
-                <td style={{ width: '60%' }}><strong>Aparelho / Modelo:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
-                <td style={{ width: '40%' }}><strong>S/N ou IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Equipamento:</strong> {currentServiceOrder.device_category ? currentServiceOrder.device_category.toUpperCase() : '—'}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Operadora:</strong> —</td>
               </tr>
               <tr>
-                <td colSpan={2}><strong>Problema Original:</strong> {currentServiceOrder.reported_issue}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Modelo/Marca:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Nº Patrimônio:</strong> —</td>
               </tr>
               <tr>
-                <td colSpan={2}>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Serial / IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>Senha/PIN:</strong> {currentServiceOrder.device_passcode || '—'}</td>
+              </tr>
+              <tr>
+                <td colSpan={4}><strong>Problema Original / Sintomas:</strong> {currentServiceOrder.reported_issue}</td>
+              </tr>
+              <tr>
+                <td colSpan={4}>
                   <strong>Laudo Técnico de Reparo:</strong>{' '}
                   {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim() : 'Reparo concluído.'}
                 </td>
@@ -1217,6 +1252,7 @@ export default function ServiceOrders() {
 
     return (
       <div className="os-thermal-receipt">
+        <style>{getPrintStyles('thermal')}</style>
         {/* Copy Indicator */}
         <div className="copy-indicator" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10px', border: '1px solid #000', padding: '2px', marginBottom: '8px' }}>
           {copyTitle}
@@ -1464,7 +1500,38 @@ export default function ServiceOrders() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                  <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                    {/* Seletor de Formato */}
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-3 py-2 shrink-0 h-[42px]">
+                      <span className="text-[9px] text-on-surface-variant font-black uppercase tracking-wider">Formato:</span>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setPrintFormatOverride('thermal')}
+                          className={cn(
+                            "px-2.5 py-1 rounded-xl font-bold uppercase text-[8px] transition-all",
+                            (printFormatOverride || osUnit?.print_mode || 'thermal') === 'thermal'
+                              ? "bg-primary text-on-primary"
+                              : "text-white/60 hover:bg-white/10"
+                          )}
+                        >
+                          Cupom
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrintFormatOverride('a4')}
+                          className={cn(
+                            "px-2.5 py-1 rounded-xl font-bold uppercase text-[8px] transition-all",
+                            (printFormatOverride || osUnit?.print_mode || 'thermal') === 'a4'
+                              ? "bg-primary text-on-primary"
+                              : "text-white/60 hover:bg-white/10"
+                          )}
+                        >
+                          A4
+                        </button>
+                      </div>
+                    </div>
+
                     <button
                       onClick={() => handlePrintBothVias('entry')}
                       className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
@@ -2451,321 +2518,21 @@ export default function ServiceOrders() {
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) */}
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) - CLIENTE */}
           <div id="print-os-entry-client" className="hidden">
-            <style>{`
-              @media print {
-                @page {
-                  size: 80mm auto;
-                  margin: 0 !important;
-                }
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background-color: #ffffff !important;
-                }
-                .os-thermal-receipt {
-                  width: 80mm !important;
-                  margin: 0 auto !important;
-                  padding: 4mm 4mm 8mm 4mm !important;
-                  font-family: Arial, Helvetica, sans-serif !important;
-                  font-size: 12px !important;
-                  color: #000000 !important;
-                  line-height: 1.4 !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt strong,
-                .os-thermal-receipt b {
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-name {
-                  font-size: 22px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-sub {
-                  font-size: 10px !important;
-                  font-weight: 800 !important;
-                }
-                .os-thermal-receipt .unit-details {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .receipt-title {
-                  font-size: 13.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .receipt-num {
-                  font-size: 13px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .section-title {
-                  font-size: 12.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .row span {
-                  font-size: 12px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .text-small {
-                  font-size: 11.5px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .clauses {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .sig-label {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .footer-note {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .page-break {
-                  page-break-before: always !important;
-                  break-before: page !important;
-                }
-              }
-            `}</style>
             {renderOsEntryCopy("VIA DO CLIENTE")}
           </div>
 
           {/* TERMO 1: COMPROVANTE DE ENTRADA (OS ADMISSION) - LOJA */}
           <div id="print-os-entry-shop" className="hidden">
-            <style>{`
-              @media print {
-                @page {
-                  size: 80mm auto;
-                  margin: 0 !important;
-                }
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background-color: #ffffff !important;
-                }
-                .os-thermal-receipt {
-                  width: 80mm !important;
-                  margin: 0 auto !important;
-                  padding: 4mm 4mm 8mm 4mm !important;
-                  font-family: Arial, Helvetica, sans-serif !important;
-                  font-size: 12px !important;
-                  color: #000000 !important;
-                  line-height: 1.4 !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt strong,
-                .os-thermal-receipt b {
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-name {
-                  font-size: 22px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-sub {
-                  font-size: 10px !important;
-                  font-weight: 800 !important;
-                }
-                .os-thermal-receipt .unit-details {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .receipt-title {
-                  font-size: 13.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .receipt-num {
-                  font-size: 13px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .section-title {
-                  font-size: 12.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .row span {
-                  font-size: 12px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .text-small {
-                  font-size: 11.5px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .clauses {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .sig-label {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .footer-note {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .page-break {
-                  page-break-before: always !important;
-                  break-before: page !important;
-                }
-              }
-            `}</style>
             {renderOsEntryCopy("VIA DA ASSISTÊNCIA")}
           </div>
 
           {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) - CLIENTE */}
           <div id="print-os-warranty-client" className="hidden">
-            <style>{`
-              @media print {
-                @page {
-                  size: 80mm auto;
-                  margin: 0 !important;
-                }
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background-color: #ffffff !important;
-                }
-                .os-thermal-receipt {
-                  width: 80mm !important;
-                  margin: 0 auto !important;
-                  padding: 4mm 4mm 8mm 4mm !important;
-                  font-family: Arial, Helvetica, sans-serif !important;
-                  font-size: 12px !important;
-                  color: #000000 !important;
-                  line-height: 1.4 !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt strong,
-                .os-thermal-receipt b {
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-name {
-                  font-size: 22px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-sub {
-                  font-size: 10px !important;
-                  font-weight: 800 !important;
-                }
-                .os-thermal-receipt .unit-details {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .receipt-title {
-                  font-size: 13.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .receipt-num {
-                  font-size: 13px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .section-title {
-                  font-size: 12.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .row span {
-                  font-size: 12px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .text-small {
-                  font-size: 11.5px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .clauses {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .sig-label {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .footer-note {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .page-break {
-                  page-break-before: always !important;
-                  break-before: page !important;
-                }
-              }
-            `}</style>
             {renderOsWarrantyCopy("VIA DO CLIENTE")}
           </div>
 
           {/* TERMO 2: COMPROVANTE DE SAÍDA E GARANTIA (OS FINAL WARRANTY) - LOJA */}
           <div id="print-os-warranty-shop" className="hidden">
-            <style>{`
-              @media print {
-                @page {
-                  size: 80mm auto;
-                  margin: 0 !important;
-                }
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background-color: #ffffff !important;
-                }
-                .os-thermal-receipt {
-                  width: 80mm !important;
-                  margin: 0 auto !important;
-                  padding: 4mm 4mm 8mm 4mm !important;
-                  font-family: Arial, Helvetica, sans-serif !important;
-                  font-size: 12px !important;
-                  color: #000000 !important;
-                  line-height: 1.4 !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt strong,
-                .os-thermal-receipt b {
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-name {
-                  font-size: 22px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .brand-sub {
-                  font-size: 10px !important;
-                  font-weight: 800 !important;
-                }
-                .os-thermal-receipt .unit-details {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .receipt-title {
-                  font-size: 13.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .receipt-num {
-                  font-size: 13px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .section-title {
-                  font-size: 12.5px !important;
-                  font-weight: 900 !important;
-                }
-                .os-thermal-receipt .row span {
-                  font-size: 12px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .text-small {
-                  font-size: 11.5px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .clauses {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .sig-label {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .os-thermal-receipt .footer-note {
-                  font-size: 11px !important;
-                  font-weight: 700 !important;
-                }
-                .page-break {
-                  page-break-before: always !important;
-                  break-before: page !important;
-                }
-              }
-            `}</style>
             {renderOsWarrantyCopy("VIA DA ASSISTÊNCIA")}
           </div>
         </>
@@ -2786,6 +2553,36 @@ export default function ServiceOrders() {
               <p className="text-xs text-on-surface-variant leading-relaxed pt-2">
                 Deseja imprimir o <strong>Termo de Entrada (Admission)</strong> agora para coletar a assinatura do cliente?
               </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-4 py-2 border-y border-white/5">
+              <span className="text-[10px] text-on-surface-variant font-black uppercase tracking-wider">Formato:</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPrintFormatOverride('thermal')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider text-[8px] transition-all",
+                    (printFormatOverride || (justCreatedOs && units.find(u => u.id === justCreatedOs.unit_id)?.print_mode) || 'thermal') === 'thermal'
+                      ? "bg-primary text-on-primary"
+                      : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10"
+                  )}
+                >
+                  Cupom
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintFormatOverride('a4')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-xl font-bold uppercase tracking-wider text-[8px] transition-all",
+                    (printFormatOverride || (justCreatedOs && units.find(u => u.id === justCreatedOs.unit_id)?.print_mode) || 'thermal') === 'a4'
+                      ? "bg-primary text-on-primary"
+                      : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10"
+                  )}
+                >
+                  Folha A4
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-col gap-3 pt-2">

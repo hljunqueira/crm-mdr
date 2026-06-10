@@ -253,9 +253,12 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
 
         {/* Footer Note */}
         <div className="footer-note">
-          Comprovante interno emitido por {unit.name || 'MDR Informática & Celulares'}.
-          O aparelho é propriedade do vendedor até a quitação total das parcelas.
-          Pagamentos via PIX/Dinheiro/Transferência.
+          Comprovante interno emitido por {unit.name || 'MDR Informática & Celulares'}.<br />
+          {sale.payment_type === 'vista' ? (
+            <strong>Obrigado pela preferência!</strong>
+          ) : (
+            <>O aparelho é propriedade do vendedor até a quitação total das parcelas.<br />Pagamentos via PIX/Dinheiro/Transferência.</>
+          )}
         </div>
       </div>
     );
