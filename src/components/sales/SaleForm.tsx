@@ -767,7 +767,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
               )}
             >
-              Venda de Celulares
+              Crediário Loja
             </button>
             <button
               type="button"
@@ -780,7 +780,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
               )}
             >
-              Venda de Informática e Geral
+              Vendas Em Geral
             </button>
           </div>
         </div>
