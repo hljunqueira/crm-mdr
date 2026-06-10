@@ -824,13 +824,13 @@ function SaleDocumentViewer({
                 #sale-document-preview-area .thermal-receipt {
                   width: 80mm;
                   margin: 0 auto;
-                  padding: 4mm;
+                  padding: 3mm;
                   box-sizing: border-box;
                   font-family: Arial, sans-serif;
-                  font-size: 11px;
+                  font-size: 10.5px;
                   color: #000;
                   background: #fff;
-                  line-height: 1.45;
+                  line-height: 1.3;
                   font-weight: bold;
                 }
                 #sale-document-preview-area .copy-indicator {
@@ -847,14 +847,15 @@ function SaleDocumentViewer({
                   margin-bottom: 6px;
                 }
                 #sale-document-preview-area .brand-name {
-                  font-size: 20px;
+                  font-size: 18px;
                   font-weight: 900;
                   letter-spacing: -1px;
+                  margin-bottom: 2px;
                 }
                 #sale-document-preview-area .brand-sub {
                   font-size: 8px;
                   letter-spacing: 1px;
-                  margin-bottom: 4px;
+                  margin-bottom: 6px;
                 }
                 #sale-document-preview-area .unit-details {
                   font-size: 9px;
@@ -963,16 +964,22 @@ function SaleDocumentViewer({
               <div className="copy-indicator">COMPROVANTE DE VENDA</div>
 
               {/* Company Header */}
-              <div className="header-center">
-                <div className="brand-name">MDR</div>
-                <div className="brand-sub">INFORMÁTICA &amp; CELULARES</div>
-                <div className="unit-details">
-                  {unit.name || 'MDR Informática & Celulares'}<br />
-                  {unit.cnpj && <>CNPJ: {unit.cnpj}<br /></>}
-                  {unit.address && <>{unit.address}<br /></>}
-                  {unit.phone && <>Tel: {formatPhone(unit.phone)}</>}
-                </div>
-              </div>
+              {(() => {
+                const cleanUnitName = (unit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
+                return (
+                  <div className="header-center">
+                    <div className="brand-name">MDR</div>
+                    <div className="brand-sub">INFORMÁTICA &amp; CELULARES</div>
+                    <div className="unit-details" style={{ fontSize: '9px', lineHeight: '1.25', color: '#333' }}>
+                      <strong>LOJA: {cleanUnitName}</strong>
+                      {unit.cnpj && <> | CNPJ: {unit.cnpj}</>}
+                      {unit.phone && <> | Tel: {formatPhone(unit.phone)}</>}
+                      <br />
+                      {unit.address}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="double-divider"></div>
 
@@ -1117,12 +1124,12 @@ function SaleDocumentViewer({
               <div className="divider"></div>
 
               {/* Signatures */}
-              <div className="sig-line-box" style={{ marginTop: '55px' }}>
+              <div className="sig-line-box" style={{ marginTop: '25px' }}>
                 <div className="sig-line"></div>
                 <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
               </div>
 
-              <div className="sig-line-box" style={{ marginTop: '75px' }}>
+              <div className="sig-line-box" style={{ marginTop: '35px' }}>
                 <div className="sig-line"></div>
                 <span className="sig-label">{customer.name}<br />Comprador</span>
               </div>
