@@ -601,14 +601,15 @@ export default function ServiceOrders() {
   const getPrintStyles = (format: 'thermal' | 'a4') => {
     if (format === 'a4') {
       return `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         @media print {
           @page {
             size: A4;
-            margin: 10mm !important;
+            margin: 12mm !important;
           }
           body {
             background-color: #ffffff !important;
-            color: #000000 !important;
+            color: #0f172a !important;
             margin: 0 !important;
             padding: 0 !important;
           }
@@ -617,92 +618,98 @@ export default function ServiceOrders() {
           width: 100%;
           max-width: 190mm;
           margin: 0 auto;
-          font-family: Arial, Helvetica, sans-serif;
-          font-size: 11px;
-          color: #000;
+          font-family: 'Inter', Arial, sans-serif;
+          font-size: 10.5px;
+          color: #1e293b;
           background: #fff;
           line-height: 1.4;
         }
         .os-a4-receipt .a4-header {
-          border-bottom: 2px solid #000;
-          padding-bottom: 6px;
-          margin-bottom: 10px;
+          border-bottom: 2px solid #0f172a;
+          padding-bottom: 10px;
+          margin-bottom: 12px;
           display: flex;
           align-items: center;
           justify-content: space-between;
         }
-        .os-a4-receipt .a4-brand-name {
-          font-size: 20px;
-          font-weight: 900;
-          letter-spacing: -0.5px;
-        }
-        .os-a4-receipt .a4-brand-sub {
-          font-size: 9px;
-          font-weight: 800;
-          margin-left: 8px;
-        }
         .os-a4-receipt .a4-brand-details {
           font-size: 9px;
-          color: #333;
+          color: #475569;
           text-align: right;
+          line-height: 1.5;
         }
         .os-a4-receipt .a4-title-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 6px;
-          border: 1px solid #000;
-          padding: 6px 10px;
-          margin-bottom: 12px;
-          background-color: #f5f5f5;
+          gap: 10px;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 8px 12px;
+          margin-bottom: 14px;
+          background-color: #f1f5f9;
         }
         .os-a4-receipt .a4-os-num {
-          font-size: 14px;
-          font-weight: 900;
+          font-size: 13px;
+          font-weight: 800;
+          color: #0f172a;
         }
         .os-a4-receipt .a4-chave {
-          font-size: 10px;
+          font-size: 9.5px;
+          font-weight: 600;
+          color: #475569;
           text-align: right;
         }
         .os-a4-receipt .a4-title-main {
-          font-size: 13px;
-          font-weight: 900;
+          font-size: 12px;
+          font-weight: 700;
           text-transform: uppercase;
+          color: #0f172a;
         }
         .os-a4-receipt .a4-date {
-          font-size: 10px;
+          font-size: 9.5px;
+          color: #475569;
           text-align: right;
         }
         .os-a4-receipt .a4-section-header {
-          font-weight: bold;
+          font-weight: 800;
           text-transform: uppercase;
-          font-size: 10px;
-          margin: 10px 0 4px 0;
-          border-bottom: 1.5px solid #000;
-          padding-bottom: 2px;
+          font-size: 9px;
+          letter-spacing: 0.5px;
+          margin: 14px 0 6px 0;
+          border-bottom: 2px solid #0f172a;
+          padding-bottom: 3px;
+          color: #0f172a;
         }
         .os-a4-receipt table.a4-grid-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
         }
         .os-a4-receipt table.a4-grid-table td {
-          border: 1px solid #000;
-          padding: 4px 8px;
-          font-size: 10.5px;
+          border: 1px solid #cbd5e1;
+          padding: 6px 10px;
+          font-size: 10px;
           vertical-align: top;
+          color: #1e293b;
+        }
+        .os-a4-receipt table.a4-grid-table tr:nth-child(even) td {
+          background-color: #f8fafc;
         }
         .os-a4-receipt .a4-notes {
-          font-size: 8.5px;
-          line-height: 1.3;
-          border: 1px dashed #000;
-          padding: 6px;
-          margin-bottom: 12px;
+          font-size: 8px;
+          line-height: 1.4;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 8px;
+          margin-bottom: 14px;
+          background-color: #f8fafc;
+          color: #334155;
         }
         .os-a4-receipt .a4-signatures {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 40px;
-          margin-top: 30px;
+          margin-top: 45px;
         }
         .os-a4-receipt .a4-sig-box {
           text-align: center;
@@ -711,17 +718,20 @@ export default function ServiceOrders() {
           align-items: center;
         }
         .os-a4-receipt .a4-sig-line {
-          border-top: 1px solid #000;
-          width: 85%;
-          margin-bottom: 4px;
+          border-top: 1px solid #94a3b8;
+          width: 80%;
+          margin-bottom: 6px;
         }
         .os-a4-receipt .a4-sig-box span {
           font-size: 8px;
-          color: #555;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
           margin-bottom: 2px;
         }
         .os-a4-receipt .a4-sig-box strong {
-          font-size: 9.5px;
+          font-size: 10px;
+          color: #0f172a;
         }
       `;
     }
