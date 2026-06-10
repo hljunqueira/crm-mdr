@@ -152,6 +152,29 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
           </div>
         )}
 
+        {/* Código de Barras (Bipar) */}
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+            <Barcode size={12} /> Código de Barras
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={formData.barcode}
+              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-primary transition-all outline-none font-mono"
+              placeholder="Bipe com o leitor ou digite"
+            />
+            <button
+              type="button"
+              onClick={generateBarcode}
+              className="px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+            >
+              Gerar
+            </button>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca</label>
           <input
@@ -239,28 +262,6 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
             placeholder="1"
           />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1 flex items-center gap-1.5">
-            <Barcode size={12} /> Código de Barras
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={formData.barcode}
-              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-primary transition-all outline-none font-mono"
-              placeholder="Bipe com o leitor ou digite"
-            />
-            <button
-              type="button"
-              onClick={generateBarcode}
-              className="px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
-            >
-              Gerar
-            </button>
-          </div>
         </div>
       </div>
 
