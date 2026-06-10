@@ -8,7 +8,7 @@ router.get("/", async (req, res) => {
   const { unit_id } = req.query;
   let query = supabase.from('devices').select('*, stores(name)');
   
-  if (unit_id) {
+  if (unit_id && unit_id !== 'all') {
     query = query.eq('store_id', unit_id);
   }
   

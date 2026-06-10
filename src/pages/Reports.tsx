@@ -4,7 +4,7 @@ import {
   TrendingUp, DollarSign, Briefcase, Calendar, ChevronDown, 
   Download, BarChart2, Printer, Percent, Award, BookOpen, Clock, 
   Users, ArrowUpRight, CheckCircle2, AlertCircle, Wrench, ChevronUp, Eye,
-  Calculator, Smartphone
+  Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X
 } from 'lucide-react';
 import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
@@ -12,6 +12,9 @@ import { useSaleStore } from '../store/useSaleStore';
 import { useFinanceStore } from '../store/useFinanceStore';
 import { useServiceOrderStore } from '../store/useServiceOrderStore';
 import { useUnitStore } from '../store/useUnitStore';
+import { useCashStore, CashTransaction } from '../store/useCashStore';
+import { useInventoryStore } from '../store/useInventoryStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function Reports() {
   const { showNotification } = useUI();
@@ -19,9 +22,12 @@ export default function Reports() {
   const { installments, fetchInstallments } = useFinanceStore();
   const { serviceOrders, fetchServiceOrders } = useServiceOrderStore();
   const { units, fetchAllUnits } = useUnitStore();
+  const { transactions, fetchTransactions, addTransaction } = useCashStore();
+  const { inventory, fetchInventory } = useInventoryStore();
+  const { profile } = useAuthStore();
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa'>('overview');
 
   // Global filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
@@ -45,6 +51,16 @@ export default function Reports() {
   const [accountingRegime, setAccountingRegime] = useState<'competence' | 'cash'>('competence');
   const [issRate, setIssRate] = useState<number>(5);
 
+  // Manual transaction Modal States (Corporate/Admin)
+  const [isManualTxOpen, setIsManualTxOpen] = useState(false);
+  const [manualTx, setManualTx] = useState({
+    type: 'outflow' as 'inflow' | 'outflow',
+    category: 'outros' as CashTransaction['category'],
+    amount: '',
+    payment_method: 'money' as CashTransaction['payment_method'],
+    description: ''
+  });
+
   // Fetch all required data on mount
   useEffect(() => {
     fetchSales();
@@ -52,6 +68,11 @@ export default function Reports() {
     fetchServiceOrders();
     fetchAllUnits();
   }, [fetchSales, fetchInstallments, fetchServiceOrders, fetchAllUnits]);
+
+  useEffect(() => {
+    fetchTransactions(selectedUnitId);
+    fetchInventory(selectedUnitId);
+  }, [selectedUnitId, fetchTransactions, fetchInventory]);
 
   // Date check helper
   const filterByDateRange = (dateStr?: string) => {
@@ -368,6 +389,79 @@ export default function Reports() {
     exportTableCSV(rows, 'relatorio_vendas_filtrado', headers);
   };
 
+  // Cash Flow Calculations & Actions
+  const totalStockCostValue = useMemo(() => {
+    return inventory.reduce((sum, item) => sum + (Number(item.cost_price || 0) * (item.stock_quantity || 0)), 0);
+  }, [inventory]);
+
+  const flowInflows = useMemo(() => {
+    return transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + Number(t.amount), 0);
+  }, [transactions]);
+
+  const flowOutflows = useMemo(() => {
+    return transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + Number(t.amount), 0);
+  }, [transactions]);
+
+  const netBalance = flowInflows - flowOutflows;
+
+  const handleAddManualTxSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUnitId || selectedUnitId === 'all') {
+      showNotification('error', 'Selecione uma filial para realizar o lançamento.');
+      return;
+    }
+    if (!manualTx.amount || Number(manualTx.amount) <= 0) {
+      showNotification('error', 'Valor inválido');
+      return;
+    }
+    try {
+      await addTransaction({
+        unit_id: selectedUnitId,
+        type: manualTx.type,
+        category: manualTx.category,
+        amount: Number(manualTx.amount),
+        payment_method: manualTx.payment_method,
+        description: manualTx.description,
+        created_by: profile?.id || ''
+      });
+      showNotification('success', 'Lançamento inserido com sucesso!');
+      setIsManualTxOpen(false);
+      setManualTx({
+        type: 'outflow',
+        category: 'outros',
+        amount: '',
+        payment_method: 'money',
+        description: ''
+      });
+    } catch (err: any) {
+      showNotification('error', 'Erro ao lançar', err?.response?.data?.error || err.message);
+    }
+  };
+
+  const handleExportTransactionsCSV = () => {
+    if (transactions.length === 0) {
+      showNotification('error', 'Sem dados', 'Não há transações para exportar.');
+      return;
+    }
+    const headers = ['Data/Hora', 'Tipo', 'Categoria', 'Descrição', 'Meio Pagto', 'Valor'];
+    const rows = transactions.map(tx => [
+      new Date(tx.created_at).toLocaleString('pt-BR'),
+      tx.type === 'inflow' ? 'Entrada' : 'Saída',
+      tx.category === 'installment' ? 'Contrato' :
+      tx.category === 'sale' ? 'Venda PDV' :
+      tx.category === 'suprimento' ? 'Suprimento' :
+      tx.category === 'sangria' ? 'Sangria' :
+      tx.category === 'despesa_luz' ? 'Despesa Luz' :
+      tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros',
+      tx.description || '',
+      tx.payment_method === 'pix' ? 'PIX' :
+      tx.payment_method === 'money' ? 'Dinheiro' :
+      tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco',
+      Number(tx.amount).toFixed(2)
+    ]);
+    exportTableCSV(rows, 'relatorio_fluxo_caixa', headers);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20 p-8 print:p-0 print:bg-white print:text-black print:space-y-4 print:pb-0">
       
@@ -408,6 +502,15 @@ export default function Reports() {
             </button>
           )}
 
+          {activeTab === 'fluxo_caixa' && (
+            <button 
+              onClick={handleExportTransactionsCSV}
+              className="bg-white text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
+            >
+              <Download size={14} /> Exportar Caixa CSV
+            </button>
+          )}
+
           {activeTab === 'lucro_presumido' && (
             <button 
               onClick={handlePrintReport}
@@ -420,9 +523,10 @@ export default function Reports() {
       </div>
 
       {/* TABS SELECTOR (HIDDEN ON PRINT) */}
-      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-lg print:hidden">
+      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-xl print:hidden">
         {[
           { id: 'overview', label: 'Visão Geral', icon: BarChart2 },
+          { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
           { id: 'lucro_presumido', label: 'Lucro Presumido', icon: Calculator },
           { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench }
         ].map(tab => (
@@ -700,6 +804,228 @@ export default function Reports() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ─── TAB: FLUXO DE CAIXA (CENTRAL TRIBUTÁRIA / GERENCIAL) ─────────── */}
+      {activeTab === 'fluxo_caixa' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          {/* Dashboard de Métricas */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-[#6C63FF]/10 flex items-center justify-center text-[#6C63FF] mb-4 border border-white/10">
+                <TrendingUp size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Saldo Líquido</p>
+              <h3 className={`text-2xl font-black font-mono leading-none tracking-tight ${netBalance >= 0 ? 'text-green-400' : 'text-error'}`}>
+                R$ {netBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+            
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success mb-4 border border-white/10">
+                <ArrowUpRight size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Entradas</p>
+              <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight">
+                R$ {flowInflows.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error mb-4 border border-white/10">
+                <ArrowDownRight size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Saídas / Despesas</p>
+              <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight">
+                R$ {flowOutflows.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning mb-4 border border-white/10">
+                <Smartphone size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Custo do Estoque</p>
+              <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight">
+                R$ {totalStockCostValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+          </div>
+
+          {/* Seção Lançamento Rápido & Filtro de Fluxo */}
+          <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                <FileText size={16} /> Registro de Transações
+              </h3>
+              {profile?.role === 'admin' && (
+                <button
+                  onClick={() => setIsManualTxOpen(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#6C63FF] text-white font-black uppercase tracking-widest text-[9px] px-5 py-3.5 rounded-2xl hover:scale-[1.02] transition-all cursor-pointer border border-[#6C63FF]/30"
+                >
+                  <Plus size={14} /> Novo Lançamento Manual (Gerencial)
+                </button>
+              )}
+            </div>
+
+            {/* Listagem de Transações do Fluxo de Caixa */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
+                    <th className="pb-3 pl-4">Data/Hora</th>
+                    <th className="pb-3">Tipo</th>
+                    <th className="pb-3">Categoria</th>
+                    <th className="pb-3">Descrição</th>
+                    <th className="pb-3">Meio Pagto</th>
+                    <th className="pb-3 text-right pr-4">Valor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma movimentação lançada.</td>
+                    </tr>
+                  ) : (
+                    transactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-white/[0.01] transition-colors">
+                        <td className="py-4 pl-4 text-[10px] font-mono text-on-surface-variant">
+                          {new Date(tx.created_at).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-4">
+                          <span className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
+                            {tx.type === 'inflow' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                            {tx.type === 'inflow' ? 'Entrada' : 'Saída'}
+                          </span>
+                        </td>
+                        <td className="py-4 text-xs font-bold text-white uppercase tracking-wider">
+                          {tx.category === 'installment' ? 'Contrato' :
+                           tx.category === 'sale' ? 'Venda PDV' :
+                           tx.category === 'suprimento' ? 'Suprimento' :
+                           tx.category === 'sangria' ? 'Sangria' :
+                           tx.category === 'despesa_luz' ? 'Despesa Luz' :
+                           tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
+                        </td>
+                        <td className="py-4 text-xs text-on-surface-variant max-w-[200px] truncate" title={tx.description}>
+                          {tx.description || '—'}
+                        </td>
+                        <td className="py-4 text-[10px] font-black uppercase text-on-surface-variant">
+                          {tx.payment_method === 'pix' ? 'PIX' :
+                           tx.payment_method === 'money' ? 'Dinheiro' :
+                           tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
+                        </td>
+                        <td className={`py-4 text-right pr-4 font-mono font-black text-xs ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
+                          {tx.type === 'inflow' ? '+' : '-'} R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Modal de Lançamento Manual */}
+          <AnimatePresence>
+            {isManualTxOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsManualTxOpen(false)} />
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Novo Lançamento Manual</h3>
+                    <button onClick={() => setIsManualTxOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10">
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddManualTxSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-on-surface-variant pl-1">Tipo</label>
+                        <select
+                          value={manualTx.type}
+                          onChange={(e) => setManualTx({ ...manualTx, type: e.target.value as any })}
+                          className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none"
+                        >
+                          <option value="outflow">Saída / Despesa</option>
+                          <option value="inflow">Entrada / Receita</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-on-surface-variant pl-1">Categoria</label>
+                        <select
+                          value={manualTx.category}
+                          onChange={(e) => setManualTx({ ...manualTx, category: e.target.value as any })}
+                          className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none"
+                        >
+                          <option value="outros">Outros</option>
+                          <option value="suprimento">Suprimento</option>
+                          <option value="sangria">Sangria</option>
+                          <option value="despesa_luz">Despesa Luz</option>
+                          <option value="despesa_aluguel">Despesa Aluguel</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-on-surface-variant pl-1">Valor (R$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="0.00"
+                          value={manualTx.amount}
+                          onChange={(e) => setManualTx({ ...manualTx, amount: e.target.value })}
+                          className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase text-on-surface-variant pl-1">Meio de Pagamento</label>
+                        <select
+                          value={manualTx.payment_method}
+                          onChange={(e) => setManualTx({ ...manualTx, payment_method: e.target.value as any })}
+                          className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none"
+                        >
+                          <option value="money">Dinheiro (Gaveta)</option>
+                          <option value="pix">PIX</option>
+                          <option value="card">Cartão</option>
+                          <option value="bank">Conta Bancária</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-on-surface-variant pl-1">Descrição</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: Pagamento de aluguel ref junho"
+                        value={manualTx.description}
+                        onChange={(e) => setManualTx({ ...manualTx, description: e.target.value })}
+                        className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-4 bg-[#6C63FF] text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] transition-all cursor-pointer border border-[#6C63FF]/30"
+                    >
+                      Confirmar Lançamento
+                    </button>
+                  </form>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

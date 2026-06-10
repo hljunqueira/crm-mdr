@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react'; 
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  TrendingUp, CreditCard, AlertCircle, CheckCircle2, Filter, 
-  Search, Download, Calendar, DollarSign, ArrowUpRight, 
-  ArrowDownRight, Smartphone, ShieldAlert, MessageSquare, 
+import {
+  TrendingUp, CreditCard, AlertCircle, CheckCircle2, Filter,
+  Search, Download, Calendar, DollarSign, ArrowUpRight,
+  ArrowDownRight, Smartphone, ShieldAlert, MessageSquare,
   FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
   X, Copy, Check, Printer, Send, RotateCcw, Lock, Unlock, AlertTriangle, Eye, EyeOff,
   Store, Save, History
@@ -39,7 +39,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
       await navigator.clipboard.writeText(pixKey);
       setCopiedPix(true);
       setTimeout(() => setCopiedPix(false), 3000);
-    } catch {}
+    } catch { }
   };
 
   const handlePrint = () => {
@@ -97,28 +97,28 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
             <div className="flex justify-center">
               <div className="bg-white p-4 rounded-2xl" style={{ width: 160, height: 160 }}>
                 <svg viewBox="0 0 100 100" width="100%" height="100%">
-                  {[0,30,70].map(x => [0,30,70].map(y => (
-                    <rect key={`${x}-${y}`} x={x} y={y} width="25" height="25" fill="#1a1a2e" rx="2"/>
+                  {[0, 30, 70].map(x => [0, 30, 70].map(y => (
+                    <rect key={`${x}-${y}`} x={x} y={y} width="25" height="25" fill="#1a1a2e" rx="2" />
                   )))}
-                  {[4,34,74].map(x => [4,34,74].map(y => (
-                    <rect key={`i${x}-${y}`} x={x} y={y} width="17" height="17" fill="white" rx="1"/>
+                  {[4, 34, 74].map(x => [4, 34, 74].map(y => (
+                    <rect key={`i${x}-${y}`} x={x} y={y} width="17" height="17" fill="white" rx="1" />
                   )))}
-                  {[8,38,78].map(x => [8,38,78].map(y => (
-                    <rect key={`ii${x}-${y}`} x={x} y={y} width="9" height="9" fill="#6C63FF" rx="1"/>
+                  {[8, 38, 78].map(x => [8, 38, 78].map(y => (
+                    <rect key={`ii${x}-${y}`} x={x} y={y} width="9" height="9" fill="#6C63FF" rx="1" />
                   )))}
-                  {[30,35,40,45,50,55,60,65,70].map((x, xi) =>
-                    [5,10,15,20,25].map((y, yi) =>
-                      (xi + yi) % 2 === 0 ? <rect key={`d${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5"/> : null
+                  {[30, 35, 40, 45, 50, 55, 60, 65, 70].map((x, xi) =>
+                    [5, 10, 15, 20, 25].map((y, yi) =>
+                      (xi + yi) % 2 === 0 ? <rect key={`d${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5" /> : null
                     )
                   )}
-                  {[5,10,15,20,25].map((x, xi) =>
-                    [30,35,40,45,50,55,60,65,70].map((y, yi) =>
-                      (xi + yi) % 3 === 0 ? <rect key={`e${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5"/> : null
+                  {[5, 10, 15, 20, 25].map((x, xi) =>
+                    [30, 35, 40, 45, 50, 55, 60, 65, 70].map((y, yi) =>
+                      (xi + yi) % 3 === 0 ? <rect key={`e${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5" /> : null
                     )
                   )}
-                  {[30,35,40,45,50,55,60,65].map((x, xi) =>
-                    [30,35,40,45,50,55,60,65].map((y, yi) =>
-                      (xi * yi) % 3 !== 1 ? <rect key={`f${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5"/> : null
+                  {[30, 35, 40, 45, 50, 55, 60, 65].map((x, xi) =>
+                    [30, 35, 40, 45, 50, 55, 60, 65].map((y, yi) =>
+                      (xi * yi) % 3 !== 1 ? <rect key={`f${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5" /> : null
                     )
                   )}
                   <text x="50" y="55" textAnchor="middle" fontSize="8" fontWeight="900" fill="#6C63FF" fontFamily="Arial">MDR</text>
@@ -183,15 +183,15 @@ interface CustomerGroup {
   totalCount: number;
 }
 
-function PaymentConfirmationContent({ 
-  item, 
-  fees, 
-  isOverdue, 
-  onMethodChange 
-}: { 
-  item: Installment; 
-  fees: any; 
-  isOverdue: boolean; 
+function PaymentConfirmationContent({
+  item,
+  fees,
+  isOverdue,
+  onMethodChange
+}: {
+  item: Installment;
+  fees: any;
+  isOverdue: boolean;
   onMethodChange: (method: 'pix' | 'money' | 'card') => void;
 }) {
   const [method, setMethod] = useState<'pix' | 'money' | 'card'>('money'); // Default to cash for retail shifts
@@ -249,11 +249,10 @@ function PaymentConfirmationContent({
                 key={m}
                 type="button"
                 onClick={() => setMethod(m)}
-                className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                  active 
-                    ? 'bg-white text-black border-white' 
+                className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active
+                    ? 'bg-white text-black border-white'
                     : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
-                }`}
+                  }`}
               >
                 {label}
               </button>
@@ -267,15 +266,15 @@ function PaymentConfirmationContent({
 
 export default function Finance() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'receivables' | 'cash_flow' | 'cash_control'>('receivables');
+  const [activeTab, setActiveTab] = useState<'receivables' | 'cash_control'>('receivables');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
   const [pixModalItem, setPixModalItem] = useState<Installment | null | undefined>(undefined); // undefined = closed
   const [sendingWa, setSendingWa] = useState<string | null>(null);
-  
+
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue' | 'blocked'>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  
+
   const { installments, markAsPaid, revertPayment, fetchInstallments } = useFinanceStore();
   const { units, fetchAllUnits, unit } = useUnitStore();
   const { showModal, showNotification, hideModal } = useUI();
@@ -283,11 +282,10 @@ export default function Finance() {
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
 
   // Cashier stores and states
-  const { 
-    activeShift, transactions, shiftHistory, fetchActiveShift, 
-    openShift, closeShift, fetchTransactions, addTransaction, fetchShiftHistory 
+  const {
+    activeShift, transactions, shiftHistory, fetchActiveShift,
+    openShift, closeShift, fetchTransactions, addTransaction, fetchShiftHistory
   } = useCashStore();
-  const { inventory, fetchInventory } = useInventoryStore();
 
   const isAdmin = profile?.role === 'admin';
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
@@ -308,6 +306,11 @@ export default function Finance() {
     description: ''
   });
 
+  const currentShiftTransactions = useMemo(() => {
+    if (!activeShift) return [];
+    return transactions.filter(t => t.shift_id === activeShift.id);
+  }, [transactions, activeShift]);
+
   useEffect(() => {
     fetchAllUnits();
     fetchUserPermissions();
@@ -327,11 +330,10 @@ export default function Finance() {
       fetchActiveShift(selectedUnitId);
       fetchTransactions(selectedUnitId);
       fetchShiftHistory(selectedUnitId);
-      fetchInventory(selectedUnitId);
     }
-  }, [selectedUnitId, fetchInstallments, fetchActiveShift, fetchTransactions, fetchShiftHistory, fetchInventory]);
+  }, [selectedUnitId, fetchInstallments, fetchActiveShift, fetchTransactions, fetchShiftHistory]);
 
-  const handleTabChange = (tab: 'receivables' | 'cash_flow' | 'cash_control') => {
+  const handleTabChange = (tab: 'receivables' | 'cash_control') => {
     setActiveTab(tab);
     setStatusFilter('all');
   };
@@ -372,8 +374,8 @@ export default function Finance() {
         inst.paid_at ? formatPaymentDate(inst.paid_at) : '',
         inst.payment_method ? (
           inst.payment_method === 'pix' ? 'PIX' :
-          inst.payment_method === 'money' ? 'Dinheiro' :
-          inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
+            inst.payment_method === 'money' ? 'Dinheiro' :
+              inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
         ) : ''
       ];
     });
@@ -391,7 +393,7 @@ export default function Finance() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     showNotification('success', 'Relatório CSV exportado com sucesso!');
   };
 
@@ -415,11 +417,11 @@ export default function Finance() {
 
   const customerGroups = useMemo(() => {
     const groups: { [key: string]: CustomerGroup } = {};
-    
+
     installments.forEach(inst => {
       const custId = inst.customer_id || 'unknown';
       const custName = inst.customer_name || 'Cliente Sem Nome';
-      
+
       if (!groups[custId]) {
         groups[custId] = {
           customerId: custId,
@@ -434,12 +436,12 @@ export default function Finance() {
           totalCount: 0
         };
       }
-      
+
       const group = groups[custId];
       group.installments.push(inst);
       group.totalValue += inst.value;
       group.totalCount += 1;
-      
+
       if (inst.status === 'paid') {
         group.totalPaid += inst.value;
         group.paidCount += 1;
@@ -447,14 +449,14 @@ export default function Finance() {
         group.totalOverdue += inst.value;
       }
     });
-    
+
     return Object.values(groups).map(group => {
       group.installments.sort((a, b) => a.number - b.number);
-      
+
       const hasBlocked = group.installments.some(i => i.status === 'blocked');
       const hasOverdue = group.installments.some(i => i.status === 'overdue');
       const allPaid = group.installments.every(i => i.status === 'paid');
-      
+
       if (hasBlocked) {
         group.status = 'blocked';
       } else if (hasOverdue) {
@@ -464,7 +466,7 @@ export default function Finance() {
       } else {
         group.status = 'pending';
       }
-      
+
       return group;
     });
   }, [installments]);
@@ -475,33 +477,33 @@ export default function Finance() {
       const dueDate = new Date(dueDateStr + 'T12:00:00');
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (dateFilter === 'today') {
         return dueDate.getFullYear() === today.getFullYear() &&
-               dueDate.getMonth() === today.getMonth() &&
-               dueDate.getDate() === today.getDate();
+          dueDate.getMonth() === today.getMonth() &&
+          dueDate.getDate() === today.getDate();
       }
-      
+
       if (dateFilter === 'week') {
         const nextWeek = new Date(today);
         nextWeek.setDate(today.getDate() + 7);
         const dueMs = dueDate.getTime();
         return dueMs >= today.getTime() && dueMs <= nextWeek.getTime();
       }
-      
+
       if (dateFilter === 'month') {
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
       }
-      
+
       return true;
     };
 
     return customerGroups.map(group => {
       const matchingInstallments = group.installments.filter(inst => {
         const matchesDate = matchesDateFilter(inst.due_date);
-        
+
         let matchesStatus = true;
         if (statusFilter === 'paid') {
           matchesStatus = inst.status === 'paid';
@@ -521,7 +523,7 @@ export default function Finance() {
       };
     }).filter(group => {
       const matchesSearch = group.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       let matchesTab = true;
       if (activeTab === 'overdue' as any) {
         matchesTab = group.status === 'overdue' || group.status === 'blocked';
@@ -626,20 +628,7 @@ export default function Finance() {
     }
   };
 
-  // Cash flow metrics
-  const totalStockCostValue = useMemo(() => {
-    return inventory.reduce((sum, item) => sum + (Number(item.cost_price || 0) * (item.stock_quantity || 0)), 0);
-  }, [inventory]);
-
-  const flowInflows = useMemo(() => {
-    return transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [transactions]);
-
-  const flowOutflows = useMemo(() => {
-    return transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [transactions]);
-
-  const netBalance = flowInflows - flowOutflows;
+  // Cash flow metrics (removed to Reports page)
 
   const handleOpenCashShift = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -735,7 +724,7 @@ export default function Finance() {
         <div class="center header">MDR INFORMÁTICA</div>
         <div class="center bold">RESUMO DE FECHAMENTO DE CAIXA</div>
         <div class="divider"></div>
-        <div class="row"><span>ID Turno:</span><span>#${shift.id.substring(0,8).toUpperCase()}</span></div>
+        <div class="row"><span>ID Turno:</span><span>#${shift.id.substring(0, 8).toUpperCase()}</span></div>
         <div class="row"><span>Abertura:</span><span>${new Date(shift.opened_at).toLocaleDateString('pt-BR')} ${new Date(shift.opened_at).toLocaleTimeString('pt-BR')}</span></div>
         <div class="row"><span>Fechamento:</span><span>${shift.closed_at ? new Date(shift.closed_at).toLocaleDateString('pt-BR') : '—'} ${shift.closed_at ? new Date(shift.closed_at).toLocaleTimeString('pt-BR') : ''}</span></div>
         <div class="row"><span>Operador:</span><span>${opName}</span></div>
@@ -767,7 +756,7 @@ export default function Finance() {
 
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
-      
+
       {/* HEADER E SELETOR DE UNIDADE */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
@@ -808,20 +797,14 @@ export default function Finance() {
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-lg">
-        <button 
+      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-md">
+        <button
           onClick={() => handleTabChange('receivables')}
           className={`flex-1 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'receivables' ? 'bg-white text-black shadow-xl shadow-white/5' : 'text-on-surface-variant hover:text-white'}`}
         >
           Recebíveis
         </button>
-        <button 
-          onClick={() => handleTabChange('cash_flow')}
-          className={`flex-1 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'cash_flow' ? 'bg-white text-black shadow-xl shadow-white/5' : 'text-on-surface-variant hover:text-white'}`}
-        >
-          Fluxo de Caixa
-        </button>
-        <button 
+        <button
           onClick={() => handleTabChange('cash_control')}
           className={`flex-1 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'cash_control' ? 'bg-white text-black shadow-xl shadow-white/5' : 'text-on-surface-variant hover:text-white'}`}
         >
@@ -842,12 +825,11 @@ export default function Finance() {
             ].map((stat, idx) => {
               const isActive = statusFilter === stat.id;
               return (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   onClick={() => setStatusFilter(stat.id as any)}
-                  className={`bg-white/[0.02] p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.04] ${
-                    isActive ? stat.activeBorder : 'border-white/5'
-                  }`}
+                  className={`bg-white/[0.02] p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.04] ${isActive ? stat.activeBorder : 'border-white/5'
+                    }`}
                 >
                   {isActive && (
                     <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
@@ -867,15 +849,15 @@ export default function Finance() {
             <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
               <div className="relative flex-1 group">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar por cliente..." 
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
                 />
               </div>
-              
+
               {/* Period Filter Dropdown */}
               <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-[220px]">
                 <Calendar size={16} className="text-on-surface-variant shrink-0" />
@@ -909,7 +891,7 @@ export default function Finance() {
                 filteredGroups.map((group) => {
                   const isExpanded = expandedCustomerId === group.customerId;
                   const percentPaid = group.totalCount > 0 ? (group.paidCount / group.totalCount) * 100 : 0;
-                  
+
                   const initials = group.customerName
                     .split(' ')
                     .slice(0, 2)
@@ -917,28 +899,27 @@ export default function Finance() {
                     .join('')
                     .toUpperCase();
 
-                  const statusColors = 
+                  const statusColors =
                     group.status === 'blocked' ? { bg: 'from-red-500/20 to-red-950/40 border-red-500/30 text-red-500', text: 'Bloqueado', badge: 'bg-red-500/10 text-red-500 border-red-500/20' } :
-                    group.status === 'overdue' ? { bg: 'from-orange-500/20 to-orange-950/40 border-orange-500/30 text-orange-500', text: 'Atrasado', badge: 'bg-orange-500/10 text-orange-500 border-orange-500/20' } :
-                    group.status === 'paid' ? { bg: 'from-green-500/20 to-green-950/40 border-green-500/30 text-green-500', text: 'Pago', badge: 'bg-green-500/10 text-green-500 border-green-500/20' } :
-                    { bg: 'from-primary/20 to-primary-container/20 border-primary/30 text-primary', text: 'Pendente', badge: 'bg-secondary/10 text-secondary border-secondary/20' };
+                      group.status === 'overdue' ? { bg: 'from-orange-500/20 to-orange-950/40 border-orange-500/30 text-orange-500', text: 'Atrasado', badge: 'bg-orange-500/10 text-orange-500 border-orange-500/20' } :
+                        group.status === 'paid' ? { bg: 'from-green-500/20 to-green-950/40 border-green-500/30 text-green-500', text: 'Pago', badge: 'bg-green-500/10 text-green-500 border-green-500/20' } :
+                          { bg: 'from-primary/20 to-primary-container/20 border-primary/30 text-primary', text: 'Pendente', badge: 'bg-secondary/10 text-secondary border-secondary/20' };
 
-                  const progressBarColor = 
+                  const progressBarColor =
                     group.status === 'blocked' ? 'bg-gradient-to-r from-red-600 to-red-400' :
-                    group.status === 'overdue' ? 'bg-gradient-to-r from-orange-600 to-orange-400' :
-                    'bg-gradient-to-r from-primary via-indigo-500 to-green-500';
+                      group.status === 'overdue' ? 'bg-gradient-to-r from-orange-600 to-orange-400' :
+                        'bg-gradient-to-r from-primary via-indigo-500 to-green-500';
 
                   return (
-                    <div 
+                    <div
                       key={group.customerId}
-                      className={`bg-white/[0.01] hover:bg-white/[0.03] border rounded-[28px] transition-all duration-300 overflow-hidden ${
-                        group.status === 'blocked' ? 'border-red-500/20 bg-red-500/[0.005] hover:bg-red-500/[0.01]' :
-                        group.status === 'overdue' ? 'border-orange-500/20 bg-orange-500/[0.005] hover:bg-orange-500/[0.01]' :
-                        isExpanded ? 'border-white/10 bg-white/[0.02] shadow-2xl' : 'border-white/5'
-                      }`}
+                      className={`bg-white/[0.01] hover:bg-white/[0.03] border rounded-[28px] transition-all duration-300 overflow-hidden ${group.status === 'blocked' ? 'border-red-500/20 bg-red-500/[0.005] hover:bg-red-500/[0.01]' :
+                          group.status === 'overdue' ? 'border-orange-500/20 bg-orange-500/[0.005] hover:bg-orange-500/[0.01]' :
+                            isExpanded ? 'border-white/10 bg-white/[0.02] shadow-2xl' : 'border-white/5'
+                        }`}
                     >
                       {/* Card Header Summary */}
-                      <div 
+                      <div
                         onClick={() => toggleExpand(group.customerId)}
                         className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 cursor-pointer select-none"
                       >
@@ -962,7 +943,7 @@ export default function Finance() {
                             <span className="text-white">{percentPaid.toFixed(0)}%</span>
                           </div>
                           <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                            <motion.div 
+                            <motion.div
                               className={`h-full rounded-full ${progressBarColor}`}
                               initial={{ width: 0 }}
                               animate={{ width: `${percentPaid}%` }}
@@ -1026,7 +1007,7 @@ export default function Finance() {
                                       const fees = calculateOverdueFees(inst);
                                       const isOverdue = fees.isLate;
                                       return (
-                                        <tr 
+                                        <tr
                                           key={inst.id}
                                           className="hover:bg-white/[0.01] transition-colors group"
                                         >
@@ -1043,9 +1024,8 @@ export default function Finance() {
                                           <td className="py-4">
                                             <div className="flex items-center gap-1.5">
                                               {isOverdue && <AlertCircle size={12} className="text-error animate-pulse" />}
-                                              <span className={`text-xs font-black tracking-tight ${
-                                                isOverdue ? 'text-error' : 'text-on-surface'
-                                              }`}>
+                                              <span className={`text-xs font-black tracking-tight ${isOverdue ? 'text-error' : 'text-on-surface'
+                                                }`}>
                                                 {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                               </span>
                                             </div>
@@ -1067,25 +1047,23 @@ export default function Finance() {
                                           </td>
                                           <td className="py-4">
                                             <div className="flex flex-col gap-1 items-start">
-                                              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${
-                                                inst.status === 'paid' ? 'bg-success/10 text-success border-success/20' :
-                                                isOverdue ? 'bg-error/10 text-error border-error/20' :
-                                                inst.status === 'pending' ? 'bg-secondary/10 text-secondary border-secondary/20' :
-                                                'bg-error/20 text-white border-error/50'
-                                              }`}>
+                                              <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${inst.status === 'paid' ? 'bg-success/10 text-success border-success/20' :
+                                                  isOverdue ? 'bg-error/10 text-error border-error/20' :
+                                                    inst.status === 'pending' ? 'bg-secondary/10 text-secondary border-secondary/20' :
+                                                      'bg-error/20 text-white border-error/50'
+                                                }`}>
                                                 <div className="w-1 h-1 rounded-full bg-current" />
-                                                {inst.status === 'paid' ? 'Pago' : 
-                                                 inst.status === 'blocked' ? 'Bloqueado' : 
-                                                 isOverdue ? 'Atrasado' : 'Pendente'}
+                                                {inst.status === 'paid' ? 'Pago' :
+                                                  inst.status === 'blocked' ? 'Bloqueado' :
+                                                    isOverdue ? 'Atrasado' : 'Pendente'}
                                               </div>
                                               {inst.status === 'paid' && inst.paid_at && (
                                                 <p className="text-[8px] text-on-surface-variant font-mono mt-0.5">
                                                   {formatPaymentDate(inst.paid_at)}
-                                                  {inst.payment_method && ` via ${
-                                                    inst.payment_method === 'pix' ? 'PIX' :
-                                                    inst.payment_method === 'money' ? 'Dinheiro' :
-                                                    inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
-                                                  }`}
+                                                  {inst.payment_method && ` via ${inst.payment_method === 'pix' ? 'PIX' :
+                                                      inst.payment_method === 'money' ? 'Dinheiro' :
+                                                        inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
+                                                    }`}
                                                 </p>
                                               )}
                                             </div>
@@ -1095,7 +1073,7 @@ export default function Finance() {
                                               {inst.status !== 'paid' && (
                                                 <>
                                                   {hasPermission(profile, 'Financeiro - Registrar Pagamento') && (
-                                                    <button 
+                                                    <button
                                                       onClick={(e) => {
                                                         e.stopPropagation();
                                                         handlePayment(inst);
@@ -1109,7 +1087,7 @@ export default function Finance() {
                                                 </>
                                               )}
                                               {inst.status === 'paid' && hasPermission(profile, 'Financeiro - Registrar Pagamento') && (
-                                                <button 
+                                                <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleRevertPayment(inst);
@@ -1121,7 +1099,7 @@ export default function Finance() {
                                                 </button>
                                               )}
                                               {/* PIX / Boleto button */}
-                                              <button 
+                                              <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   setPixModalItem(inst);
@@ -1132,7 +1110,7 @@ export default function Finance() {
                                                 <QrCode size={14} />
                                               </button>
                                               {/* WhatsApp button */}
-                                              <button 
+                                              <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleWhatsApp(inst);
@@ -1164,129 +1142,11 @@ export default function Finance() {
         </>
       )}
 
-      {/* ABA 2: FLUXO DE CAIXA */}
-      {activeTab === 'cash_flow' && (
-        <div className="space-y-8">
-          {/* Dashboard de Métricas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 border border-white/10">
-                <TrendingUp size={20} />
-              </div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Saldo Líquido</p>
-              <h3 className={`text-2xl font-black font-mono leading-none tracking-tight ${netBalance >= 0 ? 'text-green-400' : 'text-error'}`}>
-                R$ {netBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
-            </div>
-            
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success mb-4 border border-white/10">
-                <ArrowUpRight size={20} />
-              </div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Entradas</p>
-              <h3 className="text-2xl font-black font-mono text-white leading-none tracking-tight">
-                R$ {flowInflows.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
-            </div>
-
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error mb-4 border border-white/10">
-                <ArrowDownRight size={20} />
-              </div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Saídas / Despesas</p>
-              <h3 className="text-2xl font-black font-mono text-white leading-none tracking-tight">
-                R$ {flowOutflows.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
-            </div>
-
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning mb-4 border border-white/10">
-                <Smartphone size={20} />
-              </div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Custo do Estoque</p>
-              <h3 className="text-2xl font-black font-mono text-white leading-none tracking-tight">
-                R$ {totalStockCostValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
-            </div>
-          </div>
-
-          {/* Seção Lançamento Rápido & Filtro de Fluxo */}
-          <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                <FileText size={16} /> Registro de Transações
-              </h3>
-              <button
-                onClick={() => setIsManualTxOpen(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-on-primary font-black uppercase tracking-widest text-[9px] px-5 py-3.5 rounded-2xl hover:scale-[1.02] transition-all cursor-pointer"
-              >
-                <Plus size={14} /> Novo Lançamento Manual
-              </button>
-            </div>
-
-            {/* Listagem de Transações do Fluxo de Caixa */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
-                    <th className="pb-3 pl-4">Data/Hora</th>
-                    <th className="pb-3">Tipo</th>
-                    <th className="pb-3">Categoria</th>
-                    <th className="pb-3">Descrição</th>
-                    <th className="pb-3">Meio Pagto</th>
-                    <th className="pb-3 text-right pr-4">Valor</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma movimentação lançada.</td>
-                    </tr>
-                  ) : (
-                    transactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-white/[0.01] transition-colors">
-                        <td className="py-4 pl-4 text-[10px] font-mono text-on-surface-variant">
-                          {new Date(tx.created_at).toLocaleString('pt-BR')}
-                        </td>
-                        <td className="py-4">
-                          <span className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
-                            {tx.type === 'inflow' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                            {tx.type === 'inflow' ? 'Entrada' : 'Saída'}
-                          </span>
-                        </td>
-                        <td className="py-4 text-xs font-bold text-white uppercase tracking-wider">
-                          {tx.category === 'installment' ? 'Contrato' :
-                           tx.category === 'sale' ? 'Venda PDV' :
-                           tx.category === 'suprimento' ? 'Suprimento' :
-                           tx.category === 'sangria' ? 'Sangria' :
-                           tx.category === 'despesa_luz' ? 'Despesa Luz' :
-                           tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
-                        </td>
-                        <td className="py-4 text-xs text-on-surface-variant max-w-[200px] truncate" title={tx.description}>
-                          {tx.description || '—'}
-                        </td>
-                        <td className="py-4 text-[10px] font-black uppercase text-on-surface-variant">
-                          {tx.payment_method === 'pix' ? 'PIX' :
-                           tx.payment_method === 'money' ? 'Dinheiro' :
-                           tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
-                        </td>
-                        <td className={`py-4 text-right pr-4 font-mono font-black text-xs ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
-                          {tx.type === 'inflow' ? '+' : '-'} R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ABA 3: CONTROLE DE CAIXA */}
       {activeTab === 'cash_control' && (
         <div className="space-y-8">
-          
+
           {/* Estado do Caixa Ativo */}
           <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
             {!activeShift ? (
@@ -1300,7 +1160,7 @@ export default function Finance() {
                     Para iniciar o expediente e registrar suprimentos, sangrias ou recebimentos em espécie física, abra o caixa desta unidade.
                   </p>
                 </div>
-                
+
                 <form onSubmit={handleOpenCashShift} className="pt-4 border-t border-white/5 space-y-4 text-left">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Saldo Inicial / Fundo de Troco (R$)</label>
@@ -1327,7 +1187,7 @@ export default function Finance() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
+
                 {/* Lado Esquerdo: Info do Caixa Aberto */}
                 <div className="lg:col-span-1 space-y-4 border-b lg:border-b-0 lg:border-r border-white/5 pb-6 lg:pb-0 lg:pr-8">
                   <div className="flex items-center gap-3">
@@ -1365,7 +1225,7 @@ export default function Finance() {
                       </>
                     )}
                   </div>
-                  
+
                   {/* Admin Visual Verification Shortcut */}
                   {isAdmin && (
                     <div className="pt-2">
@@ -1391,12 +1251,48 @@ export default function Finance() {
                       <p className="font-bold border-t border-primary/20 pt-1 mt-1">Total Físico Esperado: R$ {Number(activeShift.expected_cash).toFixed(2)}</p>
                     </div>
                   )}
+
+                  {/* Quick Actions for cash drawer */}
+                  <div className="grid grid-cols-2 gap-2 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualTx({
+                          type: 'inflow',
+                          category: 'suprimento',
+                          amount: '',
+                          payment_method: 'money',
+                          description: ''
+                        });
+                        setIsManualTxOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-1.5 py-3.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                      <Plus size={12} /> Suprimento
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualTx({
+                          type: 'outflow',
+                          category: 'sangria',
+                          amount: '',
+                          payment_method: 'money',
+                          description: ''
+                        });
+                        setIsManualTxOpen(true);
+                      }}
+                      className="flex items-center justify-center gap-1.5 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                      <X size={12} /> Sangria
+                    </button>
+                  </div>
                 </div>
 
                 {/* Lado Direito: Formulário de Fechamento de Caixa Cego */}
                 <form onSubmit={handleCloseCashShift} className="lg:col-span-2 space-y-4">
                   <h4 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5 pl-1">
-                    <Lock size={14} /> Procedimento de Fechamento Cego
+                    <Lock size={14} /> Procedimento de Fechamento
                   </h4>
                   <p className="text-[11px] text-on-surface-variant leading-relaxed">
                     Efetue a contagem física das cédulas e moedas na gaveta e declare o valor exato abaixo. O sistema calculará divergências em segundo plano.
@@ -1418,7 +1314,7 @@ export default function Finance() {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Observações do Fechamento</label>
                       <input
@@ -1437,7 +1333,69 @@ export default function Finance() {
                   >
                     <CheckCircle2 size={14} /> Homologar Fechamento de Caixa
                   </button>
-                </form>
+                 </form>
+
+                  {/* Movimentações do Turno */}
+                  <div className="lg:col-span-3 border-t border-white/5 pt-6 space-y-4">
+                    <h4 className="text-[10px] font-black uppercase text-primary tracking-widest pl-1">
+                      Movimentações deste Turno
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
+                            <th className="pb-3 pl-4">Data/Hora</th>
+                            <th className="pb-3">Tipo</th>
+                            <th className="pb-3">Categoria</th>
+                            <th className="pb-3">Descrição</th>
+                            <th className="pb-3">Meio Pagto</th>
+                            <th className="pb-3 text-right pr-4">Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {currentShiftTransactions.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="text-center py-6 text-on-surface-variant/60 text-[9px] uppercase font-black tracking-widest">
+                                Nenhuma movimentação registrada neste turno.
+                              </td>
+                            </tr>
+                          ) : (
+                            currentShiftTransactions.map((tx) => (
+                              <tr key={tx.id} className="hover:bg-white/[0.01] transition-colors">
+                                <td className="py-3 pl-4 text-[9px] font-mono text-on-surface-variant">
+                                  {new Date(tx.created_at).toLocaleTimeString('pt-BR')}
+                                </td>
+                                <td className="py-3">
+                                  <span className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {tx.type === 'inflow' ? '+' : '-'} {tx.type === 'inflow' ? 'Entrada' : 'Saída'}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-[10px] font-bold text-white uppercase">
+                                  {tx.category === 'installment' ? 'Contrato' :
+                                   tx.category === 'sale' ? 'Venda PDV' :
+                                   tx.category === 'suprimento' ? 'Suprimento' :
+                                   tx.category === 'sangria' ? 'Sangria' :
+                                   tx.category === 'despesa_luz' ? 'Despesa Luz' :
+                                   tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
+                                </td>
+                                <td className="py-3 text-[10px] text-on-surface-variant max-w-[200px] truncate" title={tx.description}>
+                                  {tx.description || '—'}
+                                </td>
+                                <td className="py-3 text-[9px] font-black uppercase text-on-surface-variant">
+                                  {tx.payment_method === 'pix' ? 'PIX' :
+                                   tx.payment_method === 'money' ? 'Dinheiro' :
+                                   tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
+                                </td>
+                                <td className={`py-3 text-right pr-4 font-mono font-black text-[10px] ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
+                                  R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
 
               </div>
             )}
@@ -1448,7 +1406,7 @@ export default function Finance() {
             <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
               <History size={16} /> Histórico de Fechamentos de Caixa
             </h3>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
@@ -1487,9 +1445,8 @@ export default function Finance() {
                           <td className="py-4 text-right font-mono text-xs text-white">
                             R$ {Number(shift.closing_cash || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
-                          <td className={`py-4 text-right font-mono text-xs font-black ${
-                            hasDiscrepancy ? 'text-error animate-pulse' : 'text-green-400'
-                          }`}>
+                          <td className={`py-4 text-right font-mono text-xs font-black ${hasDiscrepancy ? 'text-error animate-pulse' : 'text-green-400'
+                            }`}>
                             R$ {Number(shift.difference || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             {hasDiscrepancy && ' ⚠️'}
                           </td>
@@ -1562,7 +1519,7 @@ export default function Finance() {
                       <option value="outflow">🔴 Saída (Despesa/Sangria)</option>
                     </select>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Categoria</label>
                     <select

@@ -263,13 +263,15 @@ router.get("/shifts/history", async (req, res) => {
 // GET /api/finance/transactions
 router.get("/transactions", async (req, res) => {
   const { unit_id } = req.query;
-  if (!unit_id) return res.status(400).json({ error: "unit_id is required" });
-
-  const { data, error } = await supabase
+  let query = supabase
     .from('cash_transactions')
-    .select('*, created_by:profiles!cash_transactions_created_by_fkey(full_name)')
-    .eq('unit_id', unit_id)
-    .order('created_at', { ascending: false });
+    .select('*, created_by:profiles!cash_transactions_created_by_fkey(full_name)');
+
+  if (unit_id && unit_id !== 'all') {
+    query = query.eq('unit_id', unit_id);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
