@@ -73,16 +73,30 @@ export default function CreditAnalysis() {
     fetchAdmins();
   }, [fetchCustomers]);
 
-  const pendingCustomers = customers.filter(c => 
-    c.registration_status === 'PRE_CADASTRO' || 
-    c.credit_status === 'EM_ANALISE'
-  );
+  const [listFilter, setListFilter] = useState<'pending' | 'history'>('pending');
 
-  const filteredCustomers = pendingCustomers.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.cpf.includes(searchTerm) ||
-    c.phone.includes(searchTerm)
-  );
+  const pendingCount = useMemo(() => {
+    return customers.filter(c => c.registration_status === 'PRE_CADASTRO' || c.credit_status === 'EM_ANALISE').length;
+  }, [customers]);
+
+  const historyCount = useMemo(() => {
+    return customers.filter(c => c.registration_status !== 'PRE_CADASTRO' && c.credit_status !== 'EM_ANALISE').length;
+  }, [customers]);
+
+  const displayCustomers = useMemo(() => {
+    return customers.filter(c => {
+      const isPending = c.registration_status === 'PRE_CADASTRO' || c.credit_status === 'EM_ANALISE';
+      return listFilter === 'pending' ? isPending : !isPending;
+    });
+  }, [customers, listFilter]);
+
+  const filteredCustomers = useMemo(() => {
+    return displayCustomers.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.cpf.includes(searchTerm) ||
+      (c.phone && c.phone.includes(searchTerm))
+    );
+  }, [displayCustomers, searchTerm]);
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
 
@@ -557,14 +571,36 @@ export default function CreditAnalysis() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* COLUNA 1: LISTAGEM DE PENDENTES */}
+        {/* COLUNA 1: LISTAGEM DE CLIENTES E FILTRO */}
         <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
-          <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
-            <Users size={16} /> Solicitações Pendentes ({pendingCustomers.length})
-          </h3>
+          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setListFilter('pending'); setSelectedCustomerId(null); }}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all text-center",
+                listFilter === 'pending'
+                  ? "bg-primary text-on-primary shadow-md"
+                  : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Pendentes ({pendingCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => { setListFilter('history'); setSelectedCustomerId(null); }}
+              className={cn(
+                "flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all text-center",
+                listFilter === 'history'
+                  ? "bg-primary text-on-primary shadow-md"
+                  : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Histórico ({historyCount})
+            </button>
+          </div>
           
-          <div className="relative group">
+          <div className="relative group shrink-0">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
             <input 
               type="text" 
@@ -574,13 +610,17 @@ export default function CreditAnalysis() {
               className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-10 pr-4 py-3 text-xs focus:border-white outline-none transition-all font-display"
             />
           </div>
-
+ 
           <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
             {filteredCustomers.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 opacity-40 text-center gap-2">
                 <CheckCircle2 size={32} className="text-success" />
                 <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Tudo Limpo!</p>
-                <p className="text-[9px] text-on-surface-variant max-w-[200px]">Nenhum pré-cadastro aguardando análise de crédito no momento.</p>
+                <p className="text-[9px] text-on-surface-variant max-w-[200px]">
+                  {listFilter === 'pending' 
+                    ? 'Nenhum pré-cadastro aguardando análise de crédito no momento.' 
+                    : 'Nenhum registro no histórico de análises de crédito.'}
+                </p>
               </div>
             ) : (
               filteredCustomers.map(cust => (
@@ -595,10 +635,18 @@ export default function CreditAnalysis() {
                 >
                   <div className="flex justify-between items-start w-full">
                     <span className="text-xs font-black uppercase truncate max-w-[150px]">{cust.name}</span>
-                    <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                      cust.credit_status === 'EM_ANALISE' ? 'bg-warning/15 text-warning border border-warning/20' : 'bg-white/5 text-on-surface-variant'
-                    }`}>
-                      {cust.credit_status === 'EM_ANALISE' ? 'Em Análise' : 'Pré-Cadastro'}
+                    <span className={cn(
+                      "inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider",
+                      cust.credit_status === 'APROVADO' ? 'bg-success/15 text-success border border-success/20' :
+                      cust.credit_status === 'APROVADO_COM_ENTRADA' ? 'bg-warning/15 text-warning border border-warning/20' :
+                      cust.credit_status === 'REPROVADO' ? 'bg-error/15 text-error border border-error/20' :
+                      cust.credit_status === 'EM_ANALISE' ? 'bg-warning/15 text-warning border border-warning/20' : 
+                      'bg-white/5 text-on-surface-variant'
+                    )}>
+                      {cust.credit_status === 'APROVADO' ? 'Aprovado' :
+                       cust.credit_status === 'APROVADO_COM_ENTRADA' ? 'Entrada' :
+                       cust.credit_status === 'REPROVADO' ? 'Reprovado' :
+                       cust.credit_status === 'EM_ANALISE' ? 'Em Análise' : 'Pré-Cadastro'}
                     </span>
                   </div>
                   <div className="flex justify-between text-[9px] font-mono opacity-70">
