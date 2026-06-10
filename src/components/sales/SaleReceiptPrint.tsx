@@ -64,16 +64,22 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         <div className="copy-indicator">{copyTitle}</div>
 
         {/* Company Header */}
-        <div className="header-center">
-          <div className="brand-name">MDR</div>
-          <div className="brand-sub">INFORMÁTICA & CELULARES</div>
-          <div className="unit-details">
-            {unit.name}<br />
-            {unit.cnpj && <>CNPJ: {unit.cnpj}<br /></>}
-            {unit.address && <>{unit.address}<br /></>}
-            {unit.phone && <>Tel: {formatPhone(unit.phone)}</>}
-          </div>
-        </div>
+        {(() => {
+          const cleanUnitName = (unit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
+          return (
+            <div className="header-center">
+              <div className="brand-name">MDR</div>
+              <div className="brand-sub">INFORMÁTICA & CELULARES</div>
+              <div className="unit-details" style={{ fontSize: '9px', lineHeight: '1.25', color: '#333' }}>
+                <strong>LOJA: {cleanUnitName}</strong>
+                {unit.cnpj && <> | CNPJ: {unit.cnpj}</>}
+                {unit.phone && <> | Tel: {formatPhone(unit.phone)}</>}
+                <br />
+                {unit.address}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="double-divider"></div>
 
@@ -301,14 +307,15 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           margin-bottom: 6px;
         }
         .brand-name {
-          font-size: 22px;
+          font-size: 18px;
           font-weight: 900;
           letter-spacing: -1px;
+          margin-bottom: 2px;
         }
         .brand-sub {
           font-size: 8px;
           letter-spacing: 1px;
-          margin-bottom: 4px;
+          margin-bottom: 6px;
         }
         .unit-details {
           font-size: 9px;
