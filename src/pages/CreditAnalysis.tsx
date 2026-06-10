@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, Search, ShieldCheck, DollarSign, Loader2, 
   AlertCircle, CheckCircle2, User, Phone, MapPin, 
-  FileText, ExternalLink, ShieldAlert, Save, UserCheck, Smartphone
+  FileText, ExternalLink, ShieldAlert, Save, UserCheck, Smartphone, CheckSquare, Square, CreditCard, AlertTriangle
 } from 'lucide-react';
-import { useCustomerStore, Customer } from '../store/useCustomerStore';
+import { useCustomerStore } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatCPF, formatPhone } from '../lib/utils';
 import { supabase } from '../lib/supabase';
+import { cn } from '../lib/utils';
 
 export default function CreditAnalysis() {
   const { customers, fetchCustomers, updateCustomer } = useCustomerStore();
@@ -18,10 +19,16 @@ export default function CreditAnalysis() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   
-  // Bacen Query States
-  const [queryingBacen, setQueryingBacen] = useState(false);
-  const [bacenData, setBacenData] = useState<any | null>(null);
-  const [bacenError, setBacenError] = useState<string | null>(null);
+  // Selection of services
+  const [selectedServices, setSelectedServices] = useState<string[]>(['cadastro', 'score', 'bacen', 'protesto', 'boavista']);
+  
+  // Query results and states
+  const [isQuerying, setIsQuerying] = useState(false);
+  const [queryResults, setQueryResults] = useState<any | null>(null);
+  const [queryErrors, setQueryErrors] = useState<Record<string, string>>({});
+  
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<string>('cadastro');
 
   // Form States
   const [formData, setFormData] = useState({
@@ -37,6 +44,14 @@ export default function CreditAnalysis() {
 
   const [admins, setAdmins] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const serviceDetails = [
+    { id: 'cadastro', name: 'Cadastro PF Plus', price: 0.36, desc: 'Dados cadastrais e familiares' },
+    { id: 'score', name: 'Score Crédito - QUOD', price: 1.98, desc: 'Perfil e pontuação de risco' },
+    { id: 'bacen', name: 'SCR Resumo - BACEN', price: 3.90, desc: 'Registros e pendências financeiras' },
+    { id: 'protesto', name: 'Protesto Nacional - IEPTB', price: 3.50, desc: 'Pesquisa de protestos em cartórios' },
+    { id: 'boavista', name: 'Boa Vista Acerta PF', price: 14.03, desc: 'Completo com pendências e restrições' }
+  ];
 
   useEffect(() => {
     fetchCustomers();
@@ -84,70 +99,126 @@ export default function CreditAnalysis() {
         responsible_analyst_id: selectedCustomer.responsible_analyst_id || profile?.id || '',
         notes: selectedCustomer.notes || ''
       });
-      setBacenData(null);
-      setBacenError(null);
+      setQueryResults(null);
+      setQueryErrors({});
     }
   }, [selectedCustomer, profile?.id]);
 
-  const handleQueryBacen = async () => {
+  const toggleService = (id: string) => {
+    setSelectedServices(prev => 
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  const totalCost = useMemo(() => {
+    return selectedServices.reduce((sum, s) => {
+      const srv = serviceDetails.find(d => d.id === s);
+      return sum + (srv?.price || 0);
+    }, 0);
+  }, [selectedServices]);
+
+  const handleExecuteQueries = async () => {
     if (!selectedCustomerId) return;
+    if (selectedServices.length === 0) {
+      showNotification('error', 'Selecione pelo menos uma consulta');
+      return;
+    }
     
-    setQueryingBacen(true);
-    setBacenError(null);
-    setBacenData(null);
+    setIsQuerying(true);
+    setQueryErrors({});
+    setQueryResults(null);
 
     try {
-      const response = await fetch(`/api/customers/${selectedCustomerId}/bacen`);
+      const response = await fetch(`/api/customers/${selectedCustomerId}/query-credit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ services: selectedServices })
+      });
       if (!response.ok) {
-        throw new Error('Falha ao consultar API do Bacen');
+        throw new Error('Falha ao executar consultas na API');
       }
       const data = await response.json();
       
-      if (data.error || data.status === false) {
-        throw new Error(data.message || data.error || 'Erro retornado pela API Direct Data');
+      setQueryResults(data);
+
+      // Collect errors
+      const errors: Record<string, string> = {};
+      selectedServices.forEach(s => {
+        if (data[s]?.error) {
+          errors[s] = data[s].error;
+        }
+      });
+      setQueryErrors(errors);
+
+      // Set active tab to first non-error service
+      const firstActive = selectedServices.find(s => !data[s]?.error);
+      if (firstActive) {
+        setActiveTab(firstActive);
+      } else {
+        setActiveTab(selectedServices[0]);
       }
-      
-      setBacenData(data);
-      
-      // Auto decision logic suggestion
-      const resumo = data.retorno?.resumo || data.resumo || {};
-      const vencido = Number(resumo.vencido || resumo.Vencido || 0);
-      const prejuizo = Number(resumo.prejuizo || resumo.Prejuizo || 0);
-      
+
+      // Auto decision logic based on results
       let suggestedClass: 'BOM' | 'MEDIO' | 'RUIM' = 'BOM';
       let suggestedStatus: typeof formData.credit_status = 'APROVADO';
       let suggestedLimit = 3000;
       let suggestedDownPayment = 0;
-      
-      if (prejuizo > 0 || vencido > 1000) {
+
+      // Bacen parsing
+      const bacenRes = data.bacen?.retorno?.resumo || data.bacen?.resumo || {};
+      const vencido = Number(bacenRes.vencido || bacenRes.Vencido || 0);
+      const prejuizo = Number(bacenRes.prejuizo || bacenRes.Prejuizo || 0);
+
+      // Score QUOD parsing
+      const scoreRes = data.score?.retorno?.scores?.ocorrencias?.[0] || data.score?.scores?.ocorrencias?.[0] || {};
+      const scoreNum = Number(scoreRes.score) || 1000;
+
+      // Boa Vista parsing
+      const boavistaRes = data.boavista?.retorno || {};
+      const bvRestricoes = boavistaRes.restricoes?.ocorrencias || [];
+      const bvPendencias = boavistaRes.pendenciasFinanceiras?.ocorrencias || [];
+      const bvProtestos = boavistaRes.protestos?.ocorrencias || [];
+
+      if (
+        prejuizo > 0 || 
+        vencido > 1000 || 
+        scoreNum < 300 || 
+        bvRestricoes.length > 5 || 
+        bvPendencias.length > 5
+      ) {
         suggestedClass = 'RUIM';
         suggestedStatus = 'REPROVADO';
         suggestedLimit = 0;
         suggestedDownPayment = 0;
-      } else if (vencido > 0 && vencido <= 1000) {
+      } else if (
+        vencido > 0 || 
+        scoreNum < 600 || 
+        bvRestricoes.length > 0 || 
+        bvPendencias.length > 0 || 
+        bvProtestos.length > 0
+      ) {
         suggestedClass = 'MEDIO';
         suggestedStatus = 'APROVADO_COM_ENTRADA';
         suggestedLimit = 1500;
         suggestedDownPayment = 300;
       }
-      
+
       setFormData(prev => ({
         ...prev,
         classification: suggestedClass,
         credit_limit: suggestedLimit,
         suggested_down_payment: suggestedDownPayment,
         credit_status: suggestedStatus,
-        approved_for_purchase: false,
+        approved_for_purchase: suggestedStatus === 'APROVADO' || suggestedStatus === 'APROVADO_COM_ENTRADA',
         registration_status: suggestedStatus === 'REPROVADO' ? 'REPROVADO' : 'APROVADO'
       }));
 
-      showNotification('success', 'Consulta ao Bacen concluída com sucesso!');
+      showNotification('success', 'Consultas de crédito concluídas com sucesso!');
     } catch (err: any) {
-      console.error('Bacen query error:', err);
-      setBacenError(err.message || 'Erro de conexão com o servidor');
-      showNotification('error', `Erro na consulta Bacen: ${err.message}`);
+      console.error('Execute queries error:', err);
+      showNotification('error', `Erro ao executar consultas: ${err.message}`);
     } finally {
-      setQueryingBacen(false);
+      setIsQuerying(false);
     }
   };
 
@@ -228,7 +299,8 @@ export default function CreditAnalysis() {
       }
 
       setSelectedCustomerId(null);
-      setBacenData(null);
+      setQueryResults(null);
+      setQueryErrors({});
       await fetchCustomers();
     } catch (err) {
       showNotification('error', 'Erro ao salvar decisão de crédito');
@@ -237,23 +309,245 @@ export default function CreditAnalysis() {
     }
   };
 
-  // Helper function to parse desired_device JSON safely
   const parseDesiredDevices = (desired_device: string | undefined | null): any[] | null => {
     if (!desired_device) return null;
     try {
       const parsed = JSON.parse(desired_device);
       if (Array.isArray(parsed)) return parsed;
     } catch (e) {
-      // not JSON, legacy string
+      // ignore
     }
     return null;
   };
 
-  // Helper values for Bacen dashboard
-  const resumo = bacenData?.retorno?.resumo || bacenData?.resumo;
-  const vencidoBacen = resumo ? Number(resumo.vencido || resumo.Vencido || 0) : 0;
-  const prejuizoBacen = resumo ? Number(resumo.prejuizo || resumo.Prejuizo || 0) : 0;
-  const aVencerBacen = resumo ? Number(resumo.aVencer || resumo.AVencer || 0) : 0;
+  // Helper renderers for active query tabs
+  const renderTabContent = () => {
+    if (!queryResults) return null;
+
+    const data = queryResults[activeTab];
+    if (!data) return <div className="text-center py-10 opacity-60">Nenhum dado selecionado ou pendente de consulta.</div>;
+    
+    if (queryErrors[activeTab]) {
+      return (
+        <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl text-red-400 flex items-start gap-3">
+          <ShieldAlert size={20} className="shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-sm uppercase">Falha na consulta</h4>
+            <p className="text-[11px] leading-relaxed mt-1">{queryErrors[activeTab]}</p>
+          </div>
+        </div>
+      );
+    }
+
+    const retorno = data.retorno || data;
+
+    switch (activeTab) {
+      case 'cadastro':
+        return (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <h4 className="text-[10px] font-black text-primary uppercase tracking-widest pl-1">Informações Cadastrais (Plus)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
+                <span className="text-[8px] text-on-surface-variant uppercase tracking-widest font-black block">Nome Completo</span>
+                <span className="text-xs font-bold text-white uppercase">{retorno.nome || selectedCustomer?.name}</span>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
+                <span className="text-[8px] text-on-surface-variant uppercase tracking-widest font-black block">Nome da Mãe</span>
+                <span className="text-xs font-bold text-white uppercase">{retorno.mae || 'NÃO INFORMADO'}</span>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
+                <span className="text-[8px] text-on-surface-variant uppercase tracking-widest font-black block">Data de Nascimento</span>
+                <span className="text-xs font-bold text-white">{retorno.nascimento ? new Date(retorno.nascimento).toLocaleDateString('pt-BR') : '—'}</span>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
+                <span className="text-[8px] text-on-surface-variant uppercase tracking-widest font-black block">Situação Receita Federal</span>
+                <span className="text-xs font-bold text-green-400 uppercase">{retorno.cPFSituacao || retorno.cpfSituacao || 'REGULAR'}</span>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
+                <span className="text-[8px] text-on-surface-variant uppercase tracking-widest font-black block">Estado Civil</span>
+                <span className="text-xs font-bold text-white uppercase">{retorno.estadoCivil || '—'}</span>
+              </div>
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 space-y-1">
+                <span className="text-[8px] text-on-surface-variant uppercase tracking-widest font-black block">Sexo</span>
+                <span className="text-xs font-bold text-white uppercase">{retorno.sexo || '—'}</span>
+              </div>
+            </div>
+            {retorno.enderecos && retorno.enderecos.length > 0 && (
+              <div className="space-y-2">
+                <h5 className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1 mt-4">Endereços Vinculados</h5>
+                <div className="space-y-2">
+                  {retorno.enderecos.map((addr: any, idx: number) => (
+                    <div key={idx} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex gap-3 items-center">
+                      <MapPin size={16} className="text-primary shrink-0" />
+                      <span className="text-xs text-white">
+                        {addr.logradouro}, {addr.numero} {addr.complemento ? `- ${addr.complemento}` : ''} - {addr.bairro}, {addr.cidade}/{addr.uf} - CEP: {addr.cep}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'score':
+        const scoreVal = Number(retorno.scores?.ocorrencias?.[0]?.score || retorno.scores?.[0]?.score || 0);
+        const riskLabel = retorno.scores?.ocorrencias?.[0]?.risco || retorno.scores?.[0]?.risco || 'MÉDIO';
+        return (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <h4 className="text-[10px] font-black text-primary uppercase tracking-widest pl-1">Score de Crédito (QUOD)</h4>
+            <div className="flex flex-col sm:flex-row items-center gap-6 bg-white/5 border border-white/5 rounded-3xl p-6">
+              <div className="relative w-28 h-28 rounded-full border-4 border-white/5 flex flex-col items-center justify-center">
+                <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Score</span>
+                <span className={cn(
+                  "text-3xl font-black font-mono mt-1",
+                  scoreVal >= 700 ? "text-green-400" : scoreVal >= 400 ? "text-amber-400" : "text-red-400"
+                )}>
+                  {scoreVal}
+                </span>
+              </div>
+              <div className="space-y-2 flex-1 text-center sm:text-left">
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest leading-none">Classificação de Risco</span>
+                <h4 className={cn(
+                  "text-lg font-black uppercase leading-tight",
+                  scoreVal >= 700 ? "text-green-400" : scoreVal >= 400 ? "text-amber-400" : "text-red-400"
+                )}>
+                  Risco {riskLabel}
+                </h4>
+                <p className="text-xs text-on-surface-variant leading-relaxed">
+                  {retorno.scores?.ocorrencias?.[0]?.texto || 'Pontuação de crédito calculada com base no comportamento de consumo e adimplência.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'bacen':
+        const resumoBacen = retorno.resumo || {};
+        const aVencer = Number(resumoBacen.vencido || resumoBacen.Vencido || 0);
+        const vencido = Number(resumoBacen.vencido || resumoBacen.Vencido || 0);
+        const prejuizo = Number(resumoBacen.prejuizo || resumoBacen.Prejuizo || 0);
+        return (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <h4 className="text-[10px] font-black text-primary uppercase tracking-widest pl-1">SCR Resumo Analítico (BACEN)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/5 border border-white/5 rounded-3xl p-5 flex flex-col justify-between min-h-[100px]">
+                <span className="text-[8px] font-black text-green-400 uppercase tracking-widest">A Vencer (Crédito Ativo)</span>
+                <h4 className="text-xl font-black text-white font-mono leading-none mt-2">
+                  R$ {aVencer.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h4>
+              </div>
+              <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
+                vencido > 0 ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/5 text-on-surface-variant'
+              }`}>
+                <span className="text-[8px] font-black uppercase tracking-widest">Dívida Vencida (Atraso)</span>
+                <h4 className={`text-xl font-black font-mono leading-none mt-2 ${vencido > 0 ? 'text-amber-400' : 'text-white'}`}>
+                  R$ {vencido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h4>
+              </div>
+              <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
+                prejuizo > 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-white/5 border-white/5 text-on-surface-variant'
+              }`}>
+                <span className="text-[8px] font-black uppercase tracking-widest">Prejuízos (Financeiras)</span>
+                <h4 className={`text-xl font-black font-mono leading-none mt-2 ${prejuizo > 0 ? 'text-red-400' : 'text-white'}`}>
+                  R$ {prejuizo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h4>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'protesto':
+        const constam = retorno.constamProtestos;
+        const totalProtestos = retorno.numeroTotalProtestos || 0;
+        return (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <h4 className="text-[10px] font-black text-primary uppercase tracking-widest pl-1">Protestos Nacionais (IEPTB)</h4>
+            {constam ? (
+              <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl text-red-400 flex items-start gap-4">
+                <AlertTriangle size={24} className="shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm uppercase leading-none">Protestos Encontrados</h4>
+                  <p className="text-xs leading-relaxed text-on-surface-variant">
+                    Foram identificados um total de <strong className="text-red-400 font-mono">{totalProtestos}</strong> protestos ativos no banco de dados do IEPTB.
+                  </p>
+                  {retorno.valorTotalProtestos && (
+                    <p className="text-xs font-mono text-white font-bold mt-1">Valor Total: R$ {retorno.valorTotalProtestos}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-6 bg-green-500/10 border border-green-500/20 rounded-3xl text-green-400 flex items-start gap-4">
+                <CheckCircle2 size={24} className="shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h4 className="font-bold text-sm uppercase leading-none">Nada Consta</h4>
+                  <p className="text-xs leading-relaxed text-on-surface-variant">Nenhum protesto ativo foi localizado nos cartórios integrados ao IEPTB Online.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'boavista':
+        const restricoes = retorno.restricoes?.ocorrencias || [];
+        const pendencias = retorno.pendenciasFinanceiras?.ocorrencias || [];
+        const protestosBv = retorno.protestos?.ocorrencias || [];
+        return (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <h4 className="text-[10px] font-black text-primary uppercase tracking-widest pl-1">Acerta Completo (Boa Vista)</h4>
+            
+            {/* Resumo Rápido */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={cn(
+                "p-4 border rounded-2xl flex flex-col justify-between min-h-[80px]",
+                restricoes.length > 0 ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-on-surface-variant"
+              )}>
+                <span className="text-[8px] font-black uppercase tracking-widest">Restrições Comerciais</span>
+                <h4 className="text-lg font-black font-mono leading-none mt-1.5">{restricoes.length} ocorrências</h4>
+              </div>
+              <div className={cn(
+                "p-4 border rounded-2xl flex flex-col justify-between min-h-[80px]",
+                pendencias.length > 0 ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/5 text-on-surface-variant"
+              )}>
+                <span className="text-[8px] font-black uppercase tracking-widest">Pendências Financeiras</span>
+                <h4 className="text-lg font-black font-mono leading-none mt-1.5">{pendencias.length} ocorrências</h4>
+              </div>
+              <div className={cn(
+                "p-4 border rounded-2xl flex flex-col justify-between min-h-[80px]",
+                protestosBv.length > 0 ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-on-surface-variant"
+              )}>
+                <span className="text-[8px] font-black uppercase tracking-widest">Protestos Declarados</span>
+                <h4 className="text-lg font-black font-mono leading-none mt-1.5">{protestosBv.length} ocorrências</h4>
+              </div>
+            </div>
+
+            {/* Pendências detalhadas */}
+            {pendencias.length > 0 && (
+              <div className="space-y-3">
+                <h5 className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Detalhes das Pendências</h5>
+                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                  {pendencias.map((pend: any, idx: number) => (
+                    <div key={idx} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-white uppercase">{pend.credor || 'Credor Não Informado'}</p>
+                        <p className="text-[9px] text-on-surface-variant mt-0.5 font-mono">Contrato: {pend.contrato || '—'} | Origem: {pend.origem || '—'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-red-400 font-mono">R$ {Number(pend.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-[9px] text-on-surface-variant mt-0.5 font-mono">Vencimento: {pend.dataVencimento || '—'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
@@ -328,9 +622,8 @@ export default function CreditAnalysis() {
           ) : (
             <div className="space-y-6">
 
-              {/* ── Card Dados do Cliente ── */}
+              {/* Card Dados do Cliente & Seletor de Consultas */}
               <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
-                {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-primary font-black uppercase text-lg border border-white/10">
@@ -341,100 +634,62 @@ export default function CreditAnalysis() {
                       <p className="text-[10px] text-on-surface-variant font-mono uppercase mt-0.5">CPF: {formatCPF(selectedCustomer.cpf)}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleQueryBacen}
-                    disabled={queryingBacen}
-                    className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-3 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-                  >
-                    {queryingBacen ? (
-                      <><Loader2 className="animate-spin" size={14} /> Consultando SCR Bacen...</>
-                    ) : (
-                      <><ShieldCheck size={14} /> Consultar SCR Bacen</>
-                    )}
-                  </button>
                 </div>
 
-                {/* Contatos */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
-                    <Phone size={14} className="opacity-40 text-primary" />
-                    <div>
-                      <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Celular WhatsApp</p>
-                      <p className="font-bold font-mono mt-0.5">{formatPhone(selectedCustomer.phone)}</p>
-                    </div>
-                  </div>
-                  
-                  {selectedCustomer.address && (
-                    <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
-                      <MapPin size={14} className="opacity-40 text-primary" />
-                      <div className="min-w-0">
-                        <p className="text-[8px] font-black text-on-surface-variant tracking-wider leading-none">Endereço Declarado</p>
-                        <p className="font-bold truncate mt-0.5">
-                          {selectedCustomer.address}
-                          {selectedCustomer.address_number ? `, ${selectedCustomer.address_number}` : ''}
-                          {selectedCustomer.city ? ` - ${selectedCustomer.city}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Simulação de Venda (Pré-venda) */}
-                {(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
-                  <div className="pt-4 border-t border-white/5 space-y-4">
-                    <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest">Simulação de Venda (Pré-venda)</p>
-                    
-                    {/* Lista de aparelhos */}
-                    <div className="bg-white/5 border border-white/10 rounded-3xl p-4">
-                      <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-wider mb-2">Aparelhos Solicitados</p>
-                      {(() => {
-                        const devices = parseDesiredDevices(selectedCustomer.desired_device);
-                        if (devices && devices.length > 0) {
-                          return (
-                            <div className="divide-y divide-white/5">
-                              {devices.map((device: any, idx: number) => (
-                                <div key={idx} className="py-2.5 flex items-center justify-between text-xs first:pt-0 last:pb-0">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="p-1.5 bg-primary/10 border border-primary/20 rounded-lg text-primary">
-                                      <Smartphone size={14} />
-                                    </div>
-                                    <div>
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-bold text-white">{device.model}</span>
-                                        {device.brand && (
-                                          <span className="text-[9px] text-on-surface-variant uppercase tracking-wider">({device.brand})</span>
-                                        )}
-                                        {device.store_name && (
-                                          <span className="px-1.5 py-0.5 bg-primary/15 border border-primary/30 text-primary rounded text-[8px] font-black uppercase tracking-wider">
-                                            {device.store_name}
-                                          </span>
-                                        )}
-                                      </div>
-                                      {(device.quantity || 1) > 1 && (
-                                        <p className="text-[9px] text-on-surface-variant/70 mt-0.5">
-                                          {device.quantity}x — {Number(device.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} cada
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span className="font-mono font-bold text-white">
-                                    {(Number(device.price || 0) * (device.quantity || 1)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        }
-                        return (
-                          <div className="flex items-center gap-2.5 text-xs text-white">
-                            <Smartphone size={14} className="text-primary" />
-                            <span className="font-bold">{selectedCustomer.desired_device || 'Não informado'}</span>
+                {/* Seletores de Consulta com Custo Estimado */}
+                <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+                  <span className="text-[9px] font-black text-primary uppercase tracking-widest block">Selecione os Relatórios a Consultar</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {serviceDetails.map(srv => {
+                      const isSelected = selectedServices.includes(srv.id);
+                      return (
+                        <button
+                          key={srv.id}
+                          type="button"
+                          onClick={() => toggleService(srv.id)}
+                          className={cn(
+                            "flex items-start gap-3 p-4 rounded-2xl border text-left transition-all",
+                            isSelected 
+                              ? "bg-primary-container/20 border-primary text-white" 
+                              : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/[0.03]"
+                          )}
+                        >
+                          <div className="mt-0.5 text-primary shrink-0">
+                            {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
                           </div>
-                        );
-                      })()}
-                    </div>
+                          <div>
+                            <span className="text-xs font-bold block">{srv.name}</span>
+                            <span className="text-[9px] text-on-surface-variant/70 leading-normal block mt-0.5">{srv.desc}</span>
+                            <span className="text-[10px] font-mono font-bold text-primary block mt-1">Cost: R$ {srv.price.toFixed(2)}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                    {/* Três cards de resumo financeiro */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-2 text-xs">
+                      <CreditCard size={16} className="text-primary" />
+                      <span>Custo Total da Consulta: <strong className="text-white font-mono">R$ {totalCost.toFixed(2)}</strong></span>
+                    </div>
+                    <button
+                      onClick={handleExecuteQueries}
+                      disabled={isQuerying || selectedServices.length === 0}
+                      className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                    >
+                      {isQuerying ? (
+                        <><Loader2 className="animate-spin" size={14} /> Consultando Direct Data...</>
+                      ) : (
+                        <><ShieldCheck size={14} /> Realizar Consultas</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Simulação de Venda */}
+                {(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
+                  <div className="pt-2 border-t border-white/5 space-y-4">
+                    <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest">Simulação de Venda (Pré-venda)</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
                         <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Crédito Necessário</span>
@@ -463,38 +718,43 @@ export default function CreditAnalysis() {
                     </div>
                   </div>
                 )}
-
-                {/* Documentos Anexados */}
-                {(selectedCustomer.document_id_url || selectedCustomer.document_address_url || selectedCustomer.document_income_url) && (
-                  <div className="pt-2">
-                    <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest mb-3">Documentos Anexados</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {[
-                        { label: 'CNH / RG', key: 'document_id_url' as const },
-                        { label: 'Comp. Residência', key: 'document_address_url' as const },
-                        { label: 'Comp. Renda', key: 'document_income_url' as const }
-                      ].map(doc => {
-                        const url = selectedCustomer[doc.key];
-                        if (!url) return null;
-                        return (
-                          <a
-                            key={doc.key}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-wider hover:bg-white/10 hover:border-primary/30 transition-all text-on-surface hover:text-white"
-                          >
-                            <span className="flex items-center gap-2"><FileText size={14} className="text-primary" /> {doc.label}</span>
-                            <ExternalLink size={12} className="opacity-60" />
-                          </a>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* ── Formulário de Decisão e Homologação de Crédito ── */}
+              {/* Painel de Resultados por Abas */}
+              {queryResults && (
+                <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+                  {/* Tabs Selector */}
+                  <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar border-b border-white/5">
+                    {selectedServices.map(srvId => {
+                      const srv = serviceDetails.find(d => d.id === srvId);
+                      const hasErr = !!queryErrors[srvId];
+                      return (
+                        <button
+                          key={srvId}
+                          type="button"
+                          onClick={() => setActiveTab(srvId)}
+                          className={cn(
+                            "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shrink-0 border",
+                            activeTab === srvId
+                              ? "bg-primary border-primary text-on-primary shadow-lg"
+                              : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/5",
+                            hasErr && activeTab !== srvId && "border-red-500/30 text-red-400"
+                          )}
+                        >
+                          {srv?.name} {hasErr && '⚠️'}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tab Render Body */}
+                  <div className="p-2">
+                    {renderTabContent()}
+                  </div>
+                </div>
+              )}
+
+              {/* Formulário de Decisão e Homologação de Crédito */}
               <form onSubmit={handleSubmit} className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
                   <UserCheck size={16} /> Decisão e Homologação de Crédito
@@ -612,7 +872,7 @@ export default function CreditAnalysis() {
                 <div className="flex gap-4 pt-4 border-t border-white/5">
                   <button 
                     type="button"
-                    onClick={() => { setSelectedCustomerId(null); setBacenData(null); }}
+                    onClick={() => { setSelectedCustomerId(null); setQueryResults(null); setQueryErrors({}); }}
                     className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
                   >
                     Voltar
@@ -630,86 +890,6 @@ export default function CreditAnalysis() {
                   </button>
                 </div>
               </form>
-
-              {/* ── Painel do SCR Bacen ── */}
-              {queryingBacen && (
-                <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-12 text-center flex flex-col items-center justify-center gap-4">
-                  <Loader2 className="animate-spin text-primary" size={40} />
-                  <h4 className="text-xs font-black text-on-surface uppercase tracking-widest">Consultando Banco Central (Direct Data)...</h4>
-                  <p className="text-[10px] text-on-surface-variant max-w-xs leading-relaxed">Conectando ao barramento de APIs do BACEN para trazer o resumo de pendências de crédito consolidadas do mercado.</p>
-                </div>
-              )}
-
-              {bacenError && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-[40px] p-6 flex items-start gap-4 text-red-400">
-                  <ShieldAlert size={24} className="shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider">Erro na Consulta da API</h4>
-                    <p className="text-[10px] leading-relaxed mt-1">{bacenError}</p>
-                    <button
-                      onClick={handleQueryBacen}
-                      className="mt-3 text-[9px] font-black uppercase bg-red-500/20 hover:bg-red-500/30 text-white px-4 py-2 rounded-xl transition-all border border-red-500/30"
-                    >
-                      Tentar Novamente
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {bacenData && (
-                <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6 animate-in zoom-in duration-300">
-                  <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
-                    <ShieldCheck size={16} /> Relatório Analítico - SCR Bacen (Direct Data)
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white/5 border border-white/10 rounded-3xl p-5 flex flex-col justify-between min-h-[100px]">
-                      <span className="text-[8px] font-black text-green-400 uppercase tracking-widest">A Vencer (Crédito Ativo)</span>
-                      <h4 className="text-xl font-black text-white font-mono leading-none mt-2">
-                        R$ {aVencerBacen.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                    </div>
-
-                    <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
-                      vencidoBacen > 0 ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/10 text-on-surface-variant'
-                    }`}>
-                      <span className="text-[8px] font-black uppercase tracking-widest">Dívida Vencida (Atraso)</span>
-                      <h4 className={`text-xl font-black font-mono leading-none mt-2 ${vencidoBacen > 0 ? 'text-amber-400' : 'text-white'}`}>
-                        R$ {vencidoBacen.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                    </div>
-
-                    <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
-                      prejuizoBacen > 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-white/5 border-white/10 text-on-surface-variant'
-                    }`}>
-                      <span className="text-[8px] font-black uppercase tracking-widest">Prejuízos (Baixado pelas Financeiras)</span>
-                      <h4 className={`text-xl font-black font-mono leading-none mt-2 ${prejuizoBacen > 0 ? 'text-red-400' : 'text-white'}`}>
-                        R$ {prejuizoBacen.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                    </div>
-                  </div>
-
-                  <div className={`p-5 rounded-3xl border flex items-start gap-4 ${
-                    formData.classification === 'RUIM' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-                    formData.classification === 'MEDIO' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' :
-                    'bg-success/10 border-success/20 text-success'
-                  }`}>
-                    <div className="shrink-0 mt-0.5">
-                      {formData.classification === 'RUIM' ? <ShieldAlert size={20} /> : <CheckCircle2 size={20} />}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider leading-none">Recomendação do Motor de Decisão</h4>
-                      <p className="text-[10px] leading-relaxed mt-1">
-                        Com base no relatório do Banco Central, o cliente foi sugerido com a classificação{' '}
-                        {formData.classification === 'BOM' ? 'Premium (5% a.m.)' : formData.classification === 'MEDIO' ? 'Standard (8% a.m.)' : 'Flex (12% a.m.)'}.
-                        {formData.classification === 'RUIM' && ' ❌ O cliente possui dívidas registradas como Prejuízo no mercado financeiro. Recomendamos rejeitar crédito.'}
-                        {formData.classification === 'MEDIO' && ' ⚖️ O cliente possui parcelas em atraso (vencido). Recomendamos aprovar mediante entrada obrigatória de 20% a 50%.'}
-                        {formData.classification === 'BOM' && ' 🌟 Nenhuma restrição ou atraso encontrado no SCR Bacen. Crédito elegível para aprovação padrão sem entrada obrigatória.'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
             </div>
           )}
