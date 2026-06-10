@@ -1864,7 +1864,7 @@ export default function ServiceOrders() {
 
                   {/* Responsible Technician */}
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Técnico Responsável</label>
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Colaborador Responsável</label>
                     <select
                       value={currentServiceOrder.responsible_technician_id || ''}
                       disabled={!hasPermission(profile, 'OS - Editar OS')}
@@ -2213,7 +2213,7 @@ export default function ServiceOrders() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Atribuir a um Técnico</label>
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Atribuir a um Colaborador</label>
                   <select
                     value={newOs.responsible_technician_id}
                     onChange={(e) => setNewOs(prev => ({ ...prev, responsible_technician_id: e.target.value }))}
