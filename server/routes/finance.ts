@@ -260,6 +260,59 @@ router.get("/shifts/history", async (req, res) => {
   res.json(data);
 });
 
+// PATCH /api/finance/shifts/:id
+router.patch("/shifts/:id", async (req, res) => {
+  const { id } = req.params;
+  const { opening_balance, closing_cash, notes } = req.body;
+
+  // 1. Fetch current shift
+  const { data: current, error: getErr } = await supabase
+    .from('cash_shifts')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (getErr || !current) return res.status(404).json({ error: "Shift not found" });
+
+  const newOpening = opening_balance !== undefined ? Number(opening_balance) : Number(current.opening_balance);
+  const newClosing = closing_cash !== undefined ? Number(closing_cash) : Number(current.closing_cash || 0);
+
+  // Recalculate expected_cash if opening_balance changed
+  const diffOpening = newOpening - Number(current.opening_balance);
+  const newExpected = Number(current.expected_cash) + diffOpening;
+  const newDiff = newClosing - newExpected;
+
+  const { data, error } = await supabase
+    .from('cash_shifts')
+    .update({
+      opening_balance: newOpening,
+      closing_cash: newClosing,
+      expected_cash: newExpected,
+      difference: newDiff,
+      notes: notes !== undefined ? notes : current.notes
+    })
+    .eq('id', id)
+    .select('*, opened_by:profiles!cash_shifts_opened_by_fkey(full_name), closed_by:profiles!cash_shifts_closed_by_fkey(full_name)')
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// DELETE /api/finance/shifts/:id
+router.delete("/shifts/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const { error } = await supabase
+    .from('cash_shifts')
+    .delete()
+    .eq('id', id);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+
 // GET /api/finance/transactions
 router.get("/transactions", async (req, res) => {
   const { unit_id } = req.query;

@@ -53,6 +53,8 @@ interface CashState {
     created_by: string;
   }) => Promise<void>;
   fetchShiftHistory: (unitId: string) => Promise<void>;
+  updateShift: (id: string, payload: { opening_balance?: number; closing_cash?: number; notes?: string }) => Promise<void>;
+  deleteShift: (id: string) => Promise<void>;
 }
 
 export const useCashStore = create<CashState>()((set, get) => ({
@@ -146,5 +148,38 @@ export const useCashStore = create<CashState>()((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  updateShift: async (id, payload) => {
+    set({ isLoading: true });
+    try {
+      const data = await api.patch(`/finance/shifts/${id}`, payload);
+      set((state) => ({
+        shiftHistory: state.shiftHistory.map((s) => (s.id === id ? data : s)),
+        activeShift: state.activeShift?.id === id ? data : state.activeShift
+      }));
+    } catch (error) {
+      console.error('Error updating shift:', error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteShift: async (id) => {
+    set({ isLoading: true });
+    try {
+      await api.delete(`/finance/shifts/${id}`);
+      set((state) => ({
+        shiftHistory: state.shiftHistory.filter((s) => s.id !== id),
+        activeShift: state.activeShift?.id === id ? null : state.activeShift
+      }));
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
   }
 }));
+

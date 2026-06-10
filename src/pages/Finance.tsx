@@ -6,7 +6,7 @@ import {
   ArrowDownRight, Smartphone, ShieldAlert, MessageSquare,
   FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
   X, Copy, Check, Printer, Send, RotateCcw, Lock, Unlock, AlertTriangle, Eye, EyeOff,
-  Store, Save, History
+  Store, Save, History, Pencil, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
@@ -284,8 +284,15 @@ export default function Finance() {
   // Cashier stores and states
   const {
     activeShift, transactions, shiftHistory, fetchActiveShift,
-    openShift, closeShift, fetchTransactions, addTransaction, fetchShiftHistory
+    openShift, closeShift, fetchTransactions, addTransaction, fetchShiftHistory,
+    updateShift, deleteShift
   } = useCashStore();
+
+  // Edit Shift States
+  const [editingShift, setEditingShift] = useState<CashShift | null>(null);
+  const [editOpeningBalance, setEditOpeningBalance] = useState<number>(0);
+  const [editClosingCash, setEditClosingCash] = useState<number>(0);
+  const [editNotes, setEditNotes] = useState<string>('');
 
   const isAdmin = profile?.role === 'admin';
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
@@ -688,6 +695,53 @@ export default function Finance() {
     }
   };
 
+  const handleEditShiftSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingShift) return;
+    try {
+      await updateShift(editingShift.id, {
+        opening_balance: editOpeningBalance,
+        closing_cash: editClosingCash,
+        notes: editNotes
+      });
+      showNotification('success', 'Fechamento Atualizado!', 'O fechamento de caixa foi atualizado com sucesso.');
+      setEditingShift(null);
+      if (selectedUnitId) {
+        fetchShiftHistory(selectedUnitId);
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro ao atualizar fechamento', err?.response?.data?.error || err.message);
+    }
+  };
+
+  const handleDeleteShift = async (shift: CashShift) => {
+    showModal({
+      title: 'Confirmar Exclusão de Fechamento',
+      type: 'warning',
+      children: (
+        <div className="space-y-4">
+          <p className="text-sm">Tem certeza de que deseja excluir o fechamento de caixa do dia <span className="text-white font-black">{shift.closed_at ? new Date(shift.closed_at).toLocaleDateString('pt-BR') : ''}</span>?</p>
+          <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-3 rounded-xl border border-error/20">
+            ⚠️ Esta ação removerá permanentemente o fechamento de caixa do histórico. As transações associadas não serão deletadas, mas ficarão desvinculadas deste turno.
+          </p>
+        </div>
+      ),
+      confirmText: 'Excluir Fechamento',
+      onConfirm: async () => {
+        try {
+          await deleteShift(shift.id);
+          showNotification('success', 'Fechamento Excluído', 'O fechamento de caixa foi removido.');
+          if (selectedUnitId) {
+            fetchShiftHistory(selectedUnitId);
+          }
+          hideModal();
+        } catch (error: any) {
+          showNotification('error', 'Erro ao excluir fechamento', error?.response?.data?.error || error.message);
+        }
+      }
+    });
+  };
+
   // Shift printing layout/logic
   const printShiftClosure = (shift: CashShift) => {
     const windowName = `print_shift_${shift.id}`;
@@ -696,50 +750,221 @@ export default function Finance() {
 
     const opName = shift.opened_by_profile?.full_name || 'Operador';
     const clName = shift.closed_by_profile?.full_name || shift.notes || '—';
+    const shiftUnit = units.find(u => u.id === shift.unit_id) || unit;
+
+    const cleanUnitName = (shiftUnit?.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
+    const unitCNPJ = shiftUnit?.cnpj || '';
+    const unitPhone = shiftUnit?.phone ? formatPhone(shiftUnit.phone) : '';
+    const unitAddress = shiftUnit?.address || '';
 
     const content = `
       <html>
       <head>
         <title>Fechamento de Caixa</title>
         <style>
-          body {
-            font-family: 'Courier New', Courier, monospace;
-            width: 80mm;
-            padding: 5px;
-            font-size: 11px;
-            color: #000;
-            line-height: 1.3;
+          @media print {
+            body {
+              background-color: #ffffff !important;
+              color: #000000 !important;
+            }
+            @page {
+              margin: 0;
+              size: auto;
+            }
           }
-          .center { text-align: center; }
-          .bold { font-weight: bold; }
-          .divider { border-top: 1px dashed #000; margin: 8px 0; }
-          .double-divider { border-top: 1px double #000; border-bottom: 1px double #000; height: 3px; margin: 8px 0; }
-          .row { display: flex; justify-content: space-between; margin: 3px 0; }
-          .header { font-size: 15px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
-          .signature-box { margin-top: 35px; text-align: center; }
-          .sig-line { border-top: 1px solid #000; width: 80%; margin: 0 auto 5px auto; }
+          body {
+            margin: 0;
+            padding: 10px;
+            font-family: 'Inter', Arial, Helvetica, sans-serif;
+            font-size: 10.5px;
+            color: #000;
+            background: #fff;
+            line-height: 1.3;
+            font-weight: bold;
+          }
+          .thermal-receipt {
+            width: 80mm;
+            margin: 0 auto;
+            box-sizing: border-box;
+          }
+          .header-center {
+            text-align: center;
+            margin-bottom: 6px;
+          }
+          .brand-name {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: -1px;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+          }
+          .brand-sub {
+            font-size: 8px;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+          }
+          .unit-details {
+            font-size: 9px;
+            color: #333;
+            line-height: 1.25;
+          }
+          .receipt-title {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 4px;
+            text-transform: uppercase;
+          }
+          .receipt-num {
+            font-size: 10px;
+            font-weight: bold;
+          }
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .double-divider {
+            border-top: 1px double #000;
+            border-bottom: 1px double #000;
+            height: 3px;
+            margin: 6px 0;
+          }
+          .section-title {
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            text-decoration: underline;
+          }
+          .row {
+            display: flex;
+            justify-content: space-between;
+            margin: 2.5px 0;
+          }
+          .align-right {
+            text-align: right;
+            max-width: 60%;
+            word-wrap: break-word;
+          }
+          .font-mono {
+            font-family: 'Courier New', Courier, monospace;
+          }
+          .sig-line-box {
+            margin-top: 30px;
+            text-align: center;
+          }
+          .sig-line {
+            border-top: 1px solid #000;
+            width: 80%;
+            margin: 0 auto 4px auto;
+          }
+          .sig-label {
+            font-size: 9px;
+            line-height: 1.1;
+            display: block;
+          }
+          .footer-note {
+            font-size: 8px;
+            text-align: center;
+            margin-top: 10px;
+            line-height: 1.2;
+          }
+          .highlight {
+            font-weight: 900;
+          }
         </style>
       </head>
       <body>
-        <div class="center header">MDR INFORMÁTICA</div>
-        <div class="center bold">RESUMO DE FECHAMENTO DE CAIXA</div>
-        <div class="divider"></div>
-        <div class="row"><span>ID Turno:</span><span>#${shift.id.substring(0, 8).toUpperCase()}</span></div>
-        <div class="row"><span>Abertura:</span><span>${new Date(shift.opened_at).toLocaleDateString('pt-BR')} ${new Date(shift.opened_at).toLocaleTimeString('pt-BR')}</span></div>
-        <div class="row"><span>Fechamento:</span><span>${shift.closed_at ? new Date(shift.closed_at).toLocaleDateString('pt-BR') : '—'} ${shift.closed_at ? new Date(shift.closed_at).toLocaleTimeString('pt-BR') : ''}</span></div>
-        <div class="row"><span>Operador:</span><span>${opName}</span></div>
-        <div class="divider"></div>
-        <div class="row bold"><span>Fundo de Troco:</span><span>R$ ${Number(shift.opening_balance).toFixed(2)}</span></div>
-        <div class="row"><span>Dinheiro Esperado:</span><span>R$ ${Number(shift.expected_cash).toFixed(2)}</span></div>
-        <div class="row"><span>Dinheiro Declarado:</span><span>R$ ${Number(shift.closing_cash || 0).toFixed(2)}</span></div>
-        <div class="row bold"><span>Diferença/Quebra:</span><span>R$ ${Number(shift.difference || 0).toFixed(2)}</span></div>
-        <div class="divider"></div>
-        <div class="row"><span>Meios Eletrônicos (PIX/Cartão):</span><span>R$ ${Number(shift.expected_digital).toFixed(2)}</span></div>
-        <div class="divider"></div>
-        <div class="center bold">Assinatura do Conferente</div>
-        <div class="signature-box">
-          <div class="sig-line"></div>
-          <span>${clName}</span>
+        <div class="thermal-receipt">
+          <div class="header-center">
+            <div class="brand-name">MDR</div>
+            <div class="brand-sub">INFORMÁTICA & CELULARES</div>
+            <div class="unit-details">
+              <strong>LOJA: ${cleanUnitName}</strong>
+              ${unitCNPJ ? ` | CNPJ: ${unitCNPJ}` : ''}
+              ${unitPhone ? ` | Tel: ${unitPhone}` : ''}
+              <br />
+              ${unitAddress}
+            </div>
+          </div>
+
+          <div class="double-divider"></div>
+
+          <div class="header-center">
+            <div class="receipt-title">RESUMO DE FECHAMENTO DE CAIXA</div>
+            <div class="receipt-num">N° #${shift.id.substring(0, 8).toUpperCase()}</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">DADOS DO TURNO</div>
+          <div class="row">
+            <span>Operador:</span>
+            <span class="align-right">${opName}</span>
+          </div>
+          <div class="row">
+            <span>Abertura:</span>
+            <span class="align-right font-mono">${new Date(shift.opened_at).toLocaleDateString('pt-BR')} ${new Date(shift.opened_at).toLocaleTimeString('pt-BR')}</span>
+          </div>
+          <div class="row">
+            <span>Fechamento:</span>
+            <span class="align-right font-mono">${shift.closed_at ? `${new Date(shift.closed_at).toLocaleDateString('pt-BR')} ${new Date(shift.closed_at).toLocaleTimeString('pt-BR')}` : '—'}</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">DADOS FINANCEIROS</div>
+          <div class="row">
+            <span>Fundo de Troco (Inicial):</span>
+            <span class="align-right font-mono">R$ ${Number(shift.opening_balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div class="row">
+            <span>Dinheiro Esperado:</span>
+            <span class="align-right font-mono">R$ ${Number(shift.expected_cash).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div class="row">
+            <span>Dinheiro Declarado:</span>
+            <span class="align-right font-mono">R$ ${Number(shift.closing_cash || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="row highlight">
+            <span>Diferença / Quebra:</span>
+            <span class="align-right font-mono">R$ ${Number(shift.difference || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="row">
+            <span>Meios Digitais (Pix/Cartão):</span>
+            <span class="align-right font-mono">R$ ${Number(shift.expected_digital || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+
+          ${shift.notes ? `
+            <div class="divider"></div>
+            <div style="font-size: 9px; line-height: 1.2;">
+              <strong>Observações:</strong><br/>
+              ${shift.notes}
+            </div>
+          ` : ''}
+
+          <div class="double-divider"></div>
+
+          <div class="sig-line-box">
+            <div class="sig-line"></div>
+            <span class="sig-label">Assinatura do Conferente / Gerente</span>
+          </div>
+
+          <div class="sig-line-box" style="margin-top: 25px;">
+            <div class="sig-line"></div>
+            <span class="sig-label">Assinatura do Operador (${opName})</span>
+          </div>
+
+          <div class="footer-note">
+            Comprovante de fechamento de caixa emitido em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}.
+          </div>
         </div>
       </body>
       </html>
@@ -1451,14 +1676,41 @@ export default function Finance() {
                             {hasDiscrepancy && ' ⚠️'}
                           </td>
                           <td className="py-4 text-right pr-4">
-                            <button
-                              type="button"
-                              onClick={() => printShiftClosure(shift)}
-                              title="Imprimir Cupom de Fechamento"
-                              className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
-                            >
-                              <Printer size={13} />
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => printShiftClosure(shift)}
+                                title="Imprimir Cupom de Fechamento"
+                                className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
+                              >
+                                <Printer size={13} />
+                              </button>
+                              {isAdmin && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingShift(shift);
+                                      setEditOpeningBalance(Number(shift.opening_balance));
+                                      setEditClosingCash(Number(shift.closing_cash || 0));
+                                      setEditNotes(shift.notes || '');
+                                    }}
+                                    title="Editar Fechamento de Caixa"
+                                    className="p-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition-all border border-blue-500/20 cursor-pointer"
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteShift(shift)}
+                                    title="Excluir Fechamento de Caixa"
+                                    className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all border border-red-500/20 cursor-pointer"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1585,6 +1837,81 @@ export default function Finance() {
                   className="w-full py-4 bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
                 >
                   <Save size={14} /> Registrar Lançamento
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT SHIFT MODAL */}
+      <AnimatePresence>
+        {editingShift && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setEditingShift(null)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl z-10"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-white/10">
+                <div>
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">Editar Fechamento</h2>
+                  <p className="text-[9px] text-on-surface-variant font-black uppercase tracking-widest opacity-60 mt-0.5">Auditoria Retroativa</p>
+                </div>
+                <button onClick={() => setEditingShift(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditShiftSubmit} className="p-6 space-y-4 text-xs">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Fundo de Troco Abertura (R$)</label>
+                  <div className="relative">
+                    <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editOpeningBalance}
+                      onChange={(e) => setEditOpeningBalance(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-[#121214] border border-white/10 rounded-xl pl-8 pr-4 py-3 text-xs text-white outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Valor Físico Declarado Fechamento (R$)</label>
+                  <div className="relative">
+                    <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={editClosingCash}
+                      onChange={(e) => setEditClosingCash(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-[#121214] border border-white/10 rounded-xl pl-8 pr-4 py-3 text-xs text-white outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Observações / Justificativa</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Descreva o motivo desta alteração retroativa."
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="w-full bg-[#121214] border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest rounded-2xl hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                >
+                  <Save size={14} /> Salvar Alterações
                 </button>
               </form>
             </motion.div>
