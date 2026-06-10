@@ -198,18 +198,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const filteredDevices = useMemo(() => {
     const search = deviceSearch.toLowerCase();
     return availableDevices.filter(item => {
-      if (saleType === 'cellphone' && item.category !== 'smartphone') {
-        return false;
-      }
-      if (saleType === 'general' && item.category === 'smartphone') {
-        return false;
-      }
       return item.model.toLowerCase().includes(search) ||
              item.brand.toLowerCase().includes(search) ||
              (item.barcode && item.barcode.toLowerCase().includes(search)) ||
              (item.imei && item.imei.toLowerCase().includes(search));
     });
-  }, [availableDevices, deviceSearch, saleType]);
+  }, [availableDevices, deviceSearch]);
 
   // Auto-select product on barcode scan (exact match)
   React.useEffect(() => {
