@@ -821,15 +821,13 @@ export default function ServiceOrders() {
       return (
         <div className="os-a4-receipt text-left">
           <style>{getPrintStyles('a4')}</style>
-          {/* Header */}
           <div className="a4-header">
-            <div>
-              <div className="a4-brand-name">{brandName}</div>
-              <div className="a4-brand-sub">{brandSub}</div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <img src="/logo-mdr.png" alt="MDR Logo" style={{ height: '40px', objectFit: 'contain' }} />
             </div>
             <div className="a4-brand-details">
               {osUnit.address}<br />
-              WhatsApp: {osUnit.phone}
+              WhatsApp: {osUnit.phone} {osUnit.cnpj && `| CNPJ: ${osUnit.cnpj}`}
             </div>
           </div>
 
@@ -1117,15 +1115,13 @@ export default function ServiceOrders() {
       return (
         <div className="os-a4-receipt text-left">
           <style>{getPrintStyles('a4')}</style>
-          {/* Header */}
           <div className="a4-header">
-            <div>
-              <div className="a4-brand-name">{brandName}</div>
-              <div className="a4-brand-sub">{brandSub}</div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <img src="/logo-mdr.png" alt="MDR Logo" style={{ height: '40px', objectFit: 'contain' }} />
             </div>
             <div className="a4-brand-details">
               {osUnit.address}<br />
-              WhatsApp: {osUnit.phone}
+              WhatsApp: {osUnit.phone} {osUnit.cnpj && `| CNPJ: ${osUnit.cnpj}`}
             </div>
           </div>
 
