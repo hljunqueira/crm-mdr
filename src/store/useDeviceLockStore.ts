@@ -5,7 +5,7 @@ export interface DeviceLock {
   id: string;
   device_id: string;
   sale_id: string;
-  lock_type: 'icloud' | 'headwind';
+  lock_type: 'icloud' | 'android';
   
   // iCloud fields (iOS)
   icloud_email?: string;
@@ -116,7 +116,7 @@ export const useDeviceLockStore = create<DeviceLockState>()((set) => ({
         set((state) => ({
           deviceLocks: state.deviceLocks.map((item) => {
             if (item.id === id) {
-              if (item.lock_type === 'headwind') {
+              if (item.lock_type === 'android') {
                 return {
                   ...item,
                   mdm_locked: true,
@@ -153,7 +153,7 @@ export const useDeviceLockStore = create<DeviceLockState>()((set) => ({
         set((state) => ({
           deviceLocks: state.deviceLocks.map((item) => {
             if (item.id === id) {
-              if (item.lock_type === 'headwind') {
+              if (item.lock_type === 'android') {
                 return {
                   ...item,
                   mdm_locked: false,

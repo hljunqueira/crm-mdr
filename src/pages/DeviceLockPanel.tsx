@@ -31,7 +31,7 @@ export default function DeviceLockPanel() {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'overdue' | 'active' | 'quitado'>('all');
-  const [platformFilter, setPlatformFilter] = useState<'all' | 'icloud' | 'headwind'>('all');
+  const [platformFilter, setPlatformFilter] = useState<'all' | 'icloud' | 'android'>('all');
   const [selectedLock, setSelectedLock] = useState<DeviceLock | null>(null);
   const [showLockModal, setShowLockModal] = useState(false);
   const [customMessage, setCustomMessage] = useState('');
@@ -243,7 +243,7 @@ export default function DeviceLockPanel() {
         <div className="flex flex-wrap gap-4 items-center">
           {/* Platform filter */}
           <div className="flex bg-white/[0.02] border border-white/5 p-1 rounded-2xl">
-            {(['all', 'icloud', 'headwind'] as const).map((filter) => (
+            {(['all', 'icloud', 'android'] as const).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setPlatformFilter(filter)}
@@ -256,7 +256,7 @@ export default function DeviceLockPanel() {
               >
                 {filter === 'all' && 'Todos SO'}
                 {filter === 'icloud' && '🍏 iOS'}
-                {filter === 'headwind' && '🤖 Android'}
+                {filter === 'android' && '🤖 Android'}
               </button>
             ))}
           </div>

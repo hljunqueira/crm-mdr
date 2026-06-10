@@ -580,55 +580,20 @@ export default function Finance() {
   const handleWhatsApp = async (item: Installment) => {
     setSendingWa(item.id);
     try {
-      // Fetch active evolution channels
-      const chRes = await fetch('/api/evolution/instance/fetchInstances', {
-        headers: { 'Content-Type': 'application/json' }
-      });
-      let instanceName = 'mdr-principal';
-      if (chRes.ok) {
-        const chData = await chRes.json();
-        const instances = Array.isArray(chData) ? chData : (chData?.instances || []);
-        const active = instances.find((i: any) => i.connectionStatus === 'open' || i.state === 'open');
-        if (active) instanceName = active.instance?.instanceName || active.instanceName || instanceName;
-      }
-
-      // Look up phone from customers store
-      const customer = customers.find(c => c.id === item.customer_id);
-      const rawPhone = (customer?.phone || '').replace(/\D/g, '');
-      const phone = rawPhone.startsWith('55') ? rawPhone : `55${rawPhone}`;
-
-      if (phone.length < 12) {
-        showNotification('error', 'Telefone inválido', 'O cliente não possui um número de telefone válido cadastrado.');
-        setSendingWa(null);
-        return;
-      }
-
-      const dueDate = new Date(item.due_date).toLocaleDateString('pt-BR');
-      const valueFormatted = item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-
-      const text = `Olá, *${item.customer_name}*! 👋\n\n`
-        + `Passando para lembrar sobre sua parcela com a *${pixName}*:\n\n`
-        + `📋 *Parcela:* ${item.number}/${item.total}\n`
-        + `💰 *Valor:* R$ ${valueFormatted}\n`
-        + `📅 *Vencimento:* ${dueDate}\n\n`
-        + (pixKey ? `Pague pelo PIX:\n🔑 *Chave:* ${pixKey}\n👤 Beneficiário: ${pixName}\n\n` : '')
-        + (pixPhone ? `Dúvidas? Fale conosco: ${pixPhone}\n` : '')
-        + `_Mensagem automática — não responda este número._`;
-
-      const res = await fetch(`/api/evolution/message/sendText/${instanceName}`, {
+      const res = await fetch('/api/billing/send-warning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ number: phone, text })
+        body: JSON.stringify({ installmentId: item.id })
       });
 
       if (res.ok) {
-        showNotification('success', 'WhatsApp Enviado!', `Lembrete enviado para ${item.customer_name}.`);
+        showNotification('success', 'Cobrança Enviada!', `Notificação enviada para o n8n para cobrar ${item.customer_name}.`);
       } else {
-        const err = await res.text();
-        showNotification('error', 'Falha ao Enviar', `Erro: ${err.substring(0, 80)}`);
+        const errData = await res.json().catch(() => ({}));
+        showNotification('error', 'Falha ao Enviar', `Erro: ${errData.error || 'Erro no n8n'}`);
       }
     } catch (err: any) {
-      showNotification('error', 'Erro de Conexão', err?.message || 'Não foi possível conectar ao servidor de WhatsApp.');
+      showNotification('error', 'Erro de Conexão', err?.message || 'Não foi possível conectar ao servidor.');
     } finally {
       setSendingWa(null);
     }

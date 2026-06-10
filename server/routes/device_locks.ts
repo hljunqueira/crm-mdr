@@ -80,7 +80,7 @@ router.post("/:id/lock", async (req, res) => {
       return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
     }
 
-    if (lock.lock_type === 'headwind') {
+    if (lock.lock_type === 'android') {
       // Manual Google Device Lock Controller locking for Android
       const { data: updatedLock, error: updateError } = await supabase
         .from('device_locks')
@@ -162,7 +162,7 @@ router.post("/:id/unlock", async (req, res) => {
       return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
     }
 
-    if (lock.lock_type === 'headwind') {
+    if (lock.lock_type === 'android') {
       // Manual Google Device Lock Controller unlocking for Android
       const { data: updatedLock, error: updateError } = await supabase
         .from('device_locks')
