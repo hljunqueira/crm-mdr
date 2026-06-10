@@ -18,6 +18,8 @@ export interface InventoryItem {
   image_url?: string;
   show_on_landing?: boolean;
   barcode?: string;
+  supplier?: string;
+  purchase_date?: string;
 }
 
 interface InventoryState {
@@ -53,6 +55,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         image_url: item.image_url || '',
         show_on_landing: !!item.show_on_landing,
         barcode: item.barcode || '',
+        supplier: item.supplier || '',
+        purchase_date: item.purchase_date || '',
       }));
       set({ inventory: mapped });
     } catch (error) {
@@ -78,6 +82,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         image_url: item.image_url || null,
         show_on_landing: item.show_on_landing || false,
         barcode: item.barcode || null,
+        supplier: item.supplier || null,
+        purchase_date: item.purchase_date || null,
       };
       const data = await api.post('/inventory', dbItem);
       const newFrontendItem = {
@@ -88,6 +94,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         image_url: data.image_url || '',
         show_on_landing: !!data.show_on_landing,
         barcode: data.barcode || '',
+        supplier: data.supplier || '',
+        purchase_date: data.purchase_date || '',
       };
       set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
     } catch (error) {
@@ -112,6 +120,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.image_url !== undefined) dbFields.image_url = updatedFields.image_url || null;
       if (updatedFields.show_on_landing !== undefined) dbFields.show_on_landing = updatedFields.show_on_landing;
       if (updatedFields.barcode !== undefined) dbFields.barcode = updatedFields.barcode || null;
+      if (updatedFields.supplier !== undefined) dbFields.supplier = updatedFields.supplier || null;
+      if (updatedFields.purchase_date !== undefined) dbFields.purchase_date = updatedFields.purchase_date || null;
 
       const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({
@@ -123,6 +133,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
           image_url: data.image_url || '',
           show_on_landing: !!data.show_on_landing,
           barcode: data.barcode || '',
+          supplier: data.supplier || '',
+          purchase_date: data.purchase_date || '',
         } : i)
       }));
     } catch (error) {

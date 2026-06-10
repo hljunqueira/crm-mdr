@@ -31,6 +31,8 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     image_url: item?.image_url || '',
     show_on_landing: item?.show_on_landing || false,
     barcode: item?.barcode || '',
+    supplier: item?.supplier || '',
+    purchase_date: item?.purchase_date || '',
   });
 
   const generateBarcode = () => {
@@ -109,6 +111,8 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         show_on_landing: formData.show_on_landing,
         unit_id: formData.unit_id || profile?.unit_id || undefined,
         barcode: formData.barcode,
+        supplier: formData.supplier || null,
+        purchase_date: formData.purchase_date || null,
       };
 
       if (item) {
@@ -261,6 +265,27 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
             onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
             placeholder="1"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Fornecedor</label>
+          <input
+            type="text"
+            value={formData.supplier}
+            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none"
+            placeholder="Nome do fornecedor"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Data de Compra</label>
+          <input
+            type="date"
+            value={formData.purchase_date}
+            onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:border-primary transition-all outline-none text-white"
           />
         </div>
       </div>

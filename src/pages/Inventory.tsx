@@ -20,7 +20,8 @@ import {
   Building2,
   Upload,
   Download,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Printer
 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
 import { useUnitStore } from '../store/useUnitStore';
@@ -114,9 +115,9 @@ export default function Inventory() {
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "\uFEFFMarca;Modelo;Categoria;Condicao;PrecoCusto;PrecoVenda;Quantidade;IMEI;CodigoBarras\n" +
-      "Samsung;Galaxy S23;Celulares;Novo;3500.00;4999.00;1;123456789012345;7891234567890\n" +
-      "Apple;Carregador MagSafe 20W;Acessórios Celular;Novo;80.00;199.00;10;;888899992222\n";
+    const csvContent = "\uFEFFMarca;Modelo;Categoria;Condicao;PrecoCusto;PrecoVenda;Quantidade;IMEI;CodigoBarras;Fornecedor;DataCompra\n" +
+      "Samsung;Galaxy S23;Celulares;Novo;3500.00;4999.00;1;123456789012345;7891234567890;Samsung Brasil;2026-06-10\n" +
+      "Apple;Carregador MagSafe 20W;Acessórios Celular;Novo;80.00;199.00;10;;888899992222;Distribuidora ABC;2026-06-05\n";
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -154,6 +155,17 @@ export default function Inventory() {
             showNotification('success', 'Item Transferido', 'O estoque foi movimentado com sucesso!');
             fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
           }}
+        />
+      ),
+    });
+  };
+
+  const handleOpenLabelsModal = (item: InventoryItem) => {
+    showModal({
+      title: 'Imprimir Etiquetas Térmicas',
+      children: (
+        <LabelsModal
+          item={item}
         />
       ),
     });
@@ -390,6 +402,16 @@ export default function Inventory() {
                       <span>Transferir</span>
                     </button>
                   )}
+                  {item.barcode && (
+                    <button
+                      onClick={() => handleOpenLabelsModal(item)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-warning hover:bg-warning/5 transition-all"
+                      title="Etiquetas de Código de Barras"
+                    >
+                      <Printer size={13} />
+                      <span>Etiquetas</span>
+                    </button>
+                  )}
                   {hasPermission(profile, 'Estoque - Editar Produto') && (
                     <button
                       onClick={() => handleEditItem(item)}
@@ -451,7 +473,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
         const separator = lines[0].includes(';') ? ';' : ',';
         const headers = lines[0].split(separator).map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
 
-        const expected = ['marca', 'modelo', 'categoria', 'condicao', 'precocusto', 'precovenda', 'quantidade', 'imei', 'codigobarras'];
+        const expected = ['marca', 'modelo', 'categoria', 'condicao', 'precocusto', 'precovenda', 'quantidade', 'imei', 'codigobarras', 'fornecedor', 'datacompra'];
         const missing = expected.filter(exp => !headers.includes(exp));
         if (missing.length > 0) {
           setErrors([`Colunas ausentes no CSV: ${missing.join(', ')}`]);
@@ -506,7 +528,9 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
             mappedCondition,
             numCost,
             numSale,
-            numQty
+            numQty,
+            supplierVal: rowData.fornecedor || '',
+            purchaseDateVal: rowData.datacompra || ''
           });
         }
 
@@ -549,7 +573,9 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
             await updateItem(existing.id, {
               stock_quantity: existing.stock_quantity + row.numQty,
               cost_price: row.numCost,
-              price: row.numSale
+              price: row.numSale,
+              supplier: row.supplierVal || undefined,
+              purchase_date: row.purchaseDateVal || undefined
             });
             merged = true;
           }
@@ -567,6 +593,8 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
             stock_quantity: row.numQty,
             imei: row.imei || '',
             barcode: row.codigobarras || '',
+            supplier: row.supplierVal || '',
+            purchase_date: row.purchaseDateVal || '',
             status: 'available'
           });
         }
@@ -784,6 +812,156 @@ function InventoryTransfer({ item, onSuccess }: { item: InventoryItem; onSuccess
         className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all shadow-xl disabled:opacity-50"
       >
         {loading ? <Loader2 className="animate-spin" size={15} /> : 'Transferir Agora'}
+      </button>
+    </div>
+  );
+}
+
+function LabelsModal({ item }: { item: InventoryItem }) {
+  const [quantity, setQuantity] = useState(item.stock_quantity || 1);
+  const [showLogo, setShowLogo] = useState(true);
+  const [showPrice, setShowPrice] = useState(true);
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const barcodeHtml = Array.from({ length: quantity }, () => `
+      <div class="label-card">
+        ${showLogo ? '<div class="logo">MDR CELULARES</div>' : ''}
+        <div class="model">${item.brand} ${item.model}</div>
+        <div class="barcode">${item.barcode}</div>
+        <div class="barcode-text">${item.barcode}</div>
+        ${showPrice ? '<div class="price">R$ ' + item.price.toFixed(2) + '</div>' : ''}
+      </div>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir Etiquetas</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Libre+Barcode+128&family=Inter:wght@400;700;900&display=swap');
+            @page {
+              size: 40mm 25mm;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: 'Inter', sans-serif;
+              background: white;
+              color: black;
+              -webkit-print-color-adjust: exact;
+            }
+            .label-card {
+              width: 40mm;
+              height: 25mm;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              text-align: center;
+              padding: 1mm 2mm;
+              page-break-after: always;
+              overflow: hidden;
+            }
+            .logo {
+              font-size: 8px;
+              font-weight: 900;
+              margin-bottom: 0.5mm;
+              letter-spacing: 0.5px;
+            }
+            .model {
+              font-size: 7px;
+              font-weight: 700;
+              max-width: 36mm;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              margin-bottom: 0.5mm;
+            }
+            .barcode {
+              font-family: 'Libre Barcode 128', sans-serif;
+              font-size: 32px;
+              line-height: 1;
+              margin: 0.5mm 0;
+            }
+            .barcode-text {
+              font-size: 6px;
+              font-family: monospace;
+              letter-spacing: 1px;
+              margin-bottom: 0.5mm;
+            }
+            .price {
+              font-size: 7px;
+              font-weight: 700;
+            }
+          </style>
+        </head>
+        <body>
+          ${barcodeHtml}
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  return (
+    <div className="space-y-6 text-white text-xs">
+      <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-2">
+        <p className="font-bold text-sm text-white">{item.model}</p>
+        <p className="text-[10px] text-on-surface-variant font-mono">Código: {item.barcode}</p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Quantidade de Etiquetas</label>
+          <input
+            type="number"
+            min="1"
+            max="1000"
+            value={quantity}
+            onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-white outline-none transition-all"
+          />
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showLogo}
+              onChange={(e) => setShowLogo(e.target.checked)}
+              className="w-4 h-4 rounded bg-white/5 border border-white/10 text-primary focus:ring-0"
+            />
+            <span>Exibir logomarca da MDR</span>
+          </label>
+
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showPrice}
+              onChange={(e) => setShowPrice(e.target.checked)}
+              className="w-4 h-4 rounded bg-white/5 border border-white/10 text-primary focus:ring-0"
+            />
+            <span>Exibir preço de venda</span>
+          </label>
+        </div>
+      </div>
+
+      <button
+        onClick={handlePrint}
+        className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all shadow-xl"
+      >
+        <Printer size={15} /> Imprimir Etiquetas
       </button>
     </div>
   );

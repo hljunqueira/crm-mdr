@@ -333,6 +333,29 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return Math.max(0, totalLimit - customerDebts);
   }, [selectedCustomer, customerDebts]);
 
+  const suggestedTotal = useMemo(() => {
+    if (selectedDevices.length > 0) {
+      return selectedDevices.reduce((sum, d) => sum + d.price * d.quantity, 0);
+    }
+    return 0;
+  }, [selectedDevices]);
+
+  const costTotal = useMemo(() => {
+    if (selectedDevices.length > 0) {
+      return selectedDevices.reduce((sum, d) => {
+        const item = inventory.find(inv => inv.id === d.id);
+        return sum + (item?.cost_price || 0) * d.quantity;
+      }, 0);
+    }
+    return 0;
+  }, [selectedDevices, inventory]);
+
+  const profitMarginPercent = useMemo(() => {
+    if (formData.total_value <= 0 || costTotal <= 0) return 0;
+    const profit = formData.total_value - costTotal;
+    return (profit / formData.total_value) * 100;
+  }, [formData.total_value, costTotal]);
+
   // Only 'venda' accessories add to the total price
   const accessoriesTotal = useMemo(() =>
     selectedAccessories
@@ -945,8 +968,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         )}
 
         {/* Valor Total */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Total (R$)</label>
+        <div className="space-y-2 col-span-1 md:col-span-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Venda (R$)</label>
           <input 
             type="number" 
             required
@@ -956,12 +979,26 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               const val = e.target.value;
               setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
             }}
-            readOnly={selectedDevices.length > 0}
-            className={cn(
-              "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-              selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
-            )}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
           />
+          {selectedDevices.length > 0 && (
+            <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
+              <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+              {profile?.role === 'admin' && (
+                <>
+                  <span>Custo: <strong className="text-amber-400 font-mono">R$ {costTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                  {costTotal > 0 && (
+                    <span className={cn(
+                      "font-bold",
+                      profitMarginPercent < 0 ? "text-red-400" : "text-green-400"
+                    )}>
+                      Margem: {profitMarginPercent.toFixed(1)}% {profitMarginPercent < 0 ? '[Prejuízo]' : ''}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {formData.payment_type !== 'vista' && (
