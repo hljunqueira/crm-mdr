@@ -735,7 +735,7 @@ export default function CreditAnalysis() {
                 </div>
 
                 {/* Simulação de Venda */}
-                {(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
+                {!!(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
                   <div className="pt-2 border-t border-white/5 space-y-4">
                     <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest">Simulação de Venda (Pré-venda)</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
