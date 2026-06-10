@@ -6,7 +6,7 @@ import {
   ArrowDownRight, Smartphone, ShieldAlert, MessageSquare, 
   FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
   X, Copy, Check, Printer, Send, RotateCcw, Lock, Unlock, AlertTriangle, Eye, EyeOff,
-  Store, Save
+  Store, Save, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
