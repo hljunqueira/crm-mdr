@@ -34,10 +34,11 @@ interface InventoryState {
 export const useInventoryStore = create<InventoryState>()((set) => ({
   inventory: [],
   isLoading: false,
-  fetchInventory: async (_unitId) => {
+  fetchInventory: async (unitId) => {
     set({ isLoading: true });
     try {
-      const data = await api.get('/inventory');
+      const url = unitId ? `/inventory?unit_id=${unitId}` : '/inventory';
+      const data = await api.get(url);
       const mapped = (data || []).map((item: any) => ({
         id: item.id,
         unit_id: item.store_id,

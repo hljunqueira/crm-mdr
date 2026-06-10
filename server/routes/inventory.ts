@@ -5,10 +5,14 @@ const router = Router();
 
 // Get all inventory (devices)
 router.get("/", async (req, res) => {
-  const { data, error } = await supabase
-    .from('devices')
-    .select('*, stores(name)')
-    .order('model');
+  const { unit_id } = req.query;
+  let query = supabase.from('devices').select('*, stores(name)');
+  
+  if (unit_id) {
+    query = query.eq('store_id', unit_id);
+  }
+  
+  const { data, error } = await query.order('model');
   
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
