@@ -16,6 +16,7 @@ export interface Unit {
   pix_key_type?: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
   whatsapp_number?: string;      // Format: 5548999999999 (DDI+DDD+number)
   instagram_username?: string;   // @username sem o @
+  print_mode?: 'thermal' | 'a4';
 }
 
 interface UnitState {

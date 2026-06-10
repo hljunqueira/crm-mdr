@@ -65,6 +65,39 @@ const MOBILE_CHECKLIST = [
   { id: 'charge', label: 'Conector de Carga' }
 ];
 
+const parseAddress = (addressStr?: string) => {
+  if (!addressStr) return { street: '—', neighborhood: '—', cityState: '—', cep: '—' };
+  const clean = addressStr.trim();
+  const cepMatch = clean.match(/(\d{5}-?\d{3})/);
+  const cep = cepMatch ? cepMatch[1] : '—';
+  let remaining = clean;
+  if (cepMatch) {
+    remaining = clean.replace(cepMatch[0], '').replace(/,\s*$/, '').trim();
+  }
+  const dashParts = remaining.split(/\s*-\s*/);
+  let street = '—';
+  let neighborhood = '—';
+  let cityState = '—';
+  if (dashParts.length >= 3) {
+    street = dashParts[0];
+    neighborhood = dashParts[1];
+    cityState = dashParts.slice(2).join(' - ');
+  } else if (dashParts.length === 2) {
+    street = dashParts[0];
+    cityState = dashParts[1];
+  } else {
+    const commaParts = remaining.split(/\s*,\s*/);
+    if (commaParts.length >= 3) {
+      street = `${commaParts[0]}, ${commaParts[1]}`;
+      neighborhood = commaParts[2];
+      cityState = commaParts.slice(3).join(', ') || '—';
+    } else {
+      street = remaining;
+    }
+  }
+  return { street, neighborhood, cityState, cep };
+};
+
 export default function ServiceOrders() {
   const { 
     serviceOrders, fetchServiceOrders, currentServiceOrder, fetchServiceOrderById,
@@ -85,6 +118,7 @@ export default function ServiceOrders() {
   const [osFilterTab, setOsFilterTab] = useState<'active' | 'canceled'>('active');
   const [isEditingReportedIssue, setIsEditingReportedIssue] = useState(false);
   const [editedReportedIssue, setEditedReportedIssue] = useState('');
+  const [printFormatOverride, setPrintFormatOverride] = useState<'thermal' | 'a4' | null>(null);
   
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
@@ -500,22 +534,32 @@ export default function ServiceOrders() {
     }
   };
 
-  const handlePrintDocument = (id: string) => {
-    printElement(id);
+  const handlePrintDocument = (id: string, format?: 'thermal' | 'a4') => {
+    if (format) {
+      setPrintFormatOverride(format);
+    }
+    setTimeout(() => {
+      printElement(id);
+    }, 50);
   };
 
-  const handlePrintBothVias = (type: 'entry' | 'warranty') => {
-    if (type === 'entry') {
-      handlePrintDocument('print-os-entry-client');
-      setTimeout(() => {
-        handlePrintDocument('print-os-entry-shop');
-      }, 1000);
-    } else {
-      handlePrintDocument('print-os-warranty-client');
-      setTimeout(() => {
-        handlePrintDocument('print-os-warranty-shop');
-      }, 1000);
+  const handlePrintBothVias = (type: 'entry' | 'warranty', format?: 'thermal' | 'a4') => {
+    if (format) {
+      setPrintFormatOverride(format);
     }
+    setTimeout(() => {
+      if (type === 'entry') {
+        printElement('print-os-entry-client');
+        setTimeout(() => {
+          printElement('print-os-entry-shop');
+        }, 1000);
+      } else {
+        printElement('print-os-warranty-client');
+        setTimeout(() => {
+          printElement('print-os-warranty-shop');
+        }, 1000);
+      }
+    }, 50);
   };
 
   // Map status labels
@@ -544,16 +588,360 @@ export default function ServiceOrders() {
   const activeAccessoriesList = ACCESSORY_SUGGESTIONS[newOs.device_category] || ACCESSORY_SUGGESTIONS.other;
 
 
-  const renderOsEntryCopy = (copyTitle: string) => {
+  const osUnit = useMemo(() => {
     if (!currentServiceOrder) return null;
-    const osUnit = units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
+    return units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
       name: 'MDR Informática & Celulares',
       address: 'Rua Principal, 1234 - Centro',
-      phone: '(11) 99999-9999'
+      phone: '(11) 99999-9999',
+      print_mode: 'thermal' as const
     };
+  }, [currentServiceOrder, units]);
+
+  const getPrintStyles = (format: 'thermal' | 'a4') => {
+    if (format === 'a4') {
+      return `
+        @media print {
+          @page {
+            size: A4;
+            margin: 10mm !important;
+          }
+          body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+        }
+        .os-a4-receipt {
+          width: 100%;
+          max-width: 190mm;
+          margin: 0 auto;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 11px;
+          color: #000;
+          background: #fff;
+          line-height: 1.4;
+        }
+        .os-a4-receipt .a4-header {
+          border-bottom: 2px solid #000;
+          padding-bottom: 6px;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .os-a4-receipt .a4-brand-name {
+          font-size: 20px;
+          font-weight: 900;
+          letter-spacing: -0.5px;
+        }
+        .os-a4-receipt .a4-brand-sub {
+          font-size: 9px;
+          font-weight: 800;
+          margin-left: 8px;
+        }
+        .os-a4-receipt .a4-brand-details {
+          font-size: 9px;
+          color: #333;
+          text-align: right;
+        }
+        .os-a4-receipt .a4-title-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+          border: 1px solid #000;
+          padding: 6px 10px;
+          margin-bottom: 12px;
+          background-color: #f5f5f5;
+        }
+        .os-a4-receipt .a4-os-num {
+          font-size: 14px;
+          font-weight: 900;
+        }
+        .os-a4-receipt .a4-chave {
+          font-size: 10px;
+          text-align: right;
+        }
+        .os-a4-receipt .a4-title-main {
+          font-size: 13px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+        .os-a4-receipt .a4-date {
+          font-size: 10px;
+          text-align: right;
+        }
+        .os-a4-receipt .a4-section-header {
+          font-weight: bold;
+          text-transform: uppercase;
+          font-size: 10px;
+          margin: 10px 0 4px 0;
+          border-bottom: 1.5px solid #000;
+          padding-bottom: 2px;
+        }
+        .os-a4-receipt table.a4-grid-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 8px;
+        }
+        .os-a4-receipt table.a4-grid-table td {
+          border: 1px solid #000;
+          padding: 4px 8px;
+          font-size: 10.5px;
+          vertical-align: top;
+        }
+        .os-a4-receipt .a4-notes {
+          font-size: 8.5px;
+          line-height: 1.3;
+          border: 1px dashed #000;
+          padding: 6px;
+          margin-bottom: 12px;
+        }
+        .os-a4-receipt .a4-signatures {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+          margin-top: 30px;
+        }
+        .os-a4-receipt .a4-sig-box {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .os-a4-receipt .a4-sig-line {
+          border-top: 1px solid #000;
+          width: 85%;
+          margin-bottom: 4px;
+        }
+        .os-a4-receipt .a4-sig-box span {
+          font-size: 8px;
+          color: #555;
+          margin-bottom: 2px;
+        }
+        .os-a4-receipt .a4-sig-box strong {
+          font-size: 9.5px;
+        }
+      `;
+    }
+    return `
+      @media print {
+        @page {
+          size: 80mm auto;
+          margin: 0 !important;
+        }
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background-color: #ffffff !important;
+        }
+      }
+      .os-thermal-receipt {
+        width: 80mm !important;
+        margin: 0 auto !important;
+        padding: 4mm 4mm 8mm 4mm !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 12px !important;
+        color: #000000 !important;
+        line-height: 1.4 !important;
+        font-weight: 700 !important;
+      }
+      .os-thermal-receipt strong,
+      .os-thermal-receipt b {
+        font-weight: 900 !important;
+      }
+      .os-thermal-receipt .brand-name {
+        font-size: 22px !important;
+        font-weight: 900 !important;
+      }
+      .os-thermal-receipt .brand-sub {
+        font-size: 10px !important;
+        font-weight: 800 !important;
+      }
+      .os-thermal-receipt .unit-details {
+        font-size: 11px !important;
+        font-weight: 700 !important;
+      }
+      .os-thermal-receipt .receipt-title {
+        font-size: 13.5px !important;
+        font-weight: 900 !important;
+      }
+      .os-thermal-receipt .receipt-num {
+        font-size: 13px !important;
+        font-weight: 900 !important;
+      }
+      .os-thermal-receipt .section-title {
+        font-size: 12.5px !important;
+        font-weight: 900 !important;
+      }
+      .os-thermal-receipt .font-mono {
+        font-family: 'Courier New', Courier, monospace !important;
+      }
+      .os-thermal-receipt .text-small {
+        font-size: 10.5px !important;
+      }
+      .os-thermal-receipt .clauses {
+        font-size: 9.5px !important;
+        text-align: justify !important;
+        line-height: 1.3 !important;
+        font-weight: 700 !important;
+      }
+      .os-thermal-receipt .sig-line-box {
+        margin-top: 55px !important;
+        text-align: center !important;
+      }
+      .os-thermal-receipt .sig-line {
+        border-top: 1px solid #000 !important;
+        width: 80% !important;
+        margin: 0 auto 4px auto !important;
+      }
+      .os-thermal-receipt .sig-label {
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        display: block !important;
+      }
+      .os-thermal-receipt .footer-note {
+        font-size: 9px !important;
+        text-align: center !important;
+        margin-top: 8px !important;
+        line-height: 1.3 !important;
+      }
+    `;
+  };
+
+  const renderOsEntryCopy = (copyTitle: string, forceFormat?: 'thermal' | 'a4') => {
+    if (!currentServiceOrder || !osUnit) return null;
+    const activeFormat = forceFormat || printFormatOverride || osUnit.print_mode || 'thermal';
     const unitNameParts = osUnit.name.split(' ');
     const brandName = unitNameParts[0] || 'MDR';
     const brandSub = unitNameParts.slice(1).join(' ').toUpperCase() || 'INFORMÁTICA & CELULARES';
+
+    if (activeFormat === 'a4') {
+      return (
+        <div className="os-a4-receipt text-left">
+          {/* Header */}
+          <div className="a4-header">
+            <div>
+              <div className="a4-brand-name">{brandName}</div>
+              <div className="a4-brand-sub">{brandSub}</div>
+            </div>
+            <div className="a4-brand-details">
+              {osUnit.address}<br />
+              WhatsApp: {osUnit.phone}
+            </div>
+          </div>
+
+          {/* Title Row */}
+          <div className="a4-title-row">
+            <div>
+              <div className="a4-os-num text-black font-black">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
+              <div className="a4-title-main font-black mt-1">{copyTitle}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="a4-chave font-mono">Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}</div>
+              <div className="a4-date mt-1">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
+            </div>
+          </div>
+
+          <div className="a4-section-header text-black font-bold">Dados do Cliente</div>
+          <table className="a4-grid-table border border-black text-black">
+            <tbody>
+              <tr>
+                <td style={{ width: '60%' }}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
+                <td style={{ width: '40%' }}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
+              </tr>
+              {(() => {
+                const parsed = parseAddress(currentServiceOrder.customers?.address);
+                return (
+                  <>
+                    <tr>
+                      <td><strong>Endereço:</strong> {parsed.street}</td>
+                      <td><strong>Bairro:</strong> {parsed.neighborhood}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Cidade / UF:</strong> {parsed.cityState}</td>
+                      <td><strong>CEP:</strong> {parsed.cep}</td>
+                    </tr>
+                  </>
+                );
+              })()}
+              <tr>
+                <td><strong>CPF:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
+                <td><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="a4-section-header text-black font-bold">Dados do Equipamento & Entrada</div>
+          <table className="a4-grid-table border border-black text-black">
+            <tbody>
+              <tr>
+                <td style={{ width: '60%' }}><strong>Aparelho / Modelo:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
+                <td style={{ width: '40%' }}><strong>Categoria:</strong> {currentServiceOrder.device_category.toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td><strong>S/N ou IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
+                <td>
+                  <strong>Senha/PIN:</strong> {currentServiceOrder.device_passcode || '—'}
+                </td>
+              </tr>
+              {currentServiceOrder.device_pattern_lock && (
+                <tr>
+                  <td colSpan={2}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <strong>Padrão de Desbloqueio:</strong>
+                      <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px', border: '1px solid #000000', display: 'inline-block' }}>
+                        <img src={currentServiceOrder.device_pattern_lock} style={{ width: '60px', height: '60px', display: 'block' }} />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              <tr>
+                <td colSpan={2}><strong>Defeito Relatado:</strong> {currentServiceOrder.reported_issue}</td>
+              </tr>
+              <tr>
+                <td colSpan={2}><strong>Vistoria Visual:</strong> {currentServiceOrder.cosmetic_condition || 'Nenhuma observação estética'}</td>
+              </tr>
+              <tr>
+                <td colSpan={2}><strong>Acessórios Inclusos:</strong> {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 ? currentServiceOrder.accessories_left.join(', ') : 'Nenhum'}</td>
+              </tr>
+              <tr>
+                <td colSpan={2}>
+                  <strong>Previsão de Entrega:</strong>{' '}
+                  {(() => {
+                    if (!currentServiceOrder.estimated_delivery) return 'Sem Previsão';
+                    const date = new Date(currentServiceOrder.estimated_delivery + 'T12:00:00');
+                    return isNaN(date.getTime()) ? 'Sem Previsão' : date.toLocaleDateString('pt-BR');
+                  })()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="a4-section-header text-black font-bold">Termos de Recebimento</div>
+          <div className="a4-notes text-black leading-relaxed">
+            1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
+            2. <strong>Backup de Dados:</strong> A {brandName} <strong>NÃO se responsabiliza por perdas de dados</strong> ou arquivos. Faça backup prévio.<br />
+            3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+          </div>
+
+          <div className="a4-signatures text-black mt-8">
+            <div className="a4-sig-box">
+              <div className="a4-sig-line"></div>
+              <span>Estou de acordo com o que li no todo desta nota.</span>
+              <strong className="mt-1">{currentServiceOrder.customers?.name}</strong>
+            </div>
+            <div className="a4-sig-box">
+              <div className="a4-sig-line"></div>
+              <span>Aparelho recebido por</span>
+              <strong className="mt-1">{brandName} {brandSub}</strong>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="os-thermal-receipt">
@@ -702,17 +1090,130 @@ export default function ServiceOrders() {
     );
   };
 
-  const renderOsWarrantyCopy = (copyTitle: string) => {
-    if (!currentServiceOrder) return null;
+  const renderOsWarrantyCopy = (copyTitle: string, forceFormat?: 'thermal' | 'a4') => {
+    if (!currentServiceOrder || !osUnit) return null;
+    const activeFormat = forceFormat || printFormatOverride || osUnit.print_mode || 'thermal';
     const today = new Date().toLocaleDateString('pt-BR');
-    const osUnit = units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
-      name: 'MDR Informática & Celulares',
-      address: 'Rua Principal, 1234 - Centro',
-      phone: '(11) 99999-9999'
-    };
     const unitNameParts = osUnit.name.split(' ');
     const brandName = unitNameParts[0] || 'MDR';
     const brandSub = unitNameParts.slice(1).join(' ').toUpperCase() || 'INFORMÁTICA & CELULARES';
+
+    if (activeFormat === 'a4') {
+      return (
+        <div className="os-a4-receipt text-left">
+          {/* Header */}
+          <div className="a4-header">
+            <div>
+              <div className="a4-brand-name">{brandName}</div>
+              <div className="a4-brand-sub">{brandSub}</div>
+            </div>
+            <div className="a4-brand-details">
+              {osUnit.address}<br />
+              WhatsApp: {osUnit.phone}
+            </div>
+          </div>
+
+          {/* Title Row */}
+          <div className="a4-title-row">
+            <div>
+              <div className="a4-os-num text-black font-black">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
+              <div className="a4-title-main font-black mt-1">{copyTitle}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div className="a4-chave font-mono">Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}</div>
+              <div className="a4-date mt-1">Data Saída: {today}</div>
+            </div>
+          </div>
+
+          <div className="a4-section-header text-black font-bold">Dados do Cliente</div>
+          <table className="a4-grid-table border border-black text-black">
+            <tbody>
+              <tr>
+                <td style={{ width: '60%' }}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
+                <td style={{ width: '40%' }}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
+              </tr>
+              {(() => {
+                const parsed = parseAddress(currentServiceOrder.customers?.address);
+                return (
+                  <>
+                    <tr>
+                      <td><strong>Endereço:</strong> {parsed.street}</td>
+                      <td><strong>Bairro:</strong> {parsed.neighborhood}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Cidade / UF:</strong> {parsed.cityState}</td>
+                      <td><strong>CEP:</strong> {parsed.cep}</td>
+                    </tr>
+                  </>
+                );
+              })()}
+              <tr>
+                <td><strong>CPF:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
+                <td><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="a4-section-header text-black font-bold">Dados do Equipamento & Reparo</div>
+          <table className="a4-grid-table border border-black text-black">
+            <tbody>
+              <tr>
+                <td style={{ width: '60%' }}><strong>Aparelho / Modelo:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
+                <td style={{ width: '40%' }}><strong>S/N ou IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
+              </tr>
+              <tr>
+                <td colSpan={2}><strong>Problema Original:</strong> {currentServiceOrder.reported_issue}</td>
+              </tr>
+              <tr>
+                <td colSpan={2}>
+                  <strong>Laudo Técnico de Reparo:</strong>{' '}
+                  {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim() : 'Reparo concluído.'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="a4-section-header text-black font-bold">Resumo Financeiro</div>
+          <table className="a4-grid-table border border-black text-black">
+            <tbody>
+              <tr>
+                <td style={{ width: '33%' }}><strong>Mão de Obra:</strong> R$ {Number(currentServiceOrder.labor_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style={{ width: '33%' }}><strong>Peças Aplicadas:</strong> R$ {Number(currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style={{ width: '34%' }}><strong>Forma Pagamento:</strong> {currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / Dinheiro'}</td>
+              </tr>
+              <tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+                <td colSpan={3} style={{ textAlign: 'center', fontSize: '11px' }}>
+                  VALOR TOTAL PAGO: R$ {Number(currentServiceOrder.labor_value + currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="a4-section-header text-black font-bold">Certificado de Garantia</div>
+          <div className="a4-notes text-black leading-relaxed">
+            Garantia técnica de <strong>{currentServiceOrder.warranty_period || 90} dias</strong> sobre peças/serviços desta OS.<br />
+            <strong>EXCLUSÕES DA GARANTIA:</strong> A garantia será anulada em caso de:<br />
+            • Quedas, quebras, amassados ou mau uso;<br />
+            • Oxidação, umidade ou contato com líquidos;<br />
+            • Rompimento dos lacres {brandName} aplicados;<br />
+            • Abertura por terceiros.
+          </div>
+
+          <div className="a4-signatures text-black mt-8">
+            <div className="a4-sig-box">
+              <div className="a4-sig-line"></div>
+              <span>Responsável Técnico</span>
+              <strong className="mt-1">{brandName} {brandSub}</strong>
+            </div>
+            <div className="a4-sig-box">
+              <div className="a4-sig-line"></div>
+              <span>Assinatura do Cliente</span>
+              <strong className="mt-1">{currentServiceOrder.customers?.name}</strong>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="os-thermal-receipt">

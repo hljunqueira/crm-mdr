@@ -49,6 +49,8 @@ export interface ServiceOrder {
     name: string;
     phone: string;
     cpf: string;
+    address?: string;
+    email?: string;
   };
   profiles?: {
     full_name: string;

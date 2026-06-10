@@ -220,7 +220,8 @@ export default function Settings() {
     contract_terms: '',
     warranty_terms: '',
     pix_key: '',
-    pix_key_type: 'cnpj' as 'cpf' | 'cnpj' | 'email' | 'phone' | 'random'
+    pix_key_type: 'cnpj' as 'cpf' | 'cnpj' | 'email' | 'phone' | 'random',
+    print_mode: 'thermal' as 'thermal' | 'a4'
   });
 
   useEffect(() => {
@@ -254,7 +255,8 @@ export default function Settings() {
         contract_terms: currentUnit.contract_terms || '',
         warranty_terms: currentUnit.warranty_terms || '',
         pix_key: currentUnit.pix_key || '',
-        pix_key_type: (currentUnit.pix_key_type as any) || 'cnpj'
+        pix_key_type: (currentUnit.pix_key_type as any) || 'cnpj',
+        print_mode: (currentUnit.print_mode as any) || 'thermal'
       });
     }
   }, [selectedUnitId, units, unit]);
@@ -393,6 +395,17 @@ export default function Settings() {
                       onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all font-mono"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Formato de Impressão Padrão</label>
+                    <select
+                      value={formData.print_mode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, print_mode: e.target.value as any }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all appearance-none"
+                    >
+                      <option value="thermal" className="bg-surface-container-high">Cupom Térmico (80mm)</option>
+                      <option value="a4" className="bg-surface-container-high">Papel A4</option>
+                    </select>
                   </div>
                 </div>
 
