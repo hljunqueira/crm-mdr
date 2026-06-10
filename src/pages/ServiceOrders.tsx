@@ -1417,7 +1417,10 @@ export default function ServiceOrders() {
           return (
             <button
               key={cat.id}
-              onClick={() => setSelectedCategoryTab(cat.id)}
+              onClick={() => {
+                setSelectedCategoryTab(cat.id);
+                setSelectedOsId(null);
+              }}
               className={cn(
                 "flex items-center gap-2.5 px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
                 selectedCategoryTab === cat.id
