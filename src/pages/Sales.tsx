@@ -141,6 +141,7 @@ function SaleDocumentViewer({
               ${isReceipt ? `
                 @page { size: 80mm auto; margin: 0; }
                 body { width: 80mm; }
+                .thermal-receipt, html, body { page-break-inside: avoid !important; break-inside: avoid !important; }
               ` : `
                 @page { size: A4; margin: 0 !important; }
                 body { margin: 0 !important; padding: 0 !important; }

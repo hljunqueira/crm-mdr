@@ -233,12 +233,12 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '55px' }}>
+        <div className="sig-line-box" style={{ marginTop: '25px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '75px' }}>
+        <div className="sig-line-box" style={{ marginTop: '35px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{customer.name}<br />Comprador</span>
         </div>
@@ -278,13 +278,13 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         .thermal-receipt {
           width: 80mm;
           margin: 0 auto;
-          padding: 4mm;
+          padding: 3mm;
           box-sizing: border-box;
           font-family: 'Inter', Arial, Helvetica, sans-serif;
-          font-size: 11.5px;
+          font-size: 10.5px;
           color: #000;
           background: #fff;
-          line-height: 1.45;
+          line-height: 1.3;
           font-weight: bold;
         }
         .copy-indicator {
