@@ -632,7 +632,7 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Diagnosis Intake Section */}
-        <div className="section-title" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>VISTORIA E ENTRADA</div>
+        <div className="section-title">VISTORIA E ENTRADA</div>
         <div className="row">
           <span>Defeito Relatado:</span>
           <span className="align-right text-small">{currentServiceOrder.reported_issue}</span>
@@ -683,12 +683,12 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box">
+        <div className="sig-line-box" style={{ marginTop: '55px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '45px' }}>
+        <div className="sig-line-box" style={{ marginTop: '75px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
@@ -829,12 +829,12 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box">
+        <div className="sig-line-box" style={{ marginTop: '55px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '45px' }}>
+        <div className="sig-line-box" style={{ marginTop: '75px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>

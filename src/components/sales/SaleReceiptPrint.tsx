@@ -233,12 +233,12 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box">
+        <div className="sig-line-box" style={{ marginTop: '55px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '20px' }}>
+        <div className="sig-line-box" style={{ marginTop: '75px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{customer.name}<br />Comprador</span>
         </div>
@@ -423,11 +423,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         }
       `}</style>
 
-      {renderReceiptCopy("VIA DO CLIENTE")}
-      <div className="page-break receipt-separator">
-        - - - - - - - - SERRILHA DE CORTE - - - - - - - -
-      </div>
-      {renderReceiptCopy("VIA DO ESTABELECIMENTO")}
+      {renderReceiptCopy("COMPROVANTE DE VENDA")}
     </div>
   );
 }

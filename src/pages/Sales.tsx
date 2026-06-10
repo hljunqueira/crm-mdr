@@ -1116,12 +1116,12 @@ function SaleDocumentViewer({
               <div className="divider"></div>
 
               {/* Signatures */}
-              <div className="sig-line-box">
+              <div className="sig-line-box" style={{ marginTop: '55px' }}>
                 <div className="sig-line"></div>
                 <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
               </div>
 
-              <div className="sig-line-box" style={{ marginTop: '20px' }}>
+              <div className="sig-line-box" style={{ marginTop: '75px' }}>
                 <div className="sig-line"></div>
                 <span className="sig-label">{customer.name}<br />Comprador</span>
               </div>
