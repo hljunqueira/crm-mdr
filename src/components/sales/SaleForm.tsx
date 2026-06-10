@@ -913,6 +913,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               onChange={(e) => setManualCategory(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
             >
+              <option value="smartphone" className="bg-[#121214]">📱 Smartphone / Celular</option>
               <option value="accessory_mobile" className="bg-[#121214]">🔌 Acessório Celular</option>
               <option value="accessory_it" className="bg-[#121214]">💻 Acessório Informática</option>
               <option value="notebook" className="bg-[#121214]">💻 Notebook</option>
