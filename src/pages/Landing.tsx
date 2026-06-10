@@ -20,7 +20,8 @@ import {
   ShoppingBag,
   Sparkles,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -525,8 +526,9 @@ export default function Landing() {
             <button 
               onClick={() => setSelectedService(null)}
               className="absolute top-6 right-6 z-10 w-12 h-12 rounded-full bg-surface-container border border-outline-variant/40 flex items-center justify-center text-on-surface hover:bg-white/10 transition-all"
+              aria-label="Fechar"
             >
-              <Zap size={20} className="rotate-45" />
+              <X size={20} />
             </button>
             
             <div className="grid md:grid-cols-2">
@@ -573,8 +575,9 @@ export default function Landing() {
             <button 
               onClick={() => setShowWhatsappModal(false)}
               className="absolute top-6 right-6 w-12 h-12 rounded-full bg-surface-container border border-outline-variant/40 flex items-center justify-center text-on-surface hover:bg-white/10 transition-all"
+              aria-label="Fechar"
             >
-              <Zap size={20} className="rotate-45" />
+              <X size={20} />
             </button>
 
             <div className="text-center space-y-4">
@@ -708,8 +711,9 @@ export default function Landing() {
             <button 
               onClick={() => setSelectedUnitImage(null)}
               className="absolute -top-16 right-0 w-12 h-12 rounded-full bg-surface-container border border-outline-variant/40 flex items-center justify-center text-on-surface hover:bg-white/10 transition-all"
+              aria-label="Fechar"
             >
-              <Zap size={20} className="rotate-45" />
+              <X size={20} />
             </button>
             <div className="w-full h-full glass-card border border-outline-variant/40 rounded-[40px] overflow-hidden shadow-[0_40px_100px_rgba(0,0,0,0.5)]">
               <img 

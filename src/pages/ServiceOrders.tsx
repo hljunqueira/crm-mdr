@@ -4,7 +4,7 @@ import {
   User, Phone, FileText, Printer, ExternalLink, ShieldAlert, 
   Save, ArrowLeft, Trash2, Smartphone, Monitor, PrinterIcon, 
   Gamepad2, PlusCircle, Check, Info, Calendar, DollarSign, Send,
-  Edit
+  Edit, X
 } from 'lucide-react';
 import { useServiceOrderStore, ServiceOrder } from '../store/useServiceOrderStore';
 import { useCustomerStore } from '../store/useCustomerStore';
@@ -1990,9 +1990,10 @@ export default function ServiceOrders() {
               </div>
               <button 
                 onClick={() => setIsCreateOpen(false)}
-                className="text-on-surface-variant hover:text-white transition-all text-lg font-black"
+                className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
+                aria-label="Fechar"
               >
-                &times;
+                <X size={18} />
               </button>
             </div>
 
@@ -2542,7 +2543,16 @@ export default function ServiceOrders() {
       {/* MODAL DE CONFIRMAÇÃO DE IMPRESSÃO IMEDIATA */}
       {justCreatedOs && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[40px] p-8 space-y-6 text-center animate-in zoom-in duration-300 shadow-2xl">
+          <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[40px] p-8 space-y-6 text-center animate-in zoom-in duration-300 shadow-2xl relative">
+            {/* Botão de Fechar */}
+            <button
+              onClick={() => setJustCreatedOs(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+              aria-label="Fechar"
+            >
+              <X size={18} />
+            </button>
+
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary border border-primary/20 mx-auto">
               <Printer size={32} />
             </div>
@@ -2631,9 +2641,10 @@ export default function ServiceOrders() {
                   setQuickCustomer({ name: '', cpf: '', phone: '' });
                   setIsQuickCustomerOpen(false);
                 }}
-                className="text-on-surface-variant hover:text-white transition-all text-lg font-black"
+                className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
+                aria-label="Fechar"
               >
-                &times;
+                <X size={18} />
               </button>
             </div>
 
@@ -2717,9 +2728,10 @@ export default function ServiceOrders() {
               </div>
               <button 
                 onClick={() => setIsOutsourceModalOpen(false)}
-                className="text-on-surface-variant hover:text-white transition-all text-lg font-black"
+                className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
+                aria-label="Fechar"
               >
-                &times;
+                <X size={18} />
               </button>
             </div>
 

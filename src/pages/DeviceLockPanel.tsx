@@ -14,7 +14,8 @@ import {
   Clock,
   UserCheck,
   Building,
-  QrCode
+  QrCode,
+  X
 } from 'lucide-react';
 import { useDeviceLockStore, DeviceLock } from '../store/useDeviceLockStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -399,8 +400,16 @@ export default function DeviceLockPanel() {
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-md bg-surface-container-high border border-white/5 p-6 rounded-[36px] space-y-4 shadow-2xl"
+            className="w-full max-w-md bg-surface-container-high border border-white/5 p-6 rounded-[36px] space-y-4 shadow-2xl relative"
           >
+            {/* Botão de Fechar */}
+            <button
+              onClick={() => { setShowLockModal(false); setSelectedLock(null); }}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+              aria-label="Fechar"
+            >
+              <X size={18} />
+            </button>
             <div className="flex items-center gap-3 text-red-500">
               <div className="p-3 bg-red-500/10 rounded-2xl">
                 <Lock size={20} />

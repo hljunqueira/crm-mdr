@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ExternalLink, Search, Loader2, AlertCircle, Wrench, ShieldAlert,
-  ArrowLeft, Truck, DollarSign, Calendar, Edit, Trash2, CheckCircle2
+  ArrowLeft, Truck, DollarSign, Calendar, Edit, Trash2, CheckCircle2,
+  X
 } from 'lucide-react';
 import { useServiceOrderStore } from '../store/useServiceOrderStore';
 import { useUI } from '../context/UIContext';
@@ -263,9 +264,10 @@ export default function OutsourcedOrders() {
               </div>
               <button 
                 onClick={() => setIsEditModalOpen(false)}
-                className="text-on-surface-variant hover:text-white transition-all text-lg font-black"
+                className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
+                aria-label="Fechar"
               >
-                &times;
+                <X size={18} />
               </button>
             </div>
 

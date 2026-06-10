@@ -12,7 +12,8 @@ import {
   AlertCircle, 
   Building2,
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
@@ -601,6 +602,16 @@ export default function Connections() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="glass-card w-full max-w-lg border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl relative overflow-hidden"
             >
+              {/* Botão de Fechar */}
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="absolute top-6 right-8 p-2 rounded-full text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+                aria-label="Fechar"
+              >
+                <X size={20} />
+              </button>
+
               <div className="flex items-center gap-4 mb-8">
                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                   <Smartphone size={22} />
@@ -691,6 +702,16 @@ export default function Connections() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="glass-card w-full max-w-md border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl text-center relative overflow-hidden"
             >
+              {/* Botão de Fechar */}
+              <button
+                type="button"
+                onClick={closeQRModal}
+                className="absolute top-6 right-8 p-2 rounded-full text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+                aria-label="Fechar"
+              >
+                <X size={20} />
+              </button>
+
               <h2 className="text-xl font-black text-white uppercase tracking-tight mb-2">Escaneie o QR Code</h2>
               <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-60 mb-8">Abra o WhatsApp no celular e selecione Aparelhos Conectados</p>
 

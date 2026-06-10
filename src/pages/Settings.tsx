@@ -16,7 +16,8 @@ import {
   QrCode,
   Trash2,
   Loader2,
-  Edit2
+  Edit2,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
@@ -605,6 +606,19 @@ export default function Settings() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         className="glass-card w-full max-w-2xl border border-white/10 rounded-[40px] p-10 bg-[#121215] shadow-2xl relative text-left"
                       >
+                        {/* Botão de Fechar */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserModal(false);
+                            setEditingUser(null);
+                          }}
+                          className="absolute top-6 right-8 p-2 rounded-full text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+                          aria-label="Fechar"
+                        >
+                          <X size={20} />
+                        </button>
+
                         <h3 className="text-lg font-black text-white uppercase tracking-tight mb-6">
                           {editingUser ? 'Editar Colaborador' : 'Novo Colaborador'}
                         </h3>

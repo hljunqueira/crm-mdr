@@ -179,6 +179,15 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="relative w-full max-w-3xl glass-card border border-white/10 rounded-[40px] overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col"
             >
+              {/* Botão de Fechar */}
+              <button
+                onClick={hideModal}
+                className="absolute top-6 right-8 p-2 rounded-full text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+                aria-label="Fechar"
+              >
+                <X size={20} />
+              </button>
+
               <div className="p-10 flex flex-col min-h-0 overflow-hidden">
                 <h3 className="text-2xl font-display font-black text-on-surface uppercase tracking-tight mb-8 shrink-0">{modal.title}</h3>
                 <div className="text-on-surface-variant font-display text-sm tracking-tight leading-relaxed flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
