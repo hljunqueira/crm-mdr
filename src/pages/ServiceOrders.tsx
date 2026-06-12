@@ -108,7 +108,7 @@ export default function ServiceOrders() {
   const { customers, fetchCustomers, addCustomer } = useCustomerStore();
   const { inventory, fetchInventory } = useInventoryStore();
   const { showNotification } = useUI();
-  const { profile } = useAuthStore();
+  const { profile, user } = useAuthStore();
   const { units, fetchAllUnits } = useUnitStore();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
   const { partners, fetchPartners, addPartner } = usePartnerStore();
@@ -540,7 +540,19 @@ export default function ServiceOrders() {
       // Autenticado com sucesso!
       setIsConfirmAuthOpen(false);
       setAuthPassword('');
-      await executeCreateOS(authEmployeeId);
+
+      const isTerminal = user?.email === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
+                         user?.email === 'lojagaivota@mdrinformaticaecelulares.com.br';
+
+      if (isTerminal && !isCreateOpen) {
+        setNewOs(prev => ({
+          ...prev,
+          responsible_technician_id: authEmployeeId
+        }));
+        setIsCreateOpen(true);
+      } else {
+        await executeCreateOS(authEmployeeId);
+      }
     } catch (err: any) {
       setAuthError(err.message || 'Senha incorreta.');
     } finally {
@@ -565,14 +577,33 @@ export default function ServiceOrders() {
       return;
     }
 
-    // Default to currently logged profile if available to speed up selection
-    if (profile?.id && !authEmployeeId) {
-      setAuthEmployeeId(profile.id);
-    } else if (newOs.responsible_technician_id && !authEmployeeId) {
-      setAuthEmployeeId(newOs.responsible_technician_id);
-    }
+    const isTerminal = user?.email === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
+                       user?.email === 'lojagaivota@mdrinformaticaecelulares.com.br';
 
-    setIsConfirmAuthOpen(true);
+    if (isTerminal) {
+      await executeCreateOS(newOs.responsible_technician_id);
+    } else {
+      await executeCreateOS(newOs.responsible_technician_id || profile?.id || '');
+    }
+  };
+
+  const handleNewOsClick = () => {
+    const isTerminal = user?.email === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
+                       user?.email === 'lojagaivota@mdrinformaticaecelulares.com.br';
+    
+    setAuthEmployeeId('');
+    setAuthPassword('');
+    setAuthError('');
+    
+    if (isTerminal) {
+      setIsConfirmAuthOpen(true);
+    } else {
+      setNewOs(prev => ({
+        ...prev,
+        responsible_technician_id: profile?.id || ''
+      }));
+      setIsCreateOpen(true);
+    }
   };
 
   const handleOutsourceOS = async (e: React.FormEvent) => {
@@ -1595,7 +1626,7 @@ export default function ServiceOrders() {
         </div>
         {hasPermission(profile, 'OS - Criar Nova OS') && (
           <button
-            onClick={() => setIsCreateOpen(true)}
+            onClick={handleNewOsClick}
             className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
           >
             <Plus size={16} /> Nova Ordem de Serviço
@@ -2539,7 +2570,8 @@ export default function ServiceOrders() {
                   <select
                     value={newOs.responsible_technician_id}
                     onChange={(e) => setNewOs(prev => ({ ...prev, responsible_technician_id: e.target.value }))}
-                    className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                    disabled={user?.email === 'lojaarroio@mdrinformaticaecelulares.com.br' || user?.email === 'lojagaivota@mdrinformaticaecelulares.com.br'}
+                    className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">Não Atribuir (Aguardando Fila)</option>
                     {admins.map(adm => (

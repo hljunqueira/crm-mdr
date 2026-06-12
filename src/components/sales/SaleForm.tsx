@@ -46,7 +46,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const { inventory, updateItem, addItem, fetchInventory } = useInventoryStore();
   const { suppliers, addSupplier, fetchSuppliers } = useSupplierStore();
   const { showNotification, hideModal } = useUI();
-  const { profile } = useAuthStore();
+  const { profile, user } = useAuthStore();
   const { unit } = useUnitStore();
 
   const [isSuccess, setIsSuccess] = useState(false);
@@ -247,6 +247,16 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [preAuthenticatedSellerId, setPreAuthenticatedSellerId] = useState<string | null>(null);
+
+  const isTerminal = user?.email === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
+                     user?.email === 'lojagaivota@mdrinformaticaecelulares.com.br';
+
+  useEffect(() => {
+    if (isTerminal && !initialData) {
+      setIsConfirmAuthOpen(true);
+    }
+  }, [isTerminal, initialData]);
 
   // Fetch employees list
   useEffect(() => {
@@ -767,7 +777,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       // Autenticado com sucesso!
       setIsConfirmAuthOpen(false);
       setAuthPassword('');
-      await executeSubmit(authEmployeeId);
+      
+      if (isTerminal && !initialData) {
+        setPreAuthenticatedSellerId(authEmployeeId);
+      } else {
+        await executeSubmit(authEmployeeId);
+      }
     } catch (err: any) {
       setAuthError(err.message || 'Senha incorreta.');
     } finally {
@@ -804,12 +819,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       return;
     }
 
-    // Default to currently logged profile if available to speed up selection
-    if (profile?.id && !authEmployeeId) {
-      setAuthEmployeeId(profile.id);
+    if (isTerminal) {
+      await executeSubmit(preAuthenticatedSellerId || '');
+    } else {
+      await executeSubmit(profile?.id || '');
     }
-
-    setIsConfirmAuthOpen(true);
   };
 
   if (isSuccess && selectedCustomer) {
@@ -916,9 +930,30 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     );
   }
 
+  const activeSeller = employees.find(e => e.id === (preAuthenticatedSellerId || initialData?.seller_id || profile?.id));
+
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6">
+        {activeSeller && (
+          <div className={cn(
+            "p-4 border rounded-2xl flex items-center justify-between transition-all duration-300",
+            isTerminal ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/5 border-white/10 text-on-surface"
+          )}>
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest opacity-60">
+                {isTerminal ? 'Vendedor Responsável (Autenticado)' : 'Operador Logado'}
+              </p>
+              <p className="text-sm font-black text-white">{activeSeller.full_name}</p>
+            </div>
+            <div className={cn(
+              "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
+              isTerminal ? "bg-success/20 border-success/30 text-success" : "bg-white/10 border-white/20 text-on-surface-variant"
+            )}>
+              {isTerminal ? 'Autenticado' : 'Sessão Individual'}
+            </div>
+          </div>
+        )}
       {saleType !== 'general' && selectedCustomer && (
         <>
           <div className={cn(
@@ -2069,6 +2104,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   setIsConfirmAuthOpen(false);
                   setAuthPassword('');
                   setAuthError('');
+                  if (isTerminal && !preAuthenticatedSellerId && !initialData) {
+                    onCancel();
+                  }
                 }}
                 disabled={authLoading}
                 className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface hover:text-white transition-all disabled:opacity-50"
