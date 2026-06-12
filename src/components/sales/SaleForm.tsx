@@ -250,7 +250,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [preAuthenticatedSellerId, setPreAuthenticatedSellerId] = useState<string | null>(null);
 
   const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                     user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
+                     user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br' ||
+                     user?.email?.toLowerCase().trim() === 'admin@mdrinformatica.com.br';
 
   useEffect(() => {
     if (isTerminal && !initialData) {
