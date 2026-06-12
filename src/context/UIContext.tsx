@@ -177,7 +177,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-3xl glass-card border border-white/10 rounded-[40px] overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col"
+              className="relative w-full max-w-5xl glass-card border border-white/10 rounded-[40px] overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col"
             >
               {/* Botão de Fechar */}
               <button

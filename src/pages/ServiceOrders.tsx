@@ -2234,7 +2234,7 @@ export default function ServiceOrders() {
       {/* MODAL: NOVA ORDEM DE SERVIÇO */}
       {isCreateOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-3xl rounded-[40px] p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar animate-in zoom-in duration-300">
+          <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-5xl rounded-[40px] p-6 md:p-8 space-y-6 max-h-[90vh] overflow-y-auto custom-scrollbar animate-in zoom-in duration-300">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <div>
                 <h3 className="text-md font-black uppercase tracking-wider text-white">Criar Nova Ordem de Serviço (OS)</h3>

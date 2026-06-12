@@ -133,7 +133,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   }, [fetchInventory, profile]);
 
   const availableDevicesForSimulation = useMemo(() => {
-    return inventory.filter(item => item.status === 'available' && (item.stock_quantity || 0) > 0);
+    return inventory.filter(item => (item.stock_quantity || 0) > 0);
   }, [inventory]);
 
   const filteredDevicesForSimulation = useMemo(() => {
