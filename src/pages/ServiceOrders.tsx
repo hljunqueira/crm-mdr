@@ -542,8 +542,7 @@ export default function ServiceOrders() {
       setAuthPassword('');
 
       const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                         user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br' ||
-                         user?.email?.toLowerCase().trim() === 'admin@mdrinformatica.com.br';
+                         user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
 
       if (isTerminal && !isCreateOpen) {
         setNewOs(prev => ({
@@ -579,8 +578,7 @@ export default function ServiceOrders() {
     }
 
     const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                       user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br' ||
-                       user?.email?.toLowerCase().trim() === 'admin@mdrinformatica.com.br';
+                       user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
 
     if (isTerminal) {
       await executeCreateOS(newOs.responsible_technician_id);
@@ -591,8 +589,7 @@ export default function ServiceOrders() {
 
   const handleNewOsClick = () => {
     const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                       user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br' ||
-                       user?.email?.toLowerCase().trim() === 'admin@mdrinformatica.com.br';
+                       user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
     
     setAuthEmployeeId('');
     setAuthPassword('');
@@ -2575,7 +2572,7 @@ export default function ServiceOrders() {
                   <select
                     value={newOs.responsible_technician_id}
                     onChange={(e) => setNewOs(prev => ({ ...prev, responsible_technician_id: e.target.value }))}
-                    disabled={user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br' || user?.email?.toLowerCase().trim() === 'admin@mdrinformatica.com.br'}
+                    disabled={user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br'}
                     className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">Não Atribuir (Aguardando Fila)</option>
