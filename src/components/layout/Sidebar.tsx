@@ -13,6 +13,8 @@ import {
   LogOut,
   QrCode,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Wrench,
   FileText,
   Menu,
@@ -31,6 +33,15 @@ export default function Sidebar() {
   const { signOut, profile } = useAuthStore();
   const { userPermissions, fetchUserPermissions } = usePermissionStore();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
+
+  const handleToggleCollapse = () => {
+    const nextVal = !isCollapsed;
+    setIsCollapsed(nextVal);
+    localStorage.setItem('sidebar-collapsed', String(nextVal));
+  };
 
   useEffect(() => {
     fetchUserPermissions();
@@ -161,36 +172,51 @@ export default function Sidebar() {
           <div key={group.title} className="space-y-1 rounded-2xl bg-white/[0.01] border border-white/5 p-1.5 transition-all">
             {/* Group Title Trigger Header */}
             <button
-              onClick={() => toggleGroup(group.title)}
+              onClick={() => {
+                toggleGroup(group.title);
+                if (isCollapsed) {
+                  setIsCollapsed(false);
+                  localStorage.setItem('sidebar-collapsed', 'false');
+                  // Expand the group that was clicked
+                  setExpandedGroups(prev => ({ ...prev, [group.title]: true }));
+                }
+              }}
+              title={group.title}
               className={cn(
-                "w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-left hover:bg-white/5 group",
+                "w-full flex items-center transition-all duration-200 text-left hover:bg-white/5 group",
+                isCollapsed ? "justify-center py-3 px-0" : "justify-between px-3 py-2.5 rounded-xl",
                 hasActiveItem ? "text-primary font-semibold" : "text-on-surface-variant/80"
               )}
             >
               <div className="flex items-center gap-3">
                 <GroupIcon size={18} className={cn(
                   "transition-colors",
-                  hasActiveItem ? "text-primary" : "text-on-surface-variant/50 group-hover:text-primary"
+                  hasActiveItem ? "text-primary" : "text-on-surface-variant/50 group-hover:text-primary",
+                  isCollapsed && "mx-auto"
                 )} />
-                <div className="min-w-0">
-                  <span className="font-display text-xs font-black uppercase tracking-wider block leading-none">{group.title}</span>
-                  <span className="text-[9px] text-on-surface-variant/40 block mt-0.5 leading-none truncate max-w-[150px] font-medium">{group.subtitle}</span>
-                </div>
+                {!isCollapsed && (
+                  <div className="min-w-0">
+                    <span className="font-display text-xs font-black uppercase tracking-wider block leading-none">{group.title}</span>
+                    <span className="text-[9px] text-on-surface-variant/40 block mt-0.5 leading-none truncate max-w-[150px] font-medium">{group.subtitle}</span>
+                  </div>
+                )}
               </div>
-              <ChevronDown 
-                size={16} 
-                className={cn(
-                  "text-on-surface-variant/40 group-hover:text-on-surface transition-transform duration-300",
-                  isExpanded ? "transform rotate-180 text-primary" : ""
-                )} 
-              />
+              {!isCollapsed && (
+                <ChevronDown 
+                  size={16} 
+                  className={cn(
+                    "text-on-surface-variant/40 group-hover:text-on-surface transition-transform duration-300",
+                    isExpanded ? "transform rotate-180 text-primary" : ""
+                  )} 
+                />
+              )}
             </button>
 
             {/* Group Sub-Items Collapsible Content */}
             <div 
               className={cn(
                 "overflow-hidden transition-all duration-300 ease-in-out",
-                isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+                isExpanded && !isCollapsed ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
               )}
             >
               <div className="space-y-1 pt-1.5 pl-2 border-l border-outline-variant/30 ml-5">
@@ -237,20 +263,39 @@ export default function Sidebar() {
       </button>
 
       {/* Desktop Persistent Sidebar */}
-      <aside translate="no" className="notranslate hidden md:flex w-64 h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30">
-        <div className="px-6 mb-8 flex justify-center">
-          <img src="/logo-mdr.png" alt="MDR" className="h-24 w-auto object-contain" />
+      <aside translate="no" className={cn("notranslate hidden md:flex h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30 transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
+        {/* Toggle Collapse Button */}
+        <button
+          onClick={handleToggleCollapse}
+          className="absolute -right-3.5 top-12 z-50 bg-[#121214] border border-white/10 hover:border-primary/50 text-white rounded-full p-1.5 shadow-md hover:scale-105 active:scale-95 transition-all hidden md:flex items-center justify-center cursor-pointer"
+          title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          {isCollapsed ? <ChevronRight size={12} strokeWidth={3} /> : <ChevronLeft size={12} strokeWidth={3} />}
+        </button>
+
+        <div className={cn("px-6 mb-8 flex justify-center transition-all duration-300", isCollapsed ? "px-2 mb-6" : "px-6 mb-8")}>
+          {isCollapsed ? (
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-lg font-display shadow-lg shadow-primary/5 animate-pulse">
+              M
+            </div>
+          ) : (
+            <img src="/logo-mdr.png" alt="MDR" className="h-24 w-auto object-contain" />
+          )}
         </div>
 
         {renderNavContent()}
 
-        <div className="mt-auto px-3 py-4 border-t border-outline-variant/10">
+        <div className={cn("mt-auto py-4 border-t border-outline-variant/10 transition-all duration-300", isCollapsed ? "px-1 text-center" : "px-3")}>
           <button 
             onClick={() => signOut()} 
-            className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all duration-200 w-full group"
+            title="Sair do Sistema"
+            className={cn(
+              "flex items-center text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all duration-200 group w-full",
+              isCollapsed ? "justify-center p-3.5" : "gap-3 px-4 py-3"
+            )}
           >
             <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
-            <span className="font-display text-sm font-bold tracking-tight uppercase">Sair do Sistema</span>
+            {!isCollapsed && <span className="font-display text-sm font-bold tracking-tight uppercase">Sair do Sistema</span>}
           </button>
         </div>
       </aside>
