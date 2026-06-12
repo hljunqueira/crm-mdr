@@ -21,7 +21,8 @@ import {
   Sparkles,
   Loader2,
   ChevronDown,
-  X
+  X,
+  Menu
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -119,6 +120,7 @@ export default function Landing() {
   }, [showcaseDevices]);
 
   const [isNavDropdownOpen, setIsNavDropdownOpen] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -301,7 +303,75 @@ export default function Landing() {
             </Link>
           </motion.div>
         </div>
+
+        {/* Hamburger Button for mobile */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 md:hidden text-on-surface-variant hover:text-white rounded-xl bg-white/5 border border-white/10 transition-all z-50 cursor-pointer"
+          aria-label="Menu"
+        >
+          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </nav>
+
+      {/* Mobile Menu Drawer */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed inset-x-0 top-20 bg-[#0c0c0e]/95 backdrop-blur-2xl z-[90] flex flex-col p-6 space-y-6 md:hidden border-b border-white/10 shadow-2xl"
+          >
+            <div className="flex flex-col gap-4">
+              <a
+                href="#servicos"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-sm uppercase font-black tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors py-3 border-b border-white/5"
+              >
+                Serviços
+              </a>
+              <a
+                href="#unidades"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="text-sm uppercase font-black tracking-[0.2em] text-on-surface-variant hover:text-primary transition-colors py-3 border-b border-white/5"
+              >
+                Unidades
+              </a>
+            </div>
+
+            <div className="space-y-4 pt-4">
+              <span className="text-[10px] font-black text-primary uppercase tracking-widest block leading-none">Área do Cliente</span>
+              <Link
+                to="/consulta-os"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-wider text-white hover:text-primary transition-all"
+              >
+                Acompanhar Conserto <ChevronRight size={14} />
+              </Link>
+            </div>
+
+            <div className="space-y-4">
+              <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest block leading-none">Colaboradores</span>
+              <Link
+                to="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-wider text-white hover:text-primary transition-all"
+              >
+                Acesso Restrito (ERP) <ChevronRight size={14} />
+              </Link>
+            </div>
+
+            <Link
+              to="/atendimento"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="w-full py-4 bg-primary text-on-primary rounded-2xl text-center text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all block"
+            >
+              Orçamento Online
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <section id="inicio" className="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 md:px-8 overflow-hidden">
