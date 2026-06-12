@@ -341,6 +341,11 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     e.preventDefault();
 
     const cleanCpf = formData.cpf.replace(/\D/g, '');
+    if (formType === 'complete' && !cleanCpf) {
+      showNotification('error', 'Documento Obrigatório', `O ${documentType} é obrigatório para o cadastro com análise de crédito.`);
+      return;
+    }
+
     if (cleanCpf) {
       if (documentType === 'CPF' && !validateCPF(cleanCpf)) {
         showNotification('error', 'CPF Inválido', 'O CPF informado não é válido.');
@@ -512,7 +517,9 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
-              {documentType === 'CPF' ? 'CPF (Opcional)' : 'CNPJ (Opcional)'}
+              {documentType === 'CPF' 
+                ? (formType === 'complete' ? 'CPF *' : 'CPF (Opcional)') 
+                : (formType === 'complete' ? 'CNPJ *' : 'CNPJ (Opcional)')}
             </label>
             <input 
               type="text" 
