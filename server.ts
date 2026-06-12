@@ -13,6 +13,8 @@ import leadRoutes from "./server/routes/leads.js";
 import kanbanRoutes from "./server/routes/kanban.js";
 import inventoryRoutes from "./server/routes/inventory.js";
 import unitsRoutes from "./server/routes/units.js";
+import supplierRoutes from "./server/routes/suppliers.js";
+import partnerRoutes from "./server/routes/partners.js";
 import webhookRoutes from "./server/routes/webhooks.js";
 import evolutionRoutes from "./server/routes/evolution.js";
 import aiRoutes from "./server/routes/ai.js";
@@ -57,6 +59,8 @@ async function startServer() {
   app.use("/api/kanban", kanbanRoutes);
   app.use("/api/inventory", inventoryRoutes);
   app.use("/api/units", unitsRoutes);
+  app.use("/api/suppliers", supplierRoutes);
+  app.use("/api/partners", partnerRoutes);
   app.use("/api/webhooks", webhookRoutes);
   app.use("/api/evolution", evolutionRoutes);
   app.use("/api/ai", aiRoutes);

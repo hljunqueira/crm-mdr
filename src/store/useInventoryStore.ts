@@ -28,7 +28,7 @@ interface InventoryState {
   inventory: InventoryItem[];
   isLoading: boolean;
   fetchInventory: (unitId?: string) => Promise<void>;
-  addItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
+  addItem: (item: Omit<InventoryItem, 'id'>) => Promise<InventoryItem>;
   updateItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
@@ -107,6 +107,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         short_name: data.short_name || '',
       };
       set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
+      return newFrontendItem;
     } catch (error) {
       console.error('Error adding inventory item:', error);
       throw error;

@@ -9,6 +9,7 @@ import {
 import { useServiceOrderStore, ServiceOrder } from '../store/useServiceOrderStore';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useInventoryStore } from '../store/useInventoryStore';
+import { usePartnerStore } from '../store/usePartnerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
@@ -110,6 +111,11 @@ export default function ServiceOrders() {
   const { profile } = useAuthStore();
   const { units, fetchAllUnits } = useUnitStore();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
+  const { partners, fetchPartners, addPartner } = usePartnerStore();
+  
+  const [showQuickAddPartner, setShowQuickAddPartner] = useState(false);
+  const [newPartnerName, setNewPartnerName] = useState('');
+  const [isAddingPartner, setIsAddingPartner] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('all');
@@ -179,6 +185,7 @@ export default function ServiceOrders() {
     fetchInventory();
     fetchAllUnits();
     fetchUserPermissions();
+    fetchPartners(undefined, false);
 
     const fetchAdmins = async () => {
       const { data } = await supabase
@@ -188,7 +195,33 @@ export default function ServiceOrders() {
       if (data) setAdmins(data);
     };
     fetchAdmins();
-  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions]);
+  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions, fetchPartners]);
+
+  const handleQuickAddPartner = async () => {
+    if (!newPartnerName.trim()) {
+      showNotification('error', 'Erro', 'Digite o nome do parceiro');
+      return;
+    }
+    setIsAddingPartner(true);
+    try {
+      const created = await addPartner({
+        name: newPartnerName.trim(),
+        unit_id: profile?.unit_id || undefined
+      });
+      setOutsourceForm(prev => ({
+        ...prev,
+        partner_shop_name: created.name,
+        partner_technician_name: created.technician_name || ''
+      }));
+      setNewPartnerName('');
+      setShowQuickAddPartner(false);
+      showNotification('success', 'Sucesso', 'Parceiro cadastrado com sucesso!');
+    } catch (err) {
+      showNotification('error', 'Erro', 'Falha ao cadastrar parceiro.');
+    } finally {
+      setIsAddingPartner(false);
+    }
+  };
 
   // Default unit_id to profile's unit_id when profile/units are loaded
   useEffect(() => {
@@ -2951,14 +2984,70 @@ export default function ServiceOrders() {
             <form onSubmit={handleOutsourceOS} className="space-y-4 text-xs">
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Laboratório / Loja Parceira *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Lab Cell, Assistência X"
-                  value={outsourceForm.partner_shop_name}
-                  onChange={(e) => setOutsourceForm(prev => ({ ...prev, partner_shop_name: e.target.value }))}
-                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none"
-                />
+                {!showQuickAddPartner ? (
+                  <div className="flex gap-2">
+                    <select
+                      required
+                      value={outsourceForm.partner_shop_name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const partnerObj = partners.find(p => p.name === val);
+                        setOutsourceForm(prev => ({
+                          ...prev,
+                          partner_shop_name: val,
+                          partner_technician_name: partnerObj?.technician_name || prev.partner_technician_name || ''
+                        }));
+                      }}
+                      className="flex-1 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none appearance-none"
+                    >
+                      <option value="" className="bg-[#121214] text-white">— Selecione o Parceiro —</option>
+                      {partners.map(p => (
+                        <option key={p.id} value={p.name} className="bg-[#121214] text-white">{p.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddPartner(true)}
+                      className="p-3 bg-white/5 hover:bg-white/10 text-white border border-outline-variant/30 rounded-2xl transition-all active:scale-95 flex items-center justify-center shrink-0"
+                      title="Cadastrar parceiro rápido"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
+                    <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Parceiro Rápido</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newPartnerName}
+                        onChange={(e) => setNewPartnerName(e.target.value)}
+                        placeholder="Nome do laboratório parceiro"
+                        className="flex-1 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-2 text-xs text-white focus:border-primary outline-none"
+                        disabled={isAddingPartner}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleQuickAddPartner}
+                        disabled={isAddingPartner}
+                        className="px-3 bg-primary text-on-primary rounded-2xl text-[9px] font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                      >
+                        {isAddingPartner ? '...' : 'Salvar'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowQuickAddPartner(false);
+                          setNewPartnerName('');
+                        }}
+                        disabled={isAddingPartner}
+                        className="px-3 bg-white/5 hover:bg-white/10 text-white border border-outline-variant/30 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

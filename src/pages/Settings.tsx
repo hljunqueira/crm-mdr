@@ -795,6 +795,8 @@ export default function Settings() {
                                 { key: 'Vendas & Celulares', label: 'Vendas & Celulares' },
                                 { key: 'Análise de Crédito', label: 'Análise de Crédito' },
                                 { key: 'Estoque', label: 'Estoque' },
+                                { key: 'Fornecedores', label: 'Fornecedores' },
+                                { key: 'Parceiros', label: 'Parceiros' },
                                 { key: 'Assistência Técnica (OS)', label: 'Assistência Técnica (OS)' },
                                 { key: 'OS Terceirizadas', label: 'OS Terceirizadas' },
                                 { key: 'WPP / Instagram', label: 'WPP / Instagram' },
@@ -813,6 +815,22 @@ export default function Settings() {
                                 { key: 'Estoque - Excluir Produto', label: 'Excluir Produto' },
                                 { key: 'Estoque - Importar Planilha', label: 'Importar Planilha em Lote' },
                                 { key: 'Estoque - Transferir Produto', label: 'Transferir entre Unidades' }
+                              ]
+                            },
+                            {
+                              title: 'Ações de Fornecedores',
+                              items: [
+                                { key: 'Fornecedores - Cadastrar', label: 'Cadastrar Fornecedor' },
+                                { key: 'Fornecedores - Editar', label: 'Editar Fornecedor' },
+                                { key: 'Fornecedores - Excluir', label: 'Excluir Fornecedor' }
+                              ]
+                            },
+                            {
+                              title: 'Ações de Parceiros',
+                              items: [
+                                { key: 'Parceiros - Cadastrar', label: 'Cadastrar Parceiro' },
+                                { key: 'Parceiros - Editar', label: 'Editar Parceiro' },
+                                { key: 'Parceiros - Excluir', label: 'Excluir Parceiro' }
                               ]
                             },
                             {

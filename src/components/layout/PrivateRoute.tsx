@@ -16,6 +16,8 @@ const PAGE_ROUTES = [
   { name: 'Vendas & Celulares', path: '/sales' },
   { name: 'Análise de Crédito', path: '/credit-analysis' },
   { name: 'Estoque', path: '/inventory' },
+  { name: 'Fornecedores', path: '/suppliers' },
+  { name: 'Parceiros', path: '/partners' },
   { name: 'Assistência Técnica (OS)', path: '/service-orders' },
   { name: 'OS Terceirizadas', path: '/outsourcing' },
   { name: 'WPP / Instagram', path: '/automation' },

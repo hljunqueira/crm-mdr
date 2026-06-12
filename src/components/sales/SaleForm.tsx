@@ -1,14 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Plus, X, Gift, ShoppingBag } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, printElement, formatCPF, formatPhone, validateCPF, validateCNPJ } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
 import { useSaleStore, Sale } from '../../store/useSaleStore';
 import { useFinanceStore } from '../../store/useFinanceStore';
 import { useInventoryStore } from '../../store/useInventoryStore';
+import { useSupplierStore } from '../../store/useSupplierStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUnitStore } from '../../store/useUnitStore';
-import { printElement } from '../../lib/utils';
 import ContractPrint from './ContractPrint';
 import SaleReceiptPrint from './SaleReceiptPrint';
 
@@ -39,10 +39,11 @@ interface SaleFormProps {
 }
 
 export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormProps) {
-  const { customers } = useCustomerStore();
+  const { customers, addCustomer, fetchCustomers } = useCustomerStore();
   const { addSale, updateSale } = useSaleStore();
   const { installments, fetchInstallments, addInstallments } = useFinanceStore();
-  const { inventory, updateItem } = useInventoryStore();
+  const { inventory, updateItem, addItem, fetchInventory } = useInventoryStore();
+  const { suppliers, addSupplier, fetchSuppliers } = useSupplierStore();
   const { showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
   const { unit } = useUnitStore();
@@ -55,6 +56,170 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number; imei: string; category?: string }[]>([]);
   const [deviceSearch, setDeviceSearch] = useState('');
   const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+
+  // Quick Customer State
+  const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+  const [quickCustomer, setQuickCustomer] = useState({
+    name: '',
+    cpf: '',
+    phone: '',
+    address: ''
+  });
+
+  // Quick Product State
+  const [isQuickProductOpen, setIsQuickProductOpen] = useState(false);
+  const [quickProduct, setQuickProduct] = useState({
+    description: '',
+    category: 'other',
+    price: '',
+    cost_price: '',
+    stock_quantity: '1',
+    supplier: '',
+    barcode: '',
+    condition: 'new' as 'new' | 'used' | 'refurbished' | 'vitrine',
+    imei: ''
+  });
+  
+  // Quick Supplier State inside the Quick Product registration
+  const [isQuickSupplierOpen, setIsQuickSupplierOpen] = useState(false);
+  const [quickSupplierName, setQuickSupplierName] = useState('');
+
+  const handleQuickCustomerSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickCustomer.name.trim() || !quickCustomer.cpf.trim() || !quickCustomer.phone.trim() || !quickCustomer.address.trim()) {
+      showNotification('error', 'Campos Obrigatórios', 'Por favor, preencha todos os campos do cliente.');
+      return;
+    }
+    
+    // Validate CPF/CNPJ
+    const cleanCpf = quickCustomer.cpf.replace(/\D/g, '');
+    if (cleanCpf.length <= 11) {
+      if (!validateCPF(cleanCpf)) {
+        showNotification('error', 'CPF Inválido', 'O CPF informado é inválido.');
+        return;
+      }
+    } else {
+      if (!validateCNPJ(cleanCpf)) {
+        showNotification('error', 'CNPJ Inválido', 'O CNPJ informado é inválido.');
+        return;
+      }
+    }
+
+    try {
+      const newCustomer = await addCustomer({
+        unit_id: profile?.unit_id || undefined,
+        name: quickCustomer.name.trim(),
+        cpf: formatCPF(cleanCpf),
+        phone: formatPhone(quickCustomer.phone),
+        address: quickCustomer.address.trim(),
+        registration_status: 'APROVADO',
+        credit_status: 'APROVADO',
+        approved_for_purchase: true,
+        status: 'active',
+        classification: 'BOM',
+        credit_limit: 5000,
+        notes: 'Cadastrado rapidamente na venda.'
+      });
+
+      if (newCustomer) {
+        setFormData(prev => ({ ...prev, customer_id: newCustomer.id }));
+        showNotification('success', 'Cliente Cadastrado', `${newCustomer.name} foi cadastrado e selecionado!`);
+        setIsQuickCustomerOpen(false);
+        setQuickCustomer({ name: '', cpf: '', phone: '', address: '' });
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro ao salvar', err.message || 'Falha ao cadastrar cliente.');
+    }
+  };
+
+  const handleQuickProductSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickProduct.description.trim()) {
+      showNotification('error', 'Descrição Obrigatória', 'A descrição do produto é obrigatória.');
+      return;
+    }
+
+    const shortNameFinal = quickProduct.description.substring(0, 25).trim();
+    const firstWord = quickProduct.description.trim().split(/\s+/)[0] || '-';
+    const brandValue = firstWord.length > 20 ? firstWord.substring(0, 20) : firstWord;
+
+    const priceNum = Number(quickProduct.price) || 0;
+    const costPriceNum = Number(quickProduct.cost_price) || 0;
+    const qtyNum = Math.max(1, Number(quickProduct.stock_quantity) || 1);
+
+    try {
+      const newProduct = await addItem({
+        brand: brandValue,
+        model: shortNameFinal,
+        description: quickProduct.description.trim(),
+        short_name: shortNameFinal,
+        condition: quickProduct.condition,
+        status: 'available',
+        stock_quantity: qtyNum,
+        notes: quickProduct.description.trim(),
+        price: priceNum,
+        cost_price: costPriceNum,
+        imei: quickProduct.imei.trim(),
+        category: quickProduct.category as any,
+        unit_id: profile?.unit_id || undefined,
+        barcode: quickProduct.barcode.trim() || undefined,
+        supplier: quickProduct.supplier || undefined,
+        purchase_date: new Date().toISOString().split('T')[0]
+      });
+
+      if (newProduct) {
+        // Automatically add to selected devices
+        setSelectedDevices(prev => {
+          if (prev.find(d => d.id === newProduct.id)) return prev;
+          return [...prev, {
+            id: newProduct.id,
+            model: newProduct.model,
+            brand: newProduct.brand,
+            price: newProduct.price,
+            quantity: 1,
+            imei: newProduct.imei || '',
+            category: newProduct.category
+          }];
+        });
+
+        showNotification('success', 'Produto Cadastrado', `${newProduct.model} foi adicionado à venda!`);
+        setIsQuickProductOpen(false);
+        setQuickProduct({
+          description: '',
+          category: 'other',
+          price: '',
+          cost_price: '',
+          stock_quantity: '1',
+          supplier: '',
+          barcode: '',
+          condition: 'new',
+          imei: ''
+        });
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro ao salvar', err.message || 'Falha ao cadastrar produto.');
+    }
+  };
+
+  const handleQuickSupplierSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickSupplierName.trim()) return;
+
+    try {
+      const newSupplier = await addSupplier({
+        name: quickSupplierName.trim(),
+        unit_id: profile?.unit_id || undefined
+      });
+      if (newSupplier) {
+        setQuickProduct(prev => ({ ...prev, supplier: newSupplier.name }));
+        setQuickSupplierName('');
+        setIsQuickSupplierOpen(false);
+        showNotification('success', 'Fornecedor Cadastrado', `${newSupplier.name} adicionado!`);
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro ao salvar fornecedor', err.message);
+    }
+  };
 
   const [formData, setFormData] = useState({
     customer_id: initialData?.customer_id || '',
@@ -443,6 +608,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (saleType === 'general' && selectedDevices.length === 0) {
+      showNotification('error', 'Itens do Estoque', 'Por favor, vincule pelo menos um produto do estoque para realizar uma venda em geral.');
+      return;
+    }
+
     if (!formData.customer_id || !formData.device_model || formData.total_value <= 0) {
       showNotification('error', 'Campos Obrigatórios', 'Por favor, preencha todos os campos corretamente.');
       return;
@@ -677,7 +847,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
       {saleType !== 'general' && selectedCustomer && (
         <>
           <div className={cn(
@@ -746,27 +917,39 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         {/* Customer Section */}
         <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
-          <select 
-            required
-            value={formData.customer_id}
-            onChange={(e) => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-          >
-            <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
-            {customers.map(c => {
-              const isBlocked = c.approved_for_purchase !== true;
-              return (
-                <option 
-                  key={c.id} 
-                  value={c.id} 
-                  disabled={isBlocked}
-                  className="bg-surface-container-high"
-                >
-                  {c.name} - {c.cpf}{isBlocked ? ' (BLOQUEADO - Sem Aprovação)' : ''}
-                </option>
-              );
-            })}
-          </select>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <select 
+                required
+                value={formData.customer_id}
+                onChange={(e) => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
+                {customers.map(c => {
+                  const isBlocked = c.approved_for_purchase !== true;
+                  return (
+                    <option 
+                      key={c.id} 
+                      value={c.id} 
+                      disabled={isBlocked}
+                      className="bg-surface-container-high"
+                    >
+                      {c.name} - {c.cpf}{isBlocked ? ' (BLOQUEADO - Sem Aprovação)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsQuickCustomerOpen(true)}
+              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+              title="Cadastro Rápido de Cliente"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Seletor do Tipo de Venda */}
@@ -867,89 +1050,89 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           )}
 
-          {/* Campo de Busca de Estoque */}
-          <div className="relative mt-2 font-display">
-            <input
-              type="text"
-              placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
-              value={deviceSearch}
-              onChange={(e) => {
-                setDeviceSearch(e.target.value);
-                setDeviceDropdownOpen(true);
+          {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
+          <div className="flex gap-2 mt-2">
+            <div className="relative flex-1 font-display">
+              <input
+                type="text"
+                placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
+                value={deviceSearch}
+                onChange={(e) => {
+                  setDeviceSearch(e.target.value);
+                  setDeviceDropdownOpen(true);
+                }}
+                onFocus={() => setDeviceDropdownOpen(true)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+              
+              {deviceDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
+                  <div className="absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
+                    {filteredDevices.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
+                    ) : (
+                      filteredDevices.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => addDeviceToSale(item)}
+                          className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <span className="font-bold text-white">{item.model}</span>
+                            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
+                            {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
+                          </div>
+                          <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                fetchSuppliers(profile?.unit_id || undefined, true);
+                setQuickProduct(prev => ({
+                  ...prev,
+                  category: saleType === 'cellphone' ? 'smartphone' : 'other',
+                  imei: ''
+                }));
+                setIsQuickProductOpen(true);
               }}
-              onFocus={() => setDeviceDropdownOpen(true)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-            />
-            
-            {deviceDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
-                <div className="absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
-                  {filteredDevices.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
-                  ) : (
-                    filteredDevices.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => addDeviceToSale(item)}
-                        className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <span className="font-bold text-white">{item.model}</span>
-                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
-                          {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
-                        </div>
-                        <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </>
-            )}
+              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+              title="Cadastro Rápido de Produto"
+            >
+              <Plus size={18} />
+            </button>
           </div>
         </div>
 
-        {/* Modelo do Aparelho */}
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Aparelho</label>
-          <input 
-            type="text" 
-            required
-            placeholder={saleType === 'cellphone' ? "Ex: iPhone 15 Pro Max" : "Ex: Teclado Mecânico, Notebook Dell, Caixa de Som, Formatação"}
-            value={formData.device_model}
-            onChange={(e) => setFormData(prev => ({ ...prev, device_model: e.target.value }))}
-            readOnly={selectedDevices.length > 0}
-            className={cn(
-              "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-              selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
-            )}
-          />
-        </div>
-
-        {/* Categoria Manual se for Geral sem vinculo de estoque */}
-        {saleType === 'general' && selectedDevices.length === 0 && (
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
-            <select
-              value={manualCategory}
-              onChange={(e) => setManualCategory(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              <option value="smartphone" className="bg-[#121214]">📱 Smartphone / Celular</option>
-              <option value="accessory_mobile" className="bg-[#121214]">🔌 Acessório Celular</option>
-              <option value="accessory_it" className="bg-[#121214]">💻 Acessório Informática</option>
-              <option value="notebook" className="bg-[#121214]">💻 Notebook</option>
-              <option value="desktop" className="bg-[#121214]">🖥️ Computador Desktop</option>
-              <option value="part" className="bg-[#121214]">🔧 Peça de Reposição</option>
-              <option value="other" className="bg-[#121214]">📦 Outros</option>
-            </select>
+        {/* Modelo do Aparelho - Exibido apenas em vendas de celular/crediário */}
+        {saleType === 'cellphone' && (
+          <div className="space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Aparelho</label>
+            <input 
+              type="text" 
+              required
+              placeholder="Ex: iPhone 15 Pro Max"
+              value={formData.device_model}
+              onChange={(e) => setFormData(prev => ({ ...prev, device_model: e.target.value }))}
+              readOnly={selectedDevices.length > 0}
+              className={cn(
+                "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
+                selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
+              )}
+            />
           </div>
         )}
 
-        {/* IMEI / Serial Condicional */}
-        {showImeiField && (
-          <div className="space-y-2">
+        {/* IMEI / Serial Condicional - Exibido apenas em vendas de celular/crediário */}
+        {saleType === 'cellphone' && showImeiField && (
+          <div className="space-y-2 animate-in fade-in duration-300">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
             <input 
               type="text" 
@@ -1417,5 +1600,318 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         </button>
       </div>
     </form>
+
+      {/* Modal de Cadastro Rápido de Cliente */}
+      {isQuickCustomerOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+          <div className="bg-[#121224] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                  <User size={18} />
+                </div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight font-display">Cadastro Rápido de Cliente</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setIsQuickCustomerOpen(false)}
+                className="p-1.5 hover:bg-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleQuickCustomerSave} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nome do cliente"
+                  value={quickCustomer.name}
+                  onChange={e => setQuickCustomer(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF ou CNPJ</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="000.000.000-00"
+                    value={quickCustomer.cpf}
+                    onChange={e => setQuickCustomer(prev => ({ ...prev, cpf: formatCPF(e.target.value) }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">WhatsApp / Celular</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="(00) 00000-0000"
+                    value={quickCustomer.phone}
+                    onChange={e => setQuickCustomer(prev => ({ ...prev, phone: formatPhone(e.target.value) }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Endereço Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Av. Brasil, 1500 - Centro"
+                  value={quickCustomer.address}
+                  onChange={e => setQuickCustomer(prev => ({ ...prev, address: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickCustomerOpen(false)}
+                  className="flex-1 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3.5 rounded-xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest transition-all hover:scale-102 active:scale-95 shadow-lg shadow-primary/20"
+                >
+                  Salvar Cliente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastro Rápido de Produto */}
+      {isQuickProductOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-300">
+          <div className="bg-[#121224] border border-white/10 rounded-[32px] w-full max-w-lg my-8 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                  <Smartphone size={18} />
+                </div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight font-display">Cadastro Rápido de Produto</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setIsQuickProductOpen(false)}
+                className="p-1.5 hover:bg-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleQuickProductSave} className="p-6 space-y-4 text-left">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição do Item</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Tela iPhone 11 Incell, Carregador Turbo 20W"
+                  value={quickProduct.description}
+                  onChange={e => setQuickProduct(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
+                  <select
+                    value={quickProduct.category}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all appearance-none"
+                  >
+                    <option value="accessory_mobile" className="bg-[#121224]">🔌 Acessório Celular</option>
+                    <option value="accessory_it" className="bg-[#121224]">💻 Acessório Informática</option>
+                    <option value="smartphone" className="bg-[#121224]">📱 Smartphone / Celular</option>
+                    <option value="notebook" className="bg-[#121224]">💻 Notebook</option>
+                    <option value="desktop" className="bg-[#121224]">🖥️ Computador Desktop</option>
+                    <option value="part" className="bg-[#121224]">🔧 Peça de Reposição</option>
+                    <option value="other" className="bg-[#121224]">📦 Outros</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Condição</label>
+                  <select
+                    value={quickProduct.condition}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, condition: e.target.value as any }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all appearance-none"
+                  >
+                    <option value="new" className="bg-[#121224]">Novo</option>
+                    <option value="used" className="bg-[#121224]">Usado</option>
+                    <option value="refurbished" className="bg-[#121224]">Recondicionado</option>
+                    <option value="vitrine" className="bg-[#121224]">Vitrine</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    value={quickProduct.price}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, price: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Custo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    value={quickProduct.cost_price}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, cost_price: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Quantidade</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="1"
+                    value={quickProduct.stock_quantity}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, stock_quantity: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Código de Barras</label>
+                  <input
+                    type="text"
+                    placeholder="Opcional"
+                    value={quickProduct.barcode}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, barcode: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              {['smartphone', 'notebook', 'desktop'].includes(quickProduct.category) && (
+                <div className="space-y-1 animate-in fade-in duration-300">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Digite o IMEI ou Serial"
+                    value={quickProduct.imei}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, imei: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Fornecedor</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      value={quickProduct.supplier}
+                      onChange={e => setQuickProduct(prev => ({ ...prev, supplier: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all appearance-none"
+                    >
+                      <option value="" className="bg-[#121224]">Sem Fornecedor</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.name} className="bg-[#121224]">{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickSupplierOpen(true)}
+                    className="px-4 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+                    title="Novo Fornecedor"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickProductOpen(false)}
+                  className="flex-1 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3.5 rounded-xl bg-primary text-on-primary text-xs font-black uppercase tracking-widest transition-all hover:scale-102 active:scale-95 shadow-lg shadow-primary/20"
+                >
+                  Salvar Produto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cadastro Rápido de Fornecedor */}
+      {isQuickSupplierOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300">
+          <div className="bg-[#121224] border border-white/10 rounded-[28px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-5 border-b border-white/5 flex items-center justify-between">
+              <h4 className="text-sm font-black text-white uppercase tracking-wider font-display">Novo Fornecedor</h4>
+              <button 
+                type="button" 
+                onClick={() => setIsQuickSupplierOpen(false)}
+                className="p-1 hover:bg-white/5 rounded-lg text-on-surface-variant hover:text-white transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleQuickSupplierSave} className="p-5 space-y-4 text-left">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome do Fornecedor</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Distribuidora X"
+                  value={quickSupplierName}
+                  onChange={e => setQuickSupplierName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsQuickSupplierOpen(false)}
+                  className="flex-1 py-2.5 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-lg bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-102 active:scale-95 shadow-lg shadow-primary/20"
+                >
+                  Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Barcode, Save, X, Loader2, Store, Layers, DollarSign } from 'lucide-react';
+import { Smartphone, Barcode, Save, X, Loader2, Store, Layers, DollarSign, Plus } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../../store/useInventoryStore';
 import { useUnitStore } from '../../store/useUnitStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useSupplierStore } from '../../store/useSupplierStore';
 import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 
@@ -33,18 +34,48 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     show_on_landing: item?.show_on_landing || false,
     barcode: item?.barcode || '',
     supplier: item?.supplier || '',
-    purchase_date: item?.purchase_date || '',
+    purchase_date: item?.purchase_date || new Date().toISOString().split('T')[0],
   });
 
   const [isShortNameManuallyEdited, setIsShortNameManuallyEdited] = useState(!!item);
 
   const { units: stores, fetchAllUnits } = useUnitStore();
+  const { suppliers, fetchSuppliers, addSupplier } = useSupplierStore();
+  const [showQuickAddSupplier, setShowQuickAddSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [isAddingSupplier, setIsAddingSupplier] = useState(false);
 
   useEffect(() => {
     if (stores.length === 0) {
       fetchAllUnits().catch(() => { });
     }
   }, [stores.length, fetchAllUnits]);
+
+  useEffect(() => {
+    fetchSuppliers(undefined, false).catch(() => {});
+  }, [fetchSuppliers]);
+
+  const handleQuickAddSupplier = async () => {
+    if (!newSupplierName.trim()) {
+      showNotification('error', 'Digite o nome do fornecedor');
+      return;
+    }
+    setIsAddingSupplier(true);
+    try {
+      const created = await addSupplier({
+        name: newSupplierName.trim(),
+        unit_id: formData.unit_id || profile?.unit_id || undefined
+      });
+      setFormData(prev => ({ ...prev, supplier: created.name }));
+      setNewSupplierName('');
+      setShowQuickAddSupplier(false);
+      showNotification('success', 'Fornecedor cadastrado com sucesso!');
+    } catch (err) {
+      showNotification('error', 'Falha ao cadastrar fornecedor.');
+    } finally {
+      setIsAddingSupplier(false);
+    }
+  };
 
   const generateBarcode = () => {
     const selectedStoreId = formData.unit_id || profile?.unit_id || '';
@@ -341,15 +372,68 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               </select>
             </div>
 
-            <div className="space-y-2">
+             <div className="space-y-2">
               <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Fornecedor</label>
-              <input
-                type="text"
-                value={formData.supplier}
-                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none"
-                placeholder="Nome do fornecedor"
-              />
+              {!showQuickAddSupplier ? (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <select
+                      value={formData.supplier}
+                      onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none text-white appearance-none"
+                    >
+                      <option value="" className="bg-[#121214] text-white">— Selecione o Fornecedor —</option>
+                      {suppliers.map(s => (
+                        <option key={s.id} value={s.name} className="bg-[#121214] text-white">{s.name}</option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-on-surface-variant/50">
+                      <Layers size={12} />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddSupplier(true)}
+                    className="p-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl transition-all active:scale-95 flex items-center justify-center shrink-0"
+                    title="Cadastrar fornecedor rápido"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
+                  <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Fornecedor Rápido</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      placeholder="Nome do fornecedor"
+                      className="flex-1 bg-[#121214] border border-white/10 rounded-2xl px-4 py-2 text-xs focus:border-primary transition-all outline-none"
+                      disabled={isAddingSupplier}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleQuickAddSupplier}
+                      disabled={isAddingSupplier}
+                      className="px-3 bg-primary text-on-primary rounded-2xl text-[9px] font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                    >
+                      {isAddingSupplier ? '...' : 'Salvar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowQuickAddSupplier(false);
+                        setNewSupplierName('');
+                      }}
+                      disabled={isAddingSupplier}
+                      className="px-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+                    >
+                      Voltar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2 sm:col-span-2 md:col-span-1">

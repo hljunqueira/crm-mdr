@@ -40,7 +40,7 @@ interface CustomerState {
   customers: Customer[];
   isLoading: boolean;
   fetchCustomers: (unitId?: string) => Promise<void>;
-  addCustomer: (customer: Omit<Customer, 'id' | 'created_at'>) => Promise<void>;
+  addCustomer: (customer: Omit<Customer, 'id' | 'created_at'>) => Promise<Customer>;
   updateCustomer: (id: string, customer: Partial<Customer>) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
 }
@@ -64,7 +64,9 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
       const data = await api.post('/customers', customer);
       if (data) {
         set((state) => ({ customers: [...state.customers, data] }));
+        return data;
       }
+      throw new Error('Nenhum dado retornado do servidor');
     } catch (error) {
       console.error('Error adding customer:', error);
       throw error;
@@ -93,4 +95,3 @@ export const useCustomerStore = create<CustomerState>()((set) => ({
     }
   },
 }));
-

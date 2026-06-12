@@ -17,7 +17,9 @@ import {
   FileText,
   Menu,
   X,
-  ExternalLink
+  ExternalLink,
+  Truck,
+  Building
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -66,6 +68,8 @@ export default function Sidebar() {
       icon: Wrench,
       items: [
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
+        { name: 'Fornecedores', icon: Truck, path: '/suppliers' },
+        { name: 'Parceiros', icon: Building, path: '/partners' },
         { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
         { name: 'OS Terceirizadas', icon: ExternalLink, path: '/outsourcing' },
       ]
