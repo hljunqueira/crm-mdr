@@ -27,6 +27,12 @@ export default function CreditAnalysis() {
   const [queryResults, setQueryResults] = useState<any | null>(null);
   const [queryErrors, setQueryErrors] = useState<Record<string, string>>({});
   
+  // History States
+  const [queryHistory, setQueryHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [deleteQueryId, setDeleteQueryId] = useState<string | null>(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>('cadastro');
 
@@ -115,8 +121,72 @@ export default function CreditAnalysis() {
       });
       setQueryResults(null);
       setQueryErrors({});
+      setSelectedHistoryId(null);
     }
   }, [selectedCustomer, profile?.id]);
+
+  const fetchQueryHistory = async (customerId: string) => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch(`/api/customers/${customerId}/credit-queries`);
+      if (response.ok) {
+        const data = await response.json();
+        setQueryHistory(data);
+      }
+    } catch (err) {
+      console.error('Error fetching query history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleDeleteQuery = async () => {
+    if (!deleteQueryId) return;
+    try {
+      const response = await fetch(`/api/customers/credit-queries/${deleteQueryId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        showNotification('success', 'Consulta excluída do histórico!');
+        if (selectedHistoryId === deleteQueryId) {
+          setQueryResults(null);
+          setSelectedHistoryId(null);
+        }
+        if (selectedCustomerId) {
+          fetchQueryHistory(selectedCustomerId);
+        }
+      } else {
+        showNotification('error', 'Falha ao excluir consulta');
+      }
+    } catch (err) {
+      console.error('Delete query error:', err);
+      showNotification('error', 'Erro ao excluir consulta');
+    } finally {
+      setDeleteQueryId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCustomerId) {
+      fetchQueryHistory(selectedCustomerId);
+    } else {
+      setQueryHistory([]);
+    }
+  }, [selectedCustomerId]);
+
+  const isCompany = useMemo(() => {
+    if (!selectedCustomer) return false;
+    const clean = selectedCustomer.cpf?.replace(/\D/g, '') || '';
+    return clean.length === 14;
+  }, [selectedCustomer]);
+
+  const cleanDoc = useMemo(() => {
+    return selectedCustomer?.cpf?.replace(/\D/g, '') || '';
+  }, [selectedCustomer]);
+
+  const hasValidDoc = useMemo(() => {
+    return cleanDoc.length === 11 || cleanDoc.length === 14;
+  }, [cleanDoc]);
 
   const toggleService = (id: string) => {
     setSelectedServices(prev => 
@@ -125,15 +195,16 @@ export default function CreditAnalysis() {
   };
 
   const totalCost = useMemo(() => {
+    if (isCompany) return 0;
     return selectedServices.reduce((sum, s) => {
       const srv = serviceDetails.find(d => d.id === s);
       return sum + (srv?.price || 0);
     }, 0);
-  }, [selectedServices]);
+  }, [selectedServices, isCompany]);
 
   const handleExecuteQueries = async () => {
     if (!selectedCustomerId) return;
-    if (selectedServices.length === 0) {
+    if (!isCompany && selectedServices.length === 0) {
       showNotification('error', 'Selecione pelo menos uma consulta');
       return;
     }
@@ -146,7 +217,7 @@ export default function CreditAnalysis() {
       const response = await fetch(`/api/customers/${selectedCustomerId}/query-credit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services: selectedServices })
+        body: JSON.stringify({ services: isCompany ? [] : selectedServices, performed_by: profile?.id })
       });
       if (!response.ok) {
         throw new Error('Falha ao executar consultas na API');
@@ -154,80 +225,100 @@ export default function CreditAnalysis() {
       const data = await response.json();
       
       setQueryResults(data);
+      setSelectedHistoryId(null);
 
-      // Collect errors
-      const errors: Record<string, string> = {};
-      selectedServices.forEach(s => {
-        if (data[s]?.error) {
-          errors[s] = data[s].error;
-        }
-      });
-      setQueryErrors(errors);
-
-      // Set active tab to first non-error service
-      const firstActive = selectedServices.find(s => !data[s]?.error);
-      if (firstActive) {
-        setActiveTab(firstActive);
+      if (data.isCNPJ) {
+        setActiveTab('cnpj');
+        
+        // Auto decision logic for CNPJ based on WDAPI
+        const cnpjData = data.cnpj_data || {};
+        const isAtiva = cnpjData.situacao === 'ATIVA';
+        
+        setFormData(prev => ({
+          ...prev,
+          classification: isAtiva ? 'BOM' : 'RUIM',
+          credit_limit: isAtiva ? 5000 : 0,
+          suggested_down_payment: 0,
+          credit_status: isAtiva ? 'APROVADO' : 'REPROVADO',
+          approved_for_purchase: isAtiva,
+          registration_status: isAtiva ? 'APROVADO' : 'REPROVADO'
+        }));
       } else {
-        setActiveTab(selectedServices[0]);
+        // Collect errors
+        const errors: Record<string, string> = {};
+        selectedServices.forEach(s => {
+          if (data[s]?.error) {
+            errors[s] = data[s].error;
+          }
+        });
+        setQueryErrors(errors);
+
+        // Set active tab to first non-error service
+        const firstActive = selectedServices.find(s => !data[s]?.error);
+        if (firstActive) {
+          setActiveTab(firstActive);
+        } else {
+          setActiveTab(selectedServices[0]);
+        }
+
+        // Auto decision logic based on results
+        let suggestedClass: 'BOM' | 'MEDIO' | 'RUIM' = 'BOM';
+        let suggestedStatus: typeof formData.credit_status = 'APROVADO';
+        let suggestedLimit = 3000;
+        let suggestedDownPayment = 0;
+
+        // Bacen parsing
+        const bacenRes = data.bacen?.retorno?.resumo || data.bacen?.resumo || {};
+        const vencido = Number(bacenRes.vencido || bacenRes.Vencido || 0);
+        const prejuizo = Number(bacenRes.prejuizo || bacenRes.Prejuizo || 0);
+
+        // Score QUOD parsing
+        const scoreRes = data.score?.retorno?.scores?.ocorrencias?.[0] || data.score?.scores?.ocorrencias?.[0] || {};
+        const scoreNum = Number(scoreRes.score) || 1000;
+
+        // Boa Vista parsing
+        const boavistaRes = data.boavista?.retorno || {};
+        const bvRestricoes = boavistaRes.restricoes?.ocorrencias || [];
+        const bvPendencias = boavistaRes.pendenciasFinanceiras?.ocorrencias || [];
+        const bvProtestos = boavistaRes.protestos?.ocorrencias || [];
+
+        if (
+          prejuizo > 0 || 
+          vencido > 1000 || 
+          scoreNum < 300 || 
+          bvRestricoes.length > 5 || 
+          bvPendencias.length > 5
+        ) {
+          suggestedClass = 'RUIM';
+          suggestedStatus = 'REPROVADO';
+          suggestedLimit = 0;
+          suggestedDownPayment = 0;
+        } else if (
+          vencido > 0 || 
+          scoreNum < 600 || 
+          bvRestricoes.length > 0 || 
+          bvPendencias.length > 0 || 
+          bvProtestos.length > 0
+        ) {
+          suggestedClass = 'MEDIO';
+          suggestedStatus = 'APROVADO_COM_ENTRADA';
+          suggestedLimit = 1500;
+          suggestedDownPayment = 300;
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          classification: suggestedClass,
+          credit_limit: suggestedLimit,
+          suggested_down_payment: suggestedDownPayment,
+          credit_status: suggestedStatus,
+          approved_for_purchase: suggestedStatus === 'APROVADO' || suggestedStatus === 'APROVADO_COM_ENTRADA',
+          registration_status: suggestedStatus === 'REPROVADO' ? 'REPROVADO' : 'APROVADO'
+        }));
       }
-
-      // Auto decision logic based on results
-      let suggestedClass: 'BOM' | 'MEDIO' | 'RUIM' = 'BOM';
-      let suggestedStatus: typeof formData.credit_status = 'APROVADO';
-      let suggestedLimit = 3000;
-      let suggestedDownPayment = 0;
-
-      // Bacen parsing
-      const bacenRes = data.bacen?.retorno?.resumo || data.bacen?.resumo || {};
-      const vencido = Number(bacenRes.vencido || bacenRes.Vencido || 0);
-      const prejuizo = Number(bacenRes.prejuizo || bacenRes.Prejuizo || 0);
-
-      // Score QUOD parsing
-      const scoreRes = data.score?.retorno?.scores?.ocorrencias?.[0] || data.score?.scores?.ocorrencias?.[0] || {};
-      const scoreNum = Number(scoreRes.score) || 1000;
-
-      // Boa Vista parsing
-      const boavistaRes = data.boavista?.retorno || {};
-      const bvRestricoes = boavistaRes.restricoes?.ocorrencias || [];
-      const bvPendencias = boavistaRes.pendenciasFinanceiras?.ocorrencias || [];
-      const bvProtestos = boavistaRes.protestos?.ocorrencias || [];
-
-      if (
-        prejuizo > 0 || 
-        vencido > 1000 || 
-        scoreNum < 300 || 
-        bvRestricoes.length > 5 || 
-        bvPendencias.length > 5
-      ) {
-        suggestedClass = 'RUIM';
-        suggestedStatus = 'REPROVADO';
-        suggestedLimit = 0;
-        suggestedDownPayment = 0;
-      } else if (
-        vencido > 0 || 
-        scoreNum < 600 || 
-        bvRestricoes.length > 0 || 
-        bvPendencias.length > 0 || 
-        bvProtestos.length > 0
-      ) {
-        suggestedClass = 'MEDIO';
-        suggestedStatus = 'APROVADO_COM_ENTRADA';
-        suggestedLimit = 1500;
-        suggestedDownPayment = 300;
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        classification: suggestedClass,
-        credit_limit: suggestedLimit,
-        suggested_down_payment: suggestedDownPayment,
-        credit_status: suggestedStatus,
-        approved_for_purchase: suggestedStatus === 'APROVADO' || suggestedStatus === 'APROVADO_COM_ENTRADA',
-        registration_status: suggestedStatus === 'REPROVADO' ? 'REPROVADO' : 'APROVADO'
-      }));
 
       showNotification('success', 'Consultas de crédito concluídas com sucesso!');
+      fetchQueryHistory(selectedCustomerId);
     } catch (err: any) {
       console.error('Execute queries error:', err);
       showNotification('error', `Erro ao executar consultas: ${err.message}`);
@@ -679,41 +770,69 @@ export default function CreditAnalysis() {
                     </div>
                     <div>
                       <h2 className="text-md font-black uppercase leading-tight">{selectedCustomer.name}</h2>
-                      <p className="text-[10px] text-on-surface-variant font-mono uppercase mt-0.5">CPF: {formatCPF(selectedCustomer.cpf)}</p>
+                      <p className="text-[10px] text-on-surface-variant font-mono uppercase mt-0.5">
+                        {isCompany ? `CNPJ: ${formatCPF(selectedCustomer.cpf)}` : `CPF: ${formatCPF(selectedCustomer.cpf)}`}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Seletores de Consulta com Custo Estimado */}
                 <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
-                  <span className="text-[9px] font-black text-primary uppercase tracking-widest block">Selecione os Relatórios a Consultar</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {serviceDetails.map(srv => {
-                      const isSelected = selectedServices.includes(srv.id);
-                      return (
-                        <button
-                          key={srv.id}
-                          type="button"
-                          onClick={() => toggleService(srv.id)}
-                          className={cn(
-                            "flex items-start gap-3 p-4 rounded-2xl border text-left transition-all",
-                            isSelected 
-                              ? "bg-primary-container/20 border-primary text-white" 
-                              : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/[0.03]"
-                          )}
-                        >
-                          <div className="mt-0.5 text-primary shrink-0">
-                            {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold block">{srv.name}</span>
-                            <span className="text-[9px] text-on-surface-variant/70 leading-normal block mt-0.5">{srv.desc}</span>
-                            <span className="text-[10px] font-mono font-bold text-primary block mt-1">Cost: R$ {srv.price.toFixed(2)}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <span className="text-[9px] font-black text-primary uppercase tracking-widest block">Seletor de Consulta</span>
+                  
+                  {isCompany ? (
+                    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-start gap-3">
+                      <ShieldCheck size={20} className="text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-xs font-bold block text-white">Consulta Integrada CNPJ (WDAPI)</span>
+                        <span className="text-[9px] text-on-surface-variant/70 leading-normal block mt-0.5">
+                          Consulta dados cadastrais, QSA (sócios), capital social e atividade econômica do CNPJ de forma integrada.
+                        </span>
+                        <span className="text-[10px] font-mono font-bold text-primary block mt-1">Custo: R$ 0,00</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {serviceDetails.map(srv => {
+                        const isSelected = selectedServices.includes(srv.id);
+                        return (
+                          <button
+                            key={srv.id}
+                            type="button"
+                            onClick={() => toggleService(srv.id)}
+                            className={cn(
+                              "flex items-start gap-3 p-4 rounded-2xl border text-left transition-all",
+                              isSelected 
+                                ? "bg-primary-container/20 border-primary text-white" 
+                                : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/[0.03]"
+                            )}
+                          >
+                            <div className="mt-0.5 text-primary shrink-0">
+                              {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold block">{srv.name}</span>
+                              <span className="text-[9px] text-on-surface-variant/70 leading-normal block mt-0.5">{srv.desc}</span>
+                              <span className="text-[10px] font-mono font-bold text-primary block mt-1">Cost: R$ {srv.price.toFixed(2)}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {!hasValidDoc && (
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-400 flex items-start gap-3">
+                      <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-xs uppercase leading-none">Documento Ausente ou Inválido</h4>
+                        <p className="text-[9px] leading-relaxed mt-1 opacity-80">
+                          Este cliente não possui um CPF ou CNPJ válido cadastrado. Atualize o cadastro do cliente para habilitar consultas.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/5">
                     <div className="flex items-center gap-2 text-xs">
@@ -722,11 +841,11 @@ export default function CreditAnalysis() {
                     </div>
                     <button
                       onClick={handleExecuteQueries}
-                      disabled={isQuerying || selectedServices.length === 0}
+                      disabled={isQuerying || (!isCompany && selectedServices.length === 0) || !hasValidDoc}
                       className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
                     >
                       {isQuerying ? (
-                        <><Loader2 className="animate-spin" size={14} /> Consultando Direct Data...</>
+                        <><Loader2 className="animate-spin" size={14} /> {isCompany ? 'Consultando WDAPI...' : 'Consultando Direct Data...'}</>
                       ) : (
                         <><ShieldCheck size={14} /> Realizar Consultas</>
                       )}
@@ -767,6 +886,61 @@ export default function CreditAnalysis() {
                   </div>
                 )}
               </div>
+
+              {/* Histórico de Consultas Realizadas */}
+              {queryHistory.length > 0 && (
+                <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest block pl-1">Histórico de Consultas Realizadas</span>
+                  <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                    {queryHistory.map((q) => {
+                      const dateStr = new Date(q.created_at).toLocaleString('pt-BR');
+                      const analystName = q.performed_by?.full_name || 'Desconhecido';
+                      const isSelected = selectedHistoryId === q.id;
+                      return (
+                        <div key={q.id} className={cn(
+                          "flex items-center justify-between p-3.5 rounded-2xl border transition-all text-xs",
+                          isSelected 
+                            ? "bg-primary/10 border-primary text-white" 
+                            : "bg-white/5 border-white/5 text-on-surface hover:bg-white/10"
+                        )}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQueryResults(q.raw_response);
+                              setSelectedHistoryId(q.id);
+                              if (q.raw_response?.isCNPJ) {
+                                setActiveTab('cnpj');
+                              } else {
+                                const activeKeys = Object.keys(q.raw_response || {}).filter(k => q.raw_response[k] && !q.raw_response[k].error);
+                                if (activeKeys.length > 0) {
+                                  setActiveTab(activeKeys[0]);
+                                }
+                              }
+                              showNotification('success', 'Relatório carregado do histórico!');
+                            }}
+                            className="flex-1 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-1"
+                          >
+                            <div>
+                              <span className="font-bold uppercase block sm:inline">{q.query_type} - {formatCPF(q.document)}</span>
+                              <span className="text-[9px] text-on-surface-variant/80 block mt-0.5">Analista: {analystName}</span>
+                            </div>
+                            <span className="text-[10px] text-on-surface-variant font-mono">{dateStr}</span>
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={() => setDeleteQueryId(q.id)}
+                            className="p-2 ml-2 text-on-surface-variant hover:text-error transition-colors rounded-xl hover:bg-white/5"
+                            title="Excluir do histórico"
+                          >
+                            <ShieldAlert size={15} className="text-error" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Painel de Resultados por Abas */}
               {queryResults && (
@@ -944,6 +1118,37 @@ export default function CreditAnalysis() {
         </div>
 
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      {deleteQueryId && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-outline-variant/30 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-error">
+              <AlertTriangle size={28} />
+              <h3 className="text-md font-black uppercase tracking-wider">Confirmar Exclusão</h3>
+            </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Você tem certeza que deseja excluir esta consulta do histórico permanente? Esta ação é irreversível e removerá o relatório da esteira de crédito.
+            </p>
+            <div className="flex gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteQueryId(null)}
+                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface hover:text-white transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteQuery}
+                className="flex-1 py-4 px-6 rounded-2xl bg-error text-on-error text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-error/20"
+              >
+                Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

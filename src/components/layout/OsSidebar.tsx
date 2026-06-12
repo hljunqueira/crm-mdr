@@ -113,7 +113,11 @@ export default function OsSidebar({
                 </div>
 
                 <div className="flex justify-between items-center text-[10px] font-medium border-t border-white/5 pt-2">
-                  <span className="truncate max-w-[120px] opacity-75">{os.device_brand} {os.device_model}</span>
+                  <span className="truncate max-w-[120px] opacity-75">
+                    {os.device_brand === '-' && os.device_model === '-'
+                      ? (os.device_category === 'notebook' ? 'Notebook' : 'Computador PC')
+                      : `${os.device_brand} ${os.device_model}`}
+                  </span>
                   <span className="font-bold font-mono text-primary">
                     R$ {Number(os.labor_value + os.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>

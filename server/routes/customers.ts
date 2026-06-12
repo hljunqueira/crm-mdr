@@ -81,7 +81,7 @@ router.get("/:id/bacen", async (req, res) => {
 // Query chosen credit services from Direct Data for a specific customer
 router.post("/:id/query-credit", async (req, res) => {
   try {
-    const { services } = req.body;
+    const { services, performed_by } = req.body;
     if (!Array.isArray(services)) {
       return res.status(400).json({ error: "Parâmetro 'services' inválido" });
     }
@@ -97,6 +97,36 @@ router.post("/:id/query-credit", async (req, res) => {
     }
 
     const cleanCpf = customer.cpf.replace(/\D/g, '');
+    if (!cleanCpf) {
+      return res.status(400).json({ error: "Este cliente não possui CPF ou CNPJ cadastrado." });
+    }
+
+    // If it is a CNPJ (14 digits), query WDAPI
+    if (cleanCpf.length === 14) {
+      try {
+        const response = await fetch(`https://wd.api.br/v1/cnpj/${cleanCpf}`);
+        if (!response.ok) {
+          throw new Error(`WDAPI retornou HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        const responseData = { isCNPJ: true, cnpj_data: data };
+
+        // Save to credit_queries_history
+        await supabase.from('credit_queries_history').insert({
+          customer_id: req.params.id,
+          query_type: 'CNPJ',
+          document: cleanCpf,
+          raw_response: responseData,
+          performed_by: performed_by || null
+        });
+
+        return res.json(responseData);
+      } catch (err: any) {
+        console.error('Error querying WDAPI:', err);
+        return res.status(500).json({ error: `Erro ao consultar a API do CNPJ (WDAPI): ${err.message}` });
+      }
+    }
+
     const token = process.env.DIRECT_DATA_TOKEN || "E01071B5-B7A5-4950-905A-94C3877E2176";
     const results: any = {};
 
@@ -127,9 +157,53 @@ router.post("/:id/query-credit", async (req, res) => {
     const selectedQueries = services.filter(s => serviceUrls[s]);
     await Promise.all(selectedQueries.map(fetchService));
 
+    // Save to credit_queries_history
+    await supabase.from('credit_queries_history').insert({
+      customer_id: req.params.id,
+      query_type: 'CPF',
+      document: cleanCpf,
+      raw_response: results,
+      performed_by: performed_by || null
+    });
+
     res.json(results);
   } catch (err: any) {
     console.error('Error querying credit info:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List credit queries history for a specific customer
+router.get("/:id/credit-queries", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('credit_queries_history')
+      .select('*, performed_by(full_name)')
+      .eq('customer_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a specific credit query log from history
+router.delete("/credit-queries/:queryId", async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('credit_queries_history')
+      .delete()
+      .eq('id', req.params.queryId);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    res.status(204).send();
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });

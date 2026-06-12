@@ -12,15 +12,11 @@ import {
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import { formatCPF } from '../lib/utils';
+import { formatCPF, validateCPF, validateCNPJ } from '../lib/utils';
 import RepairTimeline from '../components/layout/RepairTimeline';
 import CustomerSalesCatalog from '../components/layout/CustomerSalesCatalog';
 
-// Mathematical CPF validation (checksum)
-const isValidCPF = (cpf: string): boolean => {
-  const cleanCpf = cpf.replace(/\D/g, '');
-  return cleanCpf.length === 11 || cleanCpf.length === 14;
-};
+
 
 export default function CustomerOSPortal() {
   const [cpf, setCpf] = useState('');
@@ -43,12 +39,13 @@ export default function CustomerOSPortal() {
     const cleanCpf = cpf.replace(/\D/g, '');
 
     if (!cleanCpf) {
-      setError('Por favor, digite seu CPF.');
+      setError('Por favor, digite seu CPF ou CNPJ.');
       return;
     }
 
-    if (!isValidCPF(cleanCpf)) {
-      setError('CPF inválido. Por favor, verifique os dígitos.');
+    const isDocValid = cleanCpf.length === 11 ? validateCPF(cleanCpf) : (cleanCpf.length === 14 ? validateCNPJ(cleanCpf) : false);
+    if (!isDocValid) {
+      setError('CPF ou CNPJ inválido. Por favor, verifique os dígitos.');
       return;
     }
 
@@ -153,12 +150,12 @@ export default function CustomerOSPortal() {
                 <div className="glass-card border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl relative overflow-hidden bg-white/[0.01] max-w-xl mx-auto">
                   <form onSubmit={handleSearch} className="space-y-6">
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] pl-1">Digite seu CPF cadastrado</label>
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] pl-1">Digite seu CPF ou CNPJ cadastrado</label>
                       <div className="relative group">
                         <input 
                           type="text" 
                           required
-                          placeholder="000.000.000-00" 
+                          placeholder="CPF ou CNPJ" 
                           value={cpf}
                           onChange={handleCpfChange}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-lg text-center text-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none font-mono" 

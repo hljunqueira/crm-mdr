@@ -6,7 +6,7 @@ import {
 import { useCustomerStore, Customer } from '../../store/useCustomerStore';
 import { useUI } from '../../context/UIContext';
 import { useAuthStore } from '../../store/useAuthStore';
-import { formatCPF, formatPhone } from '../../lib/utils';
+import { formatCPF, formatPhone, validateCPF, validateCNPJ, cn } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { useInventoryStore } from '../../store/useInventoryStore';
 
@@ -91,6 +91,10 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [admins, setAdmins] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [documentType, setDocumentType] = useState<'CPF' | 'CNPJ'>(() => {
+    const clean = (initialData?.cpf || '').replace(/\D/g, '');
+    return clean.length > 11 ? 'CNPJ' : 'CPF';
+  });
 
   const [formType, setFormType] = useState<'simple' | 'complete'>(() => {
     if (initialData) {
@@ -334,8 +338,20 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
+    const cleanCpf = formData.cpf.replace(/\D/g, '');
+    if (cleanCpf) {
+      if (documentType === 'CPF' && !validateCPF(cleanCpf)) {
+        showNotification('error', 'CPF Inválido', 'O CPF informado não é válido.');
+        return;
+      }
+      if (documentType === 'CNPJ' && !validateCNPJ(cleanCpf)) {
+        showNotification('error', 'CNPJ Inválido', 'O CNPJ informado não é válido.');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
     try {
       const submitData = { 
         ...formData,
@@ -457,12 +473,49 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             />
           </div>
 
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Documento</label>
+            <div className="flex gap-2 max-w-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setDocumentType('CPF');
+                  setFormData(p => ({ ...p, cpf: '' }));
+                }}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                  documentType === 'CPF'
+                    ? "bg-primary border-primary text-on-primary"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                Pessoa Física (CPF)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocumentType('CNPJ');
+                  setFormData(p => ({ ...p, cpf: '' }));
+                }}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                  documentType === 'CNPJ'
+                    ? "bg-primary border-primary text-on-primary"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                Pessoa Jurídica (CNPJ)
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF</label>
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
+              {documentType === 'CPF' ? 'CPF (Opcional)' : 'CNPJ (Opcional)'}
+            </label>
             <input 
               type="text" 
-              required
-              placeholder="000.000.000-00"
+              placeholder={documentType === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
               value={formData.cpf}
               onChange={(e) => setFormData(p => ({ ...p, cpf: formatCPF(e.target.value) }))}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"

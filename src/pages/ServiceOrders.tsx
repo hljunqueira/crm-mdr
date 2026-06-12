@@ -13,7 +13,7 @@ import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
 import { usePermissionStore } from '../store/usePermissionStore';
-import { formatCPF, formatPhone, printElement } from '../lib/utils';
+import { formatCPF, formatPhone, printElement, validateCPF, validateCNPJ } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 
@@ -21,7 +21,6 @@ import { cn } from '../lib/utils';
 import OsSidebar from '../components/layout/OsSidebar';
 import OsTechWorkbench from '../components/layout/OsTechWorkbench';
 import OsPartsLogistics from '../components/layout/OsPartsLogistics';
-import PatternLockCanvas from '../components/layout/PatternLockCanvas';
 import DevicePhotoManager from '../components/layout/DevicePhotoManager';
 
 const DEVICE_CATEGORIES = [
@@ -134,7 +133,7 @@ export default function ServiceOrders() {
   // Navigation / Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
-  const [quickCustomer, setQuickCustomer] = useState({ name: '', cpf: '', phone: '' });
+  const [quickCustomer, setQuickCustomer] = useState({ name: '', type: 'PF' as 'PF' | 'PJ', cpf: '', phone: '' });
   const [isLoadingQuickCustomer, setIsLoadingQuickCustomer] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -219,8 +218,8 @@ export default function ServiceOrders() {
 
   const handleQuickCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickCustomer.name || !quickCustomer.cpf || !quickCustomer.phone) {
-      showNotification('error', 'Erro', 'Todos os campos são obrigatórios.');
+    if (!quickCustomer.name || !quickCustomer.phone) {
+      showNotification('error', 'Erro', 'Nome e celular são obrigatórios.');
       return;
     }
     
@@ -228,17 +227,32 @@ export default function ServiceOrders() {
     try {
       const cleanCpf = quickCustomer.cpf.replace(/\D/g, '');
       
-      const existing = customers.find(c => c.cpf.replace(/\D/g, '') === cleanCpf);
-      if (existing) {
-        showNotification('error', 'Erro', 'Já existe um cliente cadastrado com este CPF.');
-        setIsLoadingQuickCustomer(false);
-        return;
+      if (cleanCpf) {
+        if (quickCustomer.type === 'PF' && !validateCPF(cleanCpf)) {
+          showNotification('error', 'Erro', 'CPF inválido.');
+          setIsLoadingQuickCustomer(false);
+          return;
+        }
+        if (quickCustomer.type === 'PJ' && !validateCNPJ(cleanCpf)) {
+          showNotification('error', 'Erro', 'CNPJ inválido.');
+          setIsLoadingQuickCustomer(false);
+          return;
+        }
+
+        const existing = customers.find(c => c.cpf.replace(/\D/g, '') === cleanCpf);
+        if (existing) {
+          showNotification('error', 'Erro', `Já existe um cliente cadastrado com este ${quickCustomer.type === 'PF' ? 'CPF' : 'CNPJ'}.`);
+          setIsLoadingQuickCustomer(false);
+          return;
+        }
       }
+
+      const cleanPhone = quickCustomer.phone.replace(/\D/g, '');
 
       await addCustomer({
         name: quickCustomer.name,
-        cpf: cleanCpf,
-        phone: quickCustomer.phone.replace(/\D/g, ''),
+        cpf: cleanCpf, // Stores cleaned CPF/CNPJ (can be empty string)
+        phone: cleanPhone,
         address: '',
         status: 'active',
         classification: 'BOM',
@@ -250,8 +264,11 @@ export default function ServiceOrders() {
 
       await fetchCustomers(profile?.unit_id || undefined);
 
+      // Find the created customer. If cleanCpf was provided, search by it. Otherwise, match by name and phone.
       const createdCustomer = useCustomerStore.getState().customers.find(
-        c => c.cpf.replace(/\D/g, '') === cleanCpf
+        c => cleanCpf 
+          ? c.cpf.replace(/\D/g, '') === cleanCpf
+          : (c.name === quickCustomer.name && c.phone.replace(/\D/g, '') === cleanPhone)
       );
 
       if (createdCustomer) {
@@ -261,7 +278,7 @@ export default function ServiceOrders() {
         showNotification('success', 'Sucesso', 'Cliente cadastrado com sucesso!');
       }
 
-      setQuickCustomer({ name: '', cpf: '', phone: '' });
+      setQuickCustomer({ name: '', type: 'PF', cpf: '', phone: '' });
       setIsQuickCustomerOpen(false);
     } catch (error) {
       showNotification('error', 'Erro', error?.response?.data?.message || 'Falha ao cadastrar cliente.');
@@ -383,7 +400,12 @@ export default function ServiceOrders() {
 
   const handleCreateOS = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOs.customer_id || !newOs.device_brand || !newOs.device_model || !newOs.reported_issue) {
+    
+    const isComputer = ['notebook', 'desktop'].includes(newOs.device_category);
+    const brandValid = isComputer || !!newOs.device_brand.trim();
+    const modelValid = isComputer || !!newOs.device_model.trim();
+
+    if (!newOs.customer_id || !brandValid || !modelValid || !newOs.reported_issue) {
       showNotification('error', 'Erro', 'Por favor, preencha todos os campos obrigatórios.');
       return;
     }
@@ -404,8 +426,8 @@ export default function ServiceOrders() {
         customer_id: newOs.customer_id,
         unit_id: newOs.unit_id || null,
         device_category: finalCategory,
-        device_brand: newOs.device_brand,
-        device_model: newOs.device_model,
+        device_brand: isComputer ? (newOs.device_brand.trim() || '-') : newOs.device_brand,
+        device_model: isComputer ? (newOs.device_model.trim() || '-') : newOs.device_model,
         device_serial_number: newOs.device_serial_number || null,
         device_passcode: newOs.device_passcode || null,
         device_pattern_lock: newOs.device_pattern_lock || null,
@@ -544,20 +566,29 @@ export default function ServiceOrders() {
   };
 
   const handlePrintBothVias = (type: 'entry' | 'warranty', format?: 'thermal' | 'a4') => {
+    const activeFormat = format || printFormatOverride || (currentServiceOrder ? (units.find(u => u.id === currentServiceOrder.unit_id) || units[0])?.print_mode : 'thermal') || 'thermal';
     if (format) {
       setPrintFormatOverride(format);
     }
     setTimeout(() => {
-      if (type === 'entry') {
-        printElement('print-os-entry-client');
-        setTimeout(() => {
-          printElement('print-os-entry-shop');
-        }, 1000);
+      if (activeFormat === 'a4') {
+        if (type === 'entry') {
+          printElement('print-os-entry-client');
+        } else {
+          printElement('print-os-warranty-client');
+        }
       } else {
-        printElement('print-os-warranty-client');
-        setTimeout(() => {
-          printElement('print-os-warranty-shop');
-        }, 1000);
+        if (type === 'entry') {
+          printElement('print-os-entry-client');
+          setTimeout(() => {
+            printElement('print-os-entry-shop');
+          }, 1000);
+        } else {
+          printElement('print-os-warranty-client');
+          setTimeout(() => {
+            printElement('print-os-warranty-shop');
+          }, 1000);
+        }
       }
     }, 50);
   };
@@ -908,14 +939,25 @@ export default function ServiceOrders() {
                 <td style={{ width: '60%' }} colSpan={2}><strong>Serial / IMEI:</strong> {currentServiceOrder.device_serial_number || '—'}</td>
                 <td style={{ width: '40%' }} colSpan={2}><strong>Senha/PIN:</strong> {currentServiceOrder.device_passcode || '—'}</td>
               </tr>
-              {currentServiceOrder.device_pattern_lock && (
+              {['smartphone', 'tablet'].includes(currentServiceOrder.device_category) && (
                 <tr>
                   <td colSpan={4}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      <strong>Padrão de Desbloqueio:</strong>
-                      <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px', border: '1px solid #000000', display: 'inline-block' }}>
-                        <img src={currentServiceOrder.device_pattern_lock} style={{ width: '60px', height: '60px', display: 'block' }} />
+                      <strong>Padrão de Segurança (Desenhar):</strong>
+                      <div style={{ background: '#ffffff', padding: '6px', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'inline-block' }}>
+                        <svg viewBox="0 0 100 100" style={{ width: '60px', height: '60px', display: 'block' }}>
+                          <circle cx="20" cy="20" r="4.5" fill="#000000" />
+                          <circle cx="50" cy="20" r="4.5" fill="#000000" />
+                          <circle cx="80" cy="20" r="4.5" fill="#000000" />
+                          <circle cx="20" cy="50" r="4.5" fill="#000000" />
+                          <circle cx="50" cy="50" r="4.5" fill="#000000" />
+                          <circle cx="80" cy="50" r="4.5" fill="#000000" />
+                          <circle cx="20" cy="80" r="4.5" fill="#000000" />
+                          <circle cx="50" cy="80" r="4.5" fill="#000000" />
+                          <circle cx="80" cy="80" r="4.5" fill="#000000" />
+                        </svg>
                       </div>
+                      <span style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase' }}>O cliente deve desenhar o padrão de desbloqueio</span>
                     </div>
                   </td>
                 </tr>
@@ -961,6 +1003,36 @@ export default function ServiceOrders() {
               <strong className="mt-1">{brandName} {brandSub}</strong>
             </div>
           </div>
+
+          {/* Canhoto Destacável de Retirada */}
+          <div className="a4-destacavel mt-12 pt-6 border-t-2 border-dashed border-slate-400 relative">
+            <div className="absolute -top-3.5 left-10 bg-white px-2 py-0.5 text-[8px] font-black uppercase text-slate-500 tracking-widest border border-slate-200 rounded-md">
+              ✂️ DESTAQUE E ENTREGUE AO CLIENTE
+            </div>
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">COMPROVANTE DE RETIRADA</h3>
+                <p className="text-[9px] text-slate-500 uppercase mt-0.5">{brandName} {brandSub}</p>
+                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-[9px] text-slate-700">
+                  <p><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</p>
+                  <p><strong>Aparelho:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</p>
+                  {currentServiceOrder.device_serial_number && <p><strong>IMEI/Serial:</strong> {currentServiceOrder.device_serial_number}</p>}
+                  <p><strong>Data Entrada:</strong> {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-lg font-black text-slate-900 block">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</span>
+                <span className="text-[8px] font-mono text-slate-500 block mt-1">Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[9px] text-slate-700">
+              <p><strong>Acompanhamento:</strong> mdrinformaticaecelulares.com.br/consulta-os (Acesse com seu CPF)</p>
+              <p><strong>Forma de Pagamento (PIX):</strong> Chave Celular: <strong>48999035854</strong> | Favorecido: <strong>Maykon da Rosa</strong></p>
+            </div>
+            <p className="text-[8px] text-slate-500 italic mt-3 text-center">
+              Apresente este canhoto para retirar seu equipamento na assistência técnica.
+            </p>
+          </div>
         </div>
       );
     }
@@ -980,6 +1052,7 @@ export default function ServiceOrders() {
           <div className="unit-details">
             {osUnit.address}<br />
             WhatsApp: {osUnit.phone}
+            {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
           </div>
         </div>
 
@@ -1031,11 +1104,21 @@ export default function ServiceOrders() {
             <span className="align-right font-mono">{currentServiceOrder.device_passcode}</span>
           </div>
         )}
-        {currentServiceOrder.device_pattern_lock && (
+        {['smartphone', 'tablet'].includes(currentServiceOrder.device_category) && (
           <div className="row" style={{ flexDirection: 'column', alignItems: 'center', marginTop: '6px' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold' }}>Padrão de Desbloqueio:</span>
             <div style={{ background: '#ffffff', padding: '4px', borderRadius: '8px', border: '1px solid #000000', marginTop: '4px', display: 'inline-block' }}>
-              <img src={currentServiceOrder.device_pattern_lock} style={{ width: '90px', height: '90px', display: 'block' }} />
+              <svg viewBox="0 0 100 100" style={{ width: '70px', height: '70px', display: 'block' }}>
+                <circle cx="20" cy="20" r="4.5" fill="#000000" />
+                <circle cx="50" cy="20" r="4.5" fill="#000000" />
+                <circle cx="80" cy="20" r="4.5" fill="#000000" />
+                <circle cx="20" cy="50" r="4.5" fill="#000000" />
+                <circle cx="50" cy="50" r="4.5" fill="#000000" />
+                <circle cx="80" cy="50" r="4.5" fill="#000000" />
+                <circle cx="20" cy="80" r="4.5" fill="#000000" />
+                <circle cx="50" cy="80" r="4.5" fill="#000000" />
+                <circle cx="80" cy="80" r="4.5" fill="#000000" />
+              </svg>
             </div>
           </div>
         )}
@@ -1080,6 +1163,17 @@ export default function ServiceOrders() {
           2. <strong>Backup de Dados:</strong> A {brandName} **NÃO se responsabiliza por perdas de dados** ou arquivos. Faça backup prévio.<br />
           3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por **mais de 90 dias** após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
         </div>
+
+        {copyTitle === "VIA DO CLIENTE" && (
+          <>
+            <div className="divider"></div>
+            <div className="section-title" style={{ textAlign: 'center' }}>PAGAMENTO VIA PIX</div>
+            <div className="clauses" style={{ textAlign: 'center', fontSize: '10px' }}>
+              Chave Celular: <strong>48999035854</strong><br />
+              Favorecido: <strong>Maykon da Rosa</strong>
+            </div>
+          </>
+        )}
 
         <div className="divider"></div>
 
@@ -1237,7 +1331,8 @@ export default function ServiceOrders() {
             • Quedas, quebras, amassados ou mau uso;<br />
             • Oxidação, umidade ou contato com líquidos;<br />
             • Rompimento dos lacres {brandName} aplicados;<br />
-            • Abertura por terceiros.
+            • Abertura por terceiros.<br />
+            <strong>PAGAMENTO VIA PIX:</strong> Chave Celular: <strong>48999035854</strong> | Favorecido: <strong>Maykon da Rosa</strong>
           </div>
 
           <div className="a4-signatures text-black mt-8">
@@ -1271,6 +1366,7 @@ export default function ServiceOrders() {
           <div className="unit-details">
             {osUnit.address}<br />
             WhatsApp: {osUnit.phone}
+            {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
           </div>
         </div>
 
@@ -1358,6 +1454,17 @@ export default function ServiceOrders() {
           • Rompimento dos lacres {brandName} aplicados;<br />
           • Abertura por terceiros.
         </div>
+
+        {copyTitle === "VIA DO CLIENTE" && (
+          <>
+            <div className="divider"></div>
+            <div className="section-title" style={{ textAlign: 'center' }}>PAGAMENTO VIA PIX</div>
+            <div className="clauses" style={{ textAlign: 'center', fontSize: '10px' }}>
+              Chave Celular: <strong>48999035854</strong><br />
+              Favorecido: <strong>Maykon da Rosa</strong>
+            </div>
+          </>
+        )}
 
         <div className="divider"></div>
 
@@ -1501,7 +1608,7 @@ export default function ServiceOrders() {
                     </div>
                     <div>
                       <h2 className="text-md font-black uppercase leading-tight">
-                        OS #{String(currentServiceOrder.os_number).padStart(4, '0')} - {currentServiceOrder.device_brand} {currentServiceOrder.device_model}
+                        OS #{String(currentServiceOrder.os_number).padStart(4, '0')} - {currentServiceOrder.device_brand === '-' && currentServiceOrder.device_model === '-' ? (currentServiceOrder.device_category === 'notebook' ? 'Notebook' : 'Computador PC') : `${currentServiceOrder.device_brand} ${currentServiceOrder.device_model}`}
                       </h2>
                       <p className="text-[10px] text-on-surface-variant font-mono uppercase mt-0.5">
                         N/S ou IMEI: {currentServiceOrder.device_serial_number || 'Sem número de série'}
@@ -1541,51 +1648,73 @@ export default function ServiceOrders() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handlePrintBothVias('entry')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
-                      title="Imprimir Via do Cliente e Via da Loja sequencialmente"
-                    >
-                      <Printer size={12} /> Imprimir 2 Vias (Entrada)
-                    </button>
-                    <button
-                      onClick={() => handlePrintDocument('print-os-entry-client')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
-                      title="Imprimir Via do Cliente (Entrada)"
-                    >
-                      <Printer size={12} /> Via Cliente (Entrada)
-                    </button>
-                    <button
-                      onClick={() => handlePrintDocument('print-os-entry-shop')}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
-                      title="Imprimir Via da Assistência (Entrada)"
-                    >
-                      <Printer size={12} /> Via Loja (Entrada)
-                    </button>
-                    <button
-                      onClick={() => handlePrintBothVias('warranty')}
-                      disabled={currentServiceOrder.status !== 'delivered'}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
-                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Via do Cliente e Via da Loja (Saída)" : "Disponível apenas após a OS ser concluída/entregue"}
-                    >
-                      <Printer size={12} /> Imprimir 2 Vias (Saída)
-                    </button>
-                    <button
-                      onClick={() => handlePrintDocument('print-os-warranty-client')}
-                      disabled={currentServiceOrder.status !== 'delivered'}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
-                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Via do Cliente (Saída/Garantia)" : "Disponível apenas após a OS ser concluída/entregue"}
-                    >
-                      <Printer size={12} /> Via Cliente (Saída)
-                    </button>
-                    <button
-                      onClick={() => handlePrintDocument('print-os-warranty-shop')}
-                      disabled={currentServiceOrder.status !== 'delivered'}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
-                      title={currentServiceOrder.status === 'delivered' ? "Imprimir Via da Assistência (Saída/Garantia)" : "Disponível apenas após a OS ser concluída/entregue"}
-                    >
-                      <Printer size={12} /> Via Loja (Saída)
-                    </button>
+                    {(printFormatOverride || osUnit?.print_mode || 'thermal') === 'a4' ? (
+                      <>
+                        <button
+                          onClick={() => handlePrintBothVias('entry')}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
+                          title="Imprimir Ordem de Serviço A4 (Via Única)"
+                        >
+                          <Printer size={12} /> Imprimir A4 (Entrada)
+                        </button>
+                        <button
+                          onClick={() => handlePrintBothVias('warranty')}
+                          disabled={currentServiceOrder.status !== 'delivered'}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                          title={currentServiceOrder.status === 'delivered' ? "Imprimir Termo de Saída/Garantia A4" : "Disponível apenas após a OS ser concluída/entregue"}
+                        >
+                          <Printer size={12} /> Imprimir A4 (Saída)
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handlePrintBothVias('entry')}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
+                          title="Imprimir Via do Cliente e Via da Loja sequencialmente"
+                        >
+                          <Printer size={12} /> Imprimir 2 Vias (Entrada)
+                        </button>
+                        <button
+                          onClick={() => handlePrintDocument('print-os-entry-client')}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
+                          title="Imprimir Via do Cliente (Entrada)"
+                        >
+                          <Printer size={12} /> Via Cliente (Entrada)
+                        </button>
+                        <button
+                          onClick={() => handlePrintDocument('print-os-entry-shop')}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all"
+                          title="Imprimir Via da Assistência (Entrada)"
+                        >
+                          <Printer size={12} /> Via Loja (Entrada)
+                        </button>
+                        <button
+                          onClick={() => handlePrintBothVias('warranty')}
+                          disabled={currentServiceOrder.status !== 'delivered'}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary/20 hover:bg-primary/35 border border-primary/30 text-primary-light font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                          title={currentServiceOrder.status === 'delivered' ? "Imprimir Via do Cliente e Via da Loja (Saída)" : "Disponível apenas após a OS ser concluída/entregue"}
+                        >
+                          <Printer size={12} /> Imprimir 2 Vias (Saída)
+                        </button>
+                        <button
+                          onClick={() => handlePrintDocument('print-os-warranty-client')}
+                          disabled={currentServiceOrder.status !== 'delivered'}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                          title={currentServiceOrder.status === 'delivered' ? "Imprimir Via do Cliente (Saída/Garantia)" : "Disponível apenas após a OS ser concluída/entregue"}
+                        >
+                          <Printer size={12} /> Via Cliente (Saída)
+                        </button>
+                        <button
+                          onClick={() => handlePrintDocument('print-os-warranty-shop')}
+                          disabled={currentServiceOrder.status !== 'delivered'}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all disabled:opacity-30 disabled:pointer-events-none"
+                          title={currentServiceOrder.status === 'delivered' ? "Imprimir Via da Assistência (Saída/Garantia)" : "Disponível apenas após a OS ser concluída/entregue"}
+                        >
+                          <Printer size={12} /> Via Loja (Saída)
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => {
                         if (outsourcedInfo) {
@@ -2110,30 +2239,34 @@ export default function ServiceOrders() {
                 )}
 
                 {/* Marca */}
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca (Dell, Apple, HP, Sony)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Dell, Apple, Samsung"
-                    value={newOs.device_brand}
-                    onChange={(e) => setNewOs(prev => ({ ...prev, device_brand: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                  />
-                </div>
+                {!['notebook', 'desktop'].includes(newOs.device_category) && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca (Dell, Apple, HP, Sony)</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Dell, Apple, Samsung"
+                      value={newOs.device_brand}
+                      onChange={(e) => setNewOs(prev => ({ ...prev, device_brand: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                )}
 
                 {/* Modelo */}
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Equipamento</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Inspiron 15, iPhone 13"
-                    value={newOs.device_model}
-                    onChange={(e) => setNewOs(prev => ({ ...prev, device_model: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
-                  />
-                </div>
+                {!['notebook', 'desktop'].includes(newOs.device_category) && (
+                  <div className="space-y-2 animate-in fade-in duration-200">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Equipamento</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Inspiron 15, iPhone 13"
+                      value={newOs.device_model}
+                      onChange={(e) => setNewOs(prev => ({ ...prev, device_model: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                )}
 
                 {/* Serial / IMEI */}
                 {['smartphone', 'tablet', 'notebook', 'desktop'].includes(newOs.device_category) && (
@@ -2167,12 +2300,10 @@ export default function ServiceOrders() {
                 {['smartphone', 'tablet'].includes(newOs.device_category) && (
                   <div className="space-y-2 md:col-span-2 animate-in fade-in duration-200">
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha por Desenho (Padrão)</label>
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center">
-                      <PatternLockCanvas
-                        onSave={(base64) => setNewOs(p => ({ ...p, device_pattern_lock: base64 }))}
-                        onClear={() => setNewOs(p => ({ ...p, device_pattern_lock: '' }))}
-                        title="Desenhe o Padrão de Desbloqueio"
-                      />
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        A grade de pontos 3x3 será impressa no comprovante para que o cliente desenhe o padrão manualmente.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -2605,24 +2736,35 @@ export default function ServiceOrders() {
             </div>
 
             <div className="flex flex-col gap-3 pt-2">
-              <button
-                onClick={() => handlePrintBothVias('entry')}
-                className="w-full py-3.5 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Printer size={14} /> Imprimir Ambas as Vias (Cliente + Loja)
-              </button>
-              <button
-                onClick={() => handlePrintDocument('print-os-entry-client')}
-                className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Printer size={14} /> Imprimir Via do Cliente
-              </button>
-              <button
-                onClick={() => handlePrintDocument('print-os-entry-shop')}
-                className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Printer size={14} /> Imprimir Via da Loja
-              </button>
+              {(printFormatOverride || (justCreatedOs && units.find(u => u.id === justCreatedOs.unit_id)?.print_mode) || 'thermal') === 'a4' ? (
+                <button
+                  onClick={() => handlePrintBothVias('entry')}
+                  className="w-full py-3.5 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Printer size={14} /> Imprimir Ordem de Serviço A4 (Via Única)
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handlePrintBothVias('entry')}
+                    className="w-full py-3.5 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Printer size={14} /> Imprimir Ambas as Vias (Cliente + Loja)
+                  </button>
+                  <button
+                    onClick={() => handlePrintDocument('print-os-entry-client')}
+                    className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Imprimir Via do Cliente
+                  </button>
+                  <button
+                    onClick={() => handlePrintDocument('print-os-entry-shop')}
+                    className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Printer size={14} /> Imprimir Via da Loja
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setJustCreatedOs(null)}
                 className="w-full py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
@@ -2647,7 +2789,7 @@ export default function ServiceOrders() {
               </div>
               <button 
                 onClick={() => {
-                  setQuickCustomer({ name: '', cpf: '', phone: '' });
+                  setQuickCustomer({ name: '', type: 'PF', cpf: '', phone: '' });
                   setIsQuickCustomerOpen(false);
                 }}
                 className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
@@ -2659,24 +2801,56 @@ export default function ServiceOrders() {
 
             <form onSubmit={handleQuickCreateCustomer} className="space-y-4 text-xs">
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Completo</label>
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Completo / Razão Social</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: João da Silva"
+                  placeholder="Ex: João da Silva ou MDR Ltda"
                   value={quickCustomer.name}
                   onChange={(e) => setQuickCustomer(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3.5 text-xs text-white focus:border-primary outline-none transition-all"
                 />
               </div>
 
+              {/* Toggle Tipo de Documento */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Documento</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuickCustomer(prev => ({ ...prev, type: 'PF', cpf: '' }))}
+                    className={cn(
+                      "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                      quickCustomer.type === 'PF'
+                        ? "bg-primary border-primary text-on-primary"
+                        : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                    )}
+                  >
+                    Pessoa Física (CPF)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickCustomer(prev => ({ ...prev, type: 'PJ', cpf: '' }))}
+                    className={cn(
+                      "flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all",
+                      quickCustomer.type === 'PJ'
+                        ? "bg-primary border-primary text-on-primary"
+                        : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                    )}
+                  >
+                    Pessoa Jurídica (CNPJ)
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF</label>
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
+                    {quickCustomer.type === 'PF' ? 'CPF (Opcional)' : 'CNPJ (Opcional)'}
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="000.000.000-00"
+                    placeholder={quickCustomer.type === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}
                     value={quickCustomer.cpf}
                     onChange={(e) => setQuickCustomer(prev => ({ ...prev, cpf: formatCPF(e.target.value) }))}
                     className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3.5 text-xs text-white focus:border-primary outline-none transition-all font-mono"
@@ -2700,7 +2874,7 @@ export default function ServiceOrders() {
                 <button
                   type="button"
                   onClick={() => {
-                    setQuickCustomer({ name: '', cpf: '', phone: '' });
+                    setQuickCustomer({ name: '', type: 'PF', cpf: '', phone: '' });
                     setIsQuickCustomerOpen(false);
                   }}
                   className="flex-1 py-3.5 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 transition-all cursor-pointer"
