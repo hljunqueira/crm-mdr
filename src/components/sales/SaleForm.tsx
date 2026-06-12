@@ -2075,11 +2075,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
                 >
                   <option value="" className="bg-[#121214]">Selecione seu nome...</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id} className="bg-[#121214]">
-                      {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
-                    </option>
-                  ))}
+                  {employees
+                    .filter(emp => !emp.full_name.toLowerCase().includes('terminal') && emp.full_name.toLowerCase() !== 'loja arroio')
+                    .map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-[#121214]">
+                        {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
+                      </option>
+                    ))}
                 </select>
               </div>
 

@@ -2225,11 +2225,13 @@ export default function ServiceOrders() {
                       className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="">Não Atribuído</option>
-                      {admins.map(adm => (
-                        <option key={adm.id} value={adm.id}>
-                          {adm.full_name}
-                        </option>
-                      ))}
+                      {admins
+                        .filter(adm => !adm.full_name.toLowerCase().includes('terminal') && adm.full_name.toLowerCase() !== 'loja arroio')
+                        .map(adm => (
+                          <option key={adm.id} value={adm.id}>
+                            {adm.full_name}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -2577,9 +2579,11 @@ export default function ServiceOrders() {
                     className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">Não Atribuir (Aguardando Fila)</option>
-                    {admins.map(adm => (
-                      <option key={adm.id} value={adm.id}>{adm.full_name}</option>
-                    ))}
+                    {admins
+                      .filter(adm => !adm.full_name.toLowerCase().includes('terminal') && adm.full_name.toLowerCase() !== 'loja arroio')
+                      .map(adm => (
+                        <option key={adm.id} value={adm.id}>{adm.full_name}</option>
+                      ))}
                   </select>
                 </div>
 
@@ -3235,11 +3239,13 @@ export default function ServiceOrders() {
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
                 >
                   <option value="" className="bg-[#121214]">Selecione seu nome...</option>
-                  {admins.map(emp => (
-                    <option key={emp.id} value={emp.id} className="bg-[#121214]">
-                      {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
-                    </option>
-                  ))}
+                  {admins
+                    .filter(emp => !emp.full_name.toLowerCase().includes('terminal') && emp.full_name.toLowerCase() !== 'loja arroio')
+                    .map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-[#121214]">
+                        {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
+                      </option>
+                    ))}
                 </select>
               </div>
 
