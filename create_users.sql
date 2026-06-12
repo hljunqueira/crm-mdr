@@ -17,9 +17,9 @@ BEGIN
         INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
         VALUES (gen_random_uuid(), arroio_id, format('{"sub":"%s","email":"%s"}', arroio_id::text, 'lojaarroio@mdrinformaticaecelulares.com.br')::jsonb, 'email', arroio_id::text, now(), now(), now());
 
-        INSERT INTO public.profiles (id, full_name, role, store_id)
-        VALUES (arroio_id, 'Terminal Arroio', 'attendant', arroio_store_id)
-        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role, store_id = EXCLUDED.store_id;
+        INSERT INTO public.profiles (id, full_name, role, store_id, active)
+        VALUES (arroio_id, 'Terminal Arroio', 'attendant', arroio_store_id, true)
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role, store_id = EXCLUDED.store_id, active = true;
     END IF;
 
     -- Inserir Terminal Gaivota se não existir
@@ -30,8 +30,8 @@ BEGIN
         INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
         VALUES (gen_random_uuid(), gaivota_id, format('{"sub":"%s","email":"%s"}', gaivota_id::text, 'lojagaivota@mdrinformaticaecelulares.com.br')::jsonb, 'email', gaivota_id::text, now(), now(), now());
 
-        INSERT INTO public.profiles (id, full_name, role, store_id)
-        VALUES (gaivota_id, 'Terminal Gaivota', 'attendant', gaivota_store_id)
-        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role, store_id = EXCLUDED.store_id;
+        INSERT INTO public.profiles (id, full_name, role, store_id, active)
+        VALUES (gaivota_id, 'Terminal Gaivota', 'attendant', gaivota_store_id, true)
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role, store_id = EXCLUDED.store_id, active = true;
     END IF;
 END $$;
