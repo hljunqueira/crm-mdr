@@ -42,7 +42,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <div className="flex-1 flex flex-col relative h-full">
         <div className="absolute inset-0 pixel-grid pointer-events-none opacity-[0.03] z-0"></div>
         {!(isChat || isAutomation || isConnections) && <TopBar />}
-        <main className="flex-1 overflow-y-auto z-10 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden z-10 custom-scrollbar">
           {children}
         </main>
       </div>

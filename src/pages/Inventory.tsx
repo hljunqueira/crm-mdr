@@ -473,12 +473,22 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
         const separator = lines[0].includes(';') ? ';' : ',';
         const headers = lines[0].split(separator).map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
 
-        const expected = ['marca', 'modelo', 'categoria', 'condicao', 'precocusto', 'precovenda', 'quantidade', 'imei', 'codigobarras', 'fornecedor', 'datacompra'];
-        const missing = expected.filter(exp => !headers.includes(exp));
-        if (missing.length > 0) {
-          setErrors([`Colunas ausentes no CSV: ${missing.join(', ')}`]);
-          return;
-        }
+        const getHeaderIndex = (synonyms: string[]) => {
+          return headers.findIndex(h => synonyms.includes(h));
+        };
+
+        const descIdx = getHeaderIndex(['descrição', 'descricao', 'description', 'nome', 'item', 'modelo', 'model']);
+        const shortNameIdx = getHeaderIndex(['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname']);
+        const brandIdx = getHeaderIndex(['marca', 'brand', 'fabricante']);
+        const categoryIdx = getHeaderIndex(['categoria', 'category', 'grupo']);
+        const conditionIdx = getHeaderIndex(['condicao', 'condição', 'condition']);
+        const costPriceIdx = getHeaderIndex(['precocusto', 'preço custo', 'custo_compra', 'custo', 'cost_price']);
+        const salePriceIdx = getHeaderIndex(['precovenda', 'preço venda', 'valor', 'preco', 'preço', 'price', 'sale_price']);
+        const qtyIdx = getHeaderIndex(['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity']);
+        const imeiIdx = getHeaderIndex(['imei', 'serial', 'serial_number']);
+        const barcodeIdx = getHeaderIndex(['codigobarras', 'código barras', 'barcode', 'codigo_barras']);
+        const supplierIdx = getHeaderIndex(['fornecedor', 'supplier']);
+        const purchaseDateIdx = getHeaderIndex(['datacompra', 'data_compra', 'purchase_date']);
 
         const parsedRows = [];
         for (let i = 1; i < lines.length; i++) {
@@ -486,51 +496,68 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           if (!line) continue;
 
           const values = line.split(separator).map(v => v.trim().replace(/^["']|["']$/g, ''));
-          const rowData: any = {};
-          headers.forEach((header, idx) => {
-            rowData[header] = values[idx] || '';
-          });
+          
+          const rawDescription = descIdx !== -1 ? (values[descIdx] || '') : '';
+          const rawShortName = shortNameIdx !== -1 ? (values[shortNameIdx] || '') : '';
+          const rawBrand = brandIdx !== -1 ? (values[brandIdx] || '') : '';
+          const rawCategory = categoryIdx !== -1 ? (values[categoryIdx] || '') : '';
+          const rawCondition = conditionIdx !== -1 ? (values[conditionIdx] || '') : '';
+          const rawCostPrice = costPriceIdx !== -1 ? (values[costPriceIdx] || '') : '';
+          const rawSalePrice = salePriceIdx !== -1 ? (values[salePriceIdx] || '') : '';
+          const rawQty = qtyIdx !== -1 ? (values[qtyIdx] || '') : '';
+          const rawImei = imeiIdx !== -1 ? (values[imeiIdx] || '') : '';
+          const rawBarcode = barcodeIdx !== -1 ? (values[barcodeIdx] || '') : '';
+          const rawSupplier = supplierIdx !== -1 ? (values[supplierIdx] || '') : '';
+          const rawPurchaseDate = purchaseDateIdx !== -1 ? (values[purchaseDateIdx] || '') : '';
 
-          const rowErrors: string[] = [];
+          const description = rawDescription || 'Produto Importado';
+          
+          let short_name = rawShortName || description.substring(0, 25);
+          if (short_name.length > 25) {
+            short_name = short_name.substring(0, 25);
+          }
 
-          if (!rowData.marca) rowErrors.push('Marca é obrigatória.');
-          if (!rowData.modelo) rowErrors.push('Modelo é obrigatório.');
+          const firstWord = description.trim().split(/\s+/)[0] || '-';
+          const brand = rawBrand || (firstWord.length > 20 ? firstWord.substring(0, 20) : firstWord);
 
-          const cat = (rowData.categoria || '').toLowerCase();
-          let mappedCategory = 'other';
+          const cat = rawCategory.toLowerCase();
+          let mappedCategory: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other' = 'other';
           if (cat.includes('celular') || cat.includes('smartphone')) mappedCategory = 'smartphone';
           else if (cat.includes('acessório celular') || cat.includes('acessorio celular')) mappedCategory = 'accessory_mobile';
           else if (cat.includes('acessório ti') || cat.includes('acessorio ti')) mappedCategory = 'accessory_it';
           else if (cat.includes('peça') || cat.includes('peca')) mappedCategory = 'part';
 
-          const cond = (rowData.condicao || '').toLowerCase();
-          let mappedCondition = 'new';
+          const cond = rawCondition.toLowerCase();
+          let mappedCondition: 'new' | 'used' | 'refurbished' | 'vitrine' = 'new';
           if (cond.includes('usado')) mappedCondition = 'used';
-          else if (cond.includes('vitrine') || cond.includes('recondicionado')) mappedCondition = 'refurbished';
+          else if (cond.includes('vitrine')) mappedCondition = 'vitrine';
+          else if (cond.includes('recondicionado')) mappedCondition = 'refurbished';
 
-          const numCost = parseFloat((rowData.precocusto || '').replace(',', '.')) || 0;
-          const numSale = parseFloat((rowData.precovenda || '').replace(',', '.')) || 0;
-          const numQty = parseInt(rowData.quantidade, 10) || 0;
+          const numCost = parseFloat(rawCostPrice.replace(',', '.')) || 0;
+          const numSale = parseFloat(rawSalePrice.replace(',', '.')) || 0;
+          const numQty = parseInt(rawQty, 10) || 1;
 
+          const rowErrors: string[] = [];
           if (numCost < 0) rowErrors.push('Preço de custo inválido.');
           if (numSale < 0) rowErrors.push('Preço de venda inválido.');
           if (numQty <= 0) rowErrors.push('Quantidade inválida.');
 
-          if (mappedCategory === 'smartphone' && !rowData.imei) {
-            rowErrors.push('IMEI é obrigatório para celulares.');
-          }
-
           parsedRows.push({
-            ...rowData,
             _line: i + 1,
             _errors: rowErrors,
+            brand,
+            model: short_name,
+            description,
+            short_name,
             mappedCategory,
             mappedCondition,
             numCost,
             numSale,
             numQty,
-            supplierVal: rowData.fornecedor || '',
-            purchaseDateVal: rowData.datacompra || ''
+            imei: rawImei,
+            barcode: rawBarcode,
+            supplierVal: rawSupplier,
+            purchaseDateVal: rawPurchaseDate
           });
         }
 
@@ -564,18 +591,20 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
     try {
       for (const row of validRows) {
         const isDevice = row.mappedCategory === 'smartphone';
-        const hasBarcode = !!row.codigobarras;
+        const hasBarcode = !!row.barcode;
 
         let merged = false;
         if (!isDevice && hasBarcode) {
-          const existing = inventory.find(i => i.unit_id === targetUnit && i.barcode === row.codigobarras);
+          const existing = inventory.find(i => i.unit_id === targetUnit && i.barcode === row.barcode);
           if (existing) {
             await updateItem(existing.id, {
               stock_quantity: existing.stock_quantity + row.numQty,
               cost_price: row.numCost,
               price: row.numSale,
               supplier: row.supplierVal || undefined,
-              purchase_date: row.purchaseDateVal || undefined
+              purchase_date: row.purchaseDateVal || undefined,
+              description: row.description,
+              short_name: row.short_name
             });
             merged = true;
           }
@@ -584,17 +613,19 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
         if (!merged) {
           await addItem({
             unit_id: targetUnit,
-            brand: row.marca,
-            model: row.modelo,
+            brand: row.brand,
+            model: row.model,
             category: row.mappedCategory,
             condition: row.mappedCondition,
             cost_price: row.numCost,
             price: row.numSale,
             stock_quantity: row.numQty,
             imei: row.imei || '',
-            barcode: row.codigobarras || '',
+            barcode: row.barcode || '',
             supplier: row.supplierVal || '',
             purchase_date: row.purchaseDateVal || '',
+            description: row.description,
+            short_name: row.short_name,
             status: 'available'
           });
         }
@@ -653,8 +684,8 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
               <thead>
                 <tr className="border-b border-white/5 bg-white/5 text-[9px] font-black uppercase tracking-wider text-on-surface-variant">
                   <th className="p-3 text-center">Linha</th>
-                  <th className="p-3">Marca</th>
-                  <th className="p-3">Modelo</th>
+                  <th className="p-3">Descrição</th>
+                  <th className="p-3">Nome Curto</th>
                   <th className="p-3">Qtd</th>
                   <th className="p-3">Custo</th>
                   <th className="p-3">Venda</th>
@@ -667,11 +698,11 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
                   return (
                     <tr key={idx} className={cn("hover:bg-white/5 transition-all text-[11px]", hasRowErrors ? "bg-error/5 text-error" : "")}>
                       <td className="p-3 text-center font-bold text-on-surface-variant">{row._line}</td>
-                      <td className="p-3 font-semibold">{row.marca}</td>
-                      <td className="p-3">{row.modelo}</td>
-                      <td className="p-3 font-mono">{row.quantidade}</td>
-                      <td className="p-3 font-mono">R$ {row.precocusto}</td>
-                      <td className="p-3 font-mono">R$ {row.precovenda}</td>
+                      <td className="p-3 font-semibold">{row.description}</td>
+                      <td className="p-3">{row.short_name}</td>
+                      <td className="p-3 font-mono">{row.numQty}</td>
+                      <td className="p-3 font-mono">R$ {row.numCost.toFixed(2)}</td>
+                      <td className="p-3 font-mono">R$ {row.numSale.toFixed(2)}</td>
                       <td className="p-3 font-semibold max-w-[200px] truncate">
                         {hasRowErrors ? (
                           <span className="text-error" title={row._errors.join(' | ')}>{row._errors[0]}</span>

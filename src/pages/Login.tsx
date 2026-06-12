@@ -53,7 +53,7 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="glass-card p-10 border border-outline-variant/40 rounded-[40px] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden backdrop-blur-2xl">
+        <div className="glass-card p-6 sm:p-10 border border-outline-variant/40 rounded-[30px] sm:rounded-[40px] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden backdrop-blur-2xl">
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 blur-3xl -z-10"></div>
           
           <form onSubmit={handleLogin} className="space-y-6">

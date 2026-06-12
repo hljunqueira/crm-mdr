@@ -357,7 +357,7 @@ export default function Landing() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-              className="grid grid-cols-3 gap-6 pt-8 border-t border-outline-variant/20"
+              className="grid grid-cols-3 gap-3 sm:gap-6 pt-8 border-t border-outline-variant/20"
             >
               <div className="flex flex-col">
                 <span className="text-xl sm:text-2xl font-black text-on-surface">15+</span>

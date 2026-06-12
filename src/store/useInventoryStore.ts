@@ -20,6 +20,8 @@ export interface InventoryItem {
   barcode?: string;
   supplier?: string;
   purchase_date?: string;
+  description?: string;
+  short_name?: string;
 }
 
 interface InventoryState {
@@ -58,6 +60,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         barcode: item.barcode || '',
         supplier: item.supplier || '',
         purchase_date: item.purchase_date || '',
+        description: item.description || '',
+        short_name: item.short_name || '',
       }));
       set({ inventory: mapped });
     } catch (error) {
@@ -85,6 +89,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         barcode: item.barcode || null,
         supplier: item.supplier || null,
         purchase_date: item.purchase_date || null,
+        description: item.description || null,
+        short_name: item.short_name || null,
       };
       const data = await api.post('/inventory', dbItem);
       const newFrontendItem = {
@@ -97,6 +103,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         barcode: data.barcode || '',
         supplier: data.supplier || '',
         purchase_date: data.purchase_date || '',
+        description: data.description || '',
+        short_name: data.short_name || '',
       };
       set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
     } catch (error) {
@@ -123,6 +131,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.barcode !== undefined) dbFields.barcode = updatedFields.barcode || null;
       if (updatedFields.supplier !== undefined) dbFields.supplier = updatedFields.supplier || null;
       if (updatedFields.purchase_date !== undefined) dbFields.purchase_date = updatedFields.purchase_date || null;
+      if (updatedFields.description !== undefined) dbFields.description = updatedFields.description || null;
+      if (updatedFields.short_name !== undefined) dbFields.short_name = updatedFields.short_name || null;
 
       const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({
@@ -136,6 +146,8 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
           barcode: data.barcode || '',
           supplier: data.supplier || '',
           purchase_date: data.purchase_date || '',
+          description: data.description || '',
+          short_name: data.short_name || '',
         } : i)
       }));
     } catch (error) {

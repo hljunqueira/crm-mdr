@@ -253,7 +253,7 @@ export default function Sidebar() {
 
       {/* Mobile Sidebar Drawer overlay */}
       {isMobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[70] md:hidden flex animate-in fade-in duration-200">
           {/* Backdrop */}
           <div 
             onClick={() => setIsMobileOpen(false)}
@@ -261,7 +261,7 @@ export default function Sidebar() {
           />
 
           {/* Drawer Panel */}
-          <aside translate="no" className="notranslate relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-50 animate-in slide-in-from-left duration-300">
+          <aside translate="no" className="notranslate relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-[80] animate-in slide-in-from-left duration-300">
             <div className="flex justify-between items-center px-6 mb-8">
               <img src="/logo-mdr.png" alt="MDR" className="h-16 w-auto object-contain" />
               <button 

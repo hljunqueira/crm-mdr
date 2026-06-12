@@ -115,6 +115,7 @@ export default function ServiceOrders() {
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('all');
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
   const [osFilterTab, setOsFilterTab] = useState<'active' | 'canceled'>('active');
+  const [activeMobileTab, setActiveMobileTab] = useState<'queue' | 'workbench'>('queue');
   const [isEditingReportedIssue, setIsEditingReportedIssue] = useState(false);
   const [editedReportedIssue, setEditedReportedIssue] = useState('');
   const [printFormatOverride, setPrintFormatOverride] = useState<'thermal' | 'a4' | null>(null);
@@ -203,6 +204,7 @@ export default function ServiceOrders() {
     if (selectedOsId) {
       fetchServiceOrderById(selectedOsId);
       setIsEditingReportedIssue(false);
+      setActiveMobileTab('workbench');
       
       const loadOutsourceData = async () => {
         try {
@@ -1541,24 +1543,52 @@ export default function ServiceOrders() {
           );
         })}
       </div>
+ 
+      {/* Mobile Tab Switcher */}
+      <div className="flex lg:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1.5">
+        <button
+          onClick={() => setActiveMobileTab('queue')}
+          className={cn(
+            "flex-1 py-3 text-center text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all",
+            activeMobileTab === 'queue'
+              ? "bg-primary text-on-primary shadow-lg shadow-primary/10"
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Fila de OS ({filteredOs.length})
+        </button>
+        <button
+          onClick={() => setActiveMobileTab('workbench')}
+          className={cn(
+            "flex-1 py-3 text-center text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all",
+            activeMobileTab === 'workbench'
+              ? "bg-primary text-on-primary shadow-lg shadow-primary/10"
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Detalhes / Bancada
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* COLUNA 1: FILA DE ORDENS DE SERVIÇO */}
-        <OsSidebar 
-          filteredOs={filteredOs}
-          selectedOsId={selectedOsId}
-          setSelectedOsId={setSelectedOsId}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          isLoading={isLoading}
-          getStatusInfo={getStatusInfo}
-          osFilterTab={osFilterTab}
-          setOsFilterTab={setOsFilterTab}
-        />
+        <div className={cn("w-full", activeMobileTab === 'queue' ? 'block' : 'hidden lg:block')}>
+          <OsSidebar 
+            filteredOs={filteredOs}
+            selectedOsId={selectedOsId}
+            setSelectedOsId={setSelectedOsId}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            isLoading={isLoading}
+            getStatusInfo={getStatusInfo}
+            osFilterTab={osFilterTab}
+            setOsFilterTab={setOsFilterTab}
+          />
+        </div>
 
         {/* COLUNA 2 E 3: BANCADA DO TÉCNICO & DETALHES DA OS */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
+        <div className={cn("lg:col-span-2 flex flex-col gap-6", activeMobileTab === 'workbench' ? 'block' : 'hidden lg:block')}>
           {!selectedOsId || !currentServiceOrder ? (
             <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-8 h-[75vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
               <Wrench size={64} className="text-on-surface-variant opacity-20" />
