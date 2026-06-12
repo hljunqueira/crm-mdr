@@ -128,8 +128,9 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   }, []);
 
   useEffect(() => {
-    fetchInventory();
-  }, [fetchInventory]);
+    const isAdmin = profile?.role === 'admin';
+    fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
+  }, [fetchInventory, profile]);
 
   const availableDevicesForSimulation = useMemo(() => {
     return inventory.filter(item => item.status === 'available' && (item.stock_quantity || 0) > 0);
@@ -799,7 +800,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             )}
             
             {/* Search and selection input */}
-            <div className="relative mt-3">
+            <div className="relative mt-3 z-20">
               <input
                 type="text"
                 placeholder="🔍 Digite modelo ou marca para buscar no estoque..."
