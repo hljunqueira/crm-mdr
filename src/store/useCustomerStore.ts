@@ -24,7 +24,7 @@ export interface Customer {
   desired_device?: string;
   needed_credit?: number;
   desired_installment_value?: number;
-  classification?: 'BOM' | 'MEDIO' | 'RUIM';
+  classification?: 'BOM' | 'MEDIO' | 'RUIM' | 'A_VISTA';
   credit_limit?: number;
   suggested_down_payment?: number;
   credit_status?: 'EM_ANALISE' | 'REPROVADO' | 'APROVADO_COM_ENTRADA' | 'APROVADO';

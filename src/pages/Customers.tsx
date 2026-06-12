@@ -195,10 +195,12 @@ export default function Customers() {
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                             customer.classification === 'BOM' ? 'bg-success/10 text-success' :
                             customer.classification === 'RUIM' ? 'bg-error/10 text-error' :
+                            customer.classification === 'A_VISTA' ? 'bg-blue-500/10 text-blue-400' :
                             'bg-warning/10 text-warning'
                           }`}>
                             {customer.classification === 'BOM' ? 'Premium (5% a.m.)' :
                              customer.classification === 'RUIM' ? 'Flex (12% a.m.)' :
+                             customer.classification === 'A_VISTA' ? 'Somente À Vista' :
                              'Standard (8% a.m.)'}
                           </span>
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-white/5 text-on-surface-variant`}>

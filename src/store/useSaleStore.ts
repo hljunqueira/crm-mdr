@@ -18,6 +18,7 @@ export interface Sale {
   accessories?: string;
   status: 'completed' | 'processing' | 'overdue' | 'cancelled';
   payment_type?: 'crediario' | 'card' | 'vista' | 'debit';
+  seller_id?: string;
 }
 
 interface SaleState {
@@ -52,7 +53,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         device_color: s.device_color,
         accessories: s.accessories,
         status: s.status,
-        payment_type: s.payment_type || 'crediario'
+        payment_type: s.payment_type || 'crediario',
+        seller_id: s.seller_id
       }));
       set({ sales: mappedSales });
     } catch (error) {
@@ -77,7 +79,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         device_color: sale.device_color,
         accessories: sale.accessories,
         status: sale.status,
-        payment_type: sale.payment_type
+        payment_type: sale.payment_type,
+        seller_id: sale.seller_id
       };
       const data = await api.post('/sales', dbSale);
       
@@ -112,6 +115,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       if (updatedFields.accessories) dbFields.accessories = updatedFields.accessories;
       if (updatedFields.status) dbFields.status = updatedFields.status;
       if (updatedFields.payment_type) dbFields.payment_type = updatedFields.payment_type;
+      if (updatedFields.seller_id) dbFields.seller_id = updatedFields.seller_id;
 
       const data = await api.patch(`/sales/${id}`, dbFields);
       

@@ -4,7 +4,7 @@ import {
   User, Phone, FileText, Printer, ExternalLink, ShieldAlert, 
   Save, ArrowLeft, Trash2, Smartphone, Monitor, PrinterIcon, 
   Gamepad2, PlusCircle, Check, Info, Calendar, DollarSign, Send,
-  Edit, X
+  Edit, X, UserCheck
 } from 'lucide-react';
 import { useServiceOrderStore, ServiceOrder } from '../store/useServiceOrderStore';
 import { useCustomerStore } from '../store/useCustomerStore';
@@ -146,6 +146,13 @@ export default function ServiceOrders() {
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [admins, setAdmins] = useState<any[]>([]);
+
+  // Colaborador authentication states for OS creation
+  const [isConfirmAuthOpen, setIsConfirmAuthOpen] = useState(false);
+  const [authEmployeeId, setAuthEmployeeId] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   // Parts Addition State
   const [selectedPartId, setSelectedPartId] = useState('');
@@ -290,7 +297,8 @@ export default function ServiceOrders() {
         phone: cleanPhone,
         address: '',
         status: 'active',
-        classification: 'BOM',
+        classification: 'A_VISTA',
+        credit_limit: 0,
         credit_status: 'APROVADO',
         registration_status: 'APROVADO',
         approved_for_purchase: true,
@@ -433,30 +441,14 @@ export default function ServiceOrders() {
     }
   };
 
-  const handleCreateOS = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const isComputer = ['notebook', 'desktop'].includes(newOs.device_category);
-    const brandValid = isComputer || !!newOs.device_brand.trim();
-    const modelValid = isComputer || !!newOs.device_model.trim();
-
-    if (!newOs.customer_id || !brandValid || !modelValid || !newOs.reported_issue) {
-      showNotification('error', 'Erro', 'Por favor, preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    if (newOs.device_category === 'other' && !newOs.custom_category.trim()) {
-      showNotification('error', 'Erro', 'Por favor, digite o nome da categoria manual.');
-      return;
-    }
-
+  const executeCreateOS = async (techId: string) => {
     setIsSubmitting(true);
     try {
+      const isComputer = ['notebook', 'desktop'].includes(newOs.device_category);
       const finalCategory = newOs.device_category === 'other'
         ? newOs.custom_category.trim()
         : newOs.device_category;
 
-      const techId = newOs.responsible_technician_id || profile?.id || null;
       const created = await createServiceOrder({
         customer_id: newOs.customer_id,
         unit_id: newOs.unit_id || null,
@@ -522,6 +514,65 @@ export default function ServiceOrders() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleConfirmAuth = async () => {
+    if (!authEmployeeId || !authPassword) {
+      setAuthError('Selecione seu nome e digite a senha.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      const response = await fetch('/api/users/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: authEmployeeId, password: authPassword })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Falha ao autenticar colaborador.');
+      }
+
+      // Autenticado com sucesso!
+      setIsConfirmAuthOpen(false);
+      setAuthPassword('');
+      await executeCreateOS(authEmployeeId);
+    } catch (err: any) {
+      setAuthError(err.message || 'Senha incorreta.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleCreateOS = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const isComputer = ['notebook', 'desktop'].includes(newOs.device_category);
+    const brandValid = isComputer || !!newOs.device_brand.trim();
+    const modelValid = isComputer || !!newOs.device_model.trim();
+
+    if (!newOs.customer_id || !brandValid || !modelValid || !newOs.reported_issue) {
+      showNotification('error', 'Erro', 'Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    if (newOs.device_category === 'other' && !newOs.custom_category.trim()) {
+      showNotification('error', 'Erro', 'Por favor, digite o nome da categoria manual.');
+      return;
+    }
+
+    // Default to currently logged profile if available to speed up selection
+    if (profile?.id && !authEmployeeId) {
+      setAuthEmployeeId(profile.id);
+    } else if (newOs.responsible_technician_id && !authEmployeeId) {
+      setAuthEmployeeId(newOs.responsible_technician_id);
+    }
+
+    setIsConfirmAuthOpen(true);
   };
 
   const handleOutsourceOS = async (e: React.FormEvent) => {
@@ -3113,6 +3164,87 @@ export default function ServiceOrders() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Assinatura do Colaborador (Senha) */}
+      {isConfirmAuthOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-white/10 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
+            <div className="flex items-center gap-3 text-primary">
+              <UserCheck size={28} />
+              <h3 className="text-md font-black uppercase tracking-wider">Assinatura do Colaborador</h3>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Para registrar esta transação, selecione seu nome e confirme sua senha de acesso.
+            </p>
+
+            {authError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold">{authError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Colaborador</label>
+                <select
+                  value={authEmployeeId}
+                  onChange={(e) => {
+                    setAuthEmployeeId(e.target.value);
+                    setAuthError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                >
+                  <option value="" className="bg-[#121214]">Selecione seu nome...</option>
+                  {admins.map(emp => (
+                    <option key={emp.id} value={emp.id} className="bg-[#121214]">
+                      {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={authPassword}
+                  onChange={(e) => {
+                    setAuthPassword(e.target.value);
+                    setAuthError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmAuthOpen(false);
+                  setAuthPassword('');
+                  setAuthError('');
+                }}
+                disabled={authLoading}
+                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface hover:text-white transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAuth}
+                disabled={authLoading || !authEmployeeId || !authPassword}
+                className="flex-1 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {authLoading ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

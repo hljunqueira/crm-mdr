@@ -38,7 +38,7 @@ export default function CreditAnalysis() {
 
   // Form States
   const [formData, setFormData] = useState({
-    classification: 'MEDIO' as 'BOM' | 'MEDIO' | 'RUIM',
+    classification: 'MEDIO' as 'BOM' | 'MEDIO' | 'RUIM' | 'A_VISTA',
     credit_limit: 0,
     suggested_down_payment: 0,
     credit_status: 'EM_ANALISE' as 'EM_ANALISE' | 'REPROVADO' | 'APROVADO_COM_ENTRADA' | 'APROVADO',
@@ -994,6 +994,7 @@ export default function CreditAnalysis() {
                       <option value="BOM" className="bg-[#121214] text-success">🟢 Premium (5% a.m.)</option>
                       <option value="MEDIO" className="bg-[#121214] text-warning">🟡 Standard (8% a.m.)</option>
                       <option value="RUIM" className="bg-[#121214] text-error">🔴 Flex (12% a.m.)</option>
+                      <option value="A_VISTA" className="bg-[#121214] text-blue-400">🔵 Somente À Vista</option>
                     </select>
                   </div>
 

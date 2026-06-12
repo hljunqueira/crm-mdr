@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Plus, X, Gift, ShoppingBag } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Plus, X, Gift, ShoppingBag, UserCheck, Loader2 } from 'lucide-react';
 import { cn, printElement, formatCPF, formatPhone, validateCPF, validateCNPJ } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
 import { useSaleStore, Sale } from '../../store/useSaleStore';
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useUnitStore } from '../../store/useUnitStore';
 import ContractPrint from './ContractPrint';
 import SaleReceiptPrint from './SaleReceiptPrint';
+import { supabase } from '../../lib/supabase';
 
 const CREDIARIO_COEFFICIENTS: Record<'premium' | 'standard' | 'flex', Record<number, number>> = {
   premium: {
@@ -116,8 +117,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         credit_status: 'APROVADO',
         approved_for_purchase: true,
         status: 'active',
-        classification: 'BOM',
-        credit_limit: 5000,
+        classification: 'A_VISTA',
+        credit_limit: 0,
         notes: 'Cadastrado rapidamente na venda.'
       });
 
@@ -238,6 +239,32 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     trade_device_model: '',
     trade_device_imei: ''
   });
+
+  // Colaborador authentication states
+  const [isConfirmAuthOpen, setIsConfirmAuthOpen] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [authEmployeeId, setAuthEmployeeId] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+
+  // Fetch employees list
+  useEffect(() => {
+    const fetchEmps = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, role')
+          .eq('active', true);
+        if (data && !error) {
+          setEmployees(data);
+        }
+      } catch (err) {
+        console.error('Error fetching employees:', err);
+      }
+    };
+    fetchEmps();
+  }, []);
 
   // Automatically calculate total value, concatenated model names and IMEIs when selectedDevices changes
   React.useEffect(() => {
@@ -605,35 +632,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     }));
   }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates, isCashLike]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (saleType === 'general' && selectedDevices.length === 0) {
-      showNotification('error', 'Itens do Estoque', 'Por favor, vincule pelo menos um produto do estoque para realizar uma venda em geral.');
-      return;
-    }
-
-    if (!formData.customer_id || !formData.device_model || formData.total_value <= 0) {
-      showNotification('error', 'Campos Obrigatórios', 'Por favor, preencha todos os campos corretamente.');
-      return;
-    }
-
-    if (selectedCustomer && selectedCustomer.approved_for_purchase !== true) {
-      showNotification('error', 'Cliente Bloqueado', 'Este cliente não está liberado para compras. É necessária a aprovação de um administrador.');
-      return;
-    }
-
-    if (!isCashLike && formData.down_payment < minDownPayment) {
-      const pct = selectedCustomer?.classification === 'RUIM' ? '50%' : '20%';
-      showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
-      return;
-    }
-
-    if (formData.payment_type === 'crediario' && isOverLimit) {
-      showNotification('error', 'Limite de Crédito Excedido', `O valor financiado (R$ ${newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) excede o limite disponível do cliente (R$ ${availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Venda bloqueada. Apenas após nova análise de crédito.`);
-      return;
-    }
-
+  const executeSubmit = async (sellerId: string) => {
     try {
       // Build accessories string for DB and append metadata
       let accessoriesStr = selectedAccessories.length > 0
@@ -673,7 +672,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: accessoriesStr,
-          payment_type: formData.payment_type as any
+          payment_type: formData.payment_type as any,
+          seller_id: sellerId
         });
         showNotification('success', 'Venda Atualizada');
         onSuccess();
@@ -693,7 +693,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           device_color: formData.device_color,
           accessories: accessoriesStr,
           status: 'completed',
-          payment_type: formData.payment_type as any
+          payment_type: formData.payment_type as any,
+          seller_id: sellerId
         });
 
         // Decrement stock for all selected devices
@@ -740,6 +741,75 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     } catch (error) {
       showNotification('error', initialData ? 'Erro ao atualizar venda' : 'Erro ao registrar venda');
     }
+  };
+
+  const handleConfirmAuth = async () => {
+    if (!authEmployeeId || !authPassword) {
+      setAuthError('Selecione seu nome e digite a senha.');
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError('');
+
+    try {
+      const response = await fetch('/api/users/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: authEmployeeId, password: authPassword })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Falha ao autenticar colaborador.');
+      }
+
+      // Autenticado com sucesso!
+      setIsConfirmAuthOpen(false);
+      setAuthPassword('');
+      await executeSubmit(authEmployeeId);
+    } catch (err: any) {
+      setAuthError(err.message || 'Senha incorreta.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (saleType === 'general' && selectedDevices.length === 0) {
+      showNotification('error', 'Itens do Estoque', 'Por favor, vincule pelo menos um produto do estoque para realizar uma venda em geral.');
+      return;
+    }
+
+    if (!formData.customer_id || !formData.device_model || formData.total_value <= 0) {
+      showNotification('error', 'Campos Obrigatórios', 'Por favor, preencha todos os campos corretamente.');
+      return;
+    }
+
+    if (selectedCustomer && selectedCustomer.approved_for_purchase !== true) {
+      showNotification('error', 'Cliente Bloqueado', 'Este cliente não está liberado para compras. É necessária a aprovação de um administrador.');
+      return;
+    }
+
+    if (!isCashLike && formData.down_payment < minDownPayment) {
+      const pct = selectedCustomer?.classification === 'RUIM' ? '50%' : '20%';
+      showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
+      return;
+    }
+
+    if (formData.payment_type === 'crediario' && isOverLimit) {
+      showNotification('error', 'Limite de Crédito Excedido', `O valor financiado (R$ ${newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) excede o limite disponível do cliente (R$ ${availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Venda bloqueada. Apenas após nova análise de crédito.`);
+      return;
+    }
+
+    // Default to currently logged profile if available to speed up selection
+    if (profile?.id && !authEmployeeId) {
+      setAuthEmployeeId(profile.id);
+    }
+
+    setIsConfirmAuthOpen(true);
   };
 
   if (isSuccess && selectedCustomer) {
@@ -922,7 +992,18 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <select 
                 required
                 value={formData.customer_id}
-                onChange={(e) => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
+                onChange={(e) => {
+                  const custId = e.target.value;
+                  const selectedC = customers.find(c => c.id === custId);
+                  setFormData(prev => {
+                    const isAVista = selectedC?.classification === 'A_VISTA';
+                    return {
+                      ...prev,
+                      customer_id: custId,
+                      payment_type: (isAVista && prev.payment_type === 'crediario') ? 'vista' : prev.payment_type
+                    };
+                  });
+                }}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
               >
                 <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
@@ -1260,12 +1341,26 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
           >
             {saleType !== 'general' && (
-              <option value="crediario" className="bg-surface-container-high">Crediário da Loja</option>
+              <option 
+                value="crediario" 
+                disabled={selectedCustomer?.classification === 'A_VISTA'}
+                className="bg-surface-container-high"
+              >
+                Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : ''}
+              </option>
             )}
             <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
             <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
             <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
           </select>
+          {selectedCustomer?.classification === 'A_VISTA' && (
+            <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl mt-1 animate-pulse">
+              <AlertCircle size={14} className="shrink-0" />
+              <span className="font-bold text-[10px] uppercase tracking-wider">
+                Aviso: Cliente classificado como 'Somente À Vista'. Vendas parceladas não permitidas (sujeito a análise de crédito).
+              </span>
+            </div>
+          )}
         </div>
 
         {formData.payment_type === 'crediario' && (
@@ -1909,6 +2004,86 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Modal de Confirmação de Assinatura do Colaborador (Senha) */}
+      {isConfirmAuthOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-white/10 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
+            <div className="flex items-center gap-3 text-primary">
+              <UserCheck size={28} />
+              <h3 className="text-md font-black uppercase tracking-wider">Assinatura do Colaborador</h3>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Para registrar esta transação, selecione seu nome e confirme sua senha de acesso.
+            </p>
+
+            {authError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold">{authError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Colaborador</label>
+                <select
+                  value={authEmployeeId}
+                  onChange={(e) => {
+                    setAuthEmployeeId(e.target.value);
+                    setAuthError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                >
+                  <option value="" className="bg-[#121214]">Selecione seu nome...</option>
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id} className="bg-[#121214]">
+                      {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={authPassword}
+                  onChange={(e) => {
+                    setAuthPassword(e.target.value);
+                    setAuthError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmAuthOpen(false);
+                  setAuthPassword('');
+                  setAuthError('');
+                }}
+                disabled={authLoading}
+                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface hover:text-white transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAuth}
+                disabled={authLoading || !authEmployeeId || !authPassword}
+                className="flex-1 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {authLoading ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

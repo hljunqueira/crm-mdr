@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase.js';
 
 const router = Router();
@@ -169,6 +170,46 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error: any) {
     console.error('[Users DELETE] Erro Geral:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/verify-password — Verificar senha de um colaborador específico
+router.post('/verify-password', async (req, res) => {
+  try {
+    const { userId, password } = req.body;
+    if (!userId || !password) {
+      return res.status(400).json({ error: 'ID do usuário e senha são obrigatórios.' });
+    }
+
+    // 1. Buscar o e-mail do usuário no Auth utilizando o Admin SDK
+    const { data: userObj, error: userError } = await supabase.auth.admin.getUserById(userId);
+    if (userError || !userObj || !userObj.user?.email) {
+      console.error('[VerifyPassword] Erro ao buscar usuário do Auth:', userError);
+      return res.status(404).json({ error: 'Colaborador não encontrado.' });
+    }
+
+    const email = userObj.user.email;
+
+    // 2. Criar cliente temporário com a Anon Key para testar o login do usuário
+    const tempClient = createClient(
+      process.env.VITE_SUPABASE_URL || '',
+      process.env.VITE_SUPABASE_ANON_KEY || ''
+    );
+
+    const { error: authError } = await tempClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (authError) {
+      console.warn('[VerifyPassword] Senha incorreta para:', email, authError.message);
+      return res.status(401).json({ error: 'Senha incorreta.' });
+    }
+
+    res.json({ success: true, userId });
+  } catch (error: any) {
+    console.error('[VerifyPassword] Erro Geral:', error);
     res.status(500).json({ error: error.message });
   }
 });
