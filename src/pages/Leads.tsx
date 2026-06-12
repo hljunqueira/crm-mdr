@@ -328,9 +328,9 @@ export default function Leads() {
               </div>
             ) : (
               <div className="flex-1 overflow-x-auto pb-6 custom-scrollbar scroll-smooth">
-                <div className="flex gap-6 h-full min-w-max p-1">
+                <div className="flex gap-4 sm:gap-6 h-full p-1 snap-x scrollbar-none md:scrollbar-default">
                   {columns.map((column) => (
-                    <div key={column.id} className="w-[320px] flex flex-col gap-6">
+                    <div key={column.id} className="w-[85vw] sm:w-[320px] flex flex-col gap-6 shrink-0 snap-align-start">
                       {/* Column Header */}
                       <div className="flex items-center justify-between p-5 border-b-4 bg-white/[0.02] rounded-3xl group shadow-inner transition-all border-white">
                         <div className="flex items-center gap-4">

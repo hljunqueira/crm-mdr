@@ -145,9 +145,9 @@ export default function Customers() {
               <thead>
                 <tr className="bg-white/5">
                   <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Cliente</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Contato / Endereço</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] hidden md:table-cell">Contato / Endereço</th>
                   <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Crédito</th>
-                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Cadastro / Compra</th>
+                  <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] hidden lg:table-cell">Cadastro / Compra</th>
                   <th className="px-8 py-5 text-left text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Status Geral</th>
                   <th className="px-8 py-5 text-right"></th>
                 </tr>
@@ -169,7 +169,7 @@ export default function Customers() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6">
+                    <td className="px-8 py-6 hidden md:table-cell">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs text-on-surface font-bold tracking-tight">
                           <Phone size={12} className="text-white opacity-20" />
@@ -214,7 +214,7 @@ export default function Customers() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6">
+                    <td className="px-8 py-6 hidden lg:table-cell">
                       <div className="space-y-1">
                         <div>
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${

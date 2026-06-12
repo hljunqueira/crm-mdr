@@ -5,7 +5,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(true);
 
   return (
-    <div className="w-full h-[calc(100vh-64px)] md:h-screen bg-[#0c0c0e] flex flex-col relative overflow-hidden">
+    <div className="w-full h-[calc(100dvh-64px)] md:h-screen bg-[#0c0c0e] flex flex-col relative overflow-hidden">
       {/* Top Banner / Integration Indicator */}
       <div className="h-12 bg-[#121215] border-b border-white/5 flex items-center justify-between px-6 shrink-0 z-20">
         <div className="flex items-center gap-3">

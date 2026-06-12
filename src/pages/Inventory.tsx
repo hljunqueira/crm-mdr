@@ -233,11 +233,11 @@ export default function Inventory() {
 
       {/* Store Filter Tabs — visible to admins only */}
       {isAdmin && availableStores.length > 0 && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none pb-1">
           <button
             onClick={() => setSelectedStore('all')}
             className={cn(
-              "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all",
+              "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
               selectedStore === 'all'
                 ? 'bg-white text-black border-white shadow-lg'
                 : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
@@ -250,7 +250,7 @@ export default function Inventory() {
               key={store.id}
               onClick={() => setSelectedStore(store.id)}
               className={cn(
-                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all",
+                "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
                 selectedStore === store.id
                   ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/20'
                   : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'

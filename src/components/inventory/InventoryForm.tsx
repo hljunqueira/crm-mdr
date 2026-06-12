@@ -270,12 +270,12 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       </div>
 
       {/* Navegação por Abas (Visual Estilo SHEstoque) */}
-      <div className="flex border-b border-white/10 gap-2 mt-4">
+      <div className="flex border-b border-white/10 gap-2 mt-4 overflow-x-auto whitespace-nowrap scrollbar-none scroll-smooth">
         <button
           type="button"
           onClick={() => setActiveTab('info')}
           className={cn(
-            "px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5",
+            "px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 shrink-0",
             activeTab === 'info' ? "border-primary text-primary" : "border-transparent text-on-surface-variant/60 hover:text-white"
           )}
         >
@@ -285,7 +285,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
           type="button"
           onClick={() => setActiveTab('photo')}
           className={cn(
-            "px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5",
+            "px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 shrink-0",
             activeTab === 'photo' ? "border-primary text-primary" : "border-transparent text-on-surface-variant/60 hover:text-white"
           )}
         >
@@ -295,7 +295,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
           type="button"
           onClick={() => setActiveTab('notes')}
           className={cn(
-            "px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5",
+            "px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all flex items-center gap-1.5 shrink-0",
             activeTab === 'notes' ? "border-primary text-primary" : "border-transparent text-on-surface-variant/60 hover:text-white"
           )}
         >

@@ -167,7 +167,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+            className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-6"
           >
             <div
               onClick={hideModal}
@@ -177,31 +177,31 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-5xl glass-card border border-white/10 rounded-[40px] overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col"
+              className="relative w-full max-w-5xl glass-card border border-white/10 rounded-2xl sm:rounded-[40px] overflow-hidden shadow-2xl shadow-black/50 max-h-[96vh] sm:max-h-[90vh] flex flex-col"
             >
               {/* Botão de Fechar */}
               <button
                 onClick={hideModal}
-                className="absolute top-6 right-8 p-2 rounded-full text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+                className="absolute top-3 right-4 sm:top-6 sm:right-8 p-2 rounded-full text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
                 aria-label="Fechar"
               >
                 <X size={20} />
               </button>
 
-              <div className="p-10 flex flex-col min-h-0 overflow-hidden">
-                <h3 className="text-2xl font-display font-black text-on-surface uppercase tracking-tight mb-8 shrink-0">{modal.title}</h3>
+              <div className="p-4 sm:p-10 flex flex-col min-h-0 overflow-hidden">
+                <h3 className="text-lg sm:text-2xl font-display font-black text-on-surface uppercase tracking-tight mb-4 sm:mb-8 shrink-0 pr-8">{modal.title}</h3>
                 <div className="text-on-surface-variant font-display text-sm tracking-tight leading-relaxed flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
                   {modal.children}
                 </div>
                 {(modal.onConfirm || modal.onCancel) && (
-                  <div className="flex gap-4 mt-10">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-6 sm:mt-10">
                     {modal.onCancel && (
                       <button 
                         onClick={() => {
                           modal.onCancel?.();
                           hideModal();
                         }}
-                        className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+                        className="w-full sm:flex-1 py-3 sm:py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
                       >
                         {modal.cancelText || 'Cancelar'}
                       </button>
@@ -212,7 +212,7 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
                           modal.onConfirm?.();
                           hideModal();
                         }}
-                        className={`flex-1 py-4 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                        className={`w-full sm:flex-1 py-3 sm:py-4 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
                           modal.type === 'danger' ? 'bg-error text-on-surface' : 'bg-primary text-on-primary shadow-lg shadow-primary/20'
                         } hover:scale-[1.02] active:scale-95`}
                       >

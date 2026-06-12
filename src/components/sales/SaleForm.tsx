@@ -1149,7 +1149,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               {deviceDropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
-                  <div className="absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
+                  <div className="relative md:absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
                     {filteredDevices.length === 0 ? (
                       <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
                     ) : (

@@ -103,7 +103,7 @@ export default function Atendimento() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
-            className="glass-card border border-outline-variant/40 rounded-[48px] p-8 md:p-12 shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden"
+            className="glass-card border border-outline-variant/40 rounded-3xl md:rounded-[48px] p-5 md:p-12 shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden"
           >
             {/* Form Background Accent */}
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[80px] -z-10"></div>
