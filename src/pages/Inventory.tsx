@@ -901,6 +901,7 @@ function LabelsModal({ item }: { item: InventoryItem }) {
             }
             .logo {
               font-family: 'Inter', Arial, sans-serif !important;
+              color: black !important;
               font-size: 8px;
               font-weight: 900;
               margin-bottom: 0.5mm;
@@ -908,6 +909,7 @@ function LabelsModal({ item }: { item: InventoryItem }) {
             }
             .model {
               font-family: 'Inter', Arial, sans-serif !important;
+              color: black !important;
               font-size: 8px;
               font-weight: 800;
               max-width: 36mm;
@@ -919,18 +921,20 @@ function LabelsModal({ item }: { item: InventoryItem }) {
             }
             .barcode {
               font-family: 'Libre Barcode 128', sans-serif !important;
-              font-size: 32px;
+              font-size: 24px;
               line-height: 1;
               margin: 0.5mm 0;
             }
             .barcode-text {
               font-family: monospace !important;
+              color: black !important;
               font-size: 6px;
               letter-spacing: 1px;
               margin-bottom: 0.5mm;
             }
             .price {
               font-family: 'Inter', Arial, sans-serif !important;
+              color: black !important;
               font-size: 8px;
               font-weight: 900;
             }
