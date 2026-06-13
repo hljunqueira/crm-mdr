@@ -851,7 +851,7 @@ function InventoryTransfer({ item, onSuccess }: { item: InventoryItem; onSuccess
 
 function LabelsModal({ item }: { item: InventoryItem }) {
   const [quantity, setQuantity] = useState(item.stock_quantity || 1);
-  const [showLogo, setShowLogo] = useState(true);
+  const [showModel, setShowModel] = useState(true);
   const [showPrice, setShowPrice] = useState(true);
 
   const handlePrint = () => {
@@ -860,8 +860,7 @@ function LabelsModal({ item }: { item: InventoryItem }) {
 
     const barcodeHtml = Array.from({ length: quantity }, () => `
       <div class="label-card">
-        ${showLogo ? '<div class="logo">MDR CELULARES</div>' : ''}
-        <div class="model">${item.brand} ${item.model}</div>
+        ${showModel ? `<div class="model">${item.brand} ${item.model}</div>` : ''}
         <div class="barcode">${item.barcode}</div>
         <div class="barcode-text">${item.barcode}</div>
         ${showPrice ? '<div class="price">R$ ' + item.price.toFixed(2) + '</div>' : ''}
@@ -978,11 +977,11 @@ function LabelsModal({ item }: { item: InventoryItem }) {
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={showLogo}
-              onChange={(e) => setShowLogo(e.target.checked)}
+              checked={showModel}
+              onChange={(e) => setShowModel(e.target.checked)}
               className="w-4 h-4 rounded bg-white/5 border border-white/10 text-primary focus:ring-0"
             />
-            <span>Exibir logomarca da MDR</span>
+            <span>Exibir nome do produto</span>
           </label>
 
           <label className="flex items-center gap-3 cursor-pointer select-none">
