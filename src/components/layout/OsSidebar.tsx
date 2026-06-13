@@ -12,6 +12,7 @@ interface OsSidebarProps {
   getStatusInfo: (status: string) => { label: string; color: string };
   osFilterTab: 'active' | 'canceled';
   setOsFilterTab: (tab: 'active' | 'canceled') => void;
+  updateServiceOrder: (id: string, updates: any) => Promise<void>;
 }
 
 export default function OsSidebar({
@@ -23,7 +24,8 @@ export default function OsSidebar({
   isLoading,
   getStatusInfo,
   osFilterTab,
-  setOsFilterTab
+  setOsFilterTab,
+  updateServiceOrder
 }: OsSidebarProps) {
   return (
     <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
@@ -72,7 +74,7 @@ export default function OsSidebar({
           className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-10 pr-4 py-3 text-xs focus:border-white outline-none transition-all font-display"
         />
       </div>
-
+ 
       {/* Listagem */}
       <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
         {isLoading && filteredOs.length === 0 ? (
@@ -96,7 +98,7 @@ export default function OsSidebar({
                 key={os.id}
                 onClick={() => setSelectedOsId(os.id)}
                 className={cn(
-                  "w-full text-left p-4 rounded-3xl border transition-all flex flex-col gap-2",
+                  "w-full text-left p-4 rounded-3xl border transition-all flex flex-col gap-2 relative",
                   isSelected 
                     ? 'bg-primary-container border-primary/40 text-on-primary-container shadow-lg' 
                     : 'bg-white/[0.01] border-white/5 text-on-surface hover:bg-white/[0.03]'
@@ -105,11 +107,28 @@ export default function OsSidebar({
                 <div className="flex justify-between items-start w-full">
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-60">OS #{numberStr}</span>
-                    <span className="text-xs font-black uppercase truncate mt-1 max-w-[140px]">{os.customers?.name}</span>
+                    <span className="text-xs font-black uppercase truncate mt-1 max-w-[120px]">{os.customers?.name}</span>
                   </div>
-                  <span className={cn("inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border", statusInfo.color)}>
-                    {statusInfo.label}
-                  </span>
+                  <select
+                    value={os.status}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateServiceOrder(os.id, { status: e.target.value as any });
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all",
+                      statusInfo.color
+                    )}
+                  >
+                    <option value="budget_pending" className="bg-[#121214] text-red-400">🔴 Orçamento Pendente</option>
+                    <option value="awaiting_approval" className="bg-[#121214] text-amber-400">🟡 Aguardando Cliente</option>
+                    <option value="in_progress" className="bg-[#121214] text-blue-400">🔵 Em Execução</option>
+                    <option value="ready" className="bg-[#121214] text-green-400">🟢 Pronto</option>
+                    <option value="delivered" className="bg-[#121214] text-white">⚪ Entregue</option>
+                    <option value="returned_no_fix" className="bg-[#121214] text-neutral-400">❔ Sem Conserto</option>
+                    <option value="canceled" className="bg-[#121214] text-red-500">❌ Cancelado</option>
+                  </select>
                 </div>
 
                 <div className="flex justify-between items-center text-[10px] font-medium border-t border-white/5 pt-2">

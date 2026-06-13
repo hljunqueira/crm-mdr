@@ -1707,6 +1707,7 @@ export default function ServiceOrders() {
             getStatusInfo={getStatusInfo}
             osFilterTab={osFilterTab}
             setOsFilterTab={setOsFilterTab}
+            updateServiceOrder={updateServiceOrder}
           />
         </div>
 
