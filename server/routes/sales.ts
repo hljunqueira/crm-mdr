@@ -68,7 +68,7 @@ router.delete("/:id", async (req, res) => {
           .update({ stock_quantity: newQty, status: 'available' })
           .eq('id', sale.device_id);
       }
-    } else if (sale.imei_manual) {
+    } else if (sale.imei_manual && sale.imei_manual !== 'N/A') {
       const imeis = sale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
       for (const imei of imeis) {
         if (imei !== 'N/A') {
@@ -87,6 +87,22 @@ router.delete("/:id", async (req, res) => {
               .eq('id', device.id);
           }
         }
+      }
+    } else if (sale.device_model_manual) {
+      const { data: devices } = await supabase
+        .from('devices')
+        .select('id, stock_quantity')
+        .eq('model', sale.device_model_manual)
+        .eq('store_id', sale.store_id)
+        .limit(1);
+
+      if (devices && devices.length > 0) {
+        const device = devices[0];
+        const newQty = (device.stock_quantity || 0) + 1;
+        await supabase
+          .from('devices')
+          .update({ stock_quantity: newQty, status: 'available' })
+          .eq('id', device.id);
       }
     }
 

@@ -670,9 +670,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           : metadataParts.join(' | ');
       }
 
+      const primaryDeviceId = selectedDevices[0]?.id || undefined;
+
       if (initialData) {
         await updateSale(initialData.id, {
           customer_id: formData.customer_id,
+          device_id: primaryDeviceId,
           device_model: formData.device_model,
           imei: formData.imei,
           total_value: finalValue,
@@ -693,6 +696,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           unit_id: profile?.unit_id || undefined,
           customer_id: formData.customer_id,
           customer_name: selectedCustomer?.name,
+          device_id: primaryDeviceId,
           device_model: formData.device_model,
           imei: formData.imei,
           total_value: finalValue,

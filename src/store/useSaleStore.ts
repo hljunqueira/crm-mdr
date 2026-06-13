@@ -19,6 +19,7 @@ export interface Sale {
   status: 'completed' | 'processing' | 'overdue' | 'cancelled';
   payment_type?: 'crediario' | 'card' | 'vista' | 'debit';
   seller_id?: string;
+  device_id?: string;
 }
 
 interface SaleState {
@@ -41,6 +42,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
         id: s.id,
         unit_id: s.store_id,
         customer_id: s.customer_id,
+        device_id: s.device_id,
         customer_name: s.customers?.name || 'Cliente Removido',
         device_model: s.device_model_manual || 'Modelo não informado',
         imei: s.imei_manual || '',
@@ -68,6 +70,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       const dbSale = {
         store_id: sale.unit_id,
         customer_id: sale.customer_id,
+        device_id: sale.device_id || null,
         device_model_manual: sale.device_model,
         imei_manual: sale.imei,
         total_value: sale.total_value,
@@ -103,6 +106,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       const dbFields: any = {};
       if (updatedFields.unit_id) dbFields.store_id = updatedFields.unit_id;
       if (updatedFields.customer_id) dbFields.customer_id = updatedFields.customer_id;
+      if (updatedFields.device_id !== undefined) dbFields.device_id = updatedFields.device_id || null;
       if (updatedFields.device_model) dbFields.device_model_manual = updatedFields.device_model;
       if (updatedFields.imei) dbFields.imei_manual = updatedFields.imei;
       if (updatedFields.total_value !== undefined) dbFields.total_value = updatedFields.total_value;
@@ -120,7 +124,11 @@ export const useSaleStore = create<SaleState>()((set) => ({
       const data = await api.patch(`/sales/${id}`, dbFields);
       
       set((state) => ({
-        sales: state.sales.map((s) => s.id === id ? { ...s, ...updatedFields } : s)
+        sales: state.sales.map((s) => (s.id === id ? {
+          ...s,
+          ...updatedFields,
+          customer_name: s.customer_name
+        } : s)),
       }));
     } catch (error) {
       console.error('Error updating sale:', error);
@@ -131,10 +139,11 @@ export const useSaleStore = create<SaleState>()((set) => ({
     try {
       await api.delete(`/sales/${id}`);
       set((state) => ({
-        sales: state.sales.filter((s) => s.id !== id)
+        sales: state.sales.filter((s) => s.id !== id),
       }));
     } catch (error) {
       console.error('Error deleting sale:', error);
+      throw error;
     }
   },
 }));
