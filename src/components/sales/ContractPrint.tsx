@@ -65,10 +65,10 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
     ? 4.00
     : (interestTable === 'premium' ? 5.00 : interestTable === 'flex' ? 12.00 : 8.00);
   const interestRateYear = (Math.pow(1 + interestRate / 100, 12) - 1) * 100;
-  
+
   const cetMonth = interestRate + 1.25;
   const cetYear = (Math.pow(1 + cetMonth / 100, 12) - 1) * 100;
-  
+
   // Finance division
   const valorLiquido = financed;
   const fee = Math.max(0, totalWithFee - basePrice);
@@ -78,7 +78,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
 
   // Dates
   const issueDateFormatted = formatPaymentDate(sale.date) || today;
-  
+
   const getInstallmentDates = () => {
     const dates: string[] = [];
     const baseDate = new Date((sale.date || new Date().toISOString()) + 'T12:00:00');
@@ -89,7 +89,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
     }
     return dates;
   };
-  
+
   const installmentDates = getInstallmentDates();
   const lastInstallmentDate = installmentDates.length > 0 ? installmentDates[installmentDates.length - 1] : today;
 
@@ -97,10 +97,10 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const renderPageHeader = (pageNum: number) => (
     <div className="flex justify-between items-center border-b border-black pb-2 mb-4 no-print-border">
       <div className="flex items-center gap-2">
-        <img 
-          src="/logo-mdr.png" 
-          alt="MDR" 
-          className="h-8 w-auto filter grayscale contrast-150 object-contain print:block" 
+        <img
+          src="/logo-mdr.png"
+          alt="MDR"
+          className="h-8 w-auto filter grayscale contrast-150 object-contain print:block"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
         <span className="font-bold text-[9px] text-black">MDR INFORMÁTICA &amp; CELULARES</span>
@@ -254,10 +254,10 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
         {/* Large Header */}
         <div className="flex justify-between items-center border-b-2 border-black pb-3 mb-3">
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo-mdr.png" 
-              alt="MDR" 
-              className="h-10 w-auto filter grayscale contrast-150 object-contain" 
+            <img
+              src="/logo-mdr.png"
+              alt="MDR"
+              className="h-10 w-auto filter grayscale contrast-150 object-contain"
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
             <div className="text-left font-black tracking-tighter text-lg leading-none">
@@ -344,19 +344,19 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             <tr>
               <td style={{ width: '25%' }}>
                 <span className="label">Valor do Crédito</span>
-                <span className="value">R$ {valorCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="value">R$ {valorCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </td>
               <td style={{ width: '25%' }}>
                 <span className="label">Valor de IOF</span>
-                <span className="value">R$ {iof.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="value">R$ {iof.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </td>
               <td style={{ width: '25%' }}>
                 <span className="label">Custo de Emissão</span>
-                <span className="value">R$ {custoEmissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="value">R$ {custoEmissao.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </td>
               <td style={{ width: '25%' }}>
                 <span className="label">Valor Líquido do Crédito</span>
-                <span className="value">R$ {valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="value">R$ {valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </td>
             </tr>
             <tr>
@@ -410,7 +410,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
               </td>
               <td>
                 <span className="label">Valor das Parcelas</span>
-                <span className="value">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="value">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </td>
             </tr>
             <tr>
@@ -488,7 +488,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
       {/* ─── PAGE 2 ─── */}
       <div className="contract-page">
         {renderPageHeader(2)}
-        
+
         <div className="font-bold text-[8.5px] uppercase mb-2">VII. Fluxo de Pagamentos</div>
         <table className="ccb-table text-center" style={{ maxWidth: '400px', margin: '0 auto 12px' }}>
           <thead>
@@ -503,7 +503,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
               <tr key={idx}>
                 <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
                 <td style={{ padding: '2px' }}>{date}</td>
-                <td style={{ padding: '2px' }}>R$ {(idx === 0 ? firstInstValue : instValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td style={{ padding: '2px' }}>R$ {(idx === 0 ? firstInstValue : instValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
               </tr>
             ))}
           </tbody>
@@ -696,7 +696,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
         </div>
 
         <div className="font-bold text-[9px] uppercase tracking-wider mt-4 mb-2">Assinaturas:</div>
-        
+
         <div className="signature-box-grid">
           <div className="signature-line-block">
             <strong>{unit.name ? unit.name.toUpperCase() : 'MDR INFORMÁTICA & CELULARES'}</strong><br />

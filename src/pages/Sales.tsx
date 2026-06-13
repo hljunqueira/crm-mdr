@@ -448,19 +448,19 @@ function SaleDocumentViewer({
                     <tr>
                       <td style={{ width: '25%' }}>
                         <span className="label">Valor do Crédito</span>
-                        <span className="value">R$ {valorCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="value">R$ {valorCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                       <td style={{ width: '25%' }}>
                         <span className="label">Valor de IOF</span>
-                        <span className="value">R$ {iof.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="value">R$ {iof.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                       <td style={{ width: '25%' }}>
                         <span className="label">Custo de Emissão</span>
-                        <span className="value">R$ {custoEmissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="value">R$ {custoEmissao.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                       <td style={{ width: '25%' }}>
                         <span className="label">Valor Líquido do Crédito</span>
-                        <span className="value">R$ {valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="value">R$ {valorLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                     </tr>
                     <tr>
@@ -514,7 +514,7 @@ function SaleDocumentViewer({
                       </td>
                       <td>
                         <span className="label">Valor das Parcelas</span>
-                        <span className="value">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="value">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </td>
                     </tr>
                     <tr>
@@ -604,7 +604,7 @@ function SaleDocumentViewer({
                       <tr key={idx}>
                         <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
                         <td style={{ padding: '2px' }}>{date}</td>
-                        <td style={{ padding: '2px' }}>R$ {(idx === 0 ? firstInstValue : instValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '2px' }}>R$ {(idx === 0 ? firstInstValue : instValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1060,14 +1060,14 @@ function SaleDocumentViewer({
               <div className="section-title">RESUMO FINANCEIRO</div>
               <div className="row">
                 <span>Preço Base:</span>
-                <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               
               {sale.down_payment > 0 && (
                 <>
                   <div className="row">
                     <span>Entrada:</span>
-                    <span className="align-right font-mono">R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="align-right font-mono">R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {downPaymentMethod === 'trade' && (
                     <div className="trade-box">
@@ -1081,11 +1081,11 @@ function SaleDocumentViewer({
                 <>
                   <div className="row">
                     <span>Saldo Financiado:</span>
-                    <span className="align-right font-mono">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="align-right font-mono">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="row">
                     <span>Parcelas:</span>
-                    <span className="align-right font-mono">{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="align-right font-mono">{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="row">
                     <span>1º Vencimento:</span>
@@ -1105,11 +1105,11 @@ function SaleDocumentViewer({
                 <>
                   <div className="row">
                     <span>Valor Recebido:</span>
-                    <span className="align-right font-mono">R$ {(sale as any).amount_paid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="align-right font-mono">R$ {(sale as any).amount_paid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="row">
                     <span>Troco:</span>
-                    <span className="align-right font-mono">R$ {(sale as any).change_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="align-right font-mono">R$ {(sale as any).change_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </>
               )}
@@ -1119,9 +1119,8 @@ function SaleDocumentViewer({
               {/* Total Box */}
               <div className="total-box">
                 <div className="total-label">VALOR TOTAL</div>
-                <div className="total-val">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                <div className="total-val">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </div>
-
               {/* Discount Policy */}
               {sale.payment_type === 'crediario' && (
                 <div className="discount-info">
