@@ -115,9 +115,9 @@ export default function Inventory() {
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "\uFEFFDescrição;Nome Curto;Categoria;Condicao;PrecoCusto;PrecoVenda;Quantidade;IMEI;CodigoBarras;Fornecedor;DataCompra\n" +
-      "Samsung Galaxy S23 128GB;Galaxy S23;Celulares;Novo;3500.00;4999.00;1;123456789012345;7891234567890;Samsung Brasil;2026-06-10\n" +
-      "Apple Carregador USB-C 20W;Carregador;Acessório;Novo;80.00;199.00;10;;888899992222;Distribuidora ABC;2026-06-05\n";
+    const csvContent = "\uFEFFDescrição;Nome Curto;Categoria;Condicao;PrecoCusto;PrecoVenda;Quantidade;IMEI;CodigoBarras\n" +
+      "Samsung Galaxy S23 128GB;Galaxy S23;Celulares;Novo;3500.00;4999.00;1;123456789012345;7891234567890\n" +
+      "Apple Carregador USB-C 20W;Carregador;Acessório;Novo;80.00;199.00;10;;888899992222\n";
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
