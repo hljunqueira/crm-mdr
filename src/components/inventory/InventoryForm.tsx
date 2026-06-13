@@ -403,34 +403,36 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               ) : (
                 <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
                   <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Fornecedor Rápido</span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <input
                       type="text"
                       value={newSupplierName}
                       onChange={(e) => setNewSupplierName(e.target.value)}
                       placeholder="Nome do fornecedor"
-                      className="flex-1 bg-[#121214] border border-white/10 rounded-2xl px-4 py-2 text-xs focus:border-primary transition-all outline-none"
+                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-2 text-xs focus:border-primary transition-all outline-none"
                       disabled={isAddingSupplier}
                     />
-                    <button
-                      type="button"
-                      onClick={handleQuickAddSupplier}
-                      disabled={isAddingSupplier}
-                      className="px-3 bg-primary text-on-primary rounded-2xl text-[9px] font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
-                    >
-                      {isAddingSupplier ? '...' : 'Salvar'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowQuickAddSupplier(false);
-                        setNewSupplierName('');
-                      }}
-                      disabled={isAddingSupplier}
-                      className="px-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
-                    >
-                      Voltar
-                    </button>
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowQuickAddSupplier(false);
+                          setNewSupplierName('');
+                        }}
+                        disabled={isAddingSupplier}
+                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddSupplier}
+                        disabled={isAddingSupplier}
+                        className="px-4 py-1.5 bg-primary text-on-primary rounded-2xl text-[9px] font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                      >
+                        {isAddingSupplier ? '...' : 'Salvar'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
