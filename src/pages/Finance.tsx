@@ -19,8 +19,8 @@ import { formatCPF, formatPhone } from '../lib/utils';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 
 // PIX defaults — overridden by unit settings
-const DEFAULT_PIX_KEY = '';
-const DEFAULT_PIX_NAME = 'MDR Informática & Celulares';
+const DEFAULT_PIX_KEY = '00020126360014BR.GOV.BCB.PIX0114+55489990358545204000053039865802BR5901N6001C62160512MaykondaRosa6304AC2B';
+const DEFAULT_PIX_NAME = 'Maykon da Rosa';
 const DEFAULT_PIX_PHONE = '';
 
 // Boleto/PIX Print Modal Component
@@ -92,36 +92,10 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
               </div>
             </div>
 
-            {/* QR Code Placeholder — visual representation */}
+            {/* QR Code — visual representation */}
             <div className="flex justify-center">
-              <div className="bg-white p-4 rounded-2xl" style={{ width: 160, height: 160 }}>
-                <svg viewBox="0 0 100 100" width="100%" height="100%">
-                  {[0, 30, 70].map(x => [0, 30, 70].map(y => (
-                    <rect key={`${x}-${y}`} x={x} y={y} width="25" height="25" fill="#1a1a2e" rx="2" />
-                  )))}
-                  {[4, 34, 74].map(x => [4, 34, 74].map(y => (
-                    <rect key={`i${x}-${y}`} x={x} y={y} width="17" height="17" fill="white" rx="1" />
-                  )))}
-                  {[8, 38, 78].map(x => [8, 38, 78].map(y => (
-                    <rect key={`ii${x}-${y}`} x={x} y={y} width="9" height="9" fill="#6C63FF" rx="1" />
-                  )))}
-                  {[30, 35, 40, 45, 50, 55, 60, 65, 70].map((x, xi) =>
-                    [5, 10, 15, 20, 25].map((y, yi) =>
-                      (xi + yi) % 2 === 0 ? <rect key={`d${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5" /> : null
-                    )
-                  )}
-                  {[5, 10, 15, 20, 25].map((x, xi) =>
-                    [30, 35, 40, 45, 50, 55, 60, 65, 70].map((y, yi) =>
-                      (xi + yi) % 3 === 0 ? <rect key={`e${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5" /> : null
-                    )
-                  )}
-                  {[30, 35, 40, 45, 50, 55, 60, 65].map((x, xi) =>
-                    [30, 35, 40, 45, 50, 55, 60, 65].map((y, yi) =>
-                      (xi * yi) % 3 !== 1 ? <rect key={`f${x}-${y}`} x={x} y={y} width="4" height="4" fill="#1a1a2e" rx="0.5" /> : null
-                    )
-                  )}
-                  <text x="50" y="55" textAnchor="middle" fontSize="8" fontWeight="900" fill="#6C63FF" fontFamily="Arial">MDR</text>
-                </svg>
+              <div className="bg-white p-4 rounded-2xl flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                <img src="/Pix.png" alt="PIX QR Code" className="w-full h-full object-contain" />
               </div>
             </div>
 
@@ -318,8 +292,8 @@ export default function Finance() {
     }
   };
 
-  const pixKey = unit?.pix_key || unit?.cnpj || '';
-  const pixName = unit?.name || DEFAULT_PIX_NAME;
+  const pixKey = unit?.pix_key || DEFAULT_PIX_KEY;
+  const pixName = DEFAULT_PIX_NAME;
   const pixPhone = unit?.phone || DEFAULT_PIX_PHONE;
 
   const handleExportCSV = () => {
