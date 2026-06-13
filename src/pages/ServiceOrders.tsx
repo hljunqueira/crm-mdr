@@ -120,7 +120,7 @@ export default function ServiceOrders() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState('all');
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null);
-  const [osFilterTab, setOsFilterTab] = useState<'active' | 'canceled'>('active');
+  const [osFilterTab, setOsFilterTab] = useState<'active' | 'canceled' | 'completed'>('active');
   const [activeMobileTab, setActiveMobileTab] = useState<'queue' | 'workbench'>('queue');
   const [isEditingReportedIssue, setIsEditingReportedIssue] = useState(false);
   const [editedReportedIssue, setEditedReportedIssue] = useState('');
@@ -368,8 +368,10 @@ export default function ServiceOrders() {
         serialNum.includes(search);
 
       const matchStatus = osFilterTab === 'active'
-        ? os.status !== 'canceled'
-        : os.status === 'canceled';
+        ? !['canceled', 'delivered', 'returned_no_fix'].includes(os.status)
+        : osFilterTab === 'completed'
+          ? ['delivered', 'returned_no_fix'].includes(os.status)
+          : os.status === 'canceled';
         
       return matchCategory && matchSearch && matchStatus;
     });

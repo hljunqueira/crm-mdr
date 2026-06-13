@@ -10,8 +10,8 @@ interface OsSidebarProps {
   setSearchTerm: (term: string) => void;
   isLoading: boolean;
   getStatusInfo: (status: string) => { label: string; color: string };
-  osFilterTab: 'active' | 'canceled';
-  setOsFilterTab: (tab: 'active' | 'canceled') => void;
+  osFilterTab: 'active' | 'canceled' | 'completed';
+  setOsFilterTab: (tab: 'active' | 'canceled' | 'completed') => void;
   updateServiceOrder: (id: string, updates: any) => Promise<void>;
 }
 
@@ -35,7 +35,7 @@ export default function OsSidebar({
         </h3>
       </div>
       
-      {/* Seletor de Abas (Ativos / Cancelados) */}
+      {/* Seletor de Abas (Ativas / Concluídas / Canceladas) */}
       <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-full shrink-0">
         <button
           type="button"
@@ -48,6 +48,18 @@ export default function OsSidebar({
           )}
         >
           Ativas
+        </button>
+        <button
+          type="button"
+          onClick={() => setOsFilterTab('completed')}
+          className={cn(
+            "flex-1 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] transition-all",
+            osFilterTab === 'completed' 
+              ? "bg-white text-black shadow-lg" 
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Concluídas
         </button>
         <button
           type="button"
