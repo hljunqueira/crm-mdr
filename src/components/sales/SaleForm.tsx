@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Plus, X, Gift, ShoppingBag, UserCheck, Loader2 } from 'lucide-react';
+import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Printer, Plus, X, Gift, ShoppingBag, UserCheck, Loader2 } from 'lucide-react';
 import { cn, printElement, formatCPF, formatPhone, validateCPF, validateCNPJ } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
 import { useSaleStore, Sale } from '../../store/useSaleStore';
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useUnitStore } from '../../store/useUnitStore';
 import ContractPrint from './ContractPrint';
 import SaleReceiptPrint from './SaleReceiptPrint';
+import PixBoletoPrint from '../finance/PixBoletoPrint';
 import { supabase } from '../../lib/supabase';
 
 const CREDIARIO_COEFFICIENTS: Record<'premium' | 'standard' | 'flex', Record<number, number>> = {
@@ -892,6 +893,16 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </button>
           )}
 
+          {formData.payment_type === 'crediario' && (
+            <button 
+              onClick={() => printElement('sale-pix-carne')}
+              className="w-full py-4 bg-warning/15 border border-warning/30 text-warning rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-warning/20 transition-all flex items-center justify-center gap-3"
+            >
+              <Printer size={18} />
+              Imprimir Carnê PIX
+            </button>
+          )}
+
           <button 
             onClick={() => printElement('sale-receipt')}
             className="w-full py-4 bg-primary/10 border border-primary/30 text-primary rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/20 transition-all flex items-center justify-center gap-3"
@@ -912,6 +923,23 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         </div>
 
         {/* Hidden Printable Components */}
+        <div style={{ display: 'none' }}>
+          <div id="sale-pix-carne">
+            <PixBoletoPrint
+              installments={generatedInstallments.map((inst, idx) => ({
+                id: `temp-${idx}`,
+                number: inst.number,
+                total: inst.total,
+                value: inst.value,
+                due_date: inst.dueDate,
+                status: 'pending',
+                customer_name: selectedCustomer.name
+              }))}
+              customer={selectedCustomer}
+              unit={unit || { name: 'MDR Informática' }}
+            />
+          </div>
+        </div>
         <ContractPrint 
           sale={saleDataForPrint}
           customer={selectedCustomer}
