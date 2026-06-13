@@ -173,10 +173,14 @@ function PaymentConfirmationContent({
   onMethodChange: (method: 'pix' | 'money' | 'card') => void;
 }) {
   const [method, setMethod] = useState<'pix' | 'money' | 'card'>('money'); // Default to cash for retail shifts
+  const [amountPaid, setAmountPaid] = useState<string>('');
 
   useEffect(() => {
     onMethodChange(method);
   }, [method]);
+
+  const totalToReceive = isOverdue ? fees.total : item.value;
+  const change = Math.max(0, Number(amountPaid) - totalToReceive);
 
   return (
     <div className="space-y-4 text-xs">
@@ -238,6 +242,31 @@ function PaymentConfirmationContent({
           })}
         </div>
       </div>
+
+      {/* Change Calculator (Only for Money/Cash) */}
+      {method === 'money' && (
+        <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 mt-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">Valor Recebido (Dinheiro)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(e.target.value)}
+              placeholder="R$ 0,00"
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+            />
+          </div>
+          {Number(amountPaid) > 0 && (
+            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">Troco a devolver</span>
+              <span className="text-sm font-black text-success font-mono">
+                R$ {change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
