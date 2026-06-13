@@ -101,16 +101,16 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
 
             {/* PIX Key */}
             <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Chave PIX ({pixKey ? 'Configurada' : 'não configurada'})</p>
-              <div className="flex items-center justify-between gap-3">
-                <code className="text-xs text-white font-mono">{pixKey || 'Configure nas Configurações da loja'}</code>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Chave PIX Copia-e-Cola ({pixKey ? 'Configurada' : 'não configurada'})</p>
+              <div className="flex flex-col gap-2">
+                <code className="text-xs text-white font-mono break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5 leading-relaxed">{pixKey || 'Configure nas Configurações da loja'}</code>
                 {pixKey && (
                   <button
                     onClick={copyPix}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
+                    className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
                   >
                     {copiedPix ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedPix ? 'Copiado!' : 'Copiar'}
+                    {copiedPix ? 'Código Copiado!' : 'Copiar Pix Copia-e-Cola'}
                   </button>
                 )}
               </div>
