@@ -7,7 +7,7 @@ const router = Router();
 router.get("/installments", async (req, res) => {
   const { data, error } = await supabase
     .from('installments')
-    .select('*, sales(*, customers(name))')
+    .select('*, sales(*, customers(*))')
     .order('due_date', { ascending: true });
   
   if (error) return res.status(500).json({ error: error.message });
@@ -66,7 +66,7 @@ router.patch("/installments/:id", async (req, res) => {
     .from('installments')
     .update(req.body)
     .eq('id', req.params.id)
-    .select('*, sales(*, customers(name))')
+    .select('*, sales(*, customers(*))')
     .single();
 
   if (error) return res.status(404).json({ error: error.message });

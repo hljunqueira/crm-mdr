@@ -17,6 +17,7 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { formatCPF, formatPhone } from '../lib/utils';
 import SaleForm from '../components/sales/SaleForm';
 import SaleContract from '../components/sales/SaleContract';
+import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 
 // Componente para Visualização Interativa e Edição Livre de Contrato / Nota de Venda
 function SaleDocumentViewer({
@@ -34,7 +35,7 @@ function SaleDocumentViewer({
   hideModal: () => void;
   showNotification: any;
 }) {
-  const [activeTab, setActiveTab] = useState<'contract' | 'receipt'>(
+  const [activeTab, setActiveTab] = useState<'contract' | 'receipt' | 'pix_carne'>(
     sale.payment_type === 'vista' ? 'receipt' : 'contract'
   );
   const today = new Date().toLocaleDateString('pt-BR');
@@ -145,7 +146,7 @@ function SaleDocumentViewer({
               ` : `
                 @page { size: A4; margin: 0 !important; }
                 body { margin: 0 !important; padding: 0 !important; }
-                .contract-page {
+                .contract-page, .pix-slip-page {
                   page-break-after: always !important;
                   break-after: page !important;
                   height: 297mm !important;
@@ -157,7 +158,7 @@ function SaleDocumentViewer({
                   color: #000000 !important;
                   margin: 0 !important;
                 }
-                .contract-page:last-child {
+                .contract-page:last-child, .pix-slip-page:last-child {
                   page-break-after: avoid !important;
                   break-after: avoid !important;
                 }
@@ -230,6 +231,16 @@ function SaleDocumentViewer({
               >
                 Nota de Venda
               </button>
+              {sale.payment_type === 'crediario' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('pix_carne')}
+                  className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'pix_carne' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+                    }`}
+                >
+                  Carnê PIX
+                </button>
+              )}
             </>
           ) : (
             <span className="px-6 py-2.5 text-white font-black uppercase tracking-widest text-[10px]">
@@ -820,15 +831,26 @@ function SaleDocumentViewer({
                   <div className="signature-line-block">
                     Testemunha 2: ______________________________<br />
                     Nome:<br />
-                    CPF:
+                  CPF:
                   </div>
                 </div>
 
                 {renderPageFooter(6)}
               </div>
-
-              
             </div>
+          ) : activeTab === 'pix_carne' ? (
+            <PixBoletoPrint
+              installments={installments
+                .filter(inst => inst.sale_id === sale.id)
+                .map(inst => ({
+                  ...inst,
+                  customer_name: customer.name
+                }))
+                .sort((a, b) => a.number - b.number)
+              }
+              customer={customer}
+              unit={unit}
+            />
           ) : (
             /* Nota de Venda / Recibo de 80mm */
             <div className="thermal-receipt bg-white text-black text-left" style={{ width: '80mm', fontFamily: 'Arial, sans-serif', padding: '10px' }}>

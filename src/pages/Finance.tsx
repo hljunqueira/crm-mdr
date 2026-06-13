@@ -16,6 +16,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore, CashShift, CashTransaction } from '../store/useCashStore';
 import { formatCPF, formatPhone } from '../lib/utils';
+import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 
 // PIX defaults — overridden by unit settings
 const DEFAULT_PIX_KEY = '';
@@ -834,7 +835,7 @@ export default function Finance() {
                                                 <button
                                                   type="button"
                                                   onClick={() => handlePayment(inst)}
-                                                  className="px-3 py-1.5 bg-success hover:scale-[1.03] text-black text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer"
+                                                  className="px-3 py-1.5 bg-success hover:scale-[1.03] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer"
                                                 >
                                                   Receber
                                                 </button>
@@ -910,6 +911,22 @@ export default function Finance() {
           />
         )}
       </AnimatePresence>
+
+      {/* Print Mount Point for A4 Pix Slip */}
+      <div id="print-mount-point" className="hidden">
+        {pixModalItem && (
+          <PixBoletoPrint
+            installments={[pixModalItem]}
+            customer={{
+              name: pixModalItem.customer_name || 'Cliente Sem Nome',
+              cpf: pixModalItem.customer_cpf || '',
+              phone: pixModalItem.customer_phone || '',
+              address: pixModalItem.customer_address || ''
+            }}
+            unit={unit || { name: pixName, cnpj: pixKey, phone: pixPhone }}
+          />
+        )}
+      </div>
 
     </div>
   );

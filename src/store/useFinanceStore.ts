@@ -8,6 +8,9 @@ export interface Installment {
   sale_id: string;
   customer_id: string;
   customer_name?: string;
+  customer_cpf?: string;
+  customer_phone?: string;
+  customer_address?: string;
   number: number;
   total: number;
   value: number;
@@ -40,6 +43,9 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         sale_id: i.sale_id,
         customer_id: i.sales?.customer_id || i.customer_id,
         customer_name: i.sales?.customers?.name || 'Cliente Sem Nome',
+        customer_cpf: i.sales?.customers?.cpf,
+        customer_phone: i.sales?.customers?.phone,
+        customer_address: i.sales?.customers?.address,
         number: i.installment_number,
         total: i.total_installments,
         value: Number(i.value),
