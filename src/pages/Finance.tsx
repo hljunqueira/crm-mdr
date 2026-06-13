@@ -52,11 +52,11 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-xl overflow-hidden shadow-2xl"
+        className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        {/* Header (Sticky at top) */}
+        <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
           <div>
             <h2 className="text-sm font-black text-white uppercase tracking-widest">Pagamento</h2>
             <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest opacity-60 mt-0.5">
@@ -68,60 +68,65 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
           </button>
         </div>
 
-        {/* Amount */}
-        {item && (
-          <div className="px-6 pt-4 pb-0">
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Valor a Receber</p>
-              <p className="text-3xl font-black text-white font-mono">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              <p className="text-[10px] text-on-surface-variant mt-1">Vencimento: {new Date(item.due_date).toLocaleDateString('pt-BR')}</p>
+        {/* Scrollable Content Container */}
+        <div className="overflow-y-auto flex-1 custom-scrollbar">
+          {/* Amount */}
+          {item && (
+            <div className="px-6 pt-6 pb-0">
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Valor a Receber</p>
+                <p className="text-3xl font-black text-white font-mono">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-[10px] text-on-surface-variant mt-1">Vencimento: {new Date(item.due_date).toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
+          )}
+
+          {/* PIX Section */}
+          <div className="p-6 space-y-4">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
+                  <QrCode size={16} className="text-green-400" />
+                </div>
+                <div>
+                  <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black">PIX Instantâneo</p>
+                  <p className="text-xs text-white font-black">Chave CNPJ</p>
+                </div>
+              </div>
+
+              {/* QR Code — visual representation */}
+              <div className="flex justify-center">
+                <div className="bg-white p-4 rounded-2xl flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                  <img src="/Pix.png" alt="PIX QR Code" className="w-full h-full object-contain" />
+                </div>
+              </div>
+
+              {/* PIX Key */}
+              <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Chave PIX Copia-e-Cola ({pixKey ? 'Configurada' : 'não configurada'})</p>
+                <div className="flex flex-col gap-2">
+                  <code className="text-xs text-white font-mono break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5 leading-relaxed">{pixKey || 'Configure nas Configurações da loja'}</code>
+                  {pixKey && (
+                    <button
+                      onClick={copyPix}
+                      className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
+                    >
+                      {copiedPix ? <Check size={12} /> : <Copy size={12} />}
+                      {copiedPix ? 'Código Copiado!' : 'Copiar Pix Copia-e-Cola'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-[9px] text-on-surface-variant text-center">
+                Beneficiário: <strong className="text-white">{pixName}</strong>
+              </p>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* PIX Section */}
-        <div className="p-6 space-y-4">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
-                <QrCode size={16} className="text-green-400" />
-              </div>
-              <div>
-                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black">PIX Instantâneo</p>
-                <p className="text-xs text-white font-black">Chave CNPJ</p>
-              </div>
-            </div>
-
-            {/* QR Code — visual representation */}
-            <div className="flex justify-center">
-              <div className="bg-white p-4 rounded-2xl flex items-center justify-center" style={{ width: 160, height: 160 }}>
-                <img src="/Pix.png" alt="PIX QR Code" className="w-full h-full object-contain" />
-              </div>
-            </div>
-
-            {/* PIX Key */}
-            <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Chave PIX Copia-e-Cola ({pixKey ? 'Configurada' : 'não configurada'})</p>
-              <div className="flex flex-col gap-2">
-                <code className="text-xs text-white font-mono break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5 leading-relaxed">{pixKey || 'Configure nas Configurações da loja'}</code>
-                {pixKey && (
-                  <button
-                    onClick={copyPix}
-                    className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
-                  >
-                    {copiedPix ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedPix ? 'Código Copiado!' : 'Copiar Pix Copia-e-Cola'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <p className="text-[9px] text-on-surface-variant text-center">
-              Beneficiário: <strong className="text-white">{pixName}</strong>
-            </p>
-          </div>
-
-          {/* Actions */}
+        {/* Actions (Sticky at bottom) */}
+        <div className="p-6 border-t border-white/10 bg-[#0f0f1a] shrink-0">
           <button
             onClick={handlePrint}
             className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
