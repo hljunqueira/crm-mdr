@@ -112,20 +112,24 @@ router.post('/create', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, role, store_id, active, email, password } = req.body;
+    const { full_name, role, store_id, active, email, password, avatar_url, phone } = req.body;
 
     console.log(`[Users API] Atualizando usuário: ${id}`);
 
     // 1. Atualizar tabela de perfis
+    const updateFields: any = {
+      updated_at: new Date().toISOString()
+    };
+    if (full_name !== undefined) updateFields.full_name = full_name;
+    if (role !== undefined) updateFields.role = role;
+    if (store_id !== undefined) updateFields.store_id = store_id || null;
+    if (active !== undefined) updateFields.active = active;
+    if (avatar_url !== undefined) updateFields.avatar_url = avatar_url;
+    if (phone !== undefined) updateFields.phone = phone;
+
     const { error: profError } = await supabase
       .from('profiles')
-      .update({
-        full_name,
-        role,
-        store_id: store_id || null,
-        active: active !== undefined ? active : true,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateFields)
       .eq('id', id);
 
     if (profError) {

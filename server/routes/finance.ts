@@ -393,4 +393,57 @@ router.post("/transactions", async (req, res) => {
   res.status(201).json(data);
 });
 
+// DELETE /api/finance/transactions/:id
+router.delete("/transactions/:id", async (req, res) => {
+  const { id } = req.params;
+
+  // 1. Fetch current transaction details
+  const { data: tx, error: getErr } = await supabase
+    .from('cash_transactions')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (getErr || !tx) return res.status(404).json({ error: "Transaction not found" });
+
+  // 2. Adjust shift balances if the shift is open
+  if (tx.shift_id) {
+    const { data: shift } = await supabase
+      .from('cash_shifts')
+      .select('*')
+      .eq('id', tx.shift_id)
+      .maybeSingle();
+
+    if (shift && shift.status === 'open') {
+      const isCash = tx.payment_method === 'money';
+      const isOutflow = tx.type === 'outflow';
+      // Reverting transaction: if it was outflow (subtracted), we add it back. If it was inflow (added), we subtract it.
+      const multiplier = isOutflow ? 1 : -1;
+      const delta = Number(tx.amount) * multiplier;
+
+      const updatePayload: Record<string, any> = {};
+      if (isCash) {
+        updatePayload.expected_cash = Number(shift.expected_cash) + delta;
+      } else {
+        updatePayload.expected_digital = Number(shift.expected_digital) + delta;
+      }
+
+      await supabase
+        .from('cash_shifts')
+        .update(updatePayload)
+        .eq('id', shift.id);
+    }
+  }
+
+  // 3. Delete the transaction
+  const { error: delErr } = await supabase
+    .from('cash_transactions')
+    .delete()
+    .eq('id', id);
+
+  if (delErr) return res.status(500).json({ error: delErr.message });
+
+  res.json({ success: true });
+});
+
 export default router;

@@ -26,6 +26,14 @@ export default function Customers() {
     fetchCustomers(profile?.unit_id || undefined);
   }, [profile?.unit_id, fetchCustomers]);
 
+  useEffect(() => {
+    const searchParam = new URLSearchParams(window.location.search).get('search');
+    if (searchParam) {
+      setSearchTerm(searchParam);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.cpf.includes(searchTerm) ||

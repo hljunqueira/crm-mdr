@@ -55,6 +55,7 @@ interface CashState {
   fetchShiftHistory: (unitId: string) => Promise<void>;
   updateShift: (id: string, payload: { opening_balance?: number; closing_cash?: number; notes?: string }) => Promise<void>;
   deleteShift: (id: string) => Promise<void>;
+  deleteTransaction: (id: string, unitId: string) => Promise<void>;
 }
 
 export const useCashStore = create<CashState>()((set, get) => ({
@@ -176,6 +177,20 @@ export const useCashStore = create<CashState>()((set, get) => ({
       }));
     } catch (error) {
       console.error('Error deleting shift:', error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteTransaction: async (id, unitId) => {
+    set({ isLoading: true });
+    try {
+      await api.delete(`/finance/transactions/${id}`);
+      await get().fetchTransactions(unitId);
+      await get().fetchActiveShift(unitId);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
       throw error;
     } finally {
       set({ isLoading: false });

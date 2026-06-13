@@ -801,7 +801,8 @@ export default function Settings() {
                                 { key: 'OS Terceirizadas', label: 'OS Terceirizadas' },
                                 { key: 'WPP / Instagram', label: 'WPP / Instagram' },
                                 { key: 'Gerenciar WPP/IG', label: 'Gerenciar WPP/IG' },
-                                { key: 'Financeiro', label: 'Financeiro' },
+                                { key: 'Financeiro', label: 'Recebíveis' },
+                                { key: 'Controle de Caixa', label: 'Controle de Caixa' },
                                 { key: 'Controle de Bloqueio', label: 'Controle de Bloqueio' },
                                 { key: 'Fiscal (NFe/NFSe)', label: 'Fiscal (NFe/NFSe)' },
                                 { key: 'Configurações', label: 'Configurações' }

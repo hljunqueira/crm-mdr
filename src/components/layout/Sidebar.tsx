@@ -7,6 +7,7 @@ import {
   Users,
   Smartphone,
   CreditCard,
+  DollarSign,
   TrendingUp,
   ShieldCheck,
   ShoppingBag,
@@ -102,7 +103,8 @@ export default function Sidebar() {
       subtitle: 'Controle e Emissão',
       icon: CreditCard,
       items: [
-        { name: 'Financeiro', icon: CreditCard, path: '/finance' },
+        { name: 'Financeiro', displayName: 'Recebíveis', icon: CreditCard, path: '/finance' },
+        { name: 'Controle de Caixa', icon: DollarSign, path: '/cash-control' },
         { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
       ]

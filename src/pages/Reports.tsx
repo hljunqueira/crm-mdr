@@ -4,7 +4,7 @@ import {
   TrendingUp, DollarSign, Briefcase, Calendar, ChevronDown, 
   Download, BarChart2, Printer, Percent, Award, BookOpen, Clock, 
   Users, ArrowUpRight, CheckCircle2, AlertCircle, Wrench, ChevronUp, Eye,
-  Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X
+  Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X, Trash2
 } from 'lucide-react';
 import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
@@ -22,7 +22,7 @@ export default function Reports() {
   const { installments, fetchInstallments } = useFinanceStore();
   const { serviceOrders, fetchServiceOrders } = useServiceOrderStore();
   const { units, fetchAllUnits } = useUnitStore();
-  const { transactions, fetchTransactions, addTransaction } = useCashStore();
+  const { transactions, fetchTransactions, addTransaction, deleteTransaction } = useCashStore();
   const { inventory, fetchInventory } = useInventoryStore();
   const { profile } = useAuthStore();
 
@@ -60,6 +60,11 @@ export default function Reports() {
     payment_method: 'money' as CashTransaction['payment_method'],
     description: ''
   });
+
+  // Delete Transaction Modal States
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [txToDeleteId, setTxToDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch all required data on mount
   useEffect(() => {
@@ -435,6 +440,21 @@ export default function Reports() {
       });
     } catch (err: any) {
       showNotification('error', 'Erro ao lançar', err?.response?.data?.error || err.message);
+    }
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!txToDeleteId) return;
+    setIsDeleting(true);
+    try {
+      await deleteTransaction(txToDeleteId, selectedUnitId);
+      showNotification('success', 'Transação excluída com sucesso!');
+      setIsDeleteModalOpen(false);
+      setTxToDeleteId(null);
+    } catch (err: any) {
+      showNotification('error', 'Erro ao excluir transação', err.response?.data?.error || err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -880,12 +900,13 @@ export default function Reports() {
                     <th className="pb-3">Descrição</th>
                     <th className="pb-3">Meio Pagto</th>
                     <th className="pb-3 text-right pr-4">Valor</th>
+                    {profile?.role === 'admin' && <th className="pb-3 text-center w-12 pr-4">Ações</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma movimentação lançada.</td>
+                      <td colSpan={profile?.role === 'admin' ? 7 : 6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma movimentação lançada.</td>
                     </tr>
                   ) : (
                     transactions.map((tx) => (
@@ -918,6 +939,20 @@ export default function Reports() {
                         <td className={`py-4 text-right pr-4 font-mono font-black text-xs ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
                           {tx.type === 'inflow' ? '+' : '-'} R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
+                        {profile?.role === 'admin' && (
+                          <td className="py-4 text-center pr-4">
+                            <button
+                              onClick={() => {
+                                setTxToDeleteId(tx.id);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              className="p-1.5 hover:bg-error/10 text-on-surface-variant hover:text-error rounded-lg transition-all"
+                              title="Excluir Transação"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -925,6 +960,61 @@ export default function Reports() {
               </table>
             </div>
           </div>
+
+          {/* Modal de Confirmação de Exclusão */}
+          <AnimatePresence>
+            {isDeleteModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsDeleteModalOpen(false)} />
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                >
+                  <div className="flex items-center gap-3 pb-4 border-b border-white/10 text-error">
+                    <AlertCircle size={24} />
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Confirmar Exclusão</h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Tem certeza que deseja excluir esta transação?
+                    </p>
+                    <div className="p-4 bg-error/5 border border-error/10 rounded-2xl text-[10px] text-error font-medium leading-relaxed">
+                      ⚠️ Esta ação não pode ser desfeita e irá recalcular automaticamente o saldo do caixa caso o turno correspondente esteja aberto.
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      disabled={isDeleting}
+                      className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all cursor-pointer border border-white/10 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDeleteTransaction}
+                      disabled={isDeleting}
+                      className="flex-1 py-3.5 bg-error text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all cursor-pointer border border-error/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Excluindo...
+                        </>
+                      ) : (
+                        'Confirmar Exclusão'
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Modal de Lançamento Manual */}
           <AnimatePresence>

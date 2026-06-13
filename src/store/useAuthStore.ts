@@ -7,6 +7,8 @@ interface Profile {
   unit_id: string | null;
   full_name: string;
   role: 'admin' | 'attendant' | 'technician';
+  avatar_url?: string | null;
+  phone?: string | null;
 }
 
 interface AuthState {

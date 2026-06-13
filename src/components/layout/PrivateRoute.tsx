@@ -23,6 +23,7 @@ const PAGE_ROUTES = [
   { name: 'WPP / Instagram', path: '/automation' },
   { name: 'Gerenciar WPP/IG', path: '/connections' },
   { name: 'Financeiro', path: '/finance' },
+  { name: 'Controle de Caixa', path: '/cash-control' },
   { name: 'Controle de Bloqueio', path: '/device-locks' },
   { name: 'Fiscal (NFe/NFSe)', path: '/fiscal' },
   { name: 'Configurações', path: '/settings' },

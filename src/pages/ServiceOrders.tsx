@@ -204,6 +204,14 @@ export default function ServiceOrders() {
     fetchAdmins();
   }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions, fetchPartners]);
 
+  useEffect(() => {
+    const searchParam = new URLSearchParams(window.location.search).get('search');
+    if (searchParam) {
+      setSearchTerm(searchParam);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const handleQuickAddPartner = async () => {
     if (!newPartnerName.trim()) {
       showNotification('error', 'Erro', 'Digite o nome do parceiro');

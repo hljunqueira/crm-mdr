@@ -13,6 +13,7 @@ import Reports from './pages/Reports';
 import Customers from './pages/Customers';
 import Sales from './pages/Sales';
 import Finance from './pages/Finance';
+import CashControl from './pages/CashControl';
 import Automation from './pages/Automation';
 import Inventory from './pages/Inventory';
 import Suppliers from './pages/Suppliers';
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/suppliers" element={<PrivateRoute pageName="Fornecedores"><AppLayout><Suppliers /></AppLayout></PrivateRoute>} />
           <Route path="/partners" element={<PrivateRoute pageName="Parceiros"><AppLayout><Partners /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute pageName="Financeiro"><AppLayout><Finance /></AppLayout></PrivateRoute>} />
+          <Route path="/cash-control" element={<PrivateRoute pageName="Controle de Caixa"><AppLayout><CashControl /></AppLayout></PrivateRoute>} />
           <Route path="/device-locks" element={<PrivateRoute pageName="Controle de Bloqueio"><AppLayout><DeviceLockPanel /></AppLayout></PrivateRoute>} />
           <Route path="/fiscal" element={<PrivateRoute pageName="Fiscal (NFe/NFSe)"><AppLayout><Fiscal /></AppLayout></PrivateRoute>} />
           <Route path="/automation" element={<PrivateRoute pageName="WPP / Instagram"><AppLayout><Automation /></AppLayout></PrivateRoute>} />

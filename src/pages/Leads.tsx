@@ -43,6 +43,14 @@ export default function Leads() {
     fetchUserPermissions();
   }, [profile?.unit_id, fetchLeads, fetchKanban, fetchCustomers, fetchUserPermissions]);
 
+  useEffect(() => {
+    const searchParam = new URLSearchParams(window.location.search).get('search');
+    if (searchParam) {
+      setSearchTerm(searchParam);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Derived metrics
   const totalLeads = leads.length;
   const newLeadsCount = leads.filter(l => l.status === 'new').length;
