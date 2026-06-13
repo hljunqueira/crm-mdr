@@ -109,6 +109,8 @@ export default function ServiceOrders() {
   const { inventory, fetchInventory } = useInventoryStore();
   const { showNotification } = useUI();
   const { profile, user } = useAuthStore();
+  const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
+                     user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
   const { units, fetchAllUnits } = useUnitStore();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
   const { partners, fetchPartners, addPartner } = usePartnerStore();
@@ -2228,7 +2230,11 @@ export default function ServiceOrders() {
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Colaborador Responsável</label>
                     <select
                       value={currentServiceOrder.responsible_technician_id || ''}
-                      disabled={!hasPermission(profile, 'OS - Editar OS')}
+                      disabled={
+                        !hasPermission(profile, 'OS - Editar OS') || 
+                        ['delivered', 'returned_no_fix', 'canceled'].includes(currentServiceOrder.status) ||
+                        isTerminal
+                      }
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { responsible_technician_id: e.target.value || null as any })}
                       className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
