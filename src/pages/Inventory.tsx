@@ -858,11 +858,7 @@ function LabelsModal({ item }: { item: InventoryItem }) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const brandUpper = (item.brand || '').trim().toUpperCase();
-    const modelUpper = (item.model || '').trim().toUpperCase();
-    const displayName = (brandUpper && modelUpper.startsWith(brandUpper))
-      ? item.model
-      : `${item.brand} ${item.model}`;
+    const displayName = (item.short_name || item.model || `${item.brand} ${item.model}`).trim();
 
     const barcodeHtml = Array.from({ length: quantity }, () => `
       <div class="label-card">
