@@ -510,9 +510,19 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           const rawSupplier = supplierIdx !== -1 ? (values[supplierIdx] || '') : '';
           const rawPurchaseDate = purchaseDateIdx !== -1 ? (values[purchaseDateIdx] || '') : '';
 
-          const description = rawDescription || 'Produto Importado';
-          
-          let short_name = rawShortName || description.substring(0, 25);
+          let description = rawDescription || 'Produto Importado';
+          let short_name = rawShortName;
+
+          // If the sheet used Marca and Modelo columns instead of Descrição/Nome Curto
+          const isLegacyModel = descIdx !== -1 && (headers[descIdx].includes('model') || headers[descIdx].includes('modelo'));
+          if (rawBrand && rawDescription && !rawShortName && isLegacyModel) {
+            description = `${rawBrand} ${rawDescription}`;
+            short_name = rawDescription;
+          }
+
+          if (!short_name) {
+            short_name = description.substring(0, 25);
+          }
           if (short_name.length > 25) {
             short_name = short_name.substring(0, 25);
           }
