@@ -28,6 +28,7 @@ import { useUnitStore } from '../store/useUnitStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useSupplierStore } from '../store/useSupplierStore';
 import InventoryForm from '../components/inventory/InventoryForm';
 import { cn } from '../lib/utils';
 
@@ -446,11 +447,16 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
   const { profile } = useAuthStore();
   const { units } = useUnitStore();
   const { addItem, updateItem, inventory } = useInventoryStore();
+  const { suppliers, fetchSuppliers, addSupplier } = useSupplierStore();
   const [file, setFile] = useState<File | null>(null);
   const [targetUnit, setTargetUnit] = useState(profile?.unit_id || '');
   const [previewRows, setPreviewRows] = useState<any[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchSuppliers(undefined, false).catch(() => {});
+  }, [fetchSuppliers]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -600,9 +606,27 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
 
     setLoading(true);
     try {
+      const activeSuppliers = [...suppliers];
+
       for (const row of validRows) {
         const isDevice = row.mappedCategory === 'smartphone';
         const hasBarcode = !!row.barcode;
+        const supplierName = (row.supplierVal || '').trim();
+
+        if (supplierName) {
+          const exists = activeSuppliers.some(s => s.name.trim().toLowerCase() === supplierName.toLowerCase());
+          if (!exists) {
+            try {
+              const created = await addSupplier({
+                name: supplierName,
+                unit_id: targetUnit || profile?.unit_id || undefined
+              });
+              activeSuppliers.push(created);
+            } catch (err) {
+              console.error('Error auto-creating supplier during CSV import:', err);
+            }
+          }
+        }
 
         let merged = false;
         if (!isDevice && hasBarcode) {
