@@ -262,56 +262,66 @@ function SaleDocumentViewer({
         >
           {activeTab === 'contract' ? (
             /* Contrato de 9 paginas */
-            <div className="bg-white text-black text-left" style={{ width: '210mm', fontFamily: 'Arial, sans-serif', padding: '10px' }}>
+            <div className="bg-white text-black text-left" style={{ width: '210mm', fontFamily: "'Inter', Arial, sans-serif", padding: '10px' }}>
               <style dangerouslySetInnerHTML={{ __html: `
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
                 #sale-document-preview-area table.ccb-table {
                   width: 100%;
                   border-collapse: collapse;
-                  margin-bottom: 8px;
+                  margin-bottom: 10px;
+                  font-family: 'Inter', Arial, sans-serif;
                 }
                 #sale-document-preview-area table.ccb-table td {
-                  border: 1px solid #000;
-                  padding: 3px 5px;
+                  border: 1px solid #cbd5e1;
+                  padding: 6px 10px;
                   vertical-align: top;
-                  font-size: 8.5px;
-                  color: #000;
+                  font-size: 10px;
+                  color: #1e293b;
+                }
+                #sale-document-preview-area table.ccb-table tr:nth-child(even) td {
+                  background-color: #f8fafc;
                 }
                 #sale-document-preview-area table.ccb-table td.header-cell {
-                  background-color: #eaeaea;
-                  font-weight: bold;
-                  font-size: 9px;
+                  background-color: #f1f5f9;
+                  color: #0f172a;
+                  font-weight: 800;
                   text-transform: uppercase;
-                  border-bottom: 1.5px solid #000;
-                  padding: 4px 6px;
+                  font-size: 9px;
+                  border-bottom: 2px solid #0f172a;
+                  padding: 6px 10px;
+                  letter-spacing: 0.5px;
                 }
                 #sale-document-preview-area table.ccb-table .label {
-                  font-size: 7px;
-                  color: #333;
+                  font-size: 7.5px;
+                  color: #64748b;
                   text-transform: uppercase;
                   display: block;
-                  margin-bottom: 1px;
-                  font-weight: bold;
+                  margin-bottom: 2px;
+                  font-weight: 800;
+                  letter-spacing: 0.5px;
                 }
                 #sale-document-preview-area table.ccb-table .value {
-                  font-weight: bold;
-                  font-size: 8.5px;
-                  color: #000;
+                  font-weight: 500;
+                  font-size: 9.5px;
+                  color: #0f172a;
                 }
                 #sale-document-preview-area .clause-title {
-                  font-size: 9px;
-                  font-weight: bold;
+                  font-size: 9.5px;
+                  font-weight: 800;
                   text-transform: uppercase;
-                  margin-top: 6px;
-                  margin-bottom: 2px;
-                  color: #000;
-                  border-bottom: 1px solid #000;
-                  padding-bottom: 1px;
+                  margin-top: 10px;
+                  margin-bottom: 4px;
+                  color: #0f172a;
+                  border-bottom: 1.5px solid #0f172a;
+                  padding-bottom: 2px;
+                  letter-spacing: 0.5px;
                 }
                 #sale-document-preview-area .clause-text {
-                  font-size: 8px;
+                  font-size: 8.5px;
                   text-align: justify;
-                  margin-bottom: 4px;
-                  color: #000;
+                  margin-bottom: 6px;
+                  color: #334155;
+                  line-height: 1.5;
                 }
                 #sale-document-preview-area .contract-page {
                   page-break-after: always;
@@ -321,9 +331,10 @@ function SaleDocumentViewer({
                   position: relative;
                   padding: 15mm 12mm 20mm 12mm;
                   background-color: #ffffff;
-                  color: #000000;
-                  border-bottom: 1px dashed #ccc;
+                  color: #1e293b;
+                  border-bottom: 1px dashed #cbd5e1;
                   margin-bottom: 20px;
+                  font-family: 'Inter', Arial, sans-serif;
                 }
                 #sale-document-preview-area .contract-page:last-child {
                   page-break-after: avoid;
@@ -335,13 +346,14 @@ function SaleDocumentViewer({
                   display: grid;
                   grid-template-columns: 1fr 1fr;
                   gap: 25px;
-                  margin-top: 15px;
+                  margin-top: 25px;
                 }
                 #sale-document-preview-area .signature-line-block {
-                  border-top: 1px solid #000;
-                  padding-top: 4px;
-                  font-size: 8px;
+                  border-top: 1px solid #cbd5e1;
+                  padding-top: 6px;
+                  font-size: 8.5px;
                   text-align: center;
+                  color: #334155;
                 }
               `}} />
 
