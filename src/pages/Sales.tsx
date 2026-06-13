@@ -1265,12 +1265,23 @@ export default function Sales() {
   const handleDeleteSale = (sale: Sale) => {
     showModal({
       title: 'Excluir Venda',
-      children: `Tem certeza que deseja excluir a venda de ${sale.device_model} para ${sale.customer_name}?`,
+      children: (
+        <div className="space-y-3">
+          <p>Tem certeza que deseja excluir a venda de <strong className="text-white">{sale.device_model}</strong> para <strong className="text-white">{sale.customer_name}</strong>?</p>
+          <p className="text-[10px] text-warning uppercase tracking-widest font-black bg-warning/10 p-3 rounded-xl border border-warning/20">
+            ⚠️ O produto/acessório correspondente retornará automaticamente ao estoque da loja como "Disponível".
+          </p>
+        </div>
+      ),
       type: 'danger',
-      confirmText: 'Excluir',
+      confirmText: 'Excluir Venda',
       onConfirm: async () => {
-        await deleteSale(sale.id);
-        showNotification('success', 'Venda Removida');
+        try {
+          await deleteSale(sale.id);
+          showNotification('success', 'Venda Removida', 'A venda foi removida e a quantidade foi devolvida ao estoque com sucesso.');
+        } catch (error) {
+          showNotification('error', 'Erro ao Excluir', 'Não foi possível excluir a venda.');
+        }
       }
     });
   };
