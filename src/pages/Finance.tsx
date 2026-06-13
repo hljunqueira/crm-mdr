@@ -52,7 +52,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl"
+        className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
