@@ -41,13 +41,87 @@ router.patch("/:id", async (req, res) => {
 
 // Delete sale
 router.delete("/:id", async (req, res) => {
-  const { error } = await supabase
-    .from('sales')
-    .delete()
-    .eq('id', req.params.id);
+  try {
+    // 1. Fetch the sale details first to get the IMEIs and accessories
+    const { data: sale, error: fetchError } = await supabase
+      .from('sales')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(204).send();
+    if (fetchError || !sale) {
+      return res.status(404).json({ error: "Venda não encontrada" });
+    }
+
+    // 2. Restore stock for main devices (using imei_manual)
+    if (sale.imei_manual) {
+      const imeis = sale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
+      for (const imei of imeis) {
+        if (imei !== 'N/A') {
+          // Fetch current stock to calculate new value
+          const { data: device } = await supabase
+            .from('devices')
+            .select('stock_quantity')
+            .eq('imei', imei)
+            .single();
+
+          if (device) {
+            const newQty = (device.stock_quantity || 0) + 1;
+            await supabase
+              .from('devices')
+              .update({ stock_quantity: newQty, status: 'available' })
+              .eq('imei', imei);
+          }
+        }
+      }
+    }
+
+    // 3. Restore stock for accessories (using accessories string)
+    if (sale.accessories) {
+      // Split by '|' first to separate accessories from metadata
+      const parts = sale.accessories.split('|');
+      const accessoriesPart = parts[0] || '';
+
+      // Split individual accessories by comma
+      const accList = accessoriesPart.split(',').map((a: string) => a.trim()).filter(Boolean);
+      for (const acc of accList) {
+        // Remove trailing details in parentheses like "(Brinde)" or "(Venda R$99.00)"
+        const cleanName = acc.replace(/\s*\([^)]*\)\s*/g, '').trim();
+        if (cleanName) {
+          // Find the device/accessory by model name
+          const { data: device } = await supabase
+            .from('devices')
+            .select('id, stock_quantity')
+            .eq('model', cleanName)
+            .limit(1);
+
+          if (device && device.length > 0) {
+            const targetDevice = device[0];
+            const newQty = (targetDevice.stock_quantity || 0) + 1;
+            await supabase
+              .from('devices')
+              .update({ stock_quantity: newQty, status: 'available' })
+              .eq('id', targetDevice.id);
+          }
+        }
+      }
+    }
+
+    // 4. Finally delete the sale (which cascades to delete installments)
+    const { error: deleteError } = await supabase
+      .from('sales')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (deleteError) {
+      return res.status(500).json({ error: deleteError.message });
+    }
+
+    res.status(204).send();
+  } catch (err: any) {
+    console.error('Error deleting sale and restoring inventory:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;
