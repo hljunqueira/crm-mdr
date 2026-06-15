@@ -204,7 +204,7 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col font-sans overflow-x-hidden selection:bg-primary selection:text-on-primary">
+    <div className="landing-page min-h-screen bg-surface flex flex-col font-sans overflow-x-hidden selection:bg-primary selection:text-on-primary">
       <div className="fixed inset-0 tech-grid-pattern opacity-5 pointer-events-none z-0"></div>
 
       {/* Navigation */}

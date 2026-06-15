@@ -345,4 +345,62 @@ input.py-4 {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────────────────────
+   Global Uppercase System Transformation
+   ────────────────────────────────────────────────────────────────────────────── */
+body, 
+input, 
+textarea, 
+select, 
+button,
+span,
+p,
+a,
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+th,
+td,
+option {
+  text-transform: uppercase;
+}
+
+/* Placeholder uppercase styling */
+::-webkit-input-placeholder {
+  text-transform: uppercase;
+}
+:-moz-placeholder {
+  text-transform: uppercase;
+}
+::-moz-placeholder {
+  text-transform: uppercase;
+}
+:-ms-input-placeholder {
+  text-transform: uppercase;
+}
+
+/* Bypass uppercase on landing page */
+.landing-page,
+.landing-page *,
+.landing-page input,
+.landing-page textarea,
+.landing-page select,
+.landing-page button,
+.landing-page ::-webkit-input-placeholder,
+.landing-page :-moz-placeholder,
+.landing-page ::-moz-placeholder,
+.landing-page :-ms-input-placeholder {
+  text-transform: none !important;
+}
+
+/* Allow manual override class */
+.normal-case,
+.normal-case * {
+  text-transform: none !important;
+}
+
 
