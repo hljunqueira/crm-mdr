@@ -1170,23 +1170,6 @@ export default function ServiceOrders() {
       return (
         <div className="os-thermal-receipt">
           <style>{getPrintStyles('thermal')}</style>
-          {/* Copy Indicator */}
-          <div className="copy-indicator" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10px', border: '1px solid #000', padding: '2px', marginBottom: '8px' }}>
-            {copyTitle}
-          </div>
-
-          {/* Company Header */}
-          <div className="header-center">
-            <div className="brand-name">{brandName}</div>
-            <div className="brand-sub">{brandSub}</div>
-            <div className="unit-details">
-              {osUnit.address}<br />
-              WhatsApp: {osUnit.phone}
-              {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
-            </div>
-          </div>
-
-          <div className="double-divider"></div>
 
           {/* Title and Meta */}
           <div className="header-center">
@@ -1215,6 +1198,16 @@ export default function ServiceOrders() {
               <span className="align-right font-mono text-small">{currentServiceOrder.device_serial_number}</span>
             </div>
           )}
+
+          <div className="divider"></div>
+
+          {/* Clauses */}
+          <div className="section-title">TERMOS DE RECEBIMENTO</div>
+          <div className="clauses">
+            1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
+            2. <strong>Backup de Dados:</strong> A {brandName} <strong>NÃO se responsabiliza por perdas de dados</strong> ou arquivos. Faça backup prévio.<br />
+            3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+          </div>
 
           <div className="divider"></div>
 
