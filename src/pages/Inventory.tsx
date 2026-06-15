@@ -478,11 +478,6 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           return;
         }
 
-        // 2. Delimiter detection
-        let separator = ',';
-        if (lines[0].includes(';')) separator = ';';
-        else if (lines[0].includes('\t')) separator = '\t';
-
         // Helper to normalize strings for robust matching
         const normalizeString = (str: string): string => {
           return str
@@ -493,26 +488,72 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
             .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
         };
 
-        const headers = lines[0].split(separator).map(h => h.trim().replace(/^["']|["']$/g, ''));
+        // 2. Delimiter detection
+        let separator = ',';
+        const candidateLine = lines.find(l => l.includes(';') || l.includes(',') || l.includes('\t')) || lines[0];
+        if (candidateLine) {
+          if (candidateLine.includes(';')) separator = ';';
+          else if (candidateLine.includes('\t')) separator = '\t';
+          else if (candidateLine.includes(',')) separator = ',';
+        }
+
+        // Synonym lists mapped to keys
+        const synonymsMap = {
+          desc: ['descrição', 'descricao', 'description', 'nome', 'item', 'modelo', 'model', 'produto', 'desc', 'titulo', 'título', 'nome do produto', 'descrica', 'descricã', 'descriçã', 'descriça', 'descri'],
+          shortName: ['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname', 'nome simplificado', 'nome_simplificado'],
+          brand: ['marca', 'brand', 'fabricante', 'brand_name'],
+          category: ['categoria', 'category', 'grupo', 'tipo'],
+          condition: ['condicao', 'condição', 'condition', 'estado'],
+          costPrice: ['precocusto', 'preço custo', 'custo_compra', 'custo', 'cost_price', 'preco_custo', 'valor_custo', 'valor custo'],
+          salePrice: ['precovenda', 'preço venda', 'valor', 'preco', 'preço', 'price', 'sale_price', 'preco_venda', 'valor_venda', 'valor venda'],
+          qty: ['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity', 'quant', 'estoque_atual', 'disponiv', 'disponivel', 'disponiv', 'disponível'],
+          imei: ['imei', 'serial', 'serial_number', 'n_serie', 'num_serie', 'série'],
+          barcode: ['codigobarras', 'código barras', 'barcode', 'codigo_barras', 'cod_barras', 'ean', 'codigo'],
+          supplier: ['fornecedor', 'supplier', 'distribuidor'],
+          purchaseDate: ['datacompra', 'data_compra', 'purchase_date', 'data']
+        };
+
+        // 3. Find the best header row (first 5 rows check)
+        let bestHeaderIdx = 0;
+        let maxScore = -1;
+        const rowsToAnalyze = Math.min(5, lines.length);
+
+        for (let i = 0; i < rowsToAnalyze; i++) {
+          const cells = lines[i].split(separator).map(c => normalizeString(c.trim().replace(/^["']|["']$/g, '')));
+          let score = 0;
+          
+          Object.values(synonymsMap).forEach(syns => {
+            const normalizedSyns = syns.map(s => normalizeString(s));
+            if (cells.some(cell => normalizedSyns.includes(cell))) {
+              score++;
+            }
+          });
+
+          if (score > maxScore) {
+            maxScore = score;
+            bestHeaderIdx = i;
+          }
+        }
+
+        const headers = lines[bestHeaderIdx].split(separator).map(h => h.trim().replace(/^["']|["']$/g, ''));
 
         const getHeaderIndex = (synonyms: string[]) => {
           const normalizedSynonyms = synonyms.map(s => normalizeString(s));
           return headers.findIndex(h => normalizedSynonyms.includes(normalizeString(h)));
         };
 
-        // Comprehensive synonyms list
-        const descIdx = getHeaderIndex(['descrição', 'descricao', 'description', 'nome', 'item', 'modelo', 'model', 'produto', 'desc', 'titulo', 'título', 'nome do produto']);
-        const shortNameIdx = getHeaderIndex(['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname', 'nome simplificado', 'nome_simplificado']);
-        const brandIdx = getHeaderIndex(['marca', 'brand', 'fabricante', 'brand_name']);
-        const categoryIdx = getHeaderIndex(['categoria', 'category', 'grupo', 'tipo']);
-        const conditionIdx = getHeaderIndex(['condicao', 'condição', 'condition', 'estado']);
-        const costPriceIdx = getHeaderIndex(['precocusto', 'preço custo', 'custo_compra', 'custo', 'cost_price', 'preco_custo', 'valor_custo', 'valor custo']);
-        const salePriceIdx = getHeaderIndex(['precovenda', 'preço venda', 'valor', 'preco', 'preço', 'price', 'sale_price', 'preco_venda', 'valor_venda', 'valor venda']);
-        const qtyIdx = getHeaderIndex(['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity', 'quant', 'estoque_atual']);
-        const imeiIdx = getHeaderIndex(['imei', 'serial', 'serial_number', 'n_serie', 'num_serie', 'série']);
-        const barcodeIdx = getHeaderIndex(['codigobarras', 'código barras', 'barcode', 'codigo_barras', 'cod_barras', 'ean', 'codigo']);
-        const supplierIdx = getHeaderIndex(['fornecedor', 'supplier', 'distribuidor']);
-        const purchaseDateIdx = getHeaderIndex(['datacompra', 'data_compra', 'purchase_date', 'data']);
+        const descIdx = getHeaderIndex(synonymsMap.desc);
+        const shortNameIdx = getHeaderIndex(synonymsMap.shortName);
+        const brandIdx = getHeaderIndex(synonymsMap.brand);
+        const categoryIdx = getHeaderIndex(synonymsMap.category);
+        const conditionIdx = getHeaderIndex(synonymsMap.condition);
+        const costPriceIdx = getHeaderIndex(synonymsMap.costPrice);
+        const salePriceIdx = getHeaderIndex(synonymsMap.salePrice);
+        const qtyIdx = getHeaderIndex(synonymsMap.qty);
+        const imeiIdx = getHeaderIndex(synonymsMap.imei);
+        const barcodeIdx = getHeaderIndex(synonymsMap.barcode);
+        const supplierIdx = getHeaderIndex(synonymsMap.supplier);
+        const purchaseDateIdx = getHeaderIndex(synonymsMap.purchaseDate);
 
         // Helpers to parse prices and quantities robustly
         const parseNumber = (val: string): number => {
@@ -534,11 +575,10 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
         };
 
         const parsedRows = [];
-        for (let i = 1; i < lines.length; i++) {
+        for (let i = bestHeaderIdx + 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
 
-          // Split line, keeping grouped values in quotes intact if any
           const values = line.split(separator).map(v => v.trim().replace(/^["']|["']$/g, ''));
           
           const rawDescription = descIdx !== -1 ? (values[descIdx] || '') : '';
