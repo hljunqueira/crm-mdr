@@ -36,12 +36,11 @@ async function deployWorkflows() {
         name: item.name,
         nodes: content.nodes,
         connections: content.connections,
-        settings: content.settings || {},
-        active: true
+        settings: content.settings || {}
       };
 
       console.log(`Deploying: ${item.name}...`);
-      const response = await fetch(`${n8nUrl}/v1/workflows`, {
+      const response = await fetch(`${n8nUrl}/api/v1/workflows`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
