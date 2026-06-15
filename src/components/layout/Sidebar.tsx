@@ -229,10 +229,10 @@ export default function Sidebar() {
                       key={item.path}
                       to={item.path}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group/item relative",
+                        "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group/item relative border-l-2",
                         isActive 
-                          ? "bg-primary-container text-on-primary-container font-semibold" 
-                          : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest"
+                          ? "bg-primary-container text-on-primary-container font-semibold border-primary pl-[14px]" 
+                          : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest border-transparent"
                       )}
                     >
                       <item.icon size={16} className={cn(isActive ? "text-on-primary-container" : "text-on-surface-variant group-hover/item:text-primary transition-colors")} />
@@ -275,13 +275,16 @@ export default function Sidebar() {
           {isCollapsed ? <ChevronRight size={12} strokeWidth={3} /> : <ChevronLeft size={12} strokeWidth={3} />}
         </button>
 
-        <div className={cn("px-6 mb-8 flex justify-center transition-all duration-300", isCollapsed ? "px-2 mb-6" : "px-6 mb-8")}>
+        <div className={cn("px-6 mb-8 flex justify-center transition-all duration-300 relative", isCollapsed ? "px-2 mb-6" : "px-6 mb-8")}>
           {isCollapsed ? (
             <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black text-lg font-display shadow-lg shadow-primary/5 animate-pulse">
               M
             </div>
           ) : (
-            <img src="/logo-mdr.png" alt="MDR" className="h-24 w-auto object-contain" />
+            <div className="relative group">
+              <div className="absolute inset-0 bg-logo-blue/10 blur-2xl rounded-full group-hover:bg-logo-blue/20 transition-all duration-1000" />
+              <img src="/logo-mdr.png" alt="MDR" className="h-24 w-auto object-contain relative z-10" />
+            </div>
           )}
         </div>
 

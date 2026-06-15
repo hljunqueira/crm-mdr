@@ -147,42 +147,42 @@ export default function Landing() {
       icon: ShoppingBag,
       desc: 'Os melhores lançamentos Apple e Android, novos e seminovos com garantia, procedência e as melhores condições do mercado.',
       gridSpan: 'md:col-span-2',
-      color: 'text-white'
+      color: 'text-logo-blue'
     },
     {
       title: 'Celulares & Tablets',
       icon: Smartphone,
       desc: 'Conserto especializado para todas as marcas e modelos, com peças de alta qualidade e rapidez no atendimento.',
       gridSpan: 'md:col-span-1',
-      color: 'text-primary'
+      color: 'text-logo-green'
     },
     {
       title: 'Telas & Displays',
       icon: Monitor,
       desc: 'Troca de telas e displays com tecnologia de ponta, mantendo a sensibilidade e brilho original do seu aparelho.',
       gridSpan: 'md:col-span-1',
-      color: 'text-secondary'
+      color: 'text-logo-yellow'
     },
     {
       title: 'Notebooks',
       icon: Laptop,
       desc: 'Manutenção completa em hardware e software para Mac e Windows, incluindo reparos em placa-mãe.',
       gridSpan: 'md:col-span-1',
-      color: 'text-tertiary'
+      color: 'text-logo-blue'
     },
     {
       title: 'Baterias Premium',
       icon: Battery,
       desc: 'Substituição de baterias com células de alta densidade para maior autonomia e segurança do seu dispositivo.',
       gridSpan: 'md:col-span-1',
-      color: 'text-primary'
+      color: 'text-logo-red'
     },
     {
       title: 'Upgrades SSD',
       icon: HardDrive,
       desc: 'Potencialize seu computador com SSDs de última geração, garantindo inicialização rápida e fluidez total.',
       gridSpan: 'md:col-span-1',
-      color: 'text-secondary'
+      color: 'text-logo-green'
     }
   ];
 
@@ -375,8 +375,8 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section id="inicio" className="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 md:px-8 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/5 blur-[150px] -z-10 rounded-full animate-pulse-slow"></div>
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-logo-blue/5 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-logo-green/3 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10">
           <div className="space-y-10">
 
@@ -384,10 +384,10 @@ export default function Landing() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="text-5xl sm:text-6xl md:text-8xl font-display font-black text-on-surface tracking-tighter leading-[0.9] uppercase"
+              className="text-5xl sm:text-6xl md:text-8xl font-display font-black tracking-tighter leading-[0.9] uppercase"
             >
-              <span className="whitespace-nowrap">Assistência &</span> <br />
-              <span className="text-primary italic">Vendas</span>
+              <span className="whitespace-nowrap text-white">Assistência &</span> <br />
+              <span className="bg-gradient-to-r from-logo-blue to-logo-green bg-clip-text text-transparent italic">Vendas</span>
             </motion.h1>
 
             <motion.p
@@ -570,9 +570,18 @@ export default function Landing() {
               <motion.div
                 key={i}
                 whileHover={{ y: -5 }}
-                className={`glass-card p-10 border border-outline-variant/30 rounded-[32px] hover:border-primary/50 transition-all group flex flex-col items-start ${service.gridSpan}`}
+                className={cn(
+                  "glass-card p-10 border border-outline-variant/30 rounded-[32px] transition-all group flex flex-col items-start",
+                  service.title === 'Vendas de Celulares' && "hover:border-logo-blue/30",
+                  service.title === 'Celulares & Tablets' && "hover:border-logo-green/30",
+                  service.title === 'Telas & Displays' && "hover:border-logo-yellow/30",
+                  service.title === 'Notebooks' && "hover:border-logo-blue/30",
+                  service.title === 'Baterias Premium' && "hover:border-logo-red/30",
+                  service.title === 'Upgrades SSD' && "hover:border-logo-green/30",
+                  service.gridSpan
+                )}
               >
-                <div className={`w-16 h-16 rounded-2xl bg-surface-container-highest flex items-center justify-center ${service.color} mb-8 group-hover:bg-primary group-hover:text-on-primary transition-all shadow-inner border border-outline-variant/30`}>
+                <div className={`w-16 h-16 rounded-2xl bg-surface-container-highest flex items-center justify-center ${service.color} mb-8 group-hover:bg-primary group-hover:text-white transition-all shadow-inner border border-outline-variant/30`}>
                   <service.icon size={32} />
                 </div>
                 <h3 className="text-2xl font-display font-black text-on-surface mb-4 tracking-tight uppercase">{service.title}</h3>

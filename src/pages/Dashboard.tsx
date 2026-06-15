@@ -167,7 +167,7 @@ export default function Dashboard() {
     });
   }, [installments]);
 
-  const COLORS = ['#ffffff', '#a3a3a3', '#525252', '#262626', '#404040'];
+  const COLORS = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#262626'];
 
   if (isFinanceLoading && sales.length === 0) {
     return (
@@ -188,17 +188,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Novos Clientes', value: customers.length.toString(), trend: '+100%', icon: Users, color: 'text-white' },
-          { label: 'Vendas Ativas', value: sales.length.toString(), trend: '+100%', icon: Smartphone, color: 'text-white' },
-          { label: 'Rec. Previsto', value: `R$ ${totalSalesValue.toLocaleString('pt-BR')}`, trend: 'Base', icon: CreditCard, color: 'text-white' },
-          { label: 'Inadimplência', value: `${overdueRate}%`, trend: overdueCount > 0 ? 'Atenção' : 'Ideal', icon: AlertCircle, color: overdueCount > 0 ? 'text-error' : 'text-primary' },
+          { label: 'Novos Clientes', value: customers.length.toString(), icon: Users, colorClass: 'text-logo-blue bg-logo-blue/5 border-logo-blue/10 group-hover:bg-logo-blue group-hover:text-white' },
+          { label: 'Vendas Ativas', value: sales.length.toString(), icon: Smartphone, colorClass: 'text-logo-green bg-logo-green/5 border-logo-green/10 group-hover:bg-logo-green group-hover:text-white' },
+          { label: 'Rec. Previsto', value: `R$ ${totalSalesValue.toLocaleString('pt-BR')}`, icon: CreditCard, colorClass: 'text-logo-yellow bg-logo-yellow/5 border-logo-yellow/10 group-hover:bg-logo-yellow group-hover:text-white' },
+          { label: 'Inadimplência', value: `${overdueRate}%`, icon: AlertCircle, colorClass: overdueCount > 0 ? 'text-logo-red bg-logo-red/5 border-logo-red/10 group-hover:bg-logo-red group-hover:text-white' : 'text-primary bg-primary/5 border-primary/10 group-hover:bg-primary group-hover:text-white' },
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-8 border border-outline-variant/30 rounded-[32px] group hover:border-white/20 transition-all cursor-default">
+          <div key={i} className="glass-card p-8 border border-outline-variant/30 rounded-[32px] group hover:border-white/10 transition-all cursor-default">
             <div className="flex items-start justify-between mb-6">
-              <div className={`bg-white/5 ${stat.color} p-4 rounded-2xl border border-white/10 group-hover:bg-white group-hover:text-black transition-all shadow-inner`}>
+              <div className={`p-4 rounded-2xl border transition-all shadow-inner ${stat.colorClass}`}>
                 <stat.icon size={24} />
               </div>
             </div>
@@ -234,8 +233,8 @@ export default function Dashboard() {
                   cursor={{ fill: 'rgba(255,255,255,0.02)' }} 
                   contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '16px' }}
                 />
-                <Bar dataKey="vendas" fill="#ffffff" radius={[6, 6, 0, 0]} barSize={24} />
-                <Bar dataKey="pagamentos" fill="rgba(255,255,255,0.2)" radius={[6, 6, 0, 0]} barSize={24} />
+                <Bar dataKey="vendas" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={24} />
+                <Bar dataKey="pagamentos" fill="#22c55e" radius={[6, 6, 0, 0]} barSize={24} opacity={0.3} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -248,8 +247,8 @@ export default function Dashboard() {
               <AreaChart data={revenueData}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
@@ -258,7 +257,7 @@ export default function Dashboard() {
                 <Tooltip 
                    contentStyle={{ backgroundColor: '#000', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px' }}
                 />
-                <Area type="monotone" dataKey="value" stroke="#ffffff" strokeWidth={4} fillOpacity={1} fill="url(#colorValue)" />
+                <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

@@ -726,21 +726,21 @@ export default function ServiceOrders() {
   const getStatusInfo = (status: string) => {
     switch (status) {
       case 'budget_pending':
-        return { label: 'Orçamento Pendente', color: 'bg-red-500/10 border-red-500/20 text-red-400' };
+        return { label: 'Orçamento Pendente', color: 'bg-logo-red/5 border border-logo-red/10 text-logo-red' };
       case 'awaiting_approval':
-        return { label: 'Aguardando Cliente', color: 'bg-amber-500/10 border-amber-500/20 text-amber-400' };
+        return { label: 'Aguardando Cliente', color: 'bg-logo-yellow/5 border border-logo-yellow/10 text-logo-yellow' };
       case 'in_progress':
-        return { label: 'Em Reparo', color: 'bg-blue-500/10 border-blue-500/20 text-blue-400' };
+        return { label: 'Em Reparo', color: 'bg-logo-blue/5 border border-logo-blue/10 text-logo-blue' };
       case 'ready':
-        return { label: 'Pronto p/ Retirada', color: 'bg-green-500/10 border-green-500/20 text-green-400' };
+        return { label: 'Pronto p/ Retirada', color: 'bg-logo-green/5 border border-logo-green/10 text-logo-green' };
       case 'delivered':
-        return { label: 'Entregue / Concluído', color: 'bg-white/10 border-white/20 text-white/60' };
+        return { label: 'Entregue / Concluído', color: 'bg-white/5 border border-white/10 text-white/40' };
       case 'returned_no_fix':
-        return { label: 'Sem Conserto', color: 'bg-neutral-500/15 border-neutral-500/20 text-neutral-400' };
+        return { label: 'Sem Conserto', color: 'bg-white/5 border border-white/10 text-white/40' };
       case 'canceled':
-        return { label: 'Cancelado', color: 'bg-red-900/20 border-red-900/30 text-red-500' };
+        return { label: 'Cancelado', color: 'bg-logo-red/5 border border-logo-red/10 text-logo-red opacity-60' };
       default:
-        return { label: status, color: 'bg-white/5 border-white/10 text-on-surface-variant' };
+        return { label: status, color: 'bg-white/5 border border-white/10 text-on-surface-variant' };
     }
   };
 

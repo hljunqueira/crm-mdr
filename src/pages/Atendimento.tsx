@@ -64,8 +64,8 @@ export default function Atendimento() {
     <div className="min-h-screen bg-surface flex flex-col font-sans overflow-x-hidden selection:bg-primary selection:text-on-primary relative">
       {/* Background Effects */}
       <div className="fixed inset-0 tech-grid-pattern opacity-5 pointer-events-none z-0"></div>
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-primary/10 blur-[150px] -z-10 rounded-full animate-pulse-slow"></div>
-      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-secondary/5 blur-[150px] -z-10 rounded-full"></div>
+      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-logo-blue/5 blur-[150px] -z-10 rounded-full animate-pulse-slow"></div>
+      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-logo-green/3 blur-[150px] -z-10 rounded-full"></div>
 
       {/* Navigation */}
       <nav className="h-20 px-8 flex items-center justify-between backdrop-blur-xl sticky top-0 z-[100] border-b border-outline-variant/20">
@@ -106,7 +106,7 @@ export default function Atendimento() {
             className="glass-card border border-outline-variant/40 rounded-3xl md:rounded-[48px] p-5 md:p-12 shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden"
           >
             {/* Form Background Accent */}
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[80px] -z-10"></div>
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-logo-blue/5 blur-[80px] -z-10"></div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Service/Sale Choice - Dropdown */}
