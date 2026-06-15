@@ -264,11 +264,13 @@ router.post("/:id/notify", async (req, res) => {
       return res.status(400).json({ error: "Template de notificação inválido" });
     }
 
-    // Call WhatsApp API to dispatch
-    const response = await fetch(`${req.protocol}://${req.get('host')}/api/chat/send`, {
+    // 3. Dispatch to n8n Webhook
+    const n8nWebhookUrl = `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/os-status-alert`;
+    const response = await fetch(n8nWebhookUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-N8N-API-KEY': process.env.N8N_API_KEY || ''
       },
       body: JSON.stringify({
         instanceName: instance,
@@ -278,7 +280,24 @@ router.post("/:id/notify", async (req, res) => {
     });
 
     if (!response.ok) {
-      throw new Error("Erro ao disparar mensagem pela Evolution API");
+      const errText = await response.text();
+      console.warn('Failed to notify OS via n8n, falling back to direct send:', errText);
+      // Fallback: send directly through Evolution API using CRM's endpoint
+      const fallbackUrl = `${req.protocol}://${req.get('host')}/api/chat/send`;
+      const fallbackRes = await fetch(fallbackUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          instanceName: instance,
+          remoteJid: remoteJid,
+          text: messageText
+        })
+      });
+      if (!fallbackRes.ok) {
+        throw new Error("Erro ao disparar mensagem pela Evolution API (e fallback falhou)");
+      }
     }
 
     res.json({ success: true, message: "Mensagem de status enviada com sucesso!" });

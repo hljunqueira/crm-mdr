@@ -52,6 +52,29 @@ async function deployWorkflows() {
       if (response.ok) {
         const result = await response.json();
         console.log(`Success! Workflow "${item.name}" deployed with ID: ${result.id}`);
+        
+        console.log(`Activating: ${item.name}...`);
+        const actResponse = await fetch(`${n8nUrl}/api/v1/workflows/${result.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-N8N-API-KEY': n8nKey
+          },
+          body: JSON.stringify({
+            name: item.name,
+            nodes: content.nodes,
+            connections: content.connections,
+            settings: content.settings || {},
+            active: true
+          })
+        });
+        
+        if (actResponse.ok) {
+          console.log(`Workflow "${item.name}" is now ACTIVE.`);
+        } else {
+          const actErr = await actResponse.text();
+          console.error(`Failed to activate ${item.name}: ${actResponse.statusText} - ${actErr}`);
+        }
       } else {
         const err = await response.text();
         console.error(`Failed to deploy ${item.name}: ${response.statusText} - ${err}`);

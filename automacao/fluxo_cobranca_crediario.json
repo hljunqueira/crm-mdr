@@ -38,7 +38,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://whatsapp.mdrinformaticaecelulares.com.br/message/sendText/{{$json.body.instanceName}}",
+        "url": "=https://whatsapp.mdrinformaticaecelulares.com.br/message/sendText/{{$json.body.instanceName}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -50,7 +50,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"number\": \"{{$json.body.remoteJid}}\",\n  \"text\": \"{{$json.body.text}}\"\n}",
+        "jsonBody": "={{ { \"number\": $json.body.remoteJid, \"text\": $json.body.text } }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
