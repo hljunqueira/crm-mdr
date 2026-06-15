@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS public.inventory_audit_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     audit_id UUID NOT NULL REFERENCES public.inventory_audits(id) ON DELETE CASCADE,
     device_id UUID NOT NULL REFERENCES public.devices(id) ON DELETE CASCADE,
-    captured_quantity INT NOT NULL DEFAULT 0,
+    system_quantity INT NOT NULL DEFAULT 0,
     physical_quantity INT NOT NULL DEFAULT 0,
     cost_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     sale_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
