@@ -265,7 +265,7 @@ export default function Sidebar() {
       </button>
 
       {/* Desktop Persistent Sidebar */}
-      <aside translate="no" className={cn("notranslate hidden md:flex h-screen bg-surface-container-low border-r border-outline-variant flex flex-col py-6 shrink-0 z-30 transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
+      <aside translate="no" className={cn("notranslate hidden md:flex md:flex-col h-screen bg-surface-container-low border-r border-outline-variant py-6 shrink-0 z-30 transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
         {/* Toggle Collapse Button */}
         <button
           onClick={handleToggleCollapse}
