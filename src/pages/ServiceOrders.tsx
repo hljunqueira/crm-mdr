@@ -950,6 +950,38 @@ export default function ServiceOrders() {
           font-size: 10px;
           color: #0f172a;
         }
+        .os-a4-receipt.compact-layout {
+          font-size: 9.5px;
+          line-height: 1.3;
+        }
+        .os-a4-receipt.compact-layout .a4-header {
+          padding-bottom: 6px;
+          margin-bottom: 8px;
+        }
+        .os-a4-receipt.compact-layout .a4-title-row {
+          padding: 6px 10px;
+          margin-bottom: 8px;
+        }
+        .os-a4-receipt.compact-layout .a4-section-header {
+          margin: 8px 0 4px 0;
+          padding-bottom: 2px;
+        }
+        .os-a4-receipt.compact-layout table.a4-grid-table {
+          margin-bottom: 6px;
+        }
+        .os-a4-receipt.compact-layout table.a4-grid-table td {
+          padding: 4px 8px;
+          font-size: 9px;
+        }
+        .os-a4-receipt.compact-layout .a4-notes {
+          padding: 6px;
+          margin-bottom: 8px;
+          font-size: 7.5px;
+        }
+        .os-a4-receipt.compact-layout .a4-signatures {
+          margin-top: 20px;
+          gap: 20px;
+        }
       `;
     }
     return `
@@ -1046,14 +1078,13 @@ export default function ServiceOrders() {
 
     if (activeFormat === 'a4') {
       return (
-        <div className="os-a4-receipt text-left">
+        <div className={cn("os-a4-receipt text-left", currentServiceOrder.device_category !== 'smartphone' && "compact-layout")}>
           <style>{getPrintStyles('a4')}</style>
           <div className="a4-header">
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <img src="/logo-mdr.png" alt="MDR Logo" style={{ height: '40px', objectFit: 'contain' }} />
             </div>
             <div className="a4-brand-details">
-              {osUnit.address}<br />
               WhatsApp: {osUnit.phone} {osUnit.cnpj && `| CNPJ: ${osUnit.cnpj}`}
             </div>
           </div>
@@ -1178,7 +1209,7 @@ export default function ServiceOrders() {
             3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
           </div>
 
-          <div className="a4-signatures text-black mt-8">
+          <div className={cn("a4-signatures text-black", currentServiceOrder.device_category === 'smartphone' ? "mt-8" : "mt-4")}>
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
               <span>Estou de acordo com o que li no todo desta nota.</span>
@@ -1192,7 +1223,7 @@ export default function ServiceOrders() {
           </div>
 
           {/* Canhoto Destacável de Retirada */}
-          <div className="a4-destacavel mt-12 pt-6 border-t-2 border-dashed border-slate-400 relative">
+          <div className={cn("a4-destacavel border-t-2 border-dashed border-slate-400 relative", currentServiceOrder.device_category === 'smartphone' ? "mt-12 pt-6" : "mt-4 pt-3")}>
             <div className="absolute -top-3.5 left-10 bg-white px-2 py-0.5 text-[8px] font-black uppercase text-slate-500 tracking-widest border border-slate-200 rounded-md">
               ✂️ DESTAQUE E ENTREGUE AO CLIENTE
             </div>
@@ -1331,7 +1362,6 @@ export default function ServiceOrders() {
           <div className="brand-name">{brandName}</div>
           <div className="brand-sub">{brandSub}</div>
           <div className="unit-details">
-            {osUnit.address}<br />
             WhatsApp: {osUnit.phone}
             {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
           </div>
@@ -1468,14 +1498,13 @@ export default function ServiceOrders() {
 
     if (activeFormat === 'a4') {
       return (
-        <div className="os-a4-receipt text-left">
+        <div className={cn("os-a4-receipt text-left", currentServiceOrder.device_category !== 'smartphone' && "compact-layout")}>
           <style>{getPrintStyles('a4')}</style>
           <div className="a4-header">
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <img src="/logo-mdr.png" alt="MDR Logo" style={{ height: '40px', objectFit: 'contain' }} />
             </div>
             <div className="a4-brand-details">
-              {osUnit.address}<br />
               WhatsApp: {osUnit.phone} {osUnit.cnpj && `| CNPJ: ${osUnit.cnpj}`}
             </div>
           </div>
@@ -1599,7 +1628,7 @@ export default function ServiceOrders() {
             <strong>PAGAMENTO VIA PIX:</strong> Chave Celular: <strong>48999035854</strong> | Favorecido: <strong>Maykon da Rosa</strong>
           </div>
 
-          <div className="a4-signatures text-black mt-8">
+          <div className={cn("a4-signatures text-black", currentServiceOrder.device_category === 'smartphone' ? "mt-8" : "mt-4")}>
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
               <span>Técnico Responsável</span>
@@ -1628,7 +1657,6 @@ export default function ServiceOrders() {
           <div className="brand-name">{brandName}</div>
           <div className="brand-sub">{brandSub}</div>
           <div className="unit-details">
-            {osUnit.address}<br />
             WhatsApp: {osUnit.phone}
             {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
           </div>
