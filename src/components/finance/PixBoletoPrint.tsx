@@ -53,6 +53,12 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
     return { multa, juros, total, daysLate, isLate: true };
   };
 
+  // Divide as parcelas em grupos de no máximo 5 para caberem em uma página A4
+  const chunkedInstallments = [];
+  for (let i = 0; i < installments.length; i += 5) {
+    chunkedInstallments.push(installments.slice(i, i + 5));
+  }
+
   return (
     <div className="pix-boleto-print-wrapper select-text" contentEditable={true} suppressContentEditableWarning={true}>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -62,161 +68,225 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           font-family: 'Inter', sans-serif;
           color: #0f172a;
           background: #ffffff;
+          padding: 0;
+          margin: 0;
         }
 
-        .pix-slip-page {
+        .pix-carne-page {
           width: 210mm;
-          min-height: 297mm;
-          padding: 20mm 15mm;
+          height: 297mm;
+          padding: 10mm 12mm;
           box-sizing: border-box;
           background: #ffffff;
           position: relative;
           page-break-after: always;
           break-after: page;
+          display: flex;
+          flex-direction: column;
+          gap: 4.5mm;
         }
 
-        .pix-slip-page:last-child {
+        .pix-carne-page:last-child {
           page-break-after: avoid;
           break-after: avoid;
         }
 
-        .pix-header {
+        .pix-carne-row {
+          display: flex;
+          width: 100%;
+          height: 52mm;
+          border: 1px solid #94a3b8;
+          border-radius: 6px;
+          box-sizing: border-box;
+          overflow: hidden;
+          position: relative;
+        }
+
+        /* Canhoto (narrow left slip) */
+        .pix-canhoto {
+          width: 48mm;
+          border-right: 1.5px dashed #64748b;
+          padding: 6px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          box-sizing: border-box;
+          background-color: #f8fafc;
+        }
+
+        .pix-canhoto-title {
+          font-size: 9px;
+          font-weight: 900;
+          color: #0f172a;
+          text-transform: uppercase;
+          border-bottom: 1px solid #cbd5e1;
+          padding-bottom: 3px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-bottom: 2px solid #0f172a;
-          padding-bottom: 12px;
-          margin-bottom: 20px;
+        }
+
+        .pix-canhoto-info {
+          font-size: 8px;
+          line-height: 1.3;
+          margin: 4px 0;
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-evenly;
+        }
+
+        .pix-canhoto-field {
+          margin-bottom: 2px;
+        }
+
+        .pix-canhoto-label {
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #64748b;
+          font-size: 7px;
+          display: block;
+        }
+
+        .pix-canhoto-value {
+          font-weight: 700;
+          color: #0f172a;
+        }
+
+        .pix-canhoto-sig {
+          border-top: 1px solid #94a3b8;
+          text-align: center;
+          padding-top: 2px;
+          font-size: 6.5px;
+          font-weight: bold;
+          color: #64748b;
+          text-transform: uppercase;
+          margin-top: auto;
+        }
+
+        /* Corpo (wide right slip) */
+        .pix-corpo {
+          flex: 1;
+          padding: 6px 10px;
+          display: flex;
+          justify-content: space-between;
+          box-sizing: border-box;
+          background: #ffffff;
+        }
+
+        .pix-corpo-left {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding-right: 10px;
+        }
+
+        .pix-corpo-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1.5px solid #0f172a;
+          padding-bottom: 4px;
         }
 
         .pix-brand-box {
           display: flex;
           align-items: center;
-          gap: 12px;
-        }
-
-        .pix-logo-img {
-          height: 38px;
-          width: auto;
-          filter: grayscale(1) contrast(1.5);
+          gap: 6px;
         }
 
         .pix-brand-title {
-          font-size: 16px;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: -0.5px;
-          line-height: 1;
         }
 
         .pix-brand-sub {
-          font-size: 8px;
-          font-weight: 700;
-          letter-spacing: 1px;
+          font-size: 7.5px;
+          font-weight: 800;
           color: #64748b;
-          text-transform: uppercase;
         }
 
         .pix-doc-title {
-          text-align: right;
-        }
-
-        .pix-doc-title h1 {
-          font-size: 16px;
+          font-size: 10px;
           font-weight: 900;
           text-transform: uppercase;
-          margin: 0;
-          letter-spacing: -0.5px;
-        }
-
-        .pix-doc-title p {
-          font-size: 9px;
-          color: #64748b;
-          margin: 2px 0 0 0;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-
-        .pix-grid-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 16px;
-        }
-
-        .pix-grid-table td {
-          border: 1px solid #cbd5e1;
-          padding: 8px 12px;
-          vertical-align: top;
-          font-size: 10px;
-          color: #1e293b;
-        }
-
-        .pix-grid-table tr:nth-child(even) td {
-          background-color: #f8fafc;
-        }
-
-        .pix-grid-table td.pix-table-header {
-          background-color: #f1f5f9;
           color: #0f172a;
-          font-weight: 800;
-          text-transform: uppercase;
-          font-size: 9px;
-          border-bottom: 2px solid #0f172a;
-          letter-spacing: 0.5px;
         }
 
-        .pix-cell-label {
-          font-size: 7.5px;
+        .pix-corpo-details {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr;
+          gap: 6px;
+          margin-top: 4px;
+        }
+
+        .pix-corpo-field {
+          background-color: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          padding: 3px 6px;
+        }
+
+        .pix-corpo-label {
+          font-size: 6.5px;
+          font-weight: 800;
           color: #64748b;
           text-transform: uppercase;
           display: block;
-          margin-bottom: 3px;
-          font-weight: 800;
-          letter-spacing: 0.5px;
         }
 
-        .pix-cell-value {
-          font-weight: 600;
-          font-size: 10px;
+        .pix-corpo-value {
+          font-size: 8.5px;
+          font-weight: 700;
           color: #0f172a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
-        .pix-payment-section {
+        .pix-instructions-box {
+          margin-top: 4px;
+          border: 1px solid #e2e8f0;
+          background-color: #fdfdfd;
+          border-radius: 4px;
+          padding: 4px;
+          font-size: 8px;
+          line-height: 1.3;
+          color: #334155;
+        }
+
+        .pix-copia-cola-box {
+          background: #f1f5f9;
           border: 1px solid #cbd5e1;
-          border-radius: 8px;
-          padding: 16px;
-          margin-top: 20px;
-          background: #f8fafc;
+          padding: 2px 4px;
+          border-radius: 3px;
+          font-family: monospace;
+          font-size: 7px;
+          word-break: break-all;
+          margin-top: 2px;
+          color: #0f172a;
+          max-height: 18px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
-        .pix-payment-header {
+        .pix-corpo-right {
+          width: 110px;
+          border-left: 1px dashed #cbd5e1;
+          padding-left: 8px;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-          border-bottom: 1px solid #cbd5e1;
-          padding-bottom: 8px;
-        }
-
-        .pix-payment-header h3 {
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          margin: 0;
-          letter-spacing: 0.5px;
-        }
-
-        .pix-payment-grid {
-          display: grid;
-          grid-template-columns: 140px 1fr;
-          gap: 20px;
-          align-items: start;
+          justify-content: space-between;
         }
 
         .pix-qr-box {
           border: 1px solid #cbd5e1;
-          border-radius: 6px;
-          padding: 8px;
+          border-radius: 4px;
+          padding: 4px;
           background: #ffffff;
           display: flex;
           justify-content: center;
@@ -224,96 +294,16 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-qr-img {
-          width: 120px;
-          height: 120px;
+          width: 65px;
+          height: 65px;
           object-fit: contain;
         }
 
-        .pix-instructions {
-          font-size: 9.5px;
-          line-height: 1.5;
-          color: #334155;
-        }
-
-        .pix-copia-cola-box {
-          background: #ffffff;
-          border: 1px solid #cbd5e1;
-          padding: 8px 12px;
-          border-radius: 6px;
-          font-family: monospace;
-          font-size: 8.5px;
-          word-break: break-all;
-          margin-top: 8px;
-          color: #0f172a;
-          max-height: 50px;
-          overflow: hidden;
-        }
-
-        .pix-warning-alert {
-          margin-top: 12px;
-          background: #fef2f2;
-          border: 1px solid #fca5a5;
-          color: #991b1b;
-          padding: 8px 12px;
-          border-radius: 6px;
-          font-size: 9px;
-          font-weight: 700;
-          line-height: 1.4;
-        }
-
-        .pix-footer-receipt {
-          margin-top: 40px;
-          border-top: 1px dashed #64748b;
-          padding-top: 24px;
-        }
-
-        .pix-receipt-ticket {
-          border: 1px solid #cbd5e1;
-          background: #f8fafc;
-          padding: 12px 16px;
-          border-radius: 8px;
-          font-size: 9.5px;
-        }
-
-        .pix-receipt-header {
-          display: flex;
-          justify-content: space-between;
-          font-weight: 800;
-          text-transform: uppercase;
-          font-size: 9px;
-          border-bottom: 1px solid #cbd5e1;
-          padding-bottom: 6px;
-          margin-bottom: 8px;
-        }
-
-        .pix-receipt-row {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 4px;
-        }
-
-        .pix-receipt-sig {
-          margin-top: 20px;
-          display: flex;
-          justify-content: space-between;
-          gap: 40px;
-        }
-
-        .pix-sig-col {
-          flex: 1;
+        .pix-payment-info {
+          font-size: 7px;
+          color: #475569;
           text-align: center;
-        }
-
-        .pix-sig-line {
-          border-top: 1px solid #94a3b8;
-          margin-bottom: 4px;
-          margin-top: 25px;
-        }
-
-        .pix-sig-sub {
-          font-size: 8px;
-          color: #64748b;
-          font-weight: 600;
+          line-height: 1.2;
         }
 
         @media print {
@@ -325,13 +315,19 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           body > *:not(#print-mount-point) { display: none !important; }
           #print-mount-point { display: block !important; }
           #print-mount-point .pix-boleto-print-wrapper { display: block !important; }
-          .pix-slip-page {
+          .pix-carne-page {
             border: none !important;
             margin: 0 !important;
-            padding: 15mm 12mm 15mm 12mm !important;
+            padding: 8mm 10mm !important;
             height: 297mm !important;
             width: 210mm !important;
             box-sizing: border-box !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          .pix-carne-page:last-child {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           @page {
             size: A4;
@@ -340,210 +336,120 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
       `}} />
 
-      {installments.map((inst, index) => {
-        const fees = calculateOverdueFees(inst.value, inst.due_date, inst.status);
-        const formatValue = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const cleanUnitName = (unit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
+      {chunkedInstallments.map((group, pageIndex) => (
+        <div key={pageIndex} className="pix-carne-page">
+          {group.map((inst) => {
+            const fees = calculateOverdueFees(inst.value, inst.due_date, inst.status);
+            const formatValue = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        return (
-          <div key={inst.id} className="pix-slip-page">
-            {/* Header */}
-            <div className="pix-header">
-              <div className="pix-brand-box">
-                <img 
-                  src="/logo-mdr.png" 
-                  alt="MDR Logo" 
-                  className="pix-logo-img"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-                <div>
-                  <div className="pix-brand-title">MDR</div>
-                  <div className="pix-brand-sub">Informática &amp; Celulares</div>
-                </div>
-              </div>
-              <div className="pix-doc-title">
-                <h1>Recibo / Boleto Pix</h1>
-                <p>Parcela {inst.number} de {inst.total}</p>
-              </div>
-            </div>
-
-            {/* Creditor info */}
-            <table className="pix-grid-table">
-              <thead>
-                <tr>
-                  <td colSpan={3} className="pix-table-header">I. Beneficiário (Credor)</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ width: '45%' }}>
-                    <span className="pix-cell-label">Razão Social / Nome Fantasia</span>
-                    <span className="pix-cell-value">{unit.name || 'MDR Informática & Celulares'}</span>
-                  </td>
-                  <td style={{ width: '30%' }}>
-                    <span className="pix-cell-label">CNPJ / CPF</span>
-                    <span className="pix-cell-value">{unit.cnpj || '_____________________'}</span>
-                  </td>
-                  <td style={{ width: '25%' }}>
-                    <span className="pix-cell-label">Telefone / WhatsApp</span>
-                    <span className="pix-cell-value">{unit.phone ? formatPhone(unit.phone) : '_____________________'}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={3}>
-                    <span className="pix-cell-label">Endereço da Loja</span>
-                    <span className="pix-cell-value">{unit.address || '_____________________'}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Debtor info */}
-            <table className="pix-grid-table">
-              <thead>
-                <tr>
-                  <td colSpan={3} className="pix-table-header">II. Pagador (Cliente)</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ width: '45%' }}>
-                    <span className="pix-cell-label">Nome do Cliente</span>
-                    <span className="pix-cell-value">{customer.name}</span>
-                  </td>
-                  <td style={{ width: '30%' }}>
-                    <span className="pix-cell-label">CPF / CNPJ</span>
-                    <span className="pix-cell-value">{formatCPF(customer.cpf)}</span>
-                  </td>
-                  <td style={{ width: '25%' }}>
-                    <span className="pix-cell-label">Telefone / WhatsApp</span>
-                    <span className="pix-cell-value">{formatPhone(customer.phone)}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={3}>
-                    <span className="pix-cell-label">Endereço Residencial</span>
-                    <span className="pix-cell-value">{customer.address || '__________________________________________________________________'}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Installment details */}
-            <table className="pix-grid-table">
-              <thead>
-                <tr>
-                  <td colSpan={4} className="pix-table-header">III. Demonstrativo do Débito</td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ width: '25%' }}>
-                    <span className="pix-cell-label">Identificação Parcela</span>
-                    <span className="pix-cell-value">Parcela {inst.number}/{inst.total}</span>
-                  </td>
-                  <td style={{ width: '25%' }}>
-                    <span className="pix-cell-label">Vencimento Original</span>
-                    <span className="pix-cell-value">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                  </td>
-                  <td style={{ width: '25%' }}>
-                    <span className="pix-cell-label">Dias em Atraso</span>
-                    <span className="pix-cell-value">{fees.daysLate} dia(s)</span>
-                  </td>
-                  <td style={{ width: '25%' }}>
-                    <span className="pix-cell-label">Valor Original Parcela</span>
-                    <span className="pix-cell-value">R$ {formatValue(inst.value)}</span>
-                  </td>
-                </tr>
-                {fees.isLate && (
-                  <tr>
-                    <td>
-                      <span className="pix-cell-label">Multa por Atraso (2%)</span>
-                      <span className="pix-cell-value text-red-600">+ R$ {formatValue(fees.multa)}</span>
-                    </td>
-                    <td>
-                      <span className="pix-cell-label">Juros de Mora (1%/mês)</span>
-                      <span className="pix-cell-value text-red-600">+ R$ {formatValue(fees.juros)}</span>
-                    </td>
-                    <td colSpan={2}>
-                      <span className="pix-cell-label">Valor Atualizado a Pagar</span>
-                      <span className="pix-cell-value font-bold text-red-600" style={{ fontSize: '12px' }}>R$ {formatValue(fees.total)}</span>
-                    </td>
-                  </tr>
-                )}
-                {!fees.isLate && (
-                  <tr>
-                    <td colSpan={4}>
-                      <span className="pix-cell-label">Valor Total a Pagar</span>
-                      <span className="pix-cell-value font-bold text-green-700" style={{ fontSize: '12px' }}>R$ {formatValue(inst.value)}</span>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-
-            {/* Pix Payment Section */}
-            <div className="pix-payment-section">
-              <div className="pix-payment-header">
-                <h3>IV. Instruções de Pagamento via PIX</h3>
-              </div>
-              <div className="pix-payment-grid">
-                <div className="pix-qr-box">
-                  <img src="/Pix.png" alt="PIX QR Code" className="pix-qr-img" />
-                </div>
-                <div className="pix-instructions">
-                  <p style={{ margin: '0 0 6px 0' }}>
-                    Para efetuar o pagamento, abra o aplicativo do seu banco, escolha a opção <strong>PIX</strong> e aponte a câmera para o QR Code ao lado ou clique na caixa de texto abaixo para copiar o código Pix Copia-e-Cola:
-                  </p>
-                  <div className="pix-copia-cola-box">
-                    {PIX_PAYLOAD}
+            return (
+              <div key={inst.id} className="pix-carne-row">
+                {/* CANHOTO (STUB) */}
+                <div className="pix-canhoto">
+                  <div className="pix-canhoto-title">
+                    <span>MDR</span>
+                    <span style={{ fontSize: '7.5px' }}>PARC. {inst.number}/{inst.total}</span>
                   </div>
-                  <div style={{ marginTop: '8px', fontSize: '9px', color: '#64748b' }}>
-                    Beneficiário do Pix: <strong>Maykon da Rosa</strong>
+                  <div className="pix-canhoto-info">
+                    <div className="pix-canhoto-field">
+                      <span className="pix-canhoto-label">Vencimento</span>
+                      <span className="pix-canhoto-value">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    <div className="pix-canhoto-field">
+                      <span className="pix-canhoto-label">Valor Parcela</span>
+                      <span className="pix-canhoto-value">R$ {formatValue(inst.value)}</span>
+                    </div>
+                    {fees.isLate && (
+                      <div className="pix-canhoto-field">
+                        <span className="pix-canhoto-label" style={{ color: '#ef4444' }}>Atraso / Total</span>
+                        <span className="pix-canhoto-value" style={{ color: '#ef4444' }}>R$ {formatValue(fees.total)}</span>
+                      </div>
+                    )}
+                    <div className="pix-canhoto-field">
+                      <span className="pix-canhoto-label">Pagador</span>
+                      <span className="pix-canhoto-value" style={{ fontSize: '7.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '40mm' }}>
+                        {customer.name}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="pix-canhoto-sig">
+                    Assinatura / Visto
+                  </div>
+                </div>
+
+                {/* CORPO DO BOLETO */}
+                <div className="pix-corpo">
+                  <div className="pix-corpo-left">
+                    {/* Header */}
+                    <div className="pix-corpo-header">
+                      <div className="pix-brand-box">
+                        <span className="pix-brand-title">MDR</span>
+                        <span className="pix-brand-sub">INFORMÁTICA & CELULARES</span>
+                      </div>
+                      <div className="pix-doc-title">
+                        RECIBO / BOLETO PIX
+                      </div>
+                    </div>
+
+                    {/* Dados do sacado/cedente */}
+                    <div className="pix-corpo-details">
+                      <div className="pix-corpo-field">
+                        <span className="pix-corpo-label">Beneficiário</span>
+                        <div className="pix-corpo-value">{unit.name}</div>
+                      </div>
+                      <div className="pix-corpo-field">
+                        <span className="pix-corpo-label">CNPJ / CPF</span>
+                        <div className="pix-corpo-value">{unit.cnpj || '—'}</div>
+                      </div>
+                      <div className="pix-corpo-field">
+                        <span className="pix-corpo-label">WhatsApp</span>
+                        <div className="pix-corpo-value">{unit.phone ? formatPhone(unit.phone) : '—'}</div>
+                      </div>
+
+                      <div className="pix-corpo-field" style={{ gridColumn: 'span 2' }}>
+                        <span className="pix-corpo-label">Pagador</span>
+                        <div className="pix-corpo-value">{customer.name} - CPF: {formatCPF(customer.cpf)}</div>
+                      </div>
+                      <div className="pix-corpo-field">
+                        <span className="pix-corpo-label">WhatsApp</span>
+                        <div className="pix-corpo-value">{formatPhone(customer.phone)}</div>
+                      </div>
+                    </div>
+
+                    {/* Instruções */}
+                    <div className="pix-instructions-box">
+                      <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado ou utilize o Pix Copia-e-Cola abaixo:
+                      <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
+                        {PIX_PAYLOAD}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pix-corpo-right">
+                    <div className="pix-qr-box">
+                      <img src="/Pix.png" alt="PIX QR Code" className="pix-qr-img" />
+                    </div>
+                    <div className="pix-payment-info">
+                      <span className="pix-corpo-label">PARCELA</span>
+                      <strong style={{ fontSize: '10px' }}>{inst.number} / {inst.total}</strong>
+                    </div>
+                    <div className="pix-payment-info">
+                      <span className="pix-corpo-label">VENCIMENTO</span>
+                      <strong style={{ fontSize: '9px' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>
+                    </div>
+                    <div className="pix-payment-info">
+                      <span className="pix-corpo-label">VALOR A PAGAR</span>
+                      <strong style={{ fontSize: '11px', color: fees.isLate ? '#ef4444' : '#15803d' }}>
+                        R$ {formatValue(fees.total)}
+                      </strong>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              <div className="pix-warning-alert">
-                Atenção: Ao ler o QR Code ou utilizar o Pix Copia-e-Cola, você deverá preencher manualmente o valor exato da parcela atualizada de R$ {formatValue(fees.total)} no aplicativo do seu banco.
-              </div>
-            </div>
-
-            {/* Ficha de Compensação Visual no Rodapé */}
-            <div className="pix-footer-receipt">
-              <div className="pix-receipt-ticket">
-                <div className="pix-receipt-header">
-                  <span>Recibo do Sacado — Via do Cliente</span>
-                  <span>MDR - LOJA: {cleanUnitName}</span>
-                </div>
-                <div className="pix-receipt-row">
-                  <div><strong>Pagador:</strong> {customer.name}</div>
-                  <div><strong>Parcela:</strong> {inst.number}/{inst.total}</div>
-                </div>
-                <div className="pix-receipt-row">
-                  <div><strong>Vencimento:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</div>
-                  <div><strong>Valor Documento:</strong> R$ {formatValue(inst.value)}</div>
-                </div>
-                <div className="pix-receipt-row">
-                  <div><strong>Valor Atualizado:</strong> R$ {formatValue(fees.total)}</div>
-                  <div><strong>Data de Emissão:</strong> {today}</div>
-                </div>
-                <div className="pix-receipt-sig">
-                  <div className="pix-sig-col">
-                    <div className="pix-sig-line"></div>
-                    <span className="pix-sig-sub">Assinatura do Cliente / Pagador</span>
-                  </div>
-                  <div className="pix-sig-col">
-                    <div className="pix-sig-line"></div>
-                    <span className="pix-sig-sub">{unit.name || 'MDR Informática'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }

@@ -1166,6 +1166,83 @@ export default function ServiceOrders() {
       );
     }
 
+    if (copyTitle === "VIA DO CLIENTE") {
+      return (
+        <div className="os-thermal-receipt">
+          <style>{getPrintStyles('thermal')}</style>
+          {/* Copy Indicator */}
+          <div className="copy-indicator" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '10px', border: '1px solid #000', padding: '2px', marginBottom: '8px' }}>
+            {copyTitle}
+          </div>
+
+          {/* Company Header */}
+          <div className="header-center">
+            <div className="brand-name">{brandName}</div>
+            <div className="brand-sub">{brandSub}</div>
+            <div className="unit-details">
+              {osUnit.address}<br />
+              WhatsApp: {osUnit.phone}
+              {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
+            </div>
+          </div>
+
+          <div className="double-divider"></div>
+
+          {/* Title and Meta */}
+          <div className="header-center">
+            <div className="receipt-title">COMPROVANTE DE RETIRADA</div>
+            <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
+            <div className="receipt-date">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
+            <div className="receipt-date font-mono" style={{ fontSize: '9px', marginTop: '2px' }}>
+              Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}
+            </div>
+          </div>
+
+          <div className="divider"></div>
+
+          {/* Buyer Section */}
+          <div className="row">
+            <span>Cliente:</span>
+            <span className="align-right">{currentServiceOrder.customers?.name}</span>
+          </div>
+          <div className="row">
+            <span>Aparelho:</span>
+            <span className="align-right">{currentServiceOrder.device_brand} {currentServiceOrder.device_model}</span>
+          </div>
+          {currentServiceOrder.device_serial_number && (
+            <div className="row">
+              <span>IMEI/Serial:</span>
+              <span className="align-right font-mono text-small">{currentServiceOrder.device_serial_number}</span>
+            </div>
+          )}
+
+          <div className="divider"></div>
+
+          {/* Online Tracking Instruction */}
+          <div className="section-title" style={{ textAlign: 'center' }}>ACOMPANHAR CONSERTO ONLINE</div>
+          <div className="clauses" style={{ textAlign: 'center', fontSize: '9px', marginBottom: '8px' }}>
+            Consulte o status em tempo real do seu aparelho acessando:<br />
+            <strong>mdrinformaticaecelulares.com.br/consulta-os</strong><br />
+            e informe o seu CPF.
+          </div>
+
+          <div className="divider"></div>
+
+          <div className="section-title" style={{ textAlign: 'center' }}>PAGAMENTO VIA PIX</div>
+          <div className="clauses" style={{ textAlign: 'center', fontSize: '10px' }}>
+            Chave Celular: <strong>48999035854</strong><br />
+            Favorecido: <strong>Maykon da Rosa</strong>
+          </div>
+
+          <div className="divider"></div>
+
+          <div className="footer-note" style={{ fontStyle: 'italic' }}>
+            Apresente este canhoto para retirar seu equipamento na assistência técnica. Obrigado!
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="os-thermal-receipt">
         <style>{getPrintStyles('thermal')}</style>
