@@ -989,6 +989,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         <>
           <div className={cn(
             "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
+            selectedCustomer.classification === 'A_VISTA' ? "bg-blue-500/10 border-blue-500/20 text-blue-400" :
             selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20 text-red-400" :
             selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
             "bg-success/10 border-success/20 text-success"
@@ -996,6 +997,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             <div className="flex items-center gap-3">
               <div className={cn(
                 "p-2 rounded-xl border",
+                selectedCustomer.classification === 'A_VISTA' ? "bg-blue-500/10 border-blue-500/20" :
                 selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20" :
                 selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20" :
                 "bg-success/10 border-success/20"
@@ -1005,11 +1007,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <div>
                 <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
                 <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
-                  Cliente {selectedCustomer.classification === 'BOM' ? 'Premium (5% a.m.)' : selectedCustomer.classification === 'RUIM' ? 'Flex (12% a.m.)' : 'Standard (8% a.m.)'}
+                  {selectedCustomer.classification === 'A_VISTA' ? 'Somente À Vista' :
+                   selectedCustomer.classification === 'BOM' ? 'Cliente Premium (5% a.m.)' :
+                   selectedCustomer.classification === 'RUIM' ? 'Cliente Flex (12% a.m.)' :
+                   'Cliente Standard (8% a.m.)'}
                 </h4>
               </div>
             </div>
             <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
+              {selectedCustomer.classification === 'A_VISTA' && (
+                <span>ℹ️ <strong>Somente À Vista:</strong> Vendas parceladas no carnê não são permitidas para este cliente. O pagamento deve ser realizado à vista (Dinheiro/Pix) ou no cartão.</span>
+              )}
               {selectedCustomer.classification === 'RUIM' && (
                 <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de <strong>12% a.m.</strong> (Tabela Flex) devido ao risco elevado.</span>
               )}
