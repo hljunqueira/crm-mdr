@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.inventory_audits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id UUID NOT NULL REFERENCES public.stores(id) ON DELETE CASCADE,
     status TEXT NOT NULL CHECK (status IN ('in_progress', 'completed', 'cancelled')) DEFAULT 'in_progress',
-    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     completed_at TIMESTAMPTZ,
     total_cost_discrepancy NUMERIC(10, 2) DEFAULT 0.00
@@ -15,12 +15,15 @@ CREATE TABLE IF NOT EXISTS public.inventory_audits (
 ALTER TABLE public.inventory_audits ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de Acesso Simplificadas (Acesso para todos os perfis autenticados)
+DROP POLICY IF EXISTS "Permitir leitura para usuários autenticados" ON public.inventory_audits;
 CREATE POLICY "Permitir leitura para usuários autenticados" ON public.inventory_audits
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Permitir inserção para usuários autenticados" ON public.inventory_audits;
 CREATE POLICY "Permitir inserção para usuários autenticados" ON public.inventory_audits
     FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir atualização para usuários autenticados" ON public.inventory_audits;
 CREATE POLICY "Permitir atualização para usuários autenticados" ON public.inventory_audits
     FOR UPDATE TO authenticated USING (true);
 
@@ -42,15 +45,19 @@ CREATE TABLE IF NOT EXISTS public.inventory_audit_items (
 -- Habilitar RLS
 ALTER TABLE public.inventory_audit_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Permitir leitura de itens para usuários autenticados" ON public.inventory_audit_items;
 CREATE POLICY "Permitir leitura de itens para usuários autenticados" ON public.inventory_audit_items
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Permitir inserção de itens para usuários autenticados" ON public.inventory_audit_items;
 CREATE POLICY "Permitir inserção de itens para usuários autenticados" ON public.inventory_audit_items
     FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Permitir atualização de itens para usuários autenticados" ON public.inventory_audit_items;
 CREATE POLICY "Permitir atualização de itens para usuários autenticados" ON public.inventory_audit_items
     FOR UPDATE TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Permitir deleção de itens para usuários autenticados" ON public.inventory_audit_items;
 CREATE POLICY "Permitir deleção de itens para usuários autenticados" ON public.inventory_audit_items
     FOR DELETE TO authenticated USING (true);
 

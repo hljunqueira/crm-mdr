@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('service_orders')
-      .select('*, customers(name, phone, cpf), profiles(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
+      .select('*, customers(name, phone, cpf), profiles:profiles!responsible_technician_id(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -47,7 +47,7 @@ router.get("/:id", async (req, res) => {
   try {
     const { data: os, error: osError } = await supabase
       .from('service_orders')
-      .select('*, customers(*), profiles(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
+      .select('*, customers(*), profiles:profiles!responsible_technician_id(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
       .eq('id', req.params.id)
       .single();
 

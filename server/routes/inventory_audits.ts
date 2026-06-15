@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
   try {
     let query = supabase
       .from("inventory_audits")
-      .select("*, stores(name), profiles(full_name)")
+      .select("*, stores(name)")
       .order("created_at", { ascending: false });
 
     if (store_id && store_id !== "all") {
@@ -18,6 +18,24 @@ router.get("/", async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
+
+    if (data && data.length > 0) {
+      const createdByIds = data.map(item => item.created_by).filter(Boolean);
+      if (createdByIds.length > 0) {
+        const { data: profiles, error: profError } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", createdByIds);
+        
+        if (!profError && profiles) {
+          data.forEach(item => {
+            const profile = profiles.find(p => p.id === item.created_by);
+            item.profiles = profile ? { full_name: profile.full_name } : null;
+          });
+        }
+      }
+    }
+
     res.json(data);
   } catch (error: any) {
     console.error("[InventoryAudits GET] Erro:", error);
@@ -34,12 +52,25 @@ router.get("/active", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("inventory_audits")
-      .select("*, stores(name), profiles(full_name)")
+      .select("*, stores(name)")
       .eq("store_id", store_id)
       .eq("status", "in_progress")
       .maybeSingle();
 
     if (error) throw error;
+
+    if (data && data.created_by) {
+      const { data: profile, error: profError } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", data.created_by)
+        .maybeSingle();
+      if (!profError && profile) {
+        data.profiles = profile;
+      } else {
+        data.profiles = null;
+      }
+    }
     res.json(data);
   } catch (error: any) {
     console.error("[InventoryAudits Active GET] Erro:", error);
