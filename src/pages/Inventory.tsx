@@ -524,7 +524,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           
           Object.values(synonymsMap).forEach(syns => {
             const normalizedSyns = syns.map(s => normalizeString(s));
-            if (cells.some(cell => normalizedSyns.includes(cell))) {
+            if (cells.some(cell => normalizedSyns.includes(cell) || normalizedSyns.some(syn => cell.includes(syn) || syn.includes(cell)))) {
               score++;
             }
           });
@@ -537,9 +537,23 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
 
         const headers = lines[bestHeaderIdx].split(separator).map(h => h.trim().replace(/^["']|["']$/g, ''));
 
+        // Robust two-pass fuzzy match helper
         const getHeaderIndex = (synonyms: string[]) => {
           const normalizedSynonyms = synonyms.map(s => normalizeString(s));
-          return headers.findIndex(h => normalizedSynonyms.includes(normalizeString(h)));
+          
+          // Pass 1: Exact match
+          const exactIdx = headers.findIndex(h => {
+            const normH = normalizeString(h);
+            return normalizedSynonyms.includes(normH);
+          });
+          if (exactIdx !== -1) return exactIdx;
+
+          // Pass 2: Fuzzy match (inclusion)
+          return headers.findIndex(h => {
+            const normH = normalizeString(h);
+            if (!normH) return false;
+            return normalizedSynonyms.some(syn => normH.includes(syn) || syn.includes(normH));
+          });
         };
 
         const descIdx = getHeaderIndex(synonymsMap.desc);
@@ -571,7 +585,8 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
         const parseInteger = (val: string): number => {
           if (!val) return 1;
           const clean = val.replace(/\D/g, '');
-          return parseInt(clean, 10) || 1;
+          if (clean === '') return 1;
+          return parseInt(clean, 10);
         };
 
         const parsedRows = [];
@@ -635,7 +650,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           const rowErrors: string[] = [];
           if (numCost < 0) rowErrors.push('Preço de custo inválido.');
           if (numSale < 0) rowErrors.push('Preço de venda inválido.');
-          if (numQty <= 0) rowErrors.push('Quantidade inválida.');
+          if (numQty < 0) rowErrors.push('Quantidade inválida.');
 
           parsedRows.push({
             _line: i + 1,
