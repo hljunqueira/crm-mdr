@@ -61,19 +61,7 @@ export default function Landing() {
           .order('created_at', { ascending: false })
           .limit(8);
 
-        // 2. Fallback: Se não houver itens com destaque marcado, traz quaisquer disponíveis
-        if (error || !data || data.length === 0) {
-          const fallbackRes = await supabase
-            .from('devices')
-            .select('id, brand, model, condition, sale_price, stock_quantity, image_url, show_on_landing')
-            .eq('status', 'available')
-            .order('created_at', { ascending: false })
-            .limit(8);
-          
-          if (!fallbackRes.error && fallbackRes.data) {
-            data = fallbackRes.data;
-          }
-        }
+
 
         if (data && data.length > 0) {
           // Filtra itens com stock_quantity > 0 OU sem controle de estoque

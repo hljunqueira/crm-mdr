@@ -530,23 +530,21 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               />
             </div>
 
-            {formData.category === 'smartphone' && (
-              <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between gap-4 mt-2">
-                <div className="space-y-0.5">
-                  <span className="text-[9px] font-black text-primary uppercase tracking-widest block leading-none">⚡ Destacar na Vitrine da Página Inicial</span>
-                  <p className="text-[8px] text-on-surface-variant/70 leading-normal">Exibir este celular no carrossel 3D giratório da página pública.</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={formData.show_on_landing}
-                    onChange={(e) => setFormData({ ...formData, show_on_landing: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                </label>
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center justify-between gap-4 mt-2">
+              <div className="space-y-0.5">
+                <span className="text-[9px] font-black text-primary uppercase tracking-widest block leading-none">⚡ Destacar na Vitrine da Página Inicial</span>
+                <p className="text-[8px] text-on-surface-variant/70 leading-normal">Exibir este produto no carrossel 3D giratório da página pública.</p>
               </div>
-            )}
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formData.show_on_landing}
+                  onChange={(e) => setFormData({ ...formData, show_on_landing: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
           </div>
         )}
       </div>
