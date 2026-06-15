@@ -1469,12 +1469,12 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '55px' }}>
+        <div className="sig-line-box" style={{ marginTop: '20px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '75px' }}>
+        <div className="sig-line-box" style={{ marginTop: '25px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
@@ -1778,12 +1778,12 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '55px' }}>
+        <div className="sig-line-box" style={{ marginTop: '20px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">Técnico: {currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '75px' }}>
+        <div className="sig-line-box" style={{ marginTop: '25px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
         </div>
@@ -2874,17 +2874,17 @@ export default function ServiceOrders() {
           {/* Style for OS thermal receipts */}
           <style>{`
             .os-thermal-receipt {
-              width: 80mm;
-              margin: 0 auto;
-              padding: 4mm;
-              box-sizing: border-box;
-              font-family: 'Courier New', Courier, monospace;
-              font-size: 11px;
-              color: #000;
-              background: #fff;
-              line-height: 1.3;
-            }
-            .os-thermal-receipt .header-center {
+               width: 80mm;
+               margin: 0 auto;
+               padding: 2mm 4mm;
+               box-sizing: border-box;
+               font-family: 'Courier New', Courier, monospace;
+               font-size: 11px;
+               color: #000;
+               background: #fff;
+               line-height: 1.3;
+             }
+             .os-thermal-receipt .header-center {
               text-align: center;
               margin-bottom: 6px;
             }
@@ -2920,13 +2920,13 @@ export default function ServiceOrders() {
             }
             .os-thermal-receipt .divider {
               border-top: 1px dashed #000;
-              margin: 6px 0;
+              margin: 3px 0;
             }
             .os-thermal-receipt .double-divider {
               border-top: 1px double #000;
               border-bottom: 1px double #000;
               height: 3px;
-              margin: 6px 0;
+              margin: 3px 0;
             }
             .os-thermal-receipt .section-title {
               font-weight: bold;
@@ -2939,7 +2939,7 @@ export default function ServiceOrders() {
             .os-thermal-receipt .row {
               display: flex;
               justify-content: space-between;
-              margin: 2px 0;
+              margin: 1px 0;
             }
             .os-thermal-receipt .align-right {
               text-align: right;
