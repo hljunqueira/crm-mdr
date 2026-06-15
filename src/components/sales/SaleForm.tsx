@@ -109,7 +109,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
     try {
       const newCustomer = await addCustomer({
-        unit_id: profile?.unit_id || undefined,
         name: quickCustomer.name.trim(),
         cpf: formatCPF(cleanCpf),
         phone: formatPhone(quickCustomer.phone),

@@ -311,8 +311,7 @@ export default function ServiceOrders() {
         credit_limit: 0,
         credit_status: 'APROVADO',
         registration_status: 'APROVADO',
-        approved_for_purchase: true,
-        unit_id: profile?.unit_id || undefined
+        approved_for_purchase: true
       });
 
       await fetchCustomers(profile?.unit_id || undefined);
