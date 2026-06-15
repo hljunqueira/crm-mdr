@@ -54,6 +54,16 @@ export default function Reports() {
     new Date().getMonth() + 1
   );
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const lucroPresumidoYears = useMemo(() => {
+    const startYear = 2026;
+    const currentYear = new Date().getFullYear();
+    const endYear = Math.max(currentYear + 1, 2026);
+    const list = [];
+    for (let y = startYear; y <= endYear; y++) {
+      list.push(y);
+    }
+    return list;
+  }, []);
   const [accountingRegime, setAccountingRegime] = useState<'competence' | 'cash'>('competence');
   const [issRate, setIssRate] = useState<number>(5);
 
@@ -1352,7 +1362,7 @@ export default function Reports() {
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                   className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black"
                 >
-                  {[2024, 2025, 2026, 2027].map(y => (
+                  {lucroPresumidoYears.map(y => (
                     <option key={y} value={y} className="bg-[#0f0f1a]">{y}</option>
                   ))}
                 </select>
