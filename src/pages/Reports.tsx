@@ -4,7 +4,8 @@ import {
   TrendingUp, DollarSign, Briefcase, Calendar, ChevronDown, 
   Download, BarChart2, Printer, Percent, Award, BookOpen, Clock, 
   Users, ArrowUpRight, CheckCircle2, AlertCircle, Wrench, ChevronUp, Eye,
-  Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X, Trash2
+  Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X, Trash2,
+  Barcode, AlertTriangle
 } from 'lucide-react';
 import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
@@ -15,6 +16,7 @@ import { useUnitStore } from '../store/useUnitStore';
 import { useCashStore, CashTransaction } from '../store/useCashStore';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { useInventoryAuditStore } from '../store/useInventoryAuditStore';
 
 export default function Reports() {
   const { showNotification } = useUI();
@@ -27,7 +29,7 @@ export default function Reports() {
   const { profile } = useAuthStore();
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria'>('overview');
 
   // Global filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
@@ -66,6 +68,29 @@ export default function Reports() {
   const [txToDeleteId, setTxToDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Inventory Audit States
+  const {
+    audits,
+    activeAudit,
+    auditItems,
+    isLoading: isAuditLoading,
+    fetchAudits,
+    fetchActiveAudit,
+    startAudit,
+    fetchAuditItems,
+    saveAuditItem,
+    finalizeAudit,
+    cancelAudit
+  } = useInventoryAuditStore();
+
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditCategory, setAuditCategory] = useState('all');
+  const [auditDivergence, setAuditDivergence] = useState<'all' | 'correct' | 'missing' | 'extra' | 'pending'>('all');
+  const [barcodeMode, setBarcodeMode] = useState(false);
+  const [scannedCode, setScannedCode] = useState('');
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+
   // Fetch all required data on mount
   useEffect(() => {
     fetchSales();
@@ -78,6 +103,19 @@ export default function Reports() {
     fetchTransactions(selectedUnitId);
     fetchInventory(selectedUnitId);
   }, [selectedUnitId, fetchTransactions, fetchInventory]);
+
+  useEffect(() => {
+    if (activeTab === 'auditoria') {
+      fetchAudits(selectedUnitId);
+      if (selectedUnitId && selectedUnitId !== 'all') {
+        fetchActiveAudit(selectedUnitId).then((active) => {
+          if (active) {
+            fetchAuditItems(active.id);
+          }
+        });
+      }
+    }
+  }, [activeTab, selectedUnitId, fetchAudits, fetchActiveAudit, fetchAuditItems]);
 
   // Date check helper
   const filterByDateRange = (dateStr?: string) => {
@@ -372,6 +410,134 @@ export default function Reports() {
     showNotification('success', 'Planilha exportada com sucesso!');
   };
 
+  const filteredAuditItems = useMemo(() => {
+    return auditItems.filter(item => {
+      const matchesSearch = 
+        item.model.toLowerCase().includes(auditSearch.toLowerCase()) ||
+        item.brand.toLowerCase().includes(auditSearch.toLowerCase()) ||
+        (item.barcode || '').includes(auditSearch) ||
+        (item.imei || '').includes(auditSearch);
+        
+      const matchesCategory = auditCategory === 'all' || item.category === auditCategory;
+      
+      let matchesDivergence = true;
+      if (auditDivergence === 'correct') {
+        matchesDivergence = item.physical_quantity !== null && item.physical_quantity === item.system_quantity;
+      } else if (auditDivergence === 'missing') {
+        matchesDivergence = item.physical_quantity !== null && item.physical_quantity < item.system_quantity;
+      } else if (auditDivergence === 'extra') {
+        matchesDivergence = item.physical_quantity !== null && item.physical_quantity > item.system_quantity;
+      } else if (auditDivergence === 'pending') {
+        matchesDivergence = item.physical_quantity === null;
+      }
+      
+      return matchesSearch && matchesCategory && matchesDivergence;
+    });
+  }, [auditItems, auditSearch, auditCategory, auditDivergence]);
+
+  const handlePrintAuditSheet = (blind: boolean) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showNotification('error', 'Bloqueador de Pop-ups', 'Por favor, permita pop-ups para imprimir a folha de conferência.');
+      return;
+    }
+    
+    const storeName = units.find(u => u.id === selectedUnitId)?.name || 'MDR';
+    const dateStr = new Date().toLocaleDateString('pt-BR');
+    
+    let rowsHtml = filteredAuditItems
+      .map(item => `
+        <tr>
+          <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace;">${item.barcode || '—'}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold; text-transform: uppercase;">${item.brand} - ${item.model}</td>
+          <td style="padding: 8px; border: 1px solid #ddd; font-family: monospace;">${item.imei ? `IMEI: ${item.imei}` : '—'}</td>
+          ${!blind ? `<td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${item.system_quantity}</td>` : ''}
+          <td style="padding: 8px; border: 1px solid #ddd; width: 80px;"></td>
+          <td style="padding: 8px; border: 1px solid #ddd; width: 150px;"></td>
+        </tr>
+      `).join('');
+      
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Folha de Conferência de Estoque</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            h2 { margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+            p { margin-top: 0; color: #666; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 11px; }
+            th { border: 1px solid #aaa; padding: 10px 8px; text-align: left; background-color: #f0f0f0; text-transform: uppercase; font-size: 9px; letter-spacing: 1px; }
+            td { border: 1px solid #ddd; }
+            .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+            .signature-box { border-top: 1px solid #333; width: 230px; text-align: center; padding-top: 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin-top: 30px; }
+          </style>
+        </head>
+        <body>
+          <h2>Folha de Conferência - ${storeName}</h2>
+          <p>Emitido em: ${dateStr} às ${new Date().toLocaleTimeString('pt-BR')} | Modo: <strong>${blind ? 'Lista Cega (Contagem sem viés)' : 'Lista Completa'}</strong></p>
+          <table>
+            <thead>
+              <tr>
+                <th>Código de Barras</th>
+                <th>Produto / Modelo</th>
+                <th>Especificador / IMEI</th>
+                ${!blind ? '<th style="text-align: center;">Qtd. Sistema</th>' : ''}
+                <th style="width: 80px;">Qtd. Física</th>
+                <th style="width: 150px;">Divergência / Obs</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml || '<tr><td colspan="6" style="padding: 20px; text-align: center;">Nenhum produto selecionado ou filtrado.</td></tr>'}
+            </tbody>
+          </table>
+          <div class="footer">
+            <div class="signature-box">Assinatura do Conferente</div>
+            <div class="signature-box">Assinatura do Gerente / Administrador</div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!scannedCode.trim()) return;
+    if (!activeAudit) return;
+    
+    const code = scannedCode.trim().toLowerCase();
+    const item = auditItems.find(i => 
+      (i.barcode && i.barcode.toLowerCase() === code) || 
+      (i.imei && i.imei.toLowerCase() === code)
+    );
+    
+    if (item) {
+      const currentQty = item.physical_quantity !== null ? item.physical_quantity : 0;
+      const newQty = currentQty + 1;
+      
+      try {
+        await saveAuditItem(activeAudit.id, item.device_id, newQty, item.reason);
+        showNotification('success', `${item.brand} ${item.model} incrementado!`, `Total físico: ${newQty}`);
+        
+        try {
+          const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==");
+          audio.play().catch(() => {});
+        } catch {}
+      } catch (err: any) {
+        showNotification('error', 'Erro ao bipar', err.message);
+      }
+    } else {
+      showNotification('error', 'Produto não encontrado', `Código "${scannedCode}" não existe neste estoque.`);
+    }
+    setScannedCode('');
+  };
+
   const handleExportSales = () => {
     if (filteredSales.length === 0) {
       showNotification('warning', 'Sem Dados', 'Não há registros filtrados para exportar.');
@@ -482,6 +648,25 @@ export default function Reports() {
     exportTableCSV(rows, 'relatorio_fluxo_caixa', headers);
   };
 
+  const auditStats = useMemo(() => {
+    if (!activeAudit || !auditItems.length) {
+      return { totalItems: 0, countedItems: 0, deltaCount: 0, costDiscrepancy: 0, percentage: 0 };
+    }
+    const totalItems = auditItems.length;
+    const countedItems = auditItems.filter(i => i.physical_quantity !== null).length;
+    let deltaCount = 0;
+    let costDiscrepancy = 0;
+    auditItems.forEach(i => {
+      if (i.physical_quantity !== null) {
+        const d = i.physical_quantity - i.system_quantity;
+        deltaCount += d;
+        costDiscrepancy += d * i.cost_price;
+      }
+    });
+    const percentage = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
+    return { totalItems, countedItems, deltaCount, costDiscrepancy, percentage };
+  }, [activeAudit, auditItems]);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20 p-8 print:p-0 print:bg-white print:text-black print:space-y-4 print:pb-0">
       
@@ -543,12 +728,13 @@ export default function Reports() {
       </div>
 
       {/* TABS SELECTOR (HIDDEN ON PRINT) */}
-      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-xl print:hidden">
+      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-2xl print:hidden">
         {[
           { id: 'overview', label: 'Visão Geral', icon: BarChart2 },
           { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
           { id: 'lucro_presumido', label: 'Lucro Presumido', icon: Calculator },
-          { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench }
+          { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench },
+          { id: 'auditoria', label: 'Auditoria de Estoque', icon: CheckCircle2 }
         ].map(tab => (
           <button
             key={tab.id}
@@ -1486,6 +1672,458 @@ export default function Reports() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ─── TAB 4: AUDITORIA DE ESTOQUE ─────────────────────────────────────── */}
+      {activeTab === 'auditoria' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          
+          {activeAudit ? (
+            // ==================== SEÇÃO: AUDITORIA EM ANDAMENTO ====================
+            <div className="space-y-6">
+              
+              {/* Card de Sessão Ativa */}
+              <div className="bg-white/[0.02] border border-[#6C63FF]/30 rounded-[32px] p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                  <span className="bg-[#6C63FF]/20 text-[#6C63FF] border border-[#6C63FF]/30 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">Auditoria Ativa</span>
+                  <h2 className="text-xl font-black text-white uppercase mt-2">
+                    {units.find(u => u.id === activeAudit.store_id)?.name || 'Carregando Filial...'}
+                  </h2>
+                  <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1 opacity-70">
+                    Iniciada em {new Date(activeAudit.created_at).toLocaleString('pt-BR')} por {activeAudit.profiles?.full_name || 'Usuário'}
+                  </p>
+                </div>
+
+                {/* Ações de Sessão */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => handlePrintAuditSheet(true)}
+                    className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all cursor-pointer"
+                    title="Imprime a lista sem quantidades do sistema, forçando a contagem real."
+                  >
+                    <Printer size={12} /> Folha Cega
+                  </button>
+                  <button
+                    onClick={() => handlePrintAuditSheet(false)}
+                    className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all cursor-pointer"
+                    title="Imprime a lista mostrando a quantidade cadastrada no sistema."
+                  >
+                    <Printer size={12} /> Folha Completa
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Tem certeza que deseja cancelar a auditoria? Todo o progresso de contagem desta sessão será perdido.')) return;
+                      setIsCancelling(true);
+                      try {
+                        await cancelAudit(activeAudit.id);
+                        showNotification('success', 'Auditoria cancelada com sucesso.');
+                        fetchAudits(selectedUnitId);
+                      } catch (err: any) {
+                        showNotification('error', 'Erro ao cancelar', err.message);
+                      } finally {
+                        setIsCancelling(false);
+                      }
+                    }}
+                    disabled={isCancelling}
+                    className="bg-error/10 hover:bg-error/20 text-error border border-error/20 px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isCancelling ? <Loader2 size={12} className="animate-spin" /> : 'Cancelar'}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (auditStats.countedItems < auditStats.totalItems) {
+                        if (!window.confirm(`Você só conferiu ${auditStats.countedItems} de ${auditStats.totalItems} produtos. Deseja finalizar mesmo assim? Itens não contados não sofrerão alterações.`)) return;
+                      } else {
+                        if (!window.confirm('Deseja realmente finalizar esta auditoria de estoque? O estoque da loja será recalculado e atualizado.')) return;
+                      }
+                      setIsFinalizing(true);
+                      try {
+                        await finalizeAudit(activeAudit.id, profile?.id || '');
+                        showNotification('success', 'Auditoria concluída e estoque ajustado com sucesso!');
+                        fetchAudits(selectedUnitId);
+                      } catch (err: any) {
+                        showNotification('error', 'Erro ao finalizar', err.response?.data?.error || err.message);
+                      } finally {
+                        setIsFinalizing(false);
+                      }
+                    }}
+                    disabled={isFinalizing}
+                    className="bg-primary text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-primary/10 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isFinalizing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                    Finalizar e Ajustar
+                  </button>
+                </div>
+              </div>
+
+              {/* KPIs de Auditoria */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/[0.01] p-5 border border-white/5 rounded-3xl">
+                  <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Progresso da Contagem</p>
+                  <h3 className="text-xl font-black text-white font-mono">{auditStats.countedItems} / {auditStats.totalItems} <span className="text-[10px] text-on-surface-variant font-display font-medium">({auditStats.percentage}%)</span></h3>
+                  <div className="w-full h-2 bg-white/5 rounded-full mt-3 overflow-hidden border border-white/5 p-0.5">
+                    <div className="h-full rounded-full bg-gradient-to-r from-[#6C63FF] to-primary" style={{ width: `${auditStats.percentage}%` }} />
+                  </div>
+                </div>
+
+                <div className="bg-white/[0.01] p-5 border border-white/5 rounded-3xl">
+                  <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Variação Total (Divergências)</p>
+                  <h3 className={`text-xl font-black font-mono ${auditStats.deltaCount === 0 ? 'text-white' : auditStats.deltaCount > 0 ? 'text-green-400' : 'text-error'}`}>
+                    {auditStats.deltaCount > 0 ? `+${auditStats.deltaCount}` : auditStats.deltaCount} unidades
+                  </h3>
+                  <p className="text-[8px] text-on-surface-variant opacity-70 mt-1 uppercase tracking-widest">Saldo total de itens a mais/menos</p>
+                </div>
+
+                <div className="bg-white/[0.01] p-5 border border-white/5 rounded-3xl">
+                  <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Impacto Financeiro (Custo)</p>
+                  <h3 className={`text-xl font-black font-mono ${auditStats.costDiscrepancy === 0 ? 'text-white' : auditStats.costDiscrepancy > 0 ? 'text-green-400' : 'text-error'}`}>
+                    R$ {auditStats.costDiscrepancy.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </h3>
+                  <p className="text-[8px] text-on-surface-variant opacity-70 mt-1 uppercase tracking-widest">Baseado no preço de custo cadastrado</p>
+                </div>
+              </div>
+
+              {/* Modo Bipador Contínuo */}
+              <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                      <Barcode size={16} className="text-[#6C63FF]" /> Modo Leitor de Código de Barras (Contínuo)
+                    </h3>
+                    <p className="text-[9px] text-on-surface-variant opacity-70 mt-0.5">
+                      Ao ativar, bipar um produto adicionará automaticamente +1 na quantidade física sem requerer cliques.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setBarcodeMode(!barcodeMode);
+                      setScannedCode('');
+                    }}
+                    className={`px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                      barcodeMode 
+                        ? 'bg-[#6C63FF] text-white shadow-lg shadow-[#6C63FF]/20' 
+                        : 'bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white border border-white/10'
+                    }`}
+                  >
+                    {barcodeMode ? 'Modo Bipador: ATIVO' : 'Ativar Modo Bipador'}
+                  </button>
+                </div>
+
+                <AnimatePresence>
+                  {barcodeMode && (
+                    <motion.form 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      onSubmit={handleBarcodeSubmit}
+                      className="mt-4 pt-4 border-t border-white/5 flex gap-3"
+                    >
+                      <input
+                        type="text"
+                        autoFocus
+                        value={scannedCode}
+                        onChange={(e) => setScannedCode(e.target.value)}
+                        placeholder="Bipe o código de barras ou IMEI do produto aqui..."
+                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none focus:border-[#6C63FF] focus:bg-white/[0.08] transition-all font-mono"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-[#6C63FF] text-white px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all cursor-pointer"
+                      >
+                        Bipar
+                      </button>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Tabela de Produtos para Auditoria */}
+              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+                
+                {/* Filtros da Tabela */}
+                <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
+                  <div className="flex flex-wrap items-center gap-3 flex-grow">
+                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex-1 min-w-[200px]">
+                      <Search size={14} className="text-on-surface-variant mr-2" />
+                      <input
+                        type="text"
+                        value={auditSearch}
+                        onChange={(e) => setAuditSearch(e.target.value)}
+                        placeholder="Buscar por modelo, marca, código..."
+                        className="bg-transparent border-none outline-none text-xs text-white placeholder-on-surface-variant/40 w-full"
+                      />
+                      {auditSearch && (
+                        <button onClick={() => setAuditSearch('')} className="text-on-surface-variant hover:text-white">
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[160px]">
+                      <select
+                        value={auditCategory}
+                        onChange={(e) => setAuditCategory(e.target.value)}
+                        className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right center',
+                        }}
+                      >
+                        <option value="all" className="bg-[#0f0f1a]">Todas as Categorias</option>
+                        <option value="smartphone" className="bg-[#0f0f1a]">Celular</option>
+                        <option value="accessory_mobile" className="bg-[#0f0f1a]">Acessório Celular</option>
+                        <option value="accessory_it" className="bg-[#0f0f1a]">Acessório TI</option>
+                        <option value="part" className="bg-[#0f0f1a]">Peça</option>
+                        <option value="other" className="bg-[#0f0f1a]">Outros</option>
+                      </select>
+                    </div>
+
+                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[180px]">
+                      <select
+                        value={auditDivergence}
+                        onChange={(e) => setAuditDivergence(e.target.value as any)}
+                        className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right center',
+                        }}
+                      >
+                        <option value="all" className="bg-[#0f0f1a]">Divergência: Todas</option>
+                        <option value="correct" className="bg-[#0f0f1a]">Divergência: Sem Desvios</option>
+                        <option value="missing" className="bg-[#0f0f1a]">Divergência: Falta (-)</option>
+                        <option value="extra" className="bg-[#0f0f1a]">Divergência: Sobra (+)</option>
+                        <option value="pending" className="bg-[#0f0f1a]">Divergência: Não Conferidos</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Listagem */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-widest pb-3">
+                        <th className="pb-3 pl-4">Produto</th>
+                        <th className="pb-3">Código/Identificador</th>
+                        <th className="pb-3 text-center">Qtd. Sistema</th>
+                        <th className="pb-3 text-center" style={{ width: '160px' }}>Qtd. Física</th>
+                        <th className="pb-3 text-center">Desvio</th>
+                        <th className="pb-3" style={{ width: '180px' }}>Motivo (Se Desvio)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredAuditItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhum produto atende aos filtros de auditoria.</td>
+                        </tr>
+                      ) : (
+                        filteredAuditItems.map((item) => {
+                          const physical = item.physical_quantity;
+                          const system = item.system_quantity;
+                          const hasCounted = physical !== null;
+                          const diff = hasCounted ? physical - system : 0;
+                          
+                          return (
+                            <tr key={item.device_id} className="hover:bg-white/[0.01] transition-colors">
+                              <td className="py-4 pl-4">
+                                <span className="text-xs font-black text-white uppercase tracking-wider">{item.brand} {item.model}</span>
+                                <div className="text-[8px] font-black uppercase text-on-surface-variant opacity-75 mt-0.5">
+                                  {item.category === 'smartphone' ? 'Celular' :
+                                   item.category === 'accessory_mobile' ? 'Acessório Celular' :
+                                   item.category === 'accessory_it' ? 'Acessório TI' :
+                                   item.category === 'part' ? 'Peça' : 'Outros'}
+                                </div>
+                              </td>
+                              <td className="py-4">
+                                <div className="text-[10px] font-mono text-white opacity-80">{item.barcode ? `BARCODE: ${item.barcode}` : '—'}</div>
+                                {item.imei && <div className="text-[9px] font-mono text-[#6C63FF] mt-0.5">IMEI: {item.imei}</div>}
+                              </td>
+                              <td className="py-4 text-center font-mono text-xs font-bold text-white">
+                                {system}
+                              </td>
+                              <td className="py-4 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => {
+                                      const current = physical !== null ? physical : 0;
+                                      if (current > 0) {
+                                        saveAuditItem(activeAudit.id, item.device_id, current - 1, item.reason);
+                                      }
+                                    }}
+                                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-white font-black font-mono transition-all text-xs"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    value={physical !== null ? physical : ''}
+                                    placeholder="Não contado"
+                                    onChange={(e) => {
+                                      const val = e.target.value === '' ? null : Number(e.target.value);
+                                      if (val !== null && val >= 0) {
+                                        saveAuditItem(activeAudit.id, item.device_id, val, item.reason);
+                                      }
+                                    }}
+                                    className="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-center text-xs font-mono text-white outline-none focus:border-[#6C63FF]"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const current = physical !== null ? physical : 0;
+                                      saveAuditItem(activeAudit.id, item.device_id, current + 1, item.reason);
+                                    }}
+                                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-white font-black font-mono transition-all text-xs"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-4 text-center">
+                                {!hasCounted ? (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-on-surface-variant opacity-50">—</span>
+                                ) : diff === 0 ? (
+                                  <span className="bg-success/15 border border-success/30 text-success text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">Ok (0)</span>
+                                ) : diff > 0 ? (
+                                  <span className="bg-warning/15 border border-warning/30 text-warning text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">+{diff} Sobra</span>
+                                ) : (
+                                  <span className="bg-error/15 border border-error/30 text-error text-[8px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">{diff} Falta</span>
+                                )}
+                              </td>
+                              <td className="py-4">
+                                {hasCounted && diff !== 0 ? (
+                                  <select
+                                    value={item.reason || ''}
+                                    onChange={(e) => saveAuditItem(activeAudit.id, item.device_id, physical, e.target.value)}
+                                    className="bg-white/5 border border-white/10 rounded-lg text-xs text-white p-1.5 outline-none w-full"
+                                  >
+                                    <option value="" className="bg-[#0f0f1a] text-on-surface-variant">Selecione o motivo...</option>
+                                    <option value="erro_cadastro" className="bg-[#0f0f1a]">Erro de Lançamento</option>
+                                    <option value="dano" className="bg-[#0f0f1a]">Dano/Quebra</option>
+                                    <option value="furto" className="bg-[#0f0f1a]">Furto/Avaria</option>
+                                    <option value="uso_interno" className="bg-[#0f0f1a]">Brinde/Uso Interno</option>
+                                    <option value="outros" className="bg-[#0f0f1a]">Outros motivos</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-on-surface-variant opacity-40">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // ==================== SEÇÃO: INICIAR NOVA AUDITORIA / HISTÓRICO ====================
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Card Iniciar Sessão */}
+              <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:col-span-1 flex flex-col justify-between min-h-[300px]">
+                <div className="space-y-4">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <CheckCircle2 size={20} />
+                  </div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Nova Conferência de Estoque</h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">
+                    Inicie uma sessão de auditoria para conferir o estoque físico desta filial. O sistema bloqueará novas movimentações e permitirá lançar e gerar o arquivo impresso blindado.
+                  </p>
+
+                  {selectedUnitId === 'all' && (
+                    <div className="p-4 bg-warning/5 border border-warning/10 rounded-2xl text-[10px] text-warning flex items-start gap-2 leading-relaxed">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                      <span>Selecione uma filial específica no topo da página antes de iniciar uma nova auditoria.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    onClick={async () => {
+                      if (selectedUnitId === 'all') return;
+                      try {
+                        const sess = await startAudit(selectedUnitId, profile?.id || '');
+                        showNotification('success', 'Sessão de auditoria iniciada com sucesso!', 'Comece a lançar as quantidades.');
+                        fetchAuditItems(sess.id);
+                      } catch (err: any) {
+                        showNotification('error', 'Erro ao iniciar auditoria', err.response?.data?.error || err.message);
+                      }
+                    }}
+                    disabled={selectedUnitId === 'all' || isAuditLoading}
+                    className="w-full bg-primary text-black py-4 rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-primary/10 hover:scale-[1.02] transition-all cursor-pointer disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+                  >
+                    {isAuditLoading ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                    Iniciar Nova Auditoria
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabela de Histórico de Auditorias passadas */}
+              <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:col-span-2 space-y-6">
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Auditorias Concluídas</h3>
+                  <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Sessões finalizadas nesta filial</p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-widest pb-3">
+                        <th className="pb-3 pl-4">Data Conclusão</th>
+                        <th className="pb-3">Loja/Filial</th>
+                        <th className="pb-3">Responsável</th>
+                        <th className="pb-3 text-center">Status</th>
+                        <th className="pb-3 text-right pr-4">Impacto Custo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {audits.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma auditoria realizada no histórico.</td>
+                        </tr>
+                      ) : (
+                        audits.map((a) => (
+                          <tr key={a.id} className="hover:bg-white/[0.01] transition-colors">
+                            <td className="py-4 pl-4 font-mono text-[10px] text-on-surface-variant">
+                              {new Date(a.completed_at || a.created_at).toLocaleString('pt-BR')}
+                            </td>
+                            <td className="py-4 text-white uppercase font-black text-[10px]">
+                              {a.stores?.name || 'MDR'}
+                            </td>
+                            <td className="py-4 text-on-surface-variant">
+                              {a.profiles?.full_name || 'N/A'}
+                            </td>
+                            <td className="py-4 text-center">
+                              <span className={`inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                a.status === 'completed' 
+                                  ? 'bg-success/15 border border-success/30 text-success' 
+                                  : 'bg-error/15 border border-error/30 text-error'
+                              }`}>
+                                {a.status === 'completed' ? 'Ajustado' : 'Cancelado'}
+                              </span>
+                            </td>
+                            <td className={`py-4 text-right pr-4 font-mono font-black ${
+                              Number(a.total_cost_discrepancy) === 0 ? 'text-white' : Number(a.total_cost_discrepancy) > 0 ? 'text-green-400' : 'text-error'
+                            }`}>
+                              R$ {Number(a.total_cost_discrepancy || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
         </div>
       )}
 

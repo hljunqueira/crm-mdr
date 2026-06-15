@@ -12,6 +12,7 @@ import financeRoutes from "./server/routes/finance.js";
 import leadRoutes from "./server/routes/leads.js";
 import kanbanRoutes from "./server/routes/kanban.js";
 import inventoryRoutes from "./server/routes/inventory.js";
+import inventoryAuditRoutes from "./server/routes/inventory_audits.js";
 import unitsRoutes from "./server/routes/units.js";
 import supplierRoutes from "./server/routes/suppliers.js";
 import partnerRoutes from "./server/routes/partners.js";
@@ -58,6 +59,7 @@ async function startServer() {
   app.use("/api/leads", leadRoutes);
   app.use("/api/kanban", kanbanRoutes);
   app.use("/api/inventory", inventoryRoutes);
+  app.use("/api/inventory-audits", inventoryAuditRoutes);
   app.use("/api/units", unitsRoutes);
   app.use("/api/suppliers", supplierRoutes);
   app.use("/api/partners", partnerRoutes);

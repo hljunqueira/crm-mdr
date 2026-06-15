@@ -14,6 +14,7 @@ import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useCashStore } from '../store/useCashStore';
 import { formatCPF, formatPhone } from '../lib/utils';
 import SaleForm from '../components/sales/SaleForm';
 import SaleContract from '../components/sales/SaleContract';
