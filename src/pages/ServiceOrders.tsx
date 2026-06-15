@@ -1701,7 +1701,7 @@ export default function ServiceOrders() {
         {hasPermission(profile, 'OS - Criar Nova OS') && (
           <button
             onClick={handleNewOsClick}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-on-primary font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-black font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
           >
             <Plus size={16} /> Nova Ordem de Serviço
           </button>
@@ -1734,13 +1734,13 @@ export default function ServiceOrders() {
       </div>
  
       {/* Mobile Tab Switcher */}
-      <div className="flex lg:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1.5">
+      <div className="flex lg:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1">
         <button
           onClick={() => setActiveMobileTab('queue')}
           className={cn(
-            "flex-1 py-3 text-center text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all",
+            "flex-1 py-2 px-1 text-center text-[8.5px] sm:py-2.5 sm:text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all",
             activeMobileTab === 'queue'
-              ? "bg-primary text-on-primary shadow-lg shadow-primary/10"
+              ? "bg-primary text-black shadow-lg shadow-primary/10"
               : "text-on-surface-variant hover:text-white"
           )}
         >
@@ -1749,9 +1749,9 @@ export default function ServiceOrders() {
         <button
           onClick={() => setActiveMobileTab('workbench')}
           className={cn(
-            "flex-1 py-3 text-center text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all",
+            "flex-1 py-2 px-1 text-center text-[8.5px] sm:py-2.5 sm:text-[10px] font-black uppercase tracking-wider rounded-2xl transition-all",
             activeMobileTab === 'workbench'
-              ? "bg-primary text-on-primary shadow-lg shadow-primary/10"
+              ? "bg-primary text-black shadow-lg shadow-primary/10"
               : "text-on-surface-variant hover:text-white"
           )}
         >
@@ -1766,7 +1766,12 @@ export default function ServiceOrders() {
           <OsSidebar 
             filteredOs={filteredOs}
             selectedOsId={selectedOsId}
-            setSelectedOsId={setSelectedOsId}
+            setSelectedOsId={(id) => {
+              setSelectedOsId(id);
+              if (window.innerWidth < 1024) {
+                setActiveMobileTab('workbench');
+              }
+            }}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             isLoading={isLoading}
@@ -1820,6 +1825,14 @@ export default function ServiceOrders() {
               <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4">
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveMobileTab('queue')}
+                      className="lg:hidden p-2.5 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/10 active:scale-95 transition-all shrink-0"
+                      title="Voltar para a Fila"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
                     <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-primary border border-white/10 shrink-0">
                       {currentServiceOrder.device_category === 'smartphone' ? <Smartphone size={24} /> :
                        currentServiceOrder.device_category === 'notebook' || currentServiceOrder.device_category === 'desktop' ? <Monitor size={24} /> :

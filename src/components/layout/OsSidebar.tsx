@@ -41,7 +41,7 @@ export default function OsSidebar({
           type="button"
           onClick={() => setOsFilterTab('active')}
           className={cn(
-            "flex-1 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] transition-all",
+            "flex-1 py-1.5 px-1 rounded-xl font-black uppercase tracking-wider text-[8px] sm:py-2.5 sm:text-[9px] transition-all",
             osFilterTab === 'active' 
               ? "bg-white text-black shadow-lg" 
               : "text-on-surface-variant hover:text-white"
@@ -53,7 +53,7 @@ export default function OsSidebar({
           type="button"
           onClick={() => setOsFilterTab('completed')}
           className={cn(
-            "flex-1 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] transition-all",
+            "flex-1 py-1.5 px-1 rounded-xl font-black uppercase tracking-wider text-[8px] sm:py-2.5 sm:text-[9px] transition-all",
             osFilterTab === 'completed' 
               ? "bg-white text-black shadow-lg" 
               : "text-on-surface-variant hover:text-white"
@@ -65,7 +65,7 @@ export default function OsSidebar({
           type="button"
           onClick={() => setOsFilterTab('canceled')}
           className={cn(
-            "flex-1 py-2.5 rounded-xl font-black uppercase tracking-wider text-[9px] transition-all",
+            "flex-1 py-1.5 px-1 rounded-xl font-black uppercase tracking-wider text-[8px] sm:py-2.5 sm:text-[9px] transition-all",
             osFilterTab === 'canceled' 
               ? "bg-white text-black shadow-lg" 
               : "text-on-surface-variant hover:text-white"
