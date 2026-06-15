@@ -94,7 +94,8 @@ export default function Reports() {
     fetchAuditItems,
     saveAuditItem,
     finalizeAudit,
-    cancelAudit
+    cancelAudit,
+    deleteAudit
   } = useInventoryAuditStore();
 
   const [auditSearch, setAuditSearch] = useState('');
@@ -104,6 +105,11 @@ export default function Reports() {
   const [scannedCode, setScannedCode] = useState('');
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelAuditModalOpen, setIsCancelAuditModalOpen] = useState(false);
+  const [isFinalizeAuditModalOpen, setIsFinalizeAuditModalOpen] = useState(false);
+  const [isDeleteAuditModalOpen, setIsDeleteAuditModalOpen] = useState(false);
+  const [auditToDeleteId, setAuditToDeleteId] = useState<string | null>(null);
+  const [isDeletingAudit, setIsDeletingAudit] = useState(false);
 
   // Fetch all required data on mount
   useEffect(() => {
@@ -682,6 +688,51 @@ export default function Reports() {
     const percentage = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
     return { totalItems, countedItems, deltaCount, costDiscrepancy, percentage };
   }, [activeAudit, auditItems]);
+
+  const handleCancelAudit = async () => {
+    if (!activeAudit) return;
+    setIsCancelling(true);
+    setIsCancelAuditModalOpen(false);
+    try {
+      await cancelAudit(activeAudit.id);
+      showNotification('success', 'Auditoria cancelada com sucesso.');
+      fetchAudits(selectedUnitId);
+    } catch (err: any) {
+      showNotification('error', 'Erro ao cancelar', err.message);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleFinalizeAudit = async () => {
+    if (!activeAudit) return;
+    setIsFinalizing(true);
+    setIsFinalizeAuditModalOpen(false);
+    try {
+      await finalizeAudit(activeAudit.id, profile?.id || '');
+      showNotification('success', 'Auditoria concluída e estoque ajustado com sucesso!');
+      fetchAudits(selectedUnitId);
+    } catch (err: any) {
+      showNotification('error', 'Erro ao finalizar', err.response?.data?.error || err.message);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleDeleteAudit = async () => {
+    if (!auditToDeleteId || !profile?.id) return;
+    setIsDeletingAudit(true);
+    try {
+      await deleteAudit(auditToDeleteId, profile.id);
+      showNotification('success', 'Auditoria excluída com sucesso.');
+      setIsDeleteAuditModalOpen(false);
+      setAuditToDeleteId(null);
+    } catch (err: any) {
+      showNotification('error', 'Erro ao excluir', err.response?.data?.error || err.message);
+    } finally {
+      setIsDeletingAudit(false);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20 p-8 print:p-0 print:bg-white print:text-black print:space-y-4 print:pb-0">
@@ -1813,19 +1864,7 @@ export default function Reports() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      if (!window.confirm('Tem certeza que deseja cancelar a auditoria? Todo o progresso de contagem desta sessão será perdido.')) return;
-                      setIsCancelling(true);
-                      try {
-                        await cancelAudit(activeAudit.id);
-                        showNotification('success', 'Auditoria cancelada com sucesso.');
-                        fetchAudits(selectedUnitId);
-                      } catch (err: any) {
-                        showNotification('error', 'Erro ao cancelar', err.message);
-                      } finally {
-                        setIsCancelling(false);
-                      }
-                    }}
+                    onClick={() => setIsCancelAuditModalOpen(true)}
                     disabled={isCancelling}
                     className="bg-error/10 hover:bg-error/20 text-error border border-error/20 px-4 py-3 rounded-2xl font-black uppercase tracking-widest text-[9px] transition-all cursor-pointer disabled:opacity-50"
                   >
@@ -1833,23 +1872,7 @@ export default function Reports() {
                   </button>
 
                   <button
-                    onClick={async () => {
-                      if (auditStats.countedItems < auditStats.totalItems) {
-                        if (!window.confirm(`Você só conferiu ${auditStats.countedItems} de ${auditStats.totalItems} produtos. Deseja finalizar mesmo assim? Itens não contados não sofrerão alterações.`)) return;
-                      } else {
-                        if (!window.confirm('Deseja realmente finalizar esta auditoria de estoque? O estoque da loja será recalculado e atualizado.')) return;
-                      }
-                      setIsFinalizing(true);
-                      try {
-                        await finalizeAudit(activeAudit.id, profile?.id || '');
-                        showNotification('success', 'Auditoria concluída e estoque ajustado com sucesso!');
-                        fetchAudits(selectedUnitId);
-                      } catch (err: any) {
-                        showNotification('error', 'Erro ao finalizar', err.response?.data?.error || err.message);
-                      } finally {
-                        setIsFinalizing(false);
-                      }
-                    }}
+                    onClick={() => setIsFinalizeAuditModalOpen(true)}
                     disabled={isFinalizing}
                     className="bg-primary text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-primary/10 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
                   >
@@ -2179,13 +2202,14 @@ export default function Reports() {
                         <th className="pb-3">Loja/Filial</th>
                         <th className="pb-3">Responsável</th>
                         <th className="pb-3 text-center">Status</th>
-                        <th className="pb-3 text-right pr-4">Impacto Custo</th>
+                        <th className="pb-3 text-right">Impacto Custo</th>
+                        {profile?.role === 'admin' && <th className="pb-3 text-right pr-4" style={{ width: '50px' }}>Ações</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {audits.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma auditoria realizada no histórico.</td>
+                          <td colSpan={profile?.role === 'admin' ? 6 : 5} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma auditoria realizada no histórico.</td>
                         </tr>
                       ) : (
                         audits.map((a) => (
@@ -2208,11 +2232,27 @@ export default function Reports() {
                                 {a.status === 'completed' ? 'Ajustado' : 'Cancelado'}
                               </span>
                             </td>
-                            <td className={`py-4 text-right pr-4 font-mono font-black ${
+                            <td className={`py-4 text-right font-mono font-black ${
+                              profile?.role === 'admin' ? '' : 'pr-4'
+                            } ${
                               Number(a.total_cost_discrepancy) === 0 ? 'text-white' : Number(a.total_cost_discrepancy) > 0 ? 'text-green-400' : 'text-error'
                             }`}>
                               R$ {Number(a.total_cost_discrepancy || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </td>
+                            {profile?.role === 'admin' && (
+                              <td className="py-4 text-right pr-4">
+                                <button
+                                  onClick={() => {
+                                    setAuditToDeleteId(a.id);
+                                    setIsDeleteAuditModalOpen(true);
+                                  }}
+                                  className="p-1.5 bg-error/10 hover:bg-error/20 text-error rounded-xl transition-all border border-error/20 cursor-pointer"
+                                  title="Excluir auditoria do histórico"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))
                       )}
@@ -2223,6 +2263,180 @@ export default function Reports() {
 
             </div>
           )}
+
+          {/* Modal de Cancelar Auditoria Ativa */}
+          <AnimatePresence>
+            {isCancelAuditModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsCancelAuditModalOpen(false)} />
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Cancelar Auditoria</h3>
+                    <button onClick={() => setIsCancelAuditModalOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10">
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Tem certeza que deseja cancelar esta auditoria? Todo o progresso de contagem desta sessão será perdido.
+                    </p>
+                    <div className="p-4 bg-error/5 border border-error/10 rounded-2xl text-[10px] text-error font-medium leading-relaxed">
+                      ⚠️ Esta ação não pode ser desfeita. Nenhuma alteração será feita no estoque do sistema.
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCancelAuditModalOpen(false)}
+                      disabled={isCancelling}
+                      className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all cursor-pointer border border-white/10 disabled:opacity-50"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelAudit}
+                      disabled={isCancelling}
+                      className="flex-1 py-3.5 bg-error text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all cursor-pointer border border-error/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isCancelling ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Cancelando...
+                        </>
+                      ) : (
+                        'Confirmar Cancelamento'
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Modal de Finalizar Auditoria */}
+          <AnimatePresence>
+            {isFinalizeAuditModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsFinalizeAuditModalOpen(false)} />
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Finalizar Auditoria</h3>
+                    <button onClick={() => setIsFinalizeAuditModalOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10">
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      {auditStats.countedItems < auditStats.totalItems 
+                        ? `Você só conferiu ${auditStats.countedItems} de ${auditStats.totalItems} produtos. Tem certeza que deseja finalizar mesmo assim?`
+                        : 'Deseja realmente finalizar esta auditoria de estoque?'
+                      }
+                    </p>
+                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl text-[10px] text-primary font-medium leading-relaxed">
+                      💡 O estoque de todos os itens conferidos com divergência será ajustado automaticamente para refletir as quantidades físicas registradas. Itens não conferidos não sofrerão alterações.
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsFinalizeAuditModalOpen(false)}
+                      disabled={isFinalizing}
+                      className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all cursor-pointer border border-white/10 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleFinalizeAudit}
+                      disabled={isFinalizing}
+                      className="flex-1 py-3.5 bg-primary text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shadow-lg shadow-primary/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isFinalizing ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Finalizando...
+                        </>
+                      ) : (
+                        'Confirmar e Ajustar'
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Modal de Excluir Histórico de Auditoria */}
+          <AnimatePresence>
+            {isDeleteAuditModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsDeleteAuditModalOpen(false)} />
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white">Excluir Auditoria</h3>
+                    <button onClick={() => setIsDeleteAuditModalOpen(false)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10">
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs text-on-surface-variant leading-relaxed">
+                      Tem certeza que deseja remover este registro de auditoria permanentemente do histórico da loja?
+                    </p>
+                    <div className="p-4 bg-error/5 border border-error/10 rounded-2xl text-[10px] text-error font-medium leading-relaxed">
+                      ⚠️ Esta ação é irreversível e excluirá permanentemente os relatórios e itens salvos nesta auditoria específica. O estoque já ajustado anteriormente não sofrerá nova alteração.
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteAuditModalOpen(false)}
+                      disabled={isDeletingAudit}
+                      className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all cursor-pointer border border-white/10 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAudit}
+                      disabled={isDeletingAudit}
+                      className="flex-1 py-3.5 bg-error text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all cursor-pointer border border-error/30 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isDeletingAudit ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin" />
+                          Excluindo...
+                        </>
+                      ) : (
+                        'Confirmar Exclusão'
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
         </div>
       )}

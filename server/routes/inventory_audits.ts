@@ -372,4 +372,41 @@ router.post("/:id/cancel", async (req, res) => {
   }
 });
 
+// 8. DELETE /api/inventory-audits/:id - Excluir auditoria (apenas Admin)
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ error: "user_id é obrigatório." });
+  }
+
+  try {
+    const { data: profile, error: profError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user_id)
+      .single();
+
+    if (profError || !profile) {
+      return res.status(404).json({ error: "Perfil do usuário não encontrado." });
+    }
+
+    if (profile.role !== "admin") {
+      return res.status(403).json({ error: "Apenas administradores podem excluir auditorias de estoque do histórico." });
+    }
+
+    const { error } = await supabase
+      .from("inventory_audits")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    res.status(204).send();
+  } catch (error: any) {
+    console.error("[InventoryAudits Delete] Erro:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

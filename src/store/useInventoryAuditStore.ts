@@ -41,6 +41,7 @@ interface InventoryAuditState {
   saveAuditItem: (auditId: string, deviceId: string, physicalQty: number, reason?: string) => Promise<void>;
   finalizeAudit: (auditId: string, userId: string) => Promise<void>;
   cancelAudit: (auditId: string) => Promise<void>;
+  deleteAudit: (auditId: string, userId: string) => Promise<void>;
 }
 
 export const useInventoryAuditStore = create<InventoryAuditState>()((set, get) => ({
@@ -149,6 +150,19 @@ export const useInventoryAuditStore = create<InventoryAuditState>()((set, get) =
       set({ activeAudit: null, auditItems: [] });
     } catch (error) {
       console.error('Error cancelling audit:', error);
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  deleteAudit: async (auditId, userId) => {
+    set({ isLoading: true });
+    try {
+      await api.delete(`/inventory-audits/${auditId}`, { data: { user_id: userId } });
+      set({ audits: get().audits.filter(a => a.id !== auditId) });
+    } catch (error) {
+      console.error('Error deleting audit:', error);
       throw error;
     } finally {
       set({ isLoading: false });
