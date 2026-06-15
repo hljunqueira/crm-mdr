@@ -1971,10 +1971,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
               {['smartphone', 'notebook', 'desktop'].includes(quickProduct.category) && (
                 <div className="space-y-1 animate-in fade-in duration-300">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial (Opcional)</label>
                   <input
                     type="text"
-                    required
                     placeholder="Digite o IMEI ou Serial"
                     value={quickProduct.imei}
                     onChange={e => setQuickProduct(prev => ({ ...prev, imei: e.target.value }))}

@@ -35,6 +35,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     barcode: item?.barcode || '',
     supplier: item?.supplier || '',
     purchase_date: item?.purchase_date || new Date().toISOString().split('T')[0],
+    imei: item?.imei || '',
   });
 
   const [isShortNameManuallyEdited, setIsShortNameManuallyEdited] = useState(!!item);
@@ -165,7 +166,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         notes: formData.notes || formData.description, // replicate description to notes for legacy card layout
         price: priceNum,
         cost_price: costPriceNum,
-        imei: '',
+        imei: formData.imei.trim(),
         category: formData.category,
         image_url: formData.image_url,
         show_on_landing: formData.show_on_landing,
@@ -371,6 +372,19 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 <option value="vitrine" className="bg-[#121214] text-white">Vitrine</option>
               </select>
             </div>
+
+            {['smartphone', 'notebook', 'desktop'].includes(formData.category) && (
+              <div className="space-y-2 animate-in fade-in duration-300">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial (Opcional)</label>
+                <input
+                  type="text"
+                  value={formData.imei}
+                  onChange={(e) => setFormData({ ...formData, imei: e.target.value })}
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none font-mono"
+                  placeholder="Digite o IMEI ou Serial"
+                />
+              </div>
+            )}
 
              <div className="space-y-2">
               <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Fornecedor</label>
