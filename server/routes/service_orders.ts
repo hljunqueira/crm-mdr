@@ -227,7 +227,10 @@ router.post("/:id/notify", async (req, res) => {
     }
 
     const instance = channels[0].instance_name;
-    const cleanPhone = os.customers.phone.replace(/\D/g, '');
+    let cleanPhone = os.customers.phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `55${cleanPhone}`;
+    }
     const remoteJid = `${cleanPhone}@s.whatsapp.net`;
 
     const numberStr = String(os.os_number).padStart(4, '0');
