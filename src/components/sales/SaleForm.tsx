@@ -1746,17 +1746,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         </div>
       )}
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
         <button 
           type="button"
           onClick={onCancel}
-          className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+          className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
         >
           Cancelar
         </button>
-          <button 
+        <button 
           type="submit"
-          className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+          className="w-full sm:flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
         >
           <Save size={16} /> {initialData ? 'Atualizar Venda' : 'Finalizar Venda'}
         </button>
@@ -1796,7 +1796,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF ou CNPJ</label>
                   <input
@@ -1886,7 +1886,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
                   <select
@@ -1918,7 +1918,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
                   <input
@@ -1945,7 +1945,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Quantidade</label>
                   <input

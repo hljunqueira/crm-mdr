@@ -211,14 +211,14 @@ function SaleDocumentViewer({
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4">
-        <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-4 gap-4">
+        <div className="flex flex-wrap sm:flex-nowrap bg-white/5 p-1.5 rounded-2xl border border-white/5 gap-1">
           {sale.payment_type !== 'vista' ? (
             <>
               <button
                 type="button"
                 onClick={() => setActiveTab('contract')}
-                className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'contract' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+                className={`px-4 sm:px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] transition-all ${activeTab === 'contract' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
                   }`}
               >
                 Contrato de Venda
@@ -226,7 +226,7 @@ function SaleDocumentViewer({
               <button
                 type="button"
                 onClick={() => setActiveTab('receipt')}
-                className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'receipt' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+                className={`px-4 sm:px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] transition-all ${activeTab === 'receipt' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
                   }`}
               >
                 Nota de Venda
@@ -235,7 +235,7 @@ function SaleDocumentViewer({
                 <button
                   type="button"
                   onClick={() => setActiveTab('pix_carne')}
-                  className={`px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] transition-all ${activeTab === 'pix_carne' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
+                  className={`px-4 sm:px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] transition-all ${activeTab === 'pix_carne' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'
                     }`}
                 >
                   Carnê PIX
@@ -249,7 +249,7 @@ function SaleDocumentViewer({
           )}
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20 self-start sm:self-auto">
           <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">Visualização Ativa</span>
         </div>

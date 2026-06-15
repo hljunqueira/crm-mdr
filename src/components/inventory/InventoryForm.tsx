@@ -552,17 +552,17 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       </div>
 
       {/* Botões de Ação */}
-      <div className="flex gap-4 pt-4 border-t border-white/5">
+      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-white/5">
         <button
           type="button"
           onClick={() => hideModal()}
-          className="flex-1 py-3.5 px-6 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all cursor-pointer"
+          className="w-full sm:flex-1 py-3.5 px-6 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all cursor-pointer"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="flex-[2] py-3.5 px-6 rounded-2xl bg-primary text-on-primary text-[9px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full sm:flex-[2] py-3.5 px-6 rounded-2xl bg-primary text-on-primary text-[9px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
         >
           <Save size={14} /> {item ? 'Gravar Alterações' : 'Gravar Item'}
         </button>
