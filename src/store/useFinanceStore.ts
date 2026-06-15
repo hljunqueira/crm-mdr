@@ -100,6 +100,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error marking as paid:', error);
+      throw error;
     }
   },
   revertPayment: async (id) => {
@@ -127,6 +128,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error reverting payment:', error);
+      throw error;
     }
   },
   markAsBlocked: async (id) => {
@@ -149,6 +151,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error marking as blocked:', error);
+      throw error;
     }
   },
   addInstallments: async (newInstallments) => {

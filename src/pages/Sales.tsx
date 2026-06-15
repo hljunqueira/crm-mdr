@@ -1210,17 +1210,22 @@ export default function Sales() {
   const { profile } = useAuthStore();
   const { showNotification, showModal, hideModal } = useUI();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
+  const { activeShift, fetchActiveShift } = useCashStore();
 
   useEffect(() => {
     fetchUserPermissions();
   }, [fetchUserPermissions]);
 
   useEffect(() => {
-    fetchSales(profile?.unit_id || undefined);
-    fetchCustomers(profile?.unit_id || undefined);
-    fetchInstallments(profile?.unit_id || undefined);
+    const unitId = profile?.unit_id || undefined;
+    fetchSales(unitId);
+    fetchCustomers(unitId);
+    fetchInstallments(unitId);
     fetchAllUnits();
-  }, [profile?.unit_id, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits]);
+    if (profile?.unit_id) {
+      fetchActiveShift(profile.unit_id);
+    }
+  }, [profile?.unit_id, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits, fetchActiveShift]);
 
   const filteredSales = sales.filter(s =>
     (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -1287,6 +1292,10 @@ export default function Sales() {
   };
 
   const handleEditSale = (sale: Sale) => {
+    if (!activeShift) {
+      showNotification('error', 'Caixa fechado. Abra o caixa para editar/lançar vendas.');
+      return;
+    }
     showModal({
       title: 'Editar Venda',
       children: (
@@ -1305,6 +1314,10 @@ export default function Sales() {
   };
 
   const handleNewSale = () => {
+    if (!activeShift) {
+      showNotification('error', 'Caixa fechado. Abra o caixa para registrar novas vendas.');
+      return;
+    }
     showModal({
       title: 'Registrar Nova Venda',
       children: (

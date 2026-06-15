@@ -515,6 +515,10 @@ export default function Finance() {
   };
 
   const handlePayment = (item: Installment) => {
+    if (!activeShift) {
+      showNotification('error', 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.');
+      return;
+    }
     const fees = calculateOverdueFees(item);
     const isOverdue = fees.isLate;
     let selectedMethod: 'pix' | 'money' | 'card' = 'money';
