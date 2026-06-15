@@ -1478,7 +1478,7 @@ export default function ServiceOrders() {
 
         <div className="sig-line-box" style={{ marginTop: '40px' }}>
           <div className="sig-line"></div>
-          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
+          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
         </div>
 
         <div className="divider"></div>
@@ -1788,7 +1788,7 @@ export default function ServiceOrders() {
 
         <div className="sig-line-box" style={{ marginTop: '40px' }}>
           <div className="sig-line"></div>
-          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
+          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
         </div>
 
         <div className="divider"></div>
