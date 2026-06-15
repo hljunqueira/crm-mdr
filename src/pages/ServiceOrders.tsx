@@ -999,11 +999,11 @@ export default function ServiceOrders() {
       .os-thermal-receipt {
         width: 80mm !important;
         margin: 0 auto !important;
-        padding: 4mm 4mm 8mm 4mm !important;
+        padding: 2mm 4mm 4mm 4mm !important;
         font-family: Arial, Helvetica, sans-serif !important;
-        font-size: 12px !important;
+        font-size: 11px !important;
         color: #000000 !important;
-        line-height: 1.4 !important;
+        line-height: 1.3 !important;
         font-weight: 700 !important;
       }
       .os-thermal-receipt strong,
@@ -1047,7 +1047,7 @@ export default function ServiceOrders() {
         font-weight: 700 !important;
       }
       .os-thermal-receipt .sig-line-box {
-        margin-top: 55px !important;
+        margin-top: 20px;
         text-align: center !important;
       }
       .os-thermal-receipt .sig-line {
@@ -1276,8 +1276,9 @@ export default function ServiceOrders() {
           <div className="header-center">
             <div className="receipt-title">COMPROVANTE DE RETIRADA</div>
             <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
-            <div className="receipt-date">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
-            <div className="receipt-date">Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
+            <div className="receipt-date">
+              Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')} | Atendente: {currentServiceOrder.created_by?.full_name?.split(' ')[0] || 'Sistema'}
+            </div>
             <div className="receipt-date font-mono" style={{ fontSize: '9px', marginTop: '2px' }}>
               Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}
             </div>
@@ -1373,8 +1374,9 @@ export default function ServiceOrders() {
         <div className="header-center">
           <div className="receipt-title">ORDEM DE SERVIÇO</div>
           <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
-          <div className="receipt-date">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
-          <div className="receipt-date">Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
+          <div className="receipt-date">
+            Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')} | Atendente: {currentServiceOrder.created_by?.full_name?.split(' ')[0] || 'Sistema'}
+          </div>
         </div>
 
         <div className="divider"></div>
@@ -1669,8 +1671,9 @@ export default function ServiceOrders() {
         <div className="header-center">
           <div className="receipt-title">COMPROVANTE DE SAÍDA & GARANTIA</div>
           <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
-          <div className="receipt-date">Data Saída: {today}</div>
-          <div className="receipt-date">Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
+          <div className="receipt-date">
+            Data Saída: {today} | Atendente: {currentServiceOrder.created_by?.full_name?.split(' ')[0] || 'Sistema'}
+          </div>
           {currentServiceOrder.finalized_by?.full_name && (
             <div className="receipt-date">Técnico: {currentServiceOrder.finalized_by.full_name}</div>
           )}
