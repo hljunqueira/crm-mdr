@@ -55,9 +55,9 @@ router.patch("/installments/:id", async (req, res) => {
       .maybeSingle();
     activeShift = shift;
 
-    // Money payment requires cashier shift to be open
-    if (pm === 'money' && !activeShift) {
-      return res.status(400).json({ error: 'Caixa fechado. Abra o caixa para receber pagamentos em dinheiro.' });
+    // Payment receipt requires cashier shift to be open
+    if (!activeShift) {
+      return res.status(400).json({ error: 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.' });
     }
   }
 
@@ -346,9 +346,9 @@ router.post("/transactions", async (req, res) => {
     .eq('status', 'open')
     .maybeSingle();
 
-  // Manual cash transactions (e.g. money inflow/outflow) require cashier to be open
-  if (payment_method === 'money' && !activeShift) {
-    return res.status(400).json({ error: "Lançamentos manuais em dinheiro exigem um caixa aberto." });
+  // Manual transactions require cashier to be open
+  if (!activeShift) {
+    return res.status(400).json({ error: "Lançamentos financeiros exigem um caixa aberto nesta unidade." });
   }
 
   const valueNum = Number(amount);

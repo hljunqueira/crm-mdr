@@ -16,6 +16,27 @@ router.get("/", async (req, res) => {
 
 // Create sale
 router.post("/", async (req, res) => {
+  const { store_id } = req.body;
+  if (!store_id) {
+    return res.status(400).json({ error: "O campo store_id (unidade) é obrigatório." });
+  }
+
+  // Check if cashier shift is open for this unit
+  const { data: activeShift, error: shiftError } = await supabase
+    .from('cash_shifts')
+    .select('id')
+    .eq('unit_id', store_id)
+    .eq('status', 'open')
+    .maybeSingle();
+
+  if (shiftError) {
+    return res.status(500).json({ error: shiftError.message });
+  }
+
+  if (!activeShift) {
+    return res.status(400).json({ error: "Não existe um caixa aberto para esta unidade. Abra o caixa antes de realizar vendas." });
+  }
+
   const { data, error } = await supabase
     .from('sales')
     .insert([req.body])
