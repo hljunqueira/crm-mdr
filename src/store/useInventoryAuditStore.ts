@@ -159,7 +159,7 @@ export const useInventoryAuditStore = create<InventoryAuditState>()((set, get) =
   deleteAudit: async (auditId, userId) => {
     set({ isLoading: true });
     try {
-      await api.delete(`/inventory-audits/${auditId}`, { data: { user_id: userId } });
+      await api.delete(`/inventory-audits/${auditId}`, { user_id: userId });
       set({ audits: get().audits.filter(a => a.id !== auditId) });
     } catch (error) {
       console.error('Error deleting audit:', error);

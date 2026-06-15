@@ -24,5 +24,5 @@ export const api = {
   get: (endpoint: string) => fetchApi(endpoint, { method: 'GET' }),
   post: (endpoint: string, data: any) => fetchApi(endpoint, { method: 'POST', body: JSON.stringify(data) }),
   patch: (endpoint: string, data: any) => fetchApi(endpoint, { method: 'PATCH', body: JSON.stringify(data) }),
-  delete: (endpoint: string) => fetchApi(endpoint, { method: 'DELETE' }),
+  delete: (endpoint: string, data?: any) => fetchApi(endpoint, { method: 'DELETE', body: data ? JSON.stringify(data) : undefined }),
 };
