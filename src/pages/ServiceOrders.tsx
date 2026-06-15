@@ -1362,37 +1362,6 @@ export default function ServiceOrders() {
 
         <div className="divider"></div>
 
-        {/* Clauses */}
-        <div className="section-title">TERMOS DE RECEBIMENTO</div>
-        <div className="clauses">
-          1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
-          2. <strong>Backup de Dados:</strong> A {brandName} **NÃO se responsabiliza por perdas de dados** ou arquivos. Faça backup prévio.<br />
-          3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por **mais de 90 dias** após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
-        </div>
-
-        {copyTitle === "VIA DO CLIENTE" && (
-          <>
-            <div className="divider"></div>
-            <div className="section-title" style={{ textAlign: 'center' }}>PAGAMENTO VIA PIX</div>
-            <div className="clauses" style={{ textAlign: 'center', fontSize: '10px' }}>
-              Chave Celular: <strong>48999035854</strong><br />
-              Favorecido: <strong>Maykon da Rosa</strong>
-            </div>
-          </>
-        )}
-
-        <div className="divider"></div>
-
-        {/* Online Tracking Instruction */}
-        <div className="section-title" style={{ textAlign: 'center' }}>ACOMPANHAR CONSERTO ONLINE</div>
-        <div className="clauses" style={{ textAlign: 'center', fontSize: '9px', marginBottom: '8px' }}>
-          Consulte o status em tempo real do seu aparelho acessando:<br />
-          <strong>mdrinformaticaecelulares.com.br/consulta-os</strong><br />
-          e informe o seu CPF.
-        </div>
-
-        <div className="divider"></div>
-
         {/* Signatures */}
         <div className="sig-line-box" style={{ marginTop: '55px' }}>
           <div className="sig-line"></div>
