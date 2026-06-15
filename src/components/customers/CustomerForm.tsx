@@ -382,6 +382,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         submitData.desired_device = '';
         submitData.needed_credit = 0;
         submitData.desired_installment_value = 0;
+        submitData.classification = 'A_VISTA';
 
         if (!initialData) {
           submitData.registration_status = 'APROVADO';
