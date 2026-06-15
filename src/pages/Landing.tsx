@@ -387,7 +387,7 @@ export default function Landing() {
               className="text-5xl sm:text-6xl md:text-8xl font-display font-black tracking-tighter leading-[0.9] uppercase"
             >
               <span className="whitespace-nowrap text-white">Assistência &</span> <br />
-              <span className="bg-gradient-to-r from-logo-blue to-logo-green bg-clip-text text-transparent italic">Vendas</span>
+              <span className="bg-gradient-to-r from-logo-blue to-logo-green bg-clip-text text-transparent italic pr-2">Vendas</span>
             </motion.h1>
 
             <motion.p
