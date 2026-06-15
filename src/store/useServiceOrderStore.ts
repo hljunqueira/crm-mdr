@@ -44,6 +44,10 @@ export interface ServiceOrder {
   created_at?: string;
   updated_at?: string;
   
+  created_by_id?: string;
+  finalized_by_id?: string;
+  delivered_by_id?: string;
+  
   // Relations
   customers?: {
     name: string;
@@ -53,6 +57,15 @@ export interface ServiceOrder {
     email?: string;
   };
   profiles?: {
+    full_name: string;
+  };
+  created_by?: {
+    full_name: string;
+  };
+  finalized_by?: {
+    full_name: string;
+  };
+  delivered_by?: {
     full_name: string;
   };
   parts?: ServiceOrderPart[];

@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('service_orders')
-      .select('*, customers(name, phone, cpf), profiles(full_name)')
+      .select('*, customers(name, phone, cpf), profiles(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -47,7 +47,7 @@ router.get("/:id", async (req, res) => {
   try {
     const { data: os, error: osError } = await supabase
       .from('service_orders')
-      .select('*, customers(*), profiles(full_name)')
+      .select('*, customers(*), profiles(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
       .eq('id', req.params.id)
       .single();
 
@@ -89,14 +89,27 @@ router.post("/", async (req, res) => {
 // Update Service Order (with automatic stock deduction on in_progress)
 router.patch("/:id", async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, finalized_by_id, delivered_by_id } = req.body;
 
-    // 1. Get the current status of the OS before update
+    // 1. Get the current status and fields of the OS before update
     const { data: currentOs } = await supabase
       .from('service_orders')
-      .select('status')
+      .select('status, finalized_by_id, delivered_by_id')
       .eq('id', req.params.id)
       .single();
+
+    // 1.1 Validate critical transitions
+    if (status === 'ready' || status === 'returned_no_fix') {
+      if (!finalized_by_id && !currentOs?.finalized_by_id) {
+        return res.status(400).json({ error: "Identificação obrigatória: Por favor, selecione e valide o técnico responsável pela conclusão." });
+      }
+    }
+
+    if (status === 'delivered') {
+      if (!delivered_by_id && !currentOs?.delivered_by_id) {
+        return res.status(400).json({ error: "Identificação obrigatória: Por favor, selecione e valide o operador que realizou a entrega." });
+      }
+    }
 
     // 2. Update the OS
     const { data: updatedOs, error } = await supabase

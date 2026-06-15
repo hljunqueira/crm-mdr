@@ -155,6 +155,11 @@ export default function ServiceOrders() {
   const [authPassword, setAuthPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [authAction, setAuthAction] = useState<{
+    type: 'create' | 'status_change';
+    osId?: string;
+    targetStatus?: 'ready' | 'returned_no_fix' | 'delivered';
+  } | null>(null);
 
   // Parts Addition State
   const [selectedPartId, setSelectedPartId] = useState('');
@@ -460,6 +465,9 @@ export default function ServiceOrders() {
         ? newOs.custom_category.trim()
         : newOs.device_category;
 
+      const isNotAdmin = profile?.role !== 'admin';
+      const creatorId = isNotAdmin ? authEmployeeId : (profile?.id || '');
+
       const created = await createServiceOrder({
         customer_id: newOs.customer_id,
         unit_id: newOs.unit_id || null,
@@ -479,7 +487,8 @@ export default function ServiceOrders() {
         payment_status: 'pending',
         warranty_period: Number(newOs.warranty_period) || 90,
         warranty_notes: newOs.warranty_notes || null,
-        responsible_technician_id: techId,
+        responsible_technician_id: techId || undefined,
+        created_by_id: creatorId || undefined,
         status: 'budget_pending'
       });
 
@@ -552,22 +561,72 @@ export default function ServiceOrders() {
       setIsConfirmAuthOpen(false);
       setAuthPassword('');
 
-      const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                         user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
+      if (authAction?.type === 'create') {
+        const isNotAdmin = profile?.role !== 'admin';
 
-      if (isTerminal && !isCreateOpen) {
-        setNewOs(prev => ({
-          ...prev,
-          responsible_technician_id: authEmployeeId
-        }));
-        setIsCreateOpen(true);
-      } else {
-        await executeCreateOS(authEmployeeId);
+        if (isNotAdmin && !isCreateOpen) {
+          setNewOs(prev => ({
+            ...prev,
+            responsible_technician_id: authEmployeeId
+          }));
+          setIsCreateOpen(true);
+        } else {
+          await executeCreateOS(authEmployeeId);
+        }
+      } else if (authAction?.type === 'status_change' && authAction.osId && authAction.targetStatus) {
+        const updates: any = { status: authAction.targetStatus };
+        if (authAction.targetStatus === 'ready' || authAction.targetStatus === 'returned_no_fix') {
+          updates.finalized_by_id = authEmployeeId;
+        } else if (authAction.targetStatus === 'delivered') {
+          updates.delivered_by_id = authEmployeeId;
+        }
+
+        await updateServiceOrder(authAction.osId, updates);
+        showNotification('success', 'Status da OS atualizado e assinado com sucesso!');
+        fetchServiceOrders();
+        if (selectedOsId === authAction.osId) {
+          fetchServiceOrderById(authAction.osId);
+        }
       }
+
+      setAuthAction(null);
     } catch (err: any) {
       setAuthError(err.message || 'Senha incorreta.');
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleUpdateServiceOrderStatus = async (osId: string, updates: Partial<ServiceOrder>) => {
+    const targetStatus = updates.status;
+    if (targetStatus && ['ready', 'returned_no_fix', 'delivered'].includes(targetStatus)) {
+      const isNotAdmin = profile?.role !== 'admin';
+      if (isNotAdmin) {
+        setAuthEmployeeId('');
+        setAuthPassword('');
+        setAuthError('');
+        setAuthAction({
+          type: 'status_change',
+          osId,
+          targetStatus: targetStatus as 'ready' | 'returned_no_fix' | 'delivered'
+        });
+        setIsConfirmAuthOpen(true);
+        return;
+      } else {
+        // Admin user transitions status: set finalized_by_id or delivered_by_id automatically
+        if (targetStatus === 'ready' || targetStatus === 'returned_no_fix') {
+          updates.finalized_by_id = profile?.id;
+        } else if (targetStatus === 'delivered') {
+          updates.delivered_by_id = profile?.id;
+        }
+      }
+    }
+
+    try {
+      await updateServiceOrder(osId, updates);
+      showNotification('success', 'OS atualizada com sucesso!');
+    } catch (err: any) {
+      showNotification('error', err.message || 'Falha ao atualizar OS.');
     }
   };
 
@@ -588,10 +647,9 @@ export default function ServiceOrders() {
       return;
     }
 
-    const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                       user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
+    const isNotAdmin = profile?.role !== 'admin';
 
-    if (isTerminal) {
+    if (isNotAdmin) {
       await executeCreateOS(newOs.responsible_technician_id);
     } else {
       await executeCreateOS(newOs.responsible_technician_id || profile?.id || '');
@@ -599,14 +657,14 @@ export default function ServiceOrders() {
   };
 
   const handleNewOsClick = () => {
-    const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                       user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
+    const isNotAdmin = profile?.role !== 'admin';
     
     setAuthEmployeeId('');
     setAuthPassword('');
     setAuthError('');
     
-    if (isTerminal) {
+    if (isNotAdmin) {
+      setAuthAction({ type: 'create' });
       setIsConfirmAuthOpen(true);
     } else {
       setNewOs(prev => ({
@@ -1009,6 +1067,7 @@ export default function ServiceOrders() {
             <div style={{ textAlign: 'right' }}>
               <div className="a4-chave font-mono">Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}</div>
               <div className="a4-date mt-1">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
+              <div className="a4-date mt-1" style={{ fontSize: '9px', color: '#4b5563' }}>Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
             </div>
           </div>
 
@@ -1187,6 +1246,7 @@ export default function ServiceOrders() {
             <div className="receipt-title">COMPROVANTE DE RETIRADA</div>
             <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
             <div className="receipt-date">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
+            <div className="receipt-date">Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
             <div className="receipt-date font-mono" style={{ fontSize: '9px', marginTop: '2px' }}>
               Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}
             </div>
@@ -1284,6 +1344,7 @@ export default function ServiceOrders() {
           <div className="receipt-title">ORDEM DE SERVIÇO</div>
           <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
           <div className="receipt-date">Data Entrada: {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</div>
+          <div className="receipt-date">Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
         </div>
 
         <div className="divider"></div>
@@ -1428,6 +1489,19 @@ export default function ServiceOrders() {
             <div style={{ textAlign: 'right' }}>
               <div className="a4-chave font-mono">Chave: {currentServiceOrder.id.substring(0, 8).toUpperCase()}</div>
               <div className="a4-date mt-1">Data Saída: {today}</div>
+              <div className="a4-date mt-1" style={{ fontSize: '9px', color: '#4b5563' }}>
+                Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}
+              </div>
+              {currentServiceOrder.finalized_by?.full_name && (
+                <div className="a4-date mt-1" style={{ fontSize: '9px', color: '#4b5563' }}>
+                  Técnico: {currentServiceOrder.finalized_by.full_name}
+                </div>
+              )}
+              {currentServiceOrder.delivered_by?.full_name && (
+                <div className="a4-date mt-1" style={{ fontSize: '9px', color: '#4b5563' }}>
+                  Caixa: {currentServiceOrder.delivered_by.full_name}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1528,8 +1602,8 @@ export default function ServiceOrders() {
           <div className="a4-signatures text-black mt-8">
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
-              <span>Responsável Técnico</span>
-              <strong className="mt-1">{brandName} {brandSub}</strong>
+              <span>Técnico Responsável</span>
+              <strong className="mt-1">{currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</strong>
             </div>
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
@@ -1567,6 +1641,13 @@ export default function ServiceOrders() {
           <div className="receipt-title">COMPROVANTE DE SAÍDA & GARANTIA</div>
           <div className="receipt-num">OS N° #{String(currentServiceOrder.os_number).padStart(4, '0')}</div>
           <div className="receipt-date">Data Saída: {today}</div>
+          <div className="receipt-date">Atendente: {currentServiceOrder.created_by?.full_name || 'Sistema (Legado)'}</div>
+          {currentServiceOrder.finalized_by?.full_name && (
+            <div className="receipt-date">Técnico: {currentServiceOrder.finalized_by.full_name}</div>
+          )}
+          {currentServiceOrder.delivered_by?.full_name && (
+            <div className="receipt-date">Caixa: {currentServiceOrder.delivered_by.full_name}</div>
+          )}
         </div>
 
         <div className="divider"></div>
@@ -1671,7 +1752,7 @@ export default function ServiceOrders() {
         {/* Signatures */}
         <div className="sig-line-box" style={{ marginTop: '55px' }}>
           <div className="sig-line"></div>
-          <span className="sig-label">{brandName} {brandSub}</span>
+          <span className="sig-label">Técnico: {currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</span>
         </div>
 
         <div className="sig-line-box" style={{ marginTop: '75px' }}>
@@ -1777,7 +1858,7 @@ export default function ServiceOrders() {
             getStatusInfo={getStatusInfo}
             osFilterTab={osFilterTab}
             setOsFilterTab={setOsFilterTab}
-            updateServiceOrder={updateServiceOrder}
+            updateServiceOrder={handleUpdateServiceOrderStatus}
           />
         </div>
 
@@ -2174,7 +2255,7 @@ export default function ServiceOrders() {
                     <select
                       value={currentServiceOrder.status}
                       disabled={!hasPermission(profile, 'OS - Editar OS')}
-                      onChange={(e) => updateServiceOrder(currentServiceOrder.id, { status: e.target.value as any })}
+                      onChange={(e) => handleUpdateServiceOrderStatus(currentServiceOrder.id, { status: e.target.value as any })}
                       className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="budget_pending">🔴 Orçamento Pendente</option>

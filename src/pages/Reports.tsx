@@ -7,6 +7,10 @@ import {
   Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X, Trash2,
   Barcode, AlertTriangle
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
+  CartesianGrid, Tooltip, Legend 
+} from 'recharts';
 import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useSaleStore } from '../store/useSaleStore';
@@ -46,8 +50,8 @@ export default function Reports() {
   const [targetInput, setTargetInput] = useState<string>('50000');
 
   // Lucro Presumido filters
-  const [selectedQuarter, setSelectedQuarter] = useState<1 | 2 | 3 | 4>(
-    Math.ceil((new Date().getMonth() + 1) / 3) as any
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    new Date().getMonth() + 1
   );
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [accountingRegime, setAccountingRegime] = useState<'competence' | 'cash'>('competence');
@@ -256,40 +260,35 @@ export default function Reports() {
   }, [filteredSales]);
 
   // ─── LUCRO PRESUMIDO COMPUTATIONS ───────────────────────────────────────
-  const isDateInQuarter = (dateStr?: string, q?: number, y?: number) => {
+  const isDateInMonth = (dateStr?: string, m?: number, y?: number) => {
     if (!dateStr) return false;
     const cleanDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
     const date = new Date(cleanDateStr + 'T12:00:00');
     if (isNaN(date.getTime())) return false;
 
-    const targetQ = q ?? selectedQuarter;
+    const targetM = m ?? selectedMonth;
     const targetY = y ?? selectedYear;
 
-    if (date.getFullYear() !== targetY) return false;
-    const month = date.getMonth();
-    if (targetQ === 1) return month >= 0 && month <= 2;
-    if (targetQ === 2) return month >= 3 && month <= 5;
-    if (targetQ === 3) return month >= 6 && month <= 8;
-    return month >= 9 && month <= 11;
+    return date.getFullYear() === targetY && (date.getMonth() + 1) === targetM;
   };
 
-  const calculateLucroPresumidoForPeriod = (q: number, y: number) => {
-    const qSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && isDateInQuarter(s.date, q, y));
-    const qServiceOrders = serviceOrders.filter(o => o.status !== 'canceled' && filterByUnit(o.unit_id) && isDateInQuarter(o.delivered_at || o.created_at, q, y));
+  const calculateLucroPresumidoForPeriod = (m: number, y: number) => {
+    const mSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && isDateInMonth(s.date, m, y));
+    const mServiceOrders = serviceOrders.filter(o => o.status !== 'canceled' && filterByUnit(o.unit_id) && isDateInMonth(o.delivered_at || o.created_at, m, y));
 
     let receitaComercio = 0;
     let receitaServico = 0;
 
     if (accountingRegime === 'competence') {
-      receitaComercio = qSales.reduce((acc, s) => acc + (s.original_price ?? s.total_value), 0);
-      receitaServico = qServiceOrders.reduce((acc, o) => acc + o.total_value, 0);
+      receitaComercio = mSales.reduce((acc, s) => acc + (s.original_price ?? s.total_value), 0);
+      receitaServico = mServiceOrders.reduce((acc, o) => acc + o.total_value, 0);
     } else {
       // Regime de Caixa
-      const downPayments = qSales.reduce((acc, s) => acc + (s.down_payment || 0), 0);
+      const downPayments = mSales.reduce((acc, s) => acc + (s.down_payment || 0), 0);
       const paidInsts = installments
-        .filter(i => i.status === 'paid' && filterByUnit(i.unit_id) && isDateInQuarter(i.paid_at, q, y))
+        .filter(i => i.status === 'paid' && filterByUnit(i.unit_id) && isDateInMonth(i.paid_at, m, y))
         .reduce((acc, i) => acc + i.value, 0);
-      const paidOS = qServiceOrders
+      const paidOS = mServiceOrders
         .filter(o => o.payment_status === 'paid')
         .reduce((acc, o) => acc + o.total_value, 0);
 
@@ -306,7 +305,7 @@ export default function Reports() {
 
     // Impostos
     const irpjNormal = bcTotal * 0.15;
-    const irpjAdicional = bcTotal > 60000 ? (bcTotal - 60000) * 0.10 : 0;
+    const irpjAdicional = bcTotal > 20000 ? (bcTotal - 20000) * 0.10 : 0;
     const irpjTotal = irpjNormal + irpjAdicional;
 
     const csllTotal = bcTotal * 0.09;
@@ -334,16 +333,23 @@ export default function Reports() {
     };
   };
 
-  // Live selected quarter data
+  // Live selected month data
   const lpData = useMemo(() => {
-    return calculateLucroPresumidoForPeriod(selectedQuarter, selectedYear);
-  }, [sales, serviceOrders, installments, selectedQuarter, selectedYear, accountingRegime, issRate, selectedUnitId]);
+    return calculateLucroPresumidoForPeriod(selectedMonth, selectedYear);
+  }, [sales, serviceOrders, installments, selectedMonth, selectedYear, accountingRegime, issRate, selectedUnitId]);
 
-  // Quarterly comparison list
-  const quarterlyHistory = useMemo(() => {
-    return [1, 2, 3, 4].map(q => {
-      const data = calculateLucroPresumidoForPeriod(q, selectedYear);
-      return { q, ...data };
+  // Monthly comparison list
+  const monthlyHistory = useMemo(() => {
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => {
+      const data = calculateLucroPresumidoForPeriod(m, selectedYear);
+      return {
+        m,
+        name: [
+          'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+          'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+        ][m - 1],
+        ...data
+      };
     });
   }, [sales, serviceOrders, installments, selectedYear, accountingRegime, issRate, selectedUnitId]);
 
@@ -1312,19 +1318,27 @@ export default function Reports() {
           {/* Tax Filter Controls (HIDDEN ON PRINT) */}
           <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4 print:hidden">
             
-            {/* Quarter Filter */}
+            {/* Month Filter */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Trimestre</span>
+              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Mês</span>
               <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
                 <select
-                  value={selectedQuarter}
-                  onChange={(e) => setSelectedQuarter(parseInt(e.target.value) as any)}
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
                   className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black uppercase"
                 >
-                  <option value={1} className="bg-[#0f0f1a]">1º Trimestre (Jan-Mar)</option>
-                  <option value={2} className="bg-[#0f0f1a]">2º Trimestre (Abr-Jun)</option>
-                  <option value={3} className="bg-[#0f0f1a]">3º Trimestre (Jul-Set)</option>
-                  <option value={4} className="bg-[#0f0f1a]">4º Trimestre (Out-Dez)</option>
+                  <option value={1} className="bg-[#0f0f1a]">Janeiro</option>
+                  <option value={2} className="bg-[#0f0f1a]">Fevereiro</option>
+                  <option value={3} className="bg-[#0f0f1a]">Março</option>
+                  <option value={4} className="bg-[#0f0f1a]">Abril</option>
+                  <option value={5} className="bg-[#0f0f1a]">Maio</option>
+                  <option value={6} className="bg-[#0f0f1a]">Junho</option>
+                  <option value={7} className="bg-[#0f0f1a]">Julho</option>
+                  <option value={8} className="bg-[#0f0f1a]">Agosto</option>
+                  <option value={9} className="bg-[#0f0f1a]">Setembro</option>
+                  <option value={10} className="bg-[#0f0f1a]">Outubro</option>
+                  <option value={11} className="bg-[#0f0f1a]">Novembro</option>
+                  <option value={12} className="bg-[#0f0f1a]">Dezembro</option>
                 </select>
               </div>
             </div>
@@ -1381,7 +1395,7 @@ export default function Reports() {
           <div className="hidden print:block border-b border-black pb-4 mb-4">
             <h1 className="text-2xl font-black text-black uppercase">Relatório de Lucro Presumido - MDR Informática</h1>
             <p className="text-[10px] text-gray-700 uppercase tracking-wider font-bold">
-              Filtros: {selectedQuarter}º Trimestre de {selectedYear} | Regime de {accountingRegime === 'competence' ? 'Competência' : 'Caixa'} | ISS: {issRate}%
+              Filtros: Mês {selectedMonth} de {selectedYear} | Regime de {accountingRegime === 'competence' ? 'Competência' : 'Caixa'} | ISS: {issRate}%
             </p>
           </div>
 
@@ -1432,7 +1446,7 @@ export default function Reports() {
             <div className="bg-[#121225] border border-primary/30 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px] print:border-black print:bg-white print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-primary print:text-black uppercase tracking-widest">Total Geral de Impostos</h4>
-                <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Soma dos Encargos do Trimestre</p>
+                <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Soma dos Encargos do Mês</p>
               </div>
 
               <div className="my-2">
@@ -1476,24 +1490,24 @@ export default function Reports() {
             {/* Faturamento limit compliance */}
             <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px] print:border-black print:text-black">
               <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Limite Trimestral do Regime</h4>
+                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Limite Mensal do Regime</h4>
                 <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Limite de Presunção</p>
               </div>
 
               <div className="my-2">
                 <h3 className="text-2xl font-black text-white print:text-black font-mono leading-none">
-                  {((lpData.totalBruto / 1250000) * 100).toFixed(1)}% <span className="text-[10px] text-on-surface-variant uppercase font-display font-black">limite</span>
+                  {((lpData.totalBruto / 416666.67) * 100).toFixed(1)}% <span className="text-[10px] text-on-surface-variant uppercase font-display font-black">limite</span>
                 </h3>
                 <div className="w-full h-1.5 bg-white/5 print:bg-gray-200 rounded-full mt-2 overflow-hidden">
                   <div 
                     className="h-full bg-primary print:bg-black rounded-full" 
-                    style={{ width: `${Math.min(100, (lpData.totalBruto / 1250000) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (lpData.totalBruto / 416666.67) * 100)}%` }}
                   />
                 </div>
               </div>
 
               <p className="text-[9px] text-on-surface-variant print:text-black opacity-70">
-                Faturamento acumulado de R$ {lpData.totalBruto.toLocaleString('pt-BR')} dentro do limite legal de R$ 1.250.000,00 estabelecido por trimestre.
+                Faturamento acumulado de R$ {lpData.totalBruto.toLocaleString('pt-BR')} dentro do limite legal de R$ 416.666,67 estabelecido por mês.
               </p>
             </div>
           </div>
@@ -1504,7 +1518,7 @@ export default function Reports() {
             
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {[
-                { name: 'IRPJ Normal + Adic.', value: lpData.irpjTotal, desc: '15% sobre BC + 10% adicional > 60k', color: 'from-red-600 to-rose-400', printColor: 'border-red-500' },
+                { name: 'IRPJ Normal + Adic.', value: lpData.irpjTotal, desc: '15% sobre BC + 10% adicional > 20k', color: 'from-red-600 to-rose-400', printColor: 'border-red-500' },
                 { name: 'CSLL', value: lpData.csllTotal, desc: '9% sobre a Base de Cálculo', color: 'from-orange-500 to-amber-400', printColor: 'border-orange-500' },
                 { name: 'PIS', value: lpData.pisTotal, desc: '0.65% cumulativo mensal', color: 'from-blue-500 to-sky-400', printColor: 'border-blue-500' },
                 { name: 'COFINS', value: lpData.cofinsTotal, desc: '3.00% cumulativo mensal', color: 'from-purple-600 to-fuchsia-400', printColor: 'border-purple-500' },
@@ -1525,10 +1539,86 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* Quarterly comparison table */}
+          {/* Gráfico de Evolução Mensal */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 print:hidden">
+            <div className="mb-6 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Evolução Mensal do Planejamento Tributário</h3>
+                <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Faturamento vs Impostos Proporcionais</p>
+              </div>
+            </div>
+            
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={monthlyHistory}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorImpostos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="rgba(255,255,255,0.4)" 
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    stroke="rgba(255,255,255,0.4)" 
+                    fontSize={10}
+                    tickLine={false}
+                    tickFormatter={(val) => `R$ ${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
+                  />
+                  <Tooltip
+                    contentStyle={{ 
+                      background: 'rgba(15, 15, 26, 0.9)', 
+                      border: '1px solid rgba(255,255,255,0.1)', 
+                      borderRadius: '16px',
+                      fontSize: '11px',
+                      color: '#fff'
+                    }}
+                    formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
+                  />
+                  <Legend 
+                    wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
+                    verticalAlign="bottom"
+                    height={36}
+                  />
+                  <Area 
+                    name="Faturamento Bruto"
+                    type="monotone" 
+                    dataKey="totalBruto" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorFaturamento)" 
+                  />
+                  <Area 
+                    name="Total Impostos"
+                    type="monotone" 
+                    dataKey="totalImpostos" 
+                    stroke="#ef4444" 
+                    strokeWidth={2}
+                    fillOpacity={1} 
+                    fill="url(#colorImpostos)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Monthly comparison table */}
           <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 overflow-hidden print:border-black print:text-black">
             <div className="mb-4">
-              <h3 className="text-sm font-black text-white print:text-black uppercase tracking-wider">Histórico Comparativo Trimestral</h3>
+              <h3 className="text-sm font-black text-white print:text-black uppercase tracking-wider">Histórico Comparativo Mensal</h3>
               <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Ano Fiscal: {selectedYear}</p>
             </div>
 
@@ -1536,7 +1626,7 @@ export default function Reports() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/5 print:border-black text-[9px] font-black text-on-surface-variant print:text-black uppercase tracking-widest pb-3">
-                    <th className="pb-3 pl-4">Trimestre</th>
+                    <th className="pb-3 pl-4">Mês</th>
                     <th className="pb-3">Faturamento Comércio</th>
                     <th className="pb-3">Faturamento Serviços</th>
                     <th className="pb-3">Faturamento Bruto</th>
@@ -1545,10 +1635,10 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 print:divide-black">
-                  {quarterlyHistory.map((hist) => (
-                    <tr key={hist.q} className="hover:bg-white/[0.01] print:hover:bg-transparent">
+                  {monthlyHistory.map((hist) => (
+                    <tr key={hist.m} className="hover:bg-white/[0.01] print:hover:bg-transparent">
                       <td className="py-4 pl-4 font-black text-white print:text-black">
-                        {hist.q}º Trimestre
+                        {hist.name}
                       </td>
                       <td className="py-4 font-mono">R$ {hist.receitaComercio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 font-mono">R$ {hist.receitaServico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -1566,7 +1656,7 @@ export default function Reports() {
 
           {/* Legal Warning Notice */}
           <div className="bg-[#1c0c10] border border-error/20 p-5 rounded-2xl text-[10px] text-error font-black uppercase tracking-widest leading-relaxed print:border-black print:bg-white print:text-black">
-            ⚠️ Atenção: Como este relatório envolve regras fiscais complexas, ele deve ser emitido pelo seu sistema contábil oficial (como Dominio ou Alterdata) ou diretamente pelo seu contador responsável. Este painel serve como ferramenta gerencial de simulação e controle.
+            ⚠️ Atenção: A apuração e recolhimento do IRPJ e da CSLL sob o regime de Lucro Presumido ocorrem legalmente de forma trimestral no Brasil. As visualizações mensais exibidas acima constituem uma simulação gerencial de provisão tributária. Para relatórios finais oficiais, consulte seu sistema contábil ou contador responsável.
           </div>
         </div>
       )}
