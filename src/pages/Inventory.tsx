@@ -470,37 +470,75 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
       const text = event.target?.result as string;
       if (!text) return;
       try {
-        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+        // 1. Clean Byte Order Mark (BOM)
+        const cleanText = text.replace(/^\uFEFF/, '');
+        const lines = cleanText.split(/\r?\n/).filter(line => line.trim().length > 0);
         if (lines.length === 0) {
           setErrors(['O arquivo está vazio.']);
           return;
         }
 
-        const separator = lines[0].includes(';') ? ';' : ',';
-        const headers = lines[0].split(separator).map(h => h.trim().replace(/^["']|["']$/g, '').toLowerCase());
+        // 2. Delimiter detection
+        let separator = ',';
+        if (lines[0].includes(';')) separator = ';';
+        else if (lines[0].includes('\t')) separator = '\t';
 
-        const getHeaderIndex = (synonyms: string[]) => {
-          return headers.findIndex(h => synonyms.includes(h));
+        // Helper to normalize strings for robust matching
+        const normalizeString = (str: string): string => {
+          return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove accents
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]/g, ''); // Keep only alphanumeric
         };
 
-        const descIdx = getHeaderIndex(['descrição', 'descricao', 'description', 'nome', 'item', 'modelo', 'model']);
-        const shortNameIdx = getHeaderIndex(['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname']);
-        const brandIdx = getHeaderIndex(['marca', 'brand', 'fabricante']);
-        const categoryIdx = getHeaderIndex(['categoria', 'category', 'grupo']);
-        const conditionIdx = getHeaderIndex(['condicao', 'condição', 'condition']);
-        const costPriceIdx = getHeaderIndex(['precocusto', 'preço custo', 'custo_compra', 'custo', 'cost_price']);
-        const salePriceIdx = getHeaderIndex(['precovenda', 'preço venda', 'valor', 'preco', 'preço', 'price', 'sale_price']);
-        const qtyIdx = getHeaderIndex(['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity']);
-        const imeiIdx = getHeaderIndex(['imei', 'serial', 'serial_number']);
-        const barcodeIdx = getHeaderIndex(['codigobarras', 'código barras', 'barcode', 'codigo_barras']);
-        const supplierIdx = getHeaderIndex(['fornecedor', 'supplier']);
-        const purchaseDateIdx = getHeaderIndex(['datacompra', 'data_compra', 'purchase_date']);
+        const headers = lines[0].split(separator).map(h => h.trim().replace(/^["']|["']$/g, ''));
+
+        const getHeaderIndex = (synonyms: string[]) => {
+          const normalizedSynonyms = synonyms.map(s => normalizeString(s));
+          return headers.findIndex(h => normalizedSynonyms.includes(normalizeString(h)));
+        };
+
+        // Comprehensive synonyms list
+        const descIdx = getHeaderIndex(['descrição', 'descricao', 'description', 'nome', 'item', 'modelo', 'model', 'produto', 'desc', 'titulo', 'título', 'nome do produto']);
+        const shortNameIdx = getHeaderIndex(['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname', 'nome simplificado', 'nome_simplificado']);
+        const brandIdx = getHeaderIndex(['marca', 'brand', 'fabricante', 'brand_name']);
+        const categoryIdx = getHeaderIndex(['categoria', 'category', 'grupo', 'tipo']);
+        const conditionIdx = getHeaderIndex(['condicao', 'condição', 'condition', 'estado']);
+        const costPriceIdx = getHeaderIndex(['precocusto', 'preço custo', 'custo_compra', 'custo', 'cost_price', 'preco_custo', 'valor_custo', 'valor custo']);
+        const salePriceIdx = getHeaderIndex(['precovenda', 'preço venda', 'valor', 'preco', 'preço', 'price', 'sale_price', 'preco_venda', 'valor_venda', 'valor venda']);
+        const qtyIdx = getHeaderIndex(['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity', 'quant', 'estoque_atual']);
+        const imeiIdx = getHeaderIndex(['imei', 'serial', 'serial_number', 'n_serie', 'num_serie', 'série']);
+        const barcodeIdx = getHeaderIndex(['codigobarras', 'código barras', 'barcode', 'codigo_barras', 'cod_barras', 'ean', 'codigo']);
+        const supplierIdx = getHeaderIndex(['fornecedor', 'supplier', 'distribuidor']);
+        const purchaseDateIdx = getHeaderIndex(['datacompra', 'data_compra', 'purchase_date', 'data']);
+
+        // Helpers to parse prices and quantities robustly
+        const parseNumber = (val: string): number => {
+          if (!val) return 0;
+          const clean = val.replace(/[R$\s]/g, '').trim();
+          if (clean.includes('.') && clean.includes(',')) {
+            return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+          }
+          if (clean.includes(',')) {
+            return parseFloat(clean.replace(',', '.')) || 0;
+          }
+          return parseFloat(clean) || 0;
+        };
+
+        const parseInteger = (val: string): number => {
+          if (!val) return 1;
+          const clean = val.replace(/\D/g, '');
+          return parseInt(clean, 10) || 1;
+        };
 
         const parsedRows = [];
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
 
+          // Split line, keeping grouped values in quotes intact if any
           const values = line.split(separator).map(v => v.trim().replace(/^["']|["']$/g, ''));
           
           const rawDescription = descIdx !== -1 ? (values[descIdx] || '') : '';
@@ -520,7 +558,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           let short_name = rawShortName;
 
           // If the sheet used Marca and Modelo columns instead of Descrição/Nome Curto
-          const isLegacyModel = descIdx !== -1 && (headers[descIdx].includes('model') || headers[descIdx].includes('modelo'));
+          const isLegacyModel = descIdx !== -1 && (headers[descIdx].toLowerCase().includes('model') || headers[descIdx].toLowerCase().includes('modelo'));
           if (rawBrand && rawDescription && !rawShortName && isLegacyModel) {
             description = `${rawBrand} ${rawDescription}`;
             short_name = rawDescription;
@@ -550,9 +588,9 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           else if (cond.includes('vitrine')) mappedCondition = 'vitrine';
           else if (cond.includes('recondicionado')) mappedCondition = 'refurbished';
 
-          const numCost = parseFloat(rawCostPrice.replace(',', '.')) || 0;
-          const numSale = parseFloat(rawSalePrice.replace(',', '.')) || 0;
-          const numQty = parseInt(rawQty, 10) || 1;
+          const numCost = parseNumber(rawCostPrice);
+          const numSale = parseNumber(rawSalePrice);
+          const numQty = parseInteger(rawQty);
 
           const rowErrors: string[] = [];
           if (numCost < 0) rowErrors.push('Preço de custo inválido.');
