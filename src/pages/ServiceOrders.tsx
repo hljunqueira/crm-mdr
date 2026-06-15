@@ -1468,15 +1468,16 @@ export default function ServiceOrders() {
 
         <div className="divider"></div>
 
-        {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '20px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">{brandName} {brandSub}</span>
-        </div>
-
-        <div className="sig-line-box" style={{ marginTop: '25px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
+        {/* Signatures side-by-side */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '15px', marginTop: '20px' }}>
+          <div className="sig-line-box" style={{ flex: 1, marginTop: 0 }}>
+            <div className="sig-line"></div>
+            <span className="sig-label">{brandName}</span>
+          </div>
+          <div className="sig-line-box" style={{ flex: 1, marginTop: 0 }}>
+            <div className="sig-line"></div>
+            <span className="sig-label">Cliente</span>
+          </div>
         </div>
 
         <div className="divider"></div>
@@ -1777,15 +1778,16 @@ export default function ServiceOrders() {
 
         <div className="divider"></div>
 
-        {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '20px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">Técnico: {currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</span>
-        </div>
-
-        <div className="sig-line-box" style={{ marginTop: '25px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Comprador</span>
+        {/* Signatures side-by-side */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '15px', marginTop: '20px' }}>
+          <div className="sig-line-box" style={{ flex: 1, marginTop: 0 }}>
+            <div className="sig-line"></div>
+            <span className="sig-label">Técnico</span>
+          </div>
+          <div className="sig-line-box" style={{ flex: 1, marginTop: 0 }}>
+            <div className="sig-line"></div>
+            <span className="sig-label">Cliente</span>
+          </div>
         </div>
 
         <div className="divider"></div>
