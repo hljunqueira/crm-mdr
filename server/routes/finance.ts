@@ -446,4 +446,87 @@ router.delete("/transactions/:id", async (req, res) => {
   res.json({ success: true });
 });
 
+// Send WhatsApp collection alert trigger for a crediario installment
+router.post("/installments/:id/notify", async (req, res) => {
+  try {
+    // 1. Fetch installment details with customer and sales info
+    const { data: inst, error } = await supabase
+      .from('installments')
+      .select('*, sales(*, customers(*))')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !inst || !inst.sales?.customers) {
+      return res.status(404).json({ error: "Parcela ou Cliente inválido para cobrança" });
+    }
+
+    // 2. Get connected WhatsApp channel
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('*')
+      .eq('status', 'connected')
+      .limit(1);
+
+    if (!channels || channels.length === 0) {
+      return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado para disparar cobranças" });
+    }
+
+    const instance = channels[0].instance_name;
+    const cleanPhone = inst.sales.customers.phone.replace(/\D/g, '');
+    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+
+    const valueStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formattedDueDate = new Date(inst.due_date).toLocaleDateString('pt-BR');
+
+    // Create the message text
+    const messageText = `⚠️ *Lembrete de Pagamento - MDR Informática & Celulares* ⚠️\n\n` +
+      `Olá *${inst.sales.customers.name}*!\n\n` +
+      `Lembramos que a sua parcela de número *${inst.number}/${inst.total}* no valor de *${valueStr}* possui o vencimento agendado para o dia *${formattedDueDate}*.\n\n` +
+      `Para sua comodidade, você pode realizar o pagamento via PIX ou diretamente em uma de nossas lojas.\n\n` +
+      `Caso já tenha efetuado o pagamento, por favor desconsidere este aviso.`;
+
+    // 3. Dispatch to n8n Webhook
+    const n8nWebhookUrl = `${process.env.N8N_API_URL}/webhook/cobranca-crediario`;
+    const response = await fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-N8N-API-KEY': process.env.N8N_API_KEY || ''
+      },
+      body: JSON.stringify({
+        instanceName: instance,
+        remoteJid: remoteJid,
+        text: messageText,
+        customerName: inst.sales.customers.name,
+        installmentNumber: `${inst.number}/${inst.total}`,
+        dueDate: formattedDueDate,
+        value: valueStr
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn('Failed to notify via n8n:', errText);
+      // Fallback: send directly through Evolution API using CRM's endpoint
+      const fallbackUrl = `${req.protocol}://${req.get('host')}/api/chat/send`;
+      await fetch(fallbackUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          instanceName: instance,
+          remoteJid: remoteJid,
+          text: messageText
+        })
+      });
+    }
+
+    res.json({ success: true, message: "Lembrete enviado com sucesso!" });
+  } catch (err: any) {
+    console.error('WhatsApp installment notify error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

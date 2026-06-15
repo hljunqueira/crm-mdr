@@ -1,0 +1,83 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cobranca-crediario",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "webhook-cobranca",
+      "name": "Webhook Cobranca Manual"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        200
+      ],
+      "id": "cron-cobranca-diaria",
+      "name": "Cron Cobrança Diária"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://whatsapp.mdrinformaticaecelulares.com.br/message/sendText/{{$json.body.instanceName}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "MDR_SECRET_TOKEN_2024"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"number\": \"{{$json.body.remoteJid}}\",\n  \"text\": \"{{$json.body.text}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        300,
+        100
+      ],
+      "id": "http-evolution-cobranca",
+      "name": "HTTP Send Cobranca"
+    }
+  ],
+  "connections": {
+    "Webhook Cobranca Manual": {
+      "main": [
+        [
+          {
+            "node": "HTTP Send Cobranca",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "meta": null,
+  "pinData": {}
+}
