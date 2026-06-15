@@ -1144,7 +1144,19 @@ export default function ServiceOrders() {
                 <p className="text-[9px] text-slate-500 uppercase mt-0.5">{brandName} {brandSub}</p>
                 <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-[9px] text-slate-700">
                   <p><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</p>
-                  <p><strong>Aparelho:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</p>
+                  <p>
+                    <strong>Aparelho:</strong>{' '}
+                    {(!currentServiceOrder.device_brand || currentServiceOrder.device_brand === '-') &&
+                     (!currentServiceOrder.device_model || currentServiceOrder.device_model === '-')
+                      ? (currentServiceOrder.device_category === 'notebook' ? 'Notebook' :
+                         currentServiceOrder.device_category === 'desktop' ? 'Computador PC' :
+                         currentServiceOrder.device_category === 'smartphone' ? 'Smartphone' :
+                         currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
+                         currentServiceOrder.device_category === 'printer' ? 'Impressora' :
+                         currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
+                      : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim()
+                    }
+                  </p>
                   {currentServiceOrder.device_serial_number && <p><strong>IMEI/Serial:</strong> {currentServiceOrder.device_serial_number}</p>}
                   <p><strong>Data Entrada:</strong> {new Date(currentServiceOrder.created_at).toLocaleDateString('pt-BR')}</p>
                 </div>
@@ -1190,7 +1202,18 @@ export default function ServiceOrders() {
           </div>
           <div className="row">
             <span>Aparelho:</span>
-            <span className="align-right">{currentServiceOrder.device_brand} {currentServiceOrder.device_model}</span>
+            <span className="align-right">
+              {(!currentServiceOrder.device_brand || currentServiceOrder.device_brand === '-') &&
+               (!currentServiceOrder.device_model || currentServiceOrder.device_model === '-')
+                ? (currentServiceOrder.device_category === 'notebook' ? 'Notebook' :
+                   currentServiceOrder.device_category === 'desktop' ? 'Computador PC' :
+                   currentServiceOrder.device_category === 'smartphone' ? 'Smartphone' :
+                   currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
+                   currentServiceOrder.device_category === 'printer' ? 'Impressora' :
+                   currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
+                : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim()
+              }
+            </span>
           </div>
           {currentServiceOrder.device_serial_number && (
             <div className="row">

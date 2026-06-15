@@ -15,6 +15,7 @@ interface RepairTimelineProps {
   status: string;
   deviceModel: string;
   deviceBrand: string;
+  deviceCategory?: string;
   estimatedDelivery?: string;
   warrantyPeriod?: number;
   osNumber: number;
@@ -32,6 +33,7 @@ export default function RepairTimeline({
   status, 
   deviceModel, 
   deviceBrand, 
+  deviceCategory,
   estimatedDelivery,
   warrantyPeriod = 90,
   osNumber
@@ -67,6 +69,25 @@ export default function RepairTimeline({
     }
   };
 
+  const getDeviceDisplayName = () => {
+    const brand = deviceBrand?.trim();
+    const model = deviceModel?.trim();
+    
+    if ((!brand || brand === '-') && (!model || model === '-')) {
+      const cat = deviceCategory?.toLowerCase();
+      switch (cat) {
+        case 'notebook': return 'Notebook';
+        case 'desktop': return 'Computador PC';
+        case 'smartphone': return 'Smartphone';
+        case 'tablet': return 'Tablet';
+        case 'printer': return 'Impressora';
+        case 'console': return 'Console';
+        default: return 'Equipamento';
+      }
+    }
+    return `${brand || ''} ${model || ''}`.trim();
+  };
+
   return (
     <div className="w-full space-y-8 animate-in fade-in duration-500">
       
@@ -78,7 +99,7 @@ export default function RepairTimeline({
           </div>
           <div>
             <h3 className="font-black text-white uppercase tracking-tight text-md">
-              {deviceBrand} {deviceModel}
+              {getDeviceDisplayName()}
             </h3>
             <p className="text-[9px] text-on-surface-variant font-mono uppercase mt-0.5">
               Ordem de Serviço: <strong className="text-white font-normal">#{String(osNumber).padStart(4, '0')}</strong>

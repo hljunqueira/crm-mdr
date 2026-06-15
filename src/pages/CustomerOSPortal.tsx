@@ -23,11 +23,11 @@ export default function CustomerOSPortal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Search results
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [serviceOrders, setServiceOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [showCompletedOpen, setShowCompletedOpen] = useState(false);
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCpf(formatCPF(e.target.value));
@@ -125,7 +125,7 @@ export default function CustomerOSPortal() {
 
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-6 md:p-12 relative z-10">
-        <div className="w-full max-w-3xl">
+        <div className={hasSearched ? "w-full max-w-[1400px]" : "w-full max-w-3xl"}>
           
           <AnimatePresence mode="wait">
             {!hasSearched ? (
@@ -199,10 +199,10 @@ export default function CustomerOSPortal() {
               >
                 {/* Search Return Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-6">
-                  <div>
+                  <div className="text-left">
                     <h2 className="text-xl font-black text-white uppercase tracking-tight">Olá, {customerName?.split(' ')[0]}!</h2>
                     <p className="text-[10px] text-on-surface-variant font-display uppercase tracking-widest opacity-60 mt-0.5">
-                      Encontramos {serviceOrders.length === 1 ? '1 Ordem de Serviço' : `${serviceOrders.length} Ordens de Serviço`} ativas
+                      Encontramos {serviceOrders.length === 1 ? '1 Ordem de Serviço' : `${serviceOrders.length} Ordens de Serviço`} no seu cadastro
                     </p>
                   </div>
                   <button 
@@ -213,54 +213,130 @@ export default function CustomerOSPortal() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
                   
                   {/* Select Order Sidebar if multiple exist */}
-                  <div className="space-y-3 lg:col-span-1">
+                  <div className="space-y-3 md:col-span-3 text-left">
                     <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest block mb-2 opacity-60">Selecione o Serviço</span>
-                    {serviceOrders.map(os => {
-                      const numberStr = String(os.os_number).padStart(4, '0');
-                      const isSelected = selectedOrder?.id === os.id;
-                      
-                      return (
-                        <button
-                          key={os.id}
-                          onClick={() => setSelectedOrder(os)}
-                          className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-1.5 ${
-                            isSelected 
-                              ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/10' 
-                              : 'bg-white/[0.02] border-white/5 text-white hover:bg-white/[0.04]'
-                          }`}
-                        >
-                          <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-70">OS #{numberStr}</span>
-                          <span className="text-xs font-black uppercase truncate mt-0.5">{os.device_brand} {os.device_model}</span>
-                        </button>
+                    
+                    {(() => {
+                      const activeOrders = serviceOrders.filter(os => 
+                        !['delivered', 'returned_no_fix', 'canceled'].includes(os.status)
                       );
-                    })}
+                      const completedOrCanceledOrders = serviceOrders.filter(os => 
+                        ['delivered', 'returned_no_fix', 'canceled'].includes(os.status)
+                      );
+
+                      const getDeviceDisplayName = (os: any) => {
+                        const brand = os.device_brand?.trim();
+                        const model = os.device_model?.trim();
+                        if ((!brand || brand === '-') && (!model || model === '-')) {
+                          const cat = os.device_category?.toLowerCase();
+                          switch (cat) {
+                            case 'notebook': return 'Notebook';
+                            case 'desktop': return 'Computador PC';
+                            case 'smartphone': return 'Smartphone';
+                            case 'tablet': return 'Tablet';
+                            case 'printer': return 'Impressora';
+                            case 'console': return 'Console';
+                            default: return 'Equipamento';
+                          }
+                        }
+                        return `${brand || ''} ${model || ''}`.trim();
+                      };
+
+                      return (
+                        <>
+                          <div className="space-y-2">
+                            {activeOrders.map(os => {
+                              const numberStr = String(os.os_number).padStart(4, '0');
+                              const isSelected = selectedOrder?.id === os.id;
+                              
+                              return (
+                                <button
+                                  key={os.id}
+                                  onClick={() => setSelectedOrder(os)}
+                                  className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-1.5 ${
+                                    isSelected 
+                                      ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/10' 
+                                      : 'bg-white/[0.02] border-white/5 text-white hover:bg-white/[0.04]'
+                                  }`}
+                                >
+                                  <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-70">OS #{numberStr}</span>
+                                  <span className="text-xs font-black uppercase truncate mt-0.5">{getDeviceDisplayName(os)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {completedOrCanceledOrders.length > 0 && (
+                            <div className="mt-4 border-t border-white/5 pt-4">
+                              <button
+                                type="button"
+                                onClick={() => setShowCompletedOpen(!showCompletedOpen)}
+                                className="w-full flex items-center justify-between p-3 rounded-xl bg-white/[0.01] hover:bg-white/5 border border-white/5 text-[8px] font-black uppercase tracking-widest transition-all"
+                              >
+                                <span>Concluídas / Canceladas ({completedOrCanceledOrders.length})</span>
+                                <span className="text-primary">{showCompletedOpen ? '▼' : '▶'}</span>
+                              </button>
+                              
+                              {showCompletedOpen && (
+                                <div className="space-y-2 mt-2 pl-1 animate-in slide-in-from-top-1 duration-200">
+                                  {completedOrCanceledOrders.map(os => {
+                                    const numberStr = String(os.os_number).padStart(4, '0');
+                                    const isSelected = selectedOrder?.id === os.id;
+                                    
+                                    return (
+                                      <button
+                                        key={os.id}
+                                        onClick={() => setSelectedOrder(os)}
+                                        className={`w-full text-left p-3 rounded-xl border transition-all flex flex-col gap-1 ${
+                                          isSelected 
+                                            ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/10' 
+                                            : 'bg-white/[0.02] border-white/5 text-white hover:bg-white/[0.04]'
+                                        }`}
+                                      >
+                                        <span className="text-[8px] font-black font-mono leading-none tracking-widest opacity-70">OS #{numberStr}</span>
+                                        <span className="text-[11px] font-black uppercase truncate mt-0.5">{getDeviceDisplayName(os)}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Render Selected Timeline Detail */}
-                  <div className="lg:col-span-2 space-y-6">
+                  <div className="md:col-span-5 space-y-6">
                     {selectedOrder ? (
-                      <>
-                        <RepairTimeline 
-                          status={selectedOrder.status}
-                          deviceModel={selectedOrder.device_model}
-                          deviceBrand={selectedOrder.device_brand}
-                          estimatedDelivery={selectedOrder.estimated_delivery}
-                          warrantyPeriod={selectedOrder.warranty_period}
-                          osNumber={selectedOrder.os_number}
-                        />
-                        <CustomerSalesCatalog 
-                          osNumber={selectedOrder.os_number}
-                          unitId={selectedOrder.unit_id}
-                        />
-                      </>
+                      <RepairTimeline 
+                        status={selectedOrder.status}
+                        deviceModel={selectedOrder.device_model}
+                        deviceBrand={selectedOrder.device_brand}
+                        deviceCategory={selectedOrder.device_category}
+                        estimatedDelivery={selectedOrder.estimated_delivery}
+                        warrantyPeriod={selectedOrder.warranty_period}
+                        osNumber={selectedOrder.os_number}
+                      />
                     ) : (
                       <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
                         <Wrench size={32} className="opacity-20" />
                         <p className="text-[10px] font-black uppercase tracking-wider">Escolha uma Ordem de Serviço ao lado</p>
                       </div>
+                    )}
+                  </div>
+
+                  {/* Render Sales Catalog on the right */}
+                  <div className="md:col-span-4 mt-0">
+                    {selectedOrder && (
+                      <CustomerSalesCatalog 
+                        osNumber={selectedOrder.os_number}
+                        unitId={selectedOrder.unit_id}
+                      />
                     )}
                   </div>
 
