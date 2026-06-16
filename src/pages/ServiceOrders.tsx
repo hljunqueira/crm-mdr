@@ -1219,11 +1219,16 @@ export default function ServiceOrders() {
             {receiptTermsText}
           </div>
 
-          <div className={cn("a4-signatures text-black", currentServiceOrder.device_category === 'smartphone' ? "mt-12" : "mt-8")} style={{ gridTemplateColumns: '1fr', justifyItems: 'center' }}>
-            <div className="a4-sig-box" style={{ width: '60%' }}>
-              <div className="a4-sig-line" style={{ width: '100%' }}></div>
+          <div className={cn("a4-signatures text-black", currentServiceOrder.device_category === 'smartphone' ? "mt-8" : "mt-4")}>
+            <div className="a4-sig-box">
+              <div className="a4-sig-line"></div>
               <span>Estou de acordo com o que li no todo desta nota.</span>
               <strong className="mt-1">{currentServiceOrder.customers?.name}</strong>
+            </div>
+            <div className="a4-sig-box">
+              <div className="a4-sig-line"></div>
+              <span>Aparelho recebido por</span>
+              <strong className="mt-1">{brandName} {brandSub}</strong>
             </div>
           </div>
 
