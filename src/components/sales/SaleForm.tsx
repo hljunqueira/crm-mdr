@@ -2020,7 +2020,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   <strong className="text-amber-400">
                     R$ {gracePeriodInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </strong>{' '}
-                  somado à 1ª parcela.
+                  distribuído igualmente em todas as parcelas.
                 </p>
               </div>
             </div>
@@ -2031,11 +2031,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas individualmente:</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {generatedInstallments.map((inst, i) => (
-                  <div key={i} className={`p-3 rounded-2xl border ${i === 0 && gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'}`}>
+                  <div key={i} className={`p-3 rounded-2xl border ${gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'}`}>
                     <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}/{formData.installments}</p>
-                    {i === 0 && gracePeriodInterest > 0 && (
-                      <p className="text-[8px] text-amber-400 font-black mb-1">R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (c/ carência)</p>
-                    )}
+                    <p className="text-[9px] text-amber-400 font-black mb-1.5">
+                      R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {gracePeriodInterest > 0 ? '(c/ carência)' : ''}
+                    </p>
                     <input
                       type="date"
                       value={customDueDates[i] || ''}
