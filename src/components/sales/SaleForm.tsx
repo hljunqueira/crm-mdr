@@ -279,7 +279,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     trade_device_model: '',
     trade_device_imei: '',
     // Trade-in feature fields
-    price_type: 'normal' as 'normal' | 'trade',
+    price_type: 'trade' as 'normal' | 'trade',
     is_trade_in: false,
     trade_in_device_brand: '',
     trade_in_device_model: '',
@@ -1537,16 +1537,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
-                className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                Preço Venda Direta
-              </button>
-              <button
-                type="button"
                 onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
                 className={cn(
                   "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
@@ -1554,6 +1544,16 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 )}
               >
                 Preço Especial com Troca
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
+                className={cn(
+                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                )}
+              >
+                Preço Venda Direta
               </button>
             </div>
           </div>
@@ -1587,11 +1587,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
             
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca *</label>
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição *</label>
               <input 
                 type="text" 
                 required
-                placeholder="Ex: Apple, Samsung"
+                placeholder="Ex: Apple iPhone 11 64GB Preto Usado"
                 value={formData.trade_in_device_brand}
                 onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
                 className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
@@ -1599,7 +1599,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo *</label>
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto *</label>
               <input 
                 type="text" 
                 required
@@ -1634,17 +1634,19 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado *</label>
-              <input 
-                type="number" 
-                required
-                placeholder="R$ 0.00"
-                value={formData.trade_in_sale_price_estimate === 0 ? '' : formData.trade_in_sale_price_estimate}
-                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_sale_price_estimate: Number(e.target.value) || 0 }))}
-                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-              />
-            </div>
+            {profile?.role === 'admin' && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado *</label>
+                <input 
+                  type="number" 
+                  required
+                  placeholder="R$ 0.00"
+                  value={formData.trade_in_sale_price_estimate === 0 ? '' : formData.trade_in_sale_price_estimate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, trade_in_sale_price_estimate: Number(e.target.value) || 0 }))}
+                  className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -1661,47 +1663,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               }}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
             />
-          </div>
-        )}
-
-        {formData.payment_type !== 'vista' && formData.down_payment > 0 && (
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 p-5 bg-white/5 rounded-[32px] border border-white/10 animate-in fade-in duration-300">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Método de Entrada</label>
-              <select 
-                value={formData.down_payment_method}
-                onChange={(e) => setFormData(prev => ({ ...prev, down_payment_method: e.target.value }))}
-                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="money_pix" className="bg-[#1e1e38]">Dinheiro / PIX</option>
-                <option value="trade" className="bg-[#1e1e38]">Troca (Celular/Aparelho)</option>
-              </select>
-            </div>
-            {formData.down_payment_method === 'trade' && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Aparelho na Troca (Modelo)</label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="Ex: iPhone 11 64GB"
-                    value={formData.trade_device_model}
-                    onChange={(e) => setFormData(prev => ({ ...prev, trade_device_model: e.target.value }))}
-                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial (Troca)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Número do IMEI"
-                    value={formData.trade_device_imei}
-                    onChange={(e) => setFormData(prev => ({ ...prev, trade_device_imei: e.target.value }))}
-                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-                  />
-                </div>
-              </>
-            )}
           </div>
         )}
 
@@ -1915,39 +1876,43 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       {/* Preview Section */}
       {formData.payment_type !== 'vista' && generatedInstallments.length > 0 && (
         <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
-          <div className="flex items-center justify-between pb-6 border-b border-white/5">
-            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação</h4>
-            <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">Taxas MDR Aplicadas</span>
-            </div>
-          </div>
+          {formData.payment_type !== 'card' && (
+            <>
+              <div className="flex items-center justify-between pb-6 border-b border-white/5">
+                <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação</h4>
+                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">Taxas MDR Aplicadas</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
-              <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Índice ({formData.installments}x)</p>
-              <p className="text-sm font-black text-primary font-mono">{(baseCoefficient * riskMultiplier).toFixed(6)}</p>
-            </div>
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Juros/Serviço (R$)</p>
-              <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Final</p>
-              <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-          {accessoriesTotal > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
-              <ShoppingBag size={14} className="text-green-400 shrink-0" />
-              <span className="text-on-surface-variant">Acessórios (venda):</span>
-              <span className="text-green-400 font-black font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              <span className="text-on-surface-variant ml-auto text-[10px]">incluídos no Valor Final</span>
-            </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
+                  <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Índice ({formData.installments}x)</p>
+                  <p className="text-sm font-black text-primary font-mono">{(baseCoefficient * riskMultiplier).toFixed(6)}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Juros/Serviço (R$)</p>
+                  <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Final</p>
+                  <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              {accessoriesTotal > 0 && (
+                <div className="flex items-center gap-3 p-3 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
+                  <ShoppingBag size={14} className="text-green-400 shrink-0" />
+                  <span className="text-on-surface-variant">Acessórios (venda):</span>
+                  <span className="text-green-400 font-black font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-on-surface-variant ml-auto text-[10px]">incluídos no Valor Final</span>
+                </div>
+              )}
+            </>
           )}
 
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
@@ -1970,7 +1935,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           </div>
 
-          {gracePeriodInterest > 0 && (
+          {formData.payment_type !== 'card' && gracePeriodInterest > 0 && (
             <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[10px] animate-in fade-in duration-300">
               <Calendar size={14} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
@@ -1986,25 +1951,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           )}
 
-          <div>
-            <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas individualmente:</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {generatedInstallments.map((inst, i) => (
-                <div key={i} className={`p-3 rounded-2xl border ${i === 0 && gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'}`}>
-                  <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}/{formData.installments}</p>
-                  {i === 0 && gracePeriodInterest > 0 && (
-                    <p className="text-[8px] text-amber-400 font-black mb-1">R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (c/ carência)</p>
-                  )}
-                  <input
-                    type="date"
-                    value={customDueDates[i] || ''}
-                    onChange={(e) => handleDueDateChange(i, e.target.value)}
-                    className="w-full bg-transparent border border-white/10 rounded-xl px-2 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
-                  />
-                </div>
-              ))}
+          {formData.payment_type !== 'card' && (
+            <div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas individualmente:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {generatedInstallments.map((inst, i) => (
+                  <div key={i} className={`p-3 rounded-2xl border ${i === 0 && gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'}`}>
+                    <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}/{formData.installments}</p>
+                    {i === 0 && gracePeriodInterest > 0 && (
+                      <p className="text-[8px] text-amber-400 font-black mb-1">R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (c/ carência)</p>
+                    )}
+                    <input
+                      type="date"
+                      value={customDueDates[i] || ''}
+                      onChange={(e) => handleDueDateChange(i, e.target.value)}
+                      className="w-full bg-transparent border border-white/10 rounded-xl px-2 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
