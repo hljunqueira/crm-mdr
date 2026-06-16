@@ -718,15 +718,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return financed * finalCoeff;
   }, [isCashLike, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier, formData.is_trade_in, formData.trade_in_valuation]);
 
-  // First installment value includes grace period interest (if any)
+  // First installment value includes grace period interest (if any) distributed evenly
   const firstInstallmentValue = useMemo(() => {
-    return installmentValue + gracePeriodInterest;
-  }, [installmentValue, gracePeriodInterest]);
+    const portion = installmentCount > 0 ? (gracePeriodInterest / installmentCount) : 0;
+    return installmentValue + portion;
+  }, [installmentValue, gracePeriodInterest, installmentCount]);
 
   const totalInstallmentsValue = useMemo(() => {
-    if (installmentCount <= 1) return firstInstallmentValue;
-    return firstInstallmentValue + installmentValue * (installmentCount - 1);
-  }, [firstInstallmentValue, installmentValue, installmentCount]);
+    return firstInstallmentValue * installmentCount;
+  }, [firstInstallmentValue, installmentCount]);
 
   const finalValue = useMemo(() => {
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
@@ -757,11 +757,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return customDueDates.map((dueDate, idx) => ({
       number: idx + 1,
       total: formData.installments,
-      value: idx === 0 ? firstInstallmentValue : installmentValue,
+      value: firstInstallmentValue,
       dueDate: dueDate,
       status: 'pending'
     }));
-  }, [formData.customer_id, formData.total_value, formData.installments, installmentValue, firstInstallmentValue, customDueDates, isCashLike]);
+  }, [formData.customer_id, formData.total_value, formData.installments, firstInstallmentValue, customDueDates, isCashLike]);
 
   const executeSubmit = async (sellerId: string) => {
     try {
@@ -1993,14 +1993,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
             <div>
               <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">
-                {gracePeriodInterest > 0 ? `1ª Parcela (c/ carência)` : `Plano de ${formData.installments}x`}
+                {gracePeriodInterest > 0 ? `Parcela com carência` : `Plano de ${formData.installments}x`}
               </p>
               <p className="text-xl font-black text-white font-mono">
-                R$ {(gracePeriodInterest > 0 ? firstInstallmentValue : installmentValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
-              {gracePeriodInterest > 0 && installmentCount > 1 && (
+              {gracePeriodInterest > 0 && (
                 <p className="text-[9px] text-amber-400 font-black mt-0.5">
-                  Parcelas 2–{formData.installments}: R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  * Inclui juros de carência pro-rata distribuídos em todas as parcelas
                 </p>
               )}
             </div>
