@@ -51,11 +51,27 @@ export default function CustomerOSPortal() {
     setCustomerName(null);
 
     try {
+      const cleanPhoneWithout55 = cleanPhone.startsWith('55') && cleanPhone.length > 10 ? cleanPhone.substring(2) : cleanPhone;
+      const cleanPhoneWith55 = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+
+      // Create filter variations and wrap values in double quotes to escape PostgREST special characters (parentheses, spaces, dashes)
+      const filters = [
+        `phone.eq."${phone}"`,
+        `phone.eq."${cleanPhone}"`,
+        `phone.eq."${cleanPhoneWithout55}"`,
+        `phone.eq."${cleanPhoneWith55}"`
+      ];
+
+      const standardFormatted = formatPhone(cleanPhoneWithout55);
+      if (standardFormatted && standardFormatted !== phone) {
+        filters.push(`phone.eq."${standardFormatted}"`);
+      }
+
       // 1. Buscar todos os clientes que possuem este telefone (limpo ou formatado)
       const { data: matchedCustomers, error: customerErr } = await supabase
         .from('customers')
         .select('id, name')
-        .or(`phone.eq.${phone},phone.eq.${cleanPhone}`);
+        .or(filters.join(','));
 
       if (customerErr) throw customerErr;
 
@@ -143,17 +159,18 @@ export default function CustomerOSPortal() {
                 <div className="glass-card border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl relative overflow-hidden bg-white/[0.01] max-w-xl mx-auto">
                   <form onSubmit={handleSearch} className="space-y-6">
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] pl-1">Digite seu Celular / WhatsApp cadastrado</label>
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.15em] pl-1">Digite seu Celular / WhatsApp cadastrado (DDD + 9 dígitos)</label>
                       <div className="relative group">
                         <input 
                           type="text" 
                           required
-                          placeholder="(00) 00000-0000" 
+                          placeholder="(00) 99999-9999" 
                           value={phone}
                           onChange={handlePhoneChange}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-lg text-center text-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none font-mono" 
                         />
                       </div>
+                      <p className="text-[9px] text-on-surface-variant/60 mt-1">Exemplo: (48) 99101-3293</p>
                     </div>
 
                     {error && (
