@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
 
 // Create sale
 router.post("/", async (req, res) => {
-  const { store_id, is_trade_in, trade_in_device_imei, trade_in_device_brand, trade_in_device_model, trade_in_valuation, trade_in_sale_price_estimate } = req.body;
+  const { store_id, seller_id, is_trade_in, trade_in_device_imei, trade_in_device_brand, trade_in_device_model, trade_in_valuation, trade_in_sale_price_estimate } = req.body;
   if (!store_id) {
     return res.status(400).json({ error: "O campo store_id (unidade) é obrigatório." });
   }
@@ -67,6 +67,9 @@ router.post("/", async (req, res) => {
 
     // 3. If it's a trade-in, insert the traded phone into devices (inventory)
     if (is_trade_in) {
+      const priceEstimate = Number(trade_in_sale_price_estimate) || 0;
+      const initialStatus = priceEstimate > 0 ? 'available' : 'pending_valuation';
+
       const { error: deviceError } = await supabase
         .from('devices')
         .insert({
@@ -76,14 +79,84 @@ router.post("/", async (req, res) => {
           imei: trade_in_device_imei ? String(trade_in_device_imei).trim() : null,
           condition: 'used',
           cost_price: Number(trade_in_valuation) || 0,
-          sale_price: Number(trade_in_sale_price_estimate) || 0,
+          sale_price: priceEstimate,
           stock_quantity: 1,
-          status: 'available',
+          status: initialStatus,
           notes: `Aparelho recebido como troca na venda ID: ${saleData.id}`
         });
 
       if (deviceError) {
         console.error("Erro ao cadastrar aparelho de troca no estoque:", deviceError);
+      }
+
+      if (initialStatus === 'pending_valuation') {
+        let storeName = 'MDR';
+        let sellerName = 'Vendedor';
+        try {
+          if (store_id) {
+            const { data: storeData } = await supabase.from('stores').select('name').eq('id', store_id).single();
+            if (storeData) {
+              storeName = storeData.name;
+            }
+          }
+          if (seller_id) {
+            const { data: sellerData } = await supabase.from('profiles').select('full_name').eq('id', seller_id).single();
+            if (sellerData) {
+              sellerName = sellerData.full_name;
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching names for notification:', e);
+        }
+
+        const messageText = `📱 *Alerta de Nova Troca Pendente* 📱\n\n` +
+          `Uma nova troca foi registrada e está aguardando avaliação:\n\n` +
+          `*Loja:* ${storeName}\n` +
+          `*Aparelho:* ${trade_in_device_brand} ${trade_in_device_model}\n` +
+          `*IMEI:* ${trade_in_device_imei || 'N/A'}\n` +
+          `*Valor de Abatimento:* R$ ${(Number(trade_in_valuation) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n` +
+          `*Vendedor:* ${sellerName}\n\n` +
+          `Por favor, acesse o painel de estoque para definir o preço de revenda e ativar o aparelho.`;
+
+        try {
+          const { data: storeData } = await supabase.from('stores').select('instance').eq('id', store_id).single();
+          const instance = storeData?.instance || 'MDR';
+
+          const n8nWebhookUrl = 'https://n8n.mdrinformaticaecelulares.com.br/webhook/trade-in-alert';
+          const payload = {
+            adminPhone: "554899035854",
+            text: messageText,
+            instance: instance
+          };
+
+          const response = await fetch(n8nWebhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-N8N-API-KEY': process.env.N8N_API_KEY || ''
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            console.warn('Failed to notify trade-in via n8n, falling back to direct chat send:', errText);
+            const fallbackUrl = `${req.protocol}://${req.get('host')}/api/chat/send`;
+            await fetch(fallbackUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                instanceName: instance,
+                remoteJid: "554899035854",
+                text: messageText
+              })
+            });
+          }
+        } catch (notifErr) {
+          console.error('Error sending trade-in notification:', notifErr);
+        }
       }
     }
 
@@ -204,17 +277,12 @@ router.delete("/:id", async (req, res) => {
       }
     }
 
-    // 4. If it was a trade-in, clean up the received device in stock
+    // 4. If it was a trade-in, clean up the received device in stock precisely
     if (sale.is_trade_in) {
       await supabase
         .from('devices')
         .delete()
-        .eq('store_id', sale.store_id)
-        .eq('brand', sale.trade_in_device_brand)
-        .eq('model', sale.trade_in_device_model)
-        .eq('cost_price', sale.trade_in_valuation)
-        .eq('condition', 'used')
-        .limit(1);
+        .eq('notes', `Aparelho recebido como troca na venda ID: ${sale.id}`);
     }
 
     // 5. Finally delete the sale (which cascades to delete installments)

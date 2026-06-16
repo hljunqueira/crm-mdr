@@ -12,7 +12,7 @@ export interface InventoryItem {
   trade_in_price?: number;
   cost_price: number;
   condition: 'new' | 'used' | 'refurbished' | 'vitrine';
-  status: 'available' | 'sold' | 'reserved' | 'in_repair';
+  status: 'available' | 'sold' | 'reserved' | 'in_repair' | 'pending_valuation';
   stock_quantity: number;
   notes?: string;
   category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other';

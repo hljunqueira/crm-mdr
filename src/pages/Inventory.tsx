@@ -41,6 +41,7 @@ export default function Inventory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStore, setSelectedStore] = useState('all');
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -68,7 +69,10 @@ export default function Inventory() {
       item.brand.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
     const matchesStore = !isAdmin || selectedStore === 'all' || item.unit_id === selectedStore;
-    return matchesSearch && matchesCategory && matchesStore;
+    const matchesStatus = showPendingOnly
+      ? item.status === 'pending_valuation'
+      : item.status !== 'pending_valuation';
+    return matchesSearch && matchesCategory && matchesStore && matchesStatus;
   });
 
   const getCategoryBadge = (cat?: string) => {
@@ -172,6 +176,22 @@ export default function Inventory() {
     });
   };
 
+  const handleOpenValuationModal = (item: InventoryItem) => {
+    showModal({
+      title: 'Avaliar Aparelho de Troca',
+      children: (
+        <ValuationModal
+          item={item}
+          onSuccess={() => {
+            hideModal();
+            showNotification('success', 'Aparelho Avaliado!', 'O produto agora está disponível em estoque.');
+            fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
+          }}
+        />
+      ),
+    });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 p-8 pb-20">
       {/* Header */}
@@ -260,6 +280,39 @@ export default function Inventory() {
               <Store size={13} /> {store.name}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Status Filter Tabs — visible to admins only */}
+      {isAdmin && (
+        <div className="flex gap-2 pb-1 border-b border-white/5">
+          <button
+            type="button"
+            onClick={() => setShowPendingOnly(false)}
+            className={cn(
+              "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border",
+              !showPendingOnly
+                ? 'bg-white text-black border-white shadow-lg'
+                : 'bg-white/5 border-white/10 text-on-surface-variant hover:bg-white/5'
+            )}
+          >
+            Estoque Ativo
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPendingOnly(true)}
+            className={cn(
+              "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border relative",
+              showPendingOnly
+                ? 'bg-amber-500 border-amber-500 text-black shadow-lg shadow-amber-500/20'
+                : 'bg-white/5 border-white/10 text-on-surface-variant hover:bg-white/5'
+            )}
+          >
+            Avaliações Pendentes
+            {inventory.some(i => i.status === 'pending_valuation') && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border-2 border-[#121224] rounded-full animate-pulse" />
+            )}
+          </button>
         </div>
       )}
 
@@ -356,11 +409,13 @@ export default function Inventory() {
                   </div>
                   <div className={cn(
                     "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                    (item.stock_quantity || 0) > 5 ? 'border-success/20 text-success bg-success/5' :
-                      (item.stock_quantity || 0) > 0 ? 'border-warning/20 text-warning bg-warning/5' :
-                        'border-error/20 text-error bg-error/5'
+                    item.status === 'pending_valuation' ? 'border-amber-500/30 text-amber-400 bg-amber-500/5' :
+                      (item.stock_quantity || 0) > 5 ? 'border-success/20 text-success bg-success/5' :
+                        (item.stock_quantity || 0) > 0 ? 'border-warning/20 text-warning bg-warning/5' :
+                          'border-error/20 text-error bg-error/5'
                   )}>
-                    {(item.stock_quantity || 0) > 0 ? `${item.stock_quantity} unidades` : 'Sem estoque'}
+                    {item.status === 'pending_valuation' ? 'Aguardando Avaliação' :
+                      (item.stock_quantity || 0) > 0 ? `${item.stock_quantity} unidades` : 'Sem estoque'}
                   </div>
                 </div>
 
@@ -386,60 +441,100 @@ export default function Inventory() {
                       </div>
                     )}
                     <div className="flex flex-col gap-1 pt-4 border-t border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço Venda Direta</span>
-                        <span className="text-sm font-bold text-white">R$ {item.price.toLocaleString('pt-BR')}</span>
-                      </div>
-                      {item.trade_in_price !== undefined && item.trade_in_price !== null && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço com Troca</span>
-                          <span className="text-sm font-bold text-primary">R$ {Number(item.trade_in_price).toLocaleString('pt-BR')}</span>
-                        </div>
+                      {item.status === 'pending_valuation' ? (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-amber-400/80">Valor do Abatimento (Custo)</span>
+                            <span className="text-sm font-bold text-white font-mono">R$ {item.cost_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="text-[9px] text-on-surface-variant/60 uppercase tracking-wider mt-1 text-right">Aparelho ainda não precificado</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço Venda Direta</span>
+                            <span className="text-sm font-bold text-white">R$ {item.price.toLocaleString('pt-BR')}</span>
+                          </div>
+                          {item.trade_in_price !== undefined && item.trade_in_price !== null && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço com Troca</span>
+                              <span className="text-sm font-bold text-primary">R$ {Number(item.trade_in_price).toLocaleString('pt-BR')}</span>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
                 </div>
 
                 <div className="p-3 bg-white/5 flex items-center justify-end gap-3 border-t border-white/5 flex-wrap">
-                  {hasPermission(profile, 'Estoque - Transferir Produto') && (
-                    <button
-                      onClick={() => handleOpenTransferModal(item)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-primary hover:bg-primary/5 transition-all"
-                      title="Transferir Unidade"
-                    >
-                      <ArrowRightLeft size={13} />
-                      <span>Transferir</span>
-                    </button>
-                  )}
-                  {item.barcode && (
-                    <button
-                      onClick={() => handleOpenLabelsModal(item)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-warning hover:bg-warning/5 transition-all"
-                      title="Etiquetas de Código de Barras"
-                    >
-                      <Printer size={13} />
-                      <span>Etiquetas</span>
-                    </button>
-                  )}
-                  {hasPermission(profile, 'Estoque - Editar Produto') && (
-                    <button
-                      onClick={() => handleEditItem(item)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-white hover:bg-white/5 transition-all"
-                      title="Editar"
-                    >
-                      <Edit2 size={13} />
-                      <span>Editar</span>
-                    </button>
-                  )}
-                  {hasPermission(profile, 'Estoque - Excluir Produto') && (
-                    <button
-                      onClick={() => handleDeleteItem(item.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-error hover:bg-error/5 transition-all"
-                      title="Excluir"
-                    >
-                      <Trash2 size={13} />
-                      <span>Excluir</span>
-                    </button>
+                  {item.status === 'pending_valuation' ? (
+                    <>
+                      {hasPermission(profile, 'Estoque - Editar Produto') && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenValuationModal(item)}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-amber-500 hover:bg-amber-600 text-black shadow-lg shadow-amber-500/10 transition-all hover:scale-102"
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>Avaliar e Ativar</span>
+                        </button>
+                      )}
+                      {hasPermission(profile, 'Estoque - Excluir Produto') && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-error hover:bg-error/5 transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={13} />
+                          <span>Excluir</span>
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {hasPermission(profile, 'Estoque - Transferir Produto') && (
+                        <button
+                          onClick={() => handleOpenTransferModal(item)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-primary hover:bg-primary/5 transition-all"
+                          title="Transferir Unidade"
+                        >
+                          <ArrowRightLeft size={13} />
+                          <span>Transferir</span>
+                        </button>
+                      )}
+                      {item.barcode && (
+                        <button
+                          onClick={() => handleOpenLabelsModal(item)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-warning hover:bg-warning/5 transition-all"
+                          title="Etiquetas de Código de Barras"
+                        >
+                          <Printer size={13} />
+                          <span>Etiquetas</span>
+                        </button>
+                      )}
+                      {hasPermission(profile, 'Estoque - Editar Produto') && (
+                        <button
+                          onClick={() => handleEditItem(item)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-white hover:bg-white/5 transition-all"
+                          title="Editar"
+                        >
+                          <Edit2 size={13} />
+                          <span>Editar</span>
+                        </button>
+                      )}
+                      {hasPermission(profile, 'Estoque - Excluir Produto') && (
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/70 hover:text-error hover:bg-error/5 transition-all"
+                          title="Excluir"
+                        >
+                          <Trash2 size={13} />
+                          <span>Excluir</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1140,5 +1235,72 @@ function LabelsModal({ item }: { item: InventoryItem }) {
         <Printer size={15} /> Imprimir Etiquetas
       </button>
     </div>
+  );
+}
+
+function ValuationModal({ item, onSuccess }: { item: InventoryItem; onSuccess: () => void }) {
+  const { updateItem } = useInventoryStore();
+  const [salePrice, setSalePrice] = useState(item.price || 0);
+  const [costPrice, setCostPrice] = useState(item.cost_price || 0);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await updateItem(item.id, {
+        price: salePrice,
+        cost_price: costPrice,
+        status: 'available'
+      });
+      onSuccess();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 text-left p-2">
+      <div className="space-y-1">
+        <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Aparelho</label>
+        <p className="text-sm font-black text-white">{item.brand} {item.model}</p>
+        <p className="text-[10px] text-on-surface-variant font-mono">IMEI: {item.imei || 'N/A'}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Custo (Abatimento)</label>
+          <input
+            type="number"
+            required
+            value={costPrice === 0 ? '' : costPrice}
+            onChange={(e) => setCostPrice(Number(e.target.value) || 0)}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado</label>
+          <input
+            type="number"
+            required
+            autoFocus
+            value={salePrice === 0 ? '' : salePrice}
+            onChange={(e) => setSalePrice(Number(e.target.value) || 0)}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+          />
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full py-4 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl font-black uppercase tracking-widest text-xs transition-all hover:scale-102 flex items-center justify-center gap-2"
+      >
+        {loading && <Loader2 className="animate-spin" size={16} />}
+        Aprovar e Ativar no Estoque
+      </button>
+    </form>
   );
 }
