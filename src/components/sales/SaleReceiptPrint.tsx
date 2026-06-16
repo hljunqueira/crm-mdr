@@ -239,25 +239,29 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '25px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
-        </div>
+        {sale.payment_type === 'crediario' && (
+          <>
+            <div className="sig-line-box" style={{ marginTop: '25px' }}>
+              <div className="sig-line"></div>
+              <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
+            </div>
 
-        <div className="sig-line-box" style={{ marginTop: '35px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">{customer.name}<br />Comprador</span>
-        </div>
+            <div className="sig-line-box" style={{ marginTop: '60px' }}>
+              <div className="sig-line"></div>
+              <span className="sig-label">{customer.name}<br />Comprador</span>
+            </div>
+          </>
+        )}
 
         <div className="divider"></div>
 
         {/* Footer Note */}
         <div className="footer-note">
           Comprovante interno emitido por {unit.name || 'MDR Informática & Celulares'}.<br />
-          {sale.payment_type === 'vista' ? (
-            <strong>Obrigado pela preferência!</strong>
-          ) : (
+          {sale.payment_type === 'crediario' ? (
             <>O aparelho é propriedade do vendedor até a quitação total das parcelas.<br />Pagamentos via PIX/Dinheiro/Transferência.</>
+          ) : (
+            <strong>Obrigado pela preferência!</strong>
           )}
         </div>
       </div>
