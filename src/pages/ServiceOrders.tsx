@@ -1475,12 +1475,17 @@ export default function ServiceOrders() {
 
         <div className="divider"></div>
 
-        {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '28px' }}>
-          <div className="sig-line"></div>
-          <span className="sig-label">{brandName} {brandSub}</span>
+        {/* Clauses */}
+        <div className="section-title">TERMOS DE RECEBIMENTO</div>
+        <div className="clauses">
+          1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
+          2. <strong>Backup de Dados:</strong> A {brandName} <strong>NÃO se responsabiliza por perdas de dados</strong> ou arquivos. Faça backup prévio.<br />
+          3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
         </div>
 
+        <div className="divider"></div>
+
+        {/* Signatures */}
         <div className="sig-line-box" style={{ marginTop: '28px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
