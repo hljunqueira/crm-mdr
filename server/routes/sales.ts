@@ -31,7 +31,7 @@ router.post("/", async (req, res) => {
   }
 
   // Check if cashier shift is open for this unit
-  const { data: activeShift, error: shiftError } = await supabase
+  const { data: activeShiftData, error: shiftError } = await supabase
     .from('cash_shifts')
     .select('*')
     .eq('unit_id', store_id)
@@ -42,6 +42,7 @@ router.post("/", async (req, res) => {
     return res.status(500).json({ error: shiftError.message });
   }
 
+  const activeShift = activeShiftData as any;
   if (!activeShift) {
     return res.status(400).json({ error: "Não existe um caixa aberto para esta unidade. Abra o caixa antes de realizar vendas." });
   }
@@ -259,12 +260,14 @@ router.patch("/:id", async (req, res) => {
     const storeId = req.body.store_id || oldSale.store_id;
      
     // 2. Fetch active shift
-    const { data: activeShift } = await supabase
+    const { data: activeShiftData } = await supabase
       .from('cash_shifts')
       .select('*')
       .eq('unit_id', storeId)
       .eq('status', 'open')
       .maybeSingle();
+       
+    const activeShift = activeShiftData as any;
        
     // 3. Revert old transaction if shift is open
     if (activeShift) {
