@@ -242,12 +242,12 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-corpo-value {
-          font-size: 10.5px;
+          font-size: 9.5px;
           font-weight: 700;
           color: #000000;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          white-space: normal;
+          line-height: 1.15;
+          word-break: break-word;
         }
 
         .pix-instructions-box {
