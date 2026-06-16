@@ -1293,13 +1293,15 @@ export default function Sales() {
   };
 
   const handleEditSale = async (sale: Sale) => {
-    let currentShift = activeShift;
-    if (profile?.unit_id) {
-      currentShift = await fetchActiveShift(profile.unit_id);
-    }
-    if (!currentShift) {
-      showNotification('error', 'Caixa Fechado', 'Abra o caixa para editar/lançar vendas.');
-      return;
+    if (profile?.role !== 'admin') {
+      let currentShift = activeShift;
+      if (profile?.unit_id) {
+        currentShift = await fetchActiveShift(profile.unit_id);
+      }
+      if (!currentShift) {
+        showNotification('error', 'Caixa Fechado', 'Abra o caixa para editar/lançar vendas.');
+        return;
+      }
     }
     showModal({
       title: 'Editar Venda',
@@ -1319,13 +1321,15 @@ export default function Sales() {
   };
 
   const handleNewSale = async () => {
-    let currentShift = activeShift;
-    if (profile?.unit_id) {
-      currentShift = await fetchActiveShift(profile.unit_id);
-    }
-    if (!currentShift) {
-      showNotification('error', 'Caixa Fechado', 'Abra o caixa para registrar novas vendas.');
-      return;
+    if (profile?.role !== 'admin') {
+      let currentShift = activeShift;
+      if (profile?.unit_id) {
+        currentShift = await fetchActiveShift(profile.unit_id);
+      }
+      if (!currentShift) {
+        showNotification('error', 'Caixa Fechado', 'Abra o caixa para registrar novas vendas.');
+        return;
+      }
     }
     showModal({
       title: 'Registrar Nova Venda',
