@@ -105,7 +105,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
         /* Canhoto (narrow left slip) */
         .pix-canhoto {
-          width: 50mm;
+          width: 42mm;
           border-right: 1.5px dashed #000000;
           padding: 8px;
           display: flex;
@@ -181,6 +181,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           flex-direction: column;
           justify-content: space-between;
           padding-right: 10px;
+          min-width: 0;
         }
 
         .pix-corpo-header {
@@ -275,7 +276,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-corpo-right {
-          width: 130px;
+          width: 35mm;
           border-left: 1.5px dashed #000000;
           padding-left: 8px;
           display: flex;
@@ -295,8 +296,8 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-qr-img {
-          width: 85px;
-          height: 85px;
+          width: 26mm;
+          height: 26mm;
           object-fit: contain;
         }
 

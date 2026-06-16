@@ -291,7 +291,7 @@ export default function Reports() {
   const parseAccessories = (accStr: string) => {
     if (!accStr) return [];
     const cleanPart = accStr.split('|')[0] || '';
-    const items = cleanPart.split(',').map(s => s.trim()).filter(Boolean);
+    const items = cleanPart.split(',').map(s => s.trim()).filter(s => s && !s.startsWith('['));
     return items.map(itemStr => {
       const isVenda = itemStr.includes('Venda R$');
       const isBrinde = itemStr.includes('Brinde');
