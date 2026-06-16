@@ -221,7 +221,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
         .pix-corpo-details {
           display: grid;
-          grid-template-columns: 2fr 1fr 1fr;
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
           gap: 6px;
           margin-top: 4px;
         }
