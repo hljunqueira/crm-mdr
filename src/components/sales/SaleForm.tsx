@@ -85,6 +85,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [units, finalUnitId, unit]);
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [createdSale, setCreatedSale] = useState<any | null>(null);
   const [amountPaid, setAmountPaid] = useState<number>(0);
 
   const [saleType, setSaleType] = useState<'cellphone' | 'general'>('general');
@@ -849,6 +850,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           payment_method: formData.payment_method
         });
 
+        setCreatedSale(newSale);
+
         // Decrement stock for all selected devices
         for (const device of selectedDevices) {
           const deviceItem = inventory.find(d => d.id === device.id);
@@ -1032,6 +1035,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
     const saleDataForPrint = {
       ...formData,
+      id: createdSale?.id || initialData?.id || 'temp-id',
       date: formData.first_due_date,
       total_value: finalValue,
       original_price: formData.total_value,

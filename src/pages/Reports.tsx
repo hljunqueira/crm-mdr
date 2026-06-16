@@ -275,7 +275,7 @@ export default function Reports() {
     };
   }, [filteredSales]);
 
-  // ─── LUCRO PRESUMIDO COMPUTATIONS ───────────────────────────────────────
+  // ─── LUCRO PRESUMIDO / REAL ITEM COMPUTATIONS ────────────────────────────────
   const isDateInMonth = (dateStr?: string, m?: number, y?: number) => {
     if (!dateStr) return false;
     const cleanDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
@@ -288,86 +288,138 @@ export default function Reports() {
     return date.getFullYear() === targetY && (date.getMonth() + 1) === targetM;
   };
 
-  const calculateLucroPresumidoForPeriod = (m: number, y: number) => {
-    const mSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && isDateInMonth(s.date, m, y));
-    const mServiceOrders = serviceOrders.filter(o => o.status !== 'canceled' && filterByUnit(o.unit_id) && isDateInMonth(o.delivered_at || o.created_at, m, y));
-
-    let receitaComercio = 0;
-    let receitaServico = 0;
-
-    if (accountingRegime === 'competence') {
-      receitaComercio = mSales.reduce((acc, s) => acc + (s.original_price ?? s.total_value), 0);
-      receitaServico = mServiceOrders.reduce((acc, o) => acc + o.total_value, 0);
-    } else {
-      // Regime de Caixa
-      const downPayments = mSales.reduce((acc, s) => acc + (s.down_payment || 0), 0);
-      const paidInsts = installments
-        .filter(i => i.status === 'paid' && filterByUnit(i.unit_id) && isDateInMonth(i.paid_at, m, y))
-        .reduce((acc, i) => acc + i.value, 0);
-      const paidOS = mServiceOrders
-        .filter(o => o.payment_status === 'paid')
-        .reduce((acc, o) => acc + o.total_value, 0);
-
-      receitaComercio = downPayments + paidInsts;
-      receitaServico = paidOS;
-    }
-
-    const totalBruto = receitaComercio + receitaServico;
-
-    // Margens de presunção (8% comércio, 32% serviço)
-    const bcComercio = receitaComercio * 0.08;
-    const bcServico = receitaServico * 0.32;
-    const bcTotal = bcComercio + bcServico;
-
-    // Impostos
-    const irpjNormal = bcTotal * 0.15;
-    const irpjAdicional = bcTotal > 20000 ? (bcTotal - 20000) * 0.10 : 0;
-    const irpjTotal = irpjNormal + irpjAdicional;
-
-    const csllTotal = bcTotal * 0.09;
-    const pisTotal = totalBruto * 0.0065; // 0.65% cumulativo
-    const cofinsTotal = totalBruto * 0.03; // 3% cumulativo
-    const issTotal = receitaServico * (issRate / 100);
-
-    const totalImpostos = irpjTotal + csllTotal + pisTotal + cofinsTotal + issTotal;
-
-    return {
-      receitaComercio,
-      receitaServico,
-      totalBruto,
-      bcComercio,
-      bcServico,
-      bcTotal,
-      irpjNormal,
-      irpjAdicional,
-      irpjTotal,
-      csllTotal,
-      pisTotal,
-      cofinsTotal,
-      issTotal,
-      totalImpostos
-    };
-  };
-
-  // Live selected month data
-  const lpData = useMemo(() => {
-    return calculateLucroPresumidoForPeriod(selectedMonth, selectedYear);
-  }, [sales, serviceOrders, installments, selectedMonth, selectedYear, accountingRegime, issRate, selectedUnitId]);
-
-  // Monthly comparison list
-  const monthlyHistory = useMemo(() => {
-    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => {
-      const data = calculateLucroPresumidoForPeriod(m, selectedYear);
+  const parseAccessories = (accStr: string) => {
+    if (!accStr) return [];
+    const cleanPart = accStr.split('|')[0] || '';
+    const items = cleanPart.split(',').map(s => s.trim()).filter(Boolean);
+    return items.map(itemStr => {
+      const isVenda = itemStr.includes('Venda R$');
+      const isBrinde = itemStr.includes('Brinde');
+      const name = itemStr.replace(/\s*\([^)]*\)\s*/g, '').trim();
+      
+      let salePrice = 0;
+      if (isVenda) {
+        const match = itemStr.match(/Venda R\$\s*([0-9.,]+)/i);
+        if (match) {
+          salePrice = parseFloat(match[1].replace(',', '.'));
+        }
+      }
+      
+      const matchedInv = inventory.find(i => i.model.toLowerCase() === name.toLowerCase());
+      const costPrice = matchedInv ? matchedInv.cost_price : 0;
+      const barcode = matchedInv ? (matchedInv.barcode || '') : '';
+      
       return {
-        m,
-        name: [
-          'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-          'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
-        ][m - 1],
-        ...data
+        name,
+        isVenda,
+        isBrinde,
+        salePrice,
+        costPrice,
+        barcode
       };
     });
-  }, [sales, serviceOrders, installments, selectedYear, accountingRegime, issRate, selectedUnitId]);
+  };
+
+  const monthlyProfitItems = useMemo(() => {
+    const items: Array<{
+      saleNumber: string;
+      code: string;
+      product: string;
+      qtd: number;
+      cost: number;
+      sale: number;
+      profit: number;
+      margin: number;
+    }> = [];
+
+    // 1. Sales
+    const mSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && isDateInMonth(s.date));
+    mSales.forEach(s => {
+      const saleNum = s.id.split('-')[0].toUpperCase();
+      
+      const mainDevice = inventory.find(inv => inv.id === s.device_id);
+      const mainCost = mainDevice ? mainDevice.cost_price : 0;
+      const mainSale = s.original_price ?? s.total_value;
+      const mainProfit = mainSale - mainCost;
+      const mainMargin = mainCost > 0 ? (mainProfit / mainCost) * 100 : 0;
+
+      items.push({
+        saleNumber: saleNum,
+        code: s.imei || (mainDevice?.barcode || mainDevice?.imei || 'N/A'),
+        product: s.device_model,
+        qtd: 1,
+        cost: mainCost,
+        sale: mainSale,
+        profit: mainProfit,
+        margin: mainMargin
+      });
+
+      const parsedAcc = parseAccessories(s.accessories || '');
+      parsedAcc.forEach(acc => {
+        const accSale = acc.isVenda ? acc.salePrice : 0;
+        const accCost = acc.costPrice;
+        const accProfit = accSale - accCost;
+        const accMargin = accCost > 0 ? (accProfit / accCost) * 100 : 0;
+
+        items.push({
+          saleNumber: saleNum,
+          code: acc.barcode || 'P-Avulso',
+          product: acc.name + (acc.isBrinde ? ' (Brinde)' : ''),
+          qtd: 1,
+          cost: accCost,
+          sale: accSale,
+          profit: accProfit,
+          margin: accMargin
+        });
+      });
+    });
+
+    // 2. Service Orders (Repairs)
+    const mServiceOrders = serviceOrders.filter(o => o.status === 'delivered' && filterByUnit(o.unit_id) && isDateInMonth(o.delivered_at || o.created_at));
+    mServiceOrders.forEach(o => {
+      const saleNum = `OS ${o.os_number}`;
+      const code = `S-${o.os_number}`;
+      const product = `ASSISTENCIA TECNICA - ${o.device_brand} ${o.device_model}`;
+      const cost = o.parts_value || 0;
+      const sale = o.total_value || 0;
+      const profit = sale - cost;
+      const margin = cost > 0 ? (profit / cost) * 100 : 0;
+
+      items.push({
+        saleNumber: saleNum,
+        code: code,
+        product: product,
+        qtd: 1,
+        cost: cost,
+        sale: sale,
+        profit: profit,
+        margin: margin
+      });
+    });
+
+    return items;
+  }, [sales, serviceOrders, inventory, selectedMonth, selectedYear, selectedUnitId]);
+
+  const totals = useMemo(() => {
+    let totalCost = 0;
+    let totalSale = 0;
+    let totalProfit = 0;
+
+    monthlyProfitItems.forEach(item => {
+      totalCost += item.cost;
+      totalSale += item.sale;
+      totalProfit += item.profit;
+    });
+
+    const totalMargin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
+    return {
+      cost: totalCost,
+      sale: totalSale,
+      profit: totalProfit,
+      margin: totalMargin
+    };
+  }, [monthlyProfitItems]);
 
   // ─── LABORATORY DESK METRICS ───────────────────────────────────────────
   const labMetrics = useMemo(() => {
@@ -1373,15 +1425,14 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ─── TAB 2: LUCRO PRESUMIDO (PLANEJAMENTO TRIBUTÁRIO) ─────────────── */}
+      {/* ─── TAB 2: LUCRO PRESUMIDO (VALOR DE VENDA X VALOR DE CUSTO) ─────── */}
       {activeTab === 'lucro_presumido' && (
         <div className="space-y-8 animate-in fade-in duration-500">
           
-          {/* Tax Filter Controls (HIDDEN ON PRINT) */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4 print:hidden">
-            
+          {/* Controls (HIDDEN ON PRINT) */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-wrap gap-4 print:hidden">
             {/* Month Filter */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
               <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Mês</span>
               <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
                 <select
@@ -1406,7 +1457,7 @@ export default function Reports() {
             </div>
 
             {/* Year Filter */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 min-w-[100px]">
               <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Ano</span>
               <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
                 <select
@@ -1420,305 +1471,155 @@ export default function Reports() {
                 </select>
               </div>
             </div>
-
-            {/* Accounting Regime Filter */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Regime Contábil</span>
-              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
-                <select
-                  value={accountingRegime}
-                  onChange={(e) => setAccountingRegime(e.target.value as any)}
-                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black uppercase"
-                >
-                  <option value="competence" className="bg-[#0f0f1a]">Competência (Nota/Emissão)</option>
-                  <option value="cash" className="bg-[#0f0f1a]">Caixa (Liquidação/Recebido)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* ISS Rate Filter */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Alíquota ISS (%)</span>
-              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
-                <select
-                  value={issRate}
-                  onChange={(e) => setIssRate(parseFloat(e.target.value))}
-                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black"
-                >
-                  {[2, 3, 4, 5].map(r => (
-                    <option key={r} value={r} className="bg-[#0f0f1a]">{r}% (Imposto Municipal)</option>
-                  ))}
-                </select>
-              </div>
-            </div>
           </div>
 
           {/* PRINT-ONLY TITLE (VISIBLE ON PRINT) */}
-          <div className="hidden print:block border-b border-black pb-4 mb-4">
-            <h1 className="text-2xl font-black text-black uppercase">Relatório de Lucro Presumido - MDR Informática</h1>
+          <div className="hidden print:block border-b border-black pb-4 mb-4 text-black">
+            <h1 className="text-2xl font-black uppercase">Lucro Presumido de Venda de Serviços/Itens Avulsos ou do Estoque</h1>
             <p className="text-[10px] text-gray-700 uppercase tracking-wider font-bold">
-              Filtros: Mês {selectedMonth} de {selectedYear} | Regime de {accountingRegime === 'competence' ? 'Competência' : 'Caixa'} | ISS: {issRate}%
+              Referência: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')} | Período: Mês {selectedMonth} de {selectedYear}
             </p>
           </div>
 
-          {/* Split Activity Revenue bar */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 print:border-black print:text-black">
-            <div className="flex justify-between items-center mb-3">
-              <div>
-                <h3 className="text-sm font-black text-white print:text-black uppercase tracking-wider">Faturamento por Atividade</h3>
-                <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Separação para Margens Legais</p>
-              </div>
-            </div>
+          {/* Profit Summary Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             
-            {/* Custom split bar */}
-            {lpData.totalBruto > 0 ? (
-              <div className="space-y-4">
-                <div className="h-6 w-full rounded-full bg-white/5 print:bg-gray-100 overflow-hidden flex border border-white/10 print:border-black p-0.5 shadow-inner">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(lpData.receitaComercio / lpData.totalBruto) * 100}%` }}
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 print:bg-emerald-600 shrink-0"
-                  />
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(lpData.receitaServico / lpData.totalBruto) * 100}%` }}
-                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-400 print:bg-indigo-600 shrink-0"
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-on-surface-variant print:text-black">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                    <span>Comércio: R$ {lpData.receitaComercio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({((lpData.receitaComercio / lpData.totalBruto) * 100).toFixed(0)}%)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
-                    <span>Serviços: R$ {lpData.receitaServico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({((lpData.receitaServico / lpData.totalBruto) * 100).toFixed(0)}%)</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-on-surface-variant text-center py-4">Sem faturamento no período.</p>
-            )}
-          </div>
-
-          {/* Tax Calculation Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Total Tax Burden Card */}
-            <div className="bg-[#121225] border border-primary/30 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px] print:border-black print:bg-white print:text-black">
+            {/* Total Sale Card */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
-                <h4 className="text-[10px] font-black text-primary print:text-black uppercase tracking-widest">Total Geral de Impostos</h4>
-                <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Soma dos Encargos do Mês</p>
+                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Faturamento do Período (Venda)</h4>
               </div>
-
               <div className="my-2">
-                <h3 className="text-3xl font-black text-white print:text-black font-mono leading-none tracking-tight">
-                  R$ {lpData.totalImpostos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <h3 className="text-2xl font-black text-white print:text-black font-mono leading-none tracking-tight">
+                  R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
               </div>
-
-              <p className="text-[9px] text-on-surface-variant print:text-black opacity-70">
-                Incidência tributária consolidada de {lpData.totalBruto > 0 ? ((lpData.totalImpostos / lpData.totalBruto) * 100).toFixed(2) : 0}% sobre o faturamento total de R$ {lpData.totalBruto.toLocaleString('pt-BR')}.
-              </p>
             </div>
 
-            {/* Base de Cálculo Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px] print:border-black print:text-black">
+            {/* Total Cost Card */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Base de Cálculo de Presunção (BC)</h4>
-                <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Valor Presumido sobre Atividades</p>
+                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Valor de Custo Geral</h4>
               </div>
-
-              <div className="my-2 space-y-1.5 font-mono text-xs">
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant print:text-gray-700">BC Comércio (8%):</span>
-                  <span className="text-white print:text-black font-bold">R$ {lpData.bcComercio.toLocaleString('pt-BR')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant print:text-gray-700">BC Serviços (32%):</span>
-                  <span className="text-white print:text-black font-bold">R$ {lpData.bcServico.toLocaleString('pt-BR')}</span>
-                </div>
-                <div className="flex justify-between pt-1.5 border-t border-white/5 print:border-black font-bold">
-                  <span className="text-primary print:text-black">Base Total Estimada:</span>
-                  <span className="text-white print:text-black">R$ {lpData.bcTotal.toLocaleString('pt-BR')}</span>
-                </div>
-              </div>
-
-              <p className="text-[9px] text-on-surface-variant print:text-black opacity-70">
-                O lucro presumido total de R$ {lpData.bcTotal.toLocaleString('pt-BR')} serve como base para incidência do IRPJ e da CSLL.
-              </p>
-            </div>
-
-            {/* Faturamento limit compliance */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px] print:border-black print:text-black">
-              <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Limite Mensal do Regime</h4>
-                <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Limite de Presunção</p>
-              </div>
-
               <div className="my-2">
-                <h3 className="text-2xl font-black text-white print:text-black font-mono leading-none">
-                  {((lpData.totalBruto / 416666.67) * 100).toFixed(1)}% <span className="text-[10px] text-on-surface-variant uppercase font-display font-black">limite</span>
+                <h3 className="text-2xl font-black text-white print:text-black font-mono leading-none tracking-tight">
+                  R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
-                <div className="w-full h-1.5 bg-white/5 print:bg-gray-200 rounded-full mt-2 overflow-hidden">
-                  <div 
-                    className="h-full bg-primary print:bg-black rounded-full" 
-                    style={{ width: `${Math.min(100, (lpData.totalBruto / 416666.67) * 100)}%` }}
-                  />
-                </div>
               </div>
-
-              <p className="text-[9px] text-on-surface-variant print:text-black opacity-70">
-                Faturamento acumulado de R$ {lpData.totalBruto.toLocaleString('pt-BR')} dentro do limite legal de R$ 416.666,67 estabelecido por mês.
-              </p>
             </div>
-          </div>
 
-          {/* Taxes detailed breakdown cards */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-black text-white print:text-black uppercase tracking-widest">Detalhamento de Guias Calculadas</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {[
-                { name: 'IRPJ Normal + Adic.', value: lpData.irpjTotal, desc: '15% sobre BC + 10% adicional > 20k', color: 'from-red-600 to-rose-400', printColor: 'border-red-500' },
-                { name: 'CSLL', value: lpData.csllTotal, desc: '9% sobre a Base de Cálculo', color: 'from-orange-500 to-amber-400', printColor: 'border-orange-500' },
-                { name: 'PIS', value: lpData.pisTotal, desc: '0.65% cumulativo mensal', color: 'from-blue-500 to-sky-400', printColor: 'border-blue-500' },
-                { name: 'COFINS', value: lpData.cofinsTotal, desc: '3.00% cumulativo mensal', color: 'from-purple-600 to-fuchsia-400', printColor: 'border-purple-500' },
-                { name: 'ISS (MDR Serviços)', value: lpData.issTotal, desc: `${issRate}% sobre faturamento serviço`, color: 'from-teal-500 to-emerald-400', printColor: 'border-teal-500' }
-              ].map((tax, idx) => (
-                <div key={idx} className="bg-white/[0.01] border border-white/5 rounded-2xl p-4 flex flex-col justify-between min-h-[120px] print:border-black print:text-black">
-                  <div>
-                    <h4 className="text-[9px] font-black text-white print:text-black uppercase tracking-wider">{tax.name}</h4>
-                    <p className="text-[8px] text-on-surface-variant print:text-gray-700">{tax.desc}</p>
-                  </div>
-                  <div className="mt-3">
-                    <span className="text-base font-black text-white print:text-black font-mono">
-                      R$ {tax.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Gráfico de Evolução Mensal */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 print:hidden">
-            <div className="mb-6 flex justify-between items-center">
+            {/* Total Profit Card */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-wider">Evolução Mensal do Planejamento Tributário</h3>
-                <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Faturamento vs Impostos Proporcionais</p>
+                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Lucro do Período</h4>
+              </div>
+              <div className="my-2">
+                <h3 className="text-2xl font-black text-success print:text-black font-mono leading-none tracking-tight">
+                  R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </h3>
               </div>
             </div>
-            
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={monthlyHistory}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorImpostos" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="rgba(255,255,255,0.4)" 
-                    fontSize={10}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    stroke="rgba(255,255,255,0.4)" 
-                    fontSize={10}
-                    tickLine={false}
-                    tickFormatter={(val) => `R$ ${val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`}
-                  />
-                  <Tooltip
-                    contentStyle={{ 
-                      background: 'rgba(15, 15, 26, 0.9)', 
-                      border: '1px solid rgba(255,255,255,0.1)', 
-                      borderRadius: '16px',
-                      fontSize: '11px',
-                      color: '#fff'
-                    }}
-                    formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`]}
-                  />
-                  <Legend 
-                    wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }}
-                    verticalAlign="bottom"
-                    height={36}
-                  />
-                  <Area 
-                    name="Faturamento Bruto"
-                    type="monotone" 
-                    dataKey="totalBruto" 
-                    stroke="#10b981" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorFaturamento)" 
-                  />
-                  <Area 
-                    name="Total Impostos"
-                    type="monotone" 
-                    dataKey="totalImpostos" 
-                    stroke="#ef4444" 
-                    strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorImpostos)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+
+            {/* Average Margin Card */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+              <div>
+                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Rentabilidade Média</h4>
+              </div>
+              <div className="my-2">
+                <h3 className="text-2xl font-black text-primary print:text-black font-mono leading-none tracking-tight">
+                  {totals.margin.toFixed(2)}%
+                </h3>
+              </div>
             </div>
           </div>
 
-          {/* Monthly comparison table */}
+          {/* Detailed monthly items table */}
           <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 overflow-hidden print:border-black print:text-black">
-            <div className="mb-4">
-              <h3 className="text-sm font-black text-white print:text-black uppercase tracking-wider">Histórico Comparativo Mensal</h3>
-              <p className="text-[8px] text-on-surface-variant print:text-gray-700 uppercase tracking-widest">Ano Fiscal: {selectedYear}</p>
+            <div className="mb-4 print:hidden">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">Itens e Serviços Vendidos</h3>
+              <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Detalhamento unitário com custos e margens</p>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/5 print:border-black text-[9px] font-black text-on-surface-variant print:text-black uppercase tracking-widest pb-3">
-                    <th className="pb-3 pl-4">Mês</th>
-                    <th className="pb-3">Faturamento Comércio</th>
-                    <th className="pb-3">Faturamento Serviços</th>
-                    <th className="pb-3">Faturamento Bruto</th>
-                    <th className="pb-3">Base de Cálculo Total</th>
-                    <th className="pb-3 text-right pr-4">Total de Impostos</th>
+                    <th className="pb-3 pl-4">Nº Venda</th>
+                    <th className="pb-3">Código</th>
+                    <th className="pb-3">Produto</th>
+                    <th className="pb-3 text-center">QTD</th>
+                    <th className="pb-3 text-right">Custo</th>
+                    <th className="pb-3 text-right">Venda</th>
+                    <th className="pb-3 text-right">Lucro</th>
+                    <th className="pb-3 text-right pr-4">%</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 print:divide-black">
-                  {monthlyHistory.map((hist) => (
-                    <tr key={hist.m} className="hover:bg-white/[0.01] print:hover:bg-transparent">
-                      <td className="py-4 pl-4 font-black text-white print:text-black">
-                        {hist.name}
-                      </td>
-                      <td className="py-4 font-mono">R$ {hist.receitaComercio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 font-mono">R$ {hist.receitaServico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 font-mono font-bold text-white print:text-black">R$ {hist.totalBruto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 font-mono">R$ {hist.bcTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 text-right pr-4 font-mono font-black text-primary print:text-black">
-                        R$ {hist.totalImpostos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {monthlyProfitItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest print:text-black">
+                        Nenhuma movimentação registrada no período.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    monthlyProfitItems.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-white/[0.01] print:hover:bg-transparent">
+                        <td className="py-4 pl-4 font-mono font-bold text-white print:text-black">
+                          {item.saleNumber}
+                        </td>
+                        <td className="py-4 font-mono text-on-surface-variant print:text-black">
+                          {item.code}
+                        </td>
+                        <td className="py-4 font-bold text-white print:text-black uppercase">
+                          {item.product}
+                        </td>
+                        <td className="py-4 text-center font-bold text-white print:text-black">
+                          {item.qtd}
+                        </td>
+                        <td className="py-4 text-right font-mono print:text-black">
+                          R$ {item.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-4 text-right font-mono print:text-black">
+                          R$ {item.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-4 text-right font-mono font-bold text-white print:text-black">
+                          R$ {item.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-4 text-right pr-4 font-mono font-black text-primary print:text-black">
+                          {item.cost > 0 ? `${item.margin.toFixed(2)}%` : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
+                
+                {/* Total Row */}
+                {monthlyProfitItems.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t-2 border-white/10 print:border-black font-black text-xs text-white print:text-black bg-white/[0.02] print:bg-transparent">
+                      <td colSpan={3} className="py-4 pl-4 uppercase">
+                        Totais Consolidados
+                      </td>
+                      <td className="py-4 text-center">
+                        {monthlyProfitItems.reduce((acc, item) => acc + item.qtd, 0)}
+                      </td>
+                      <td className="py-4 text-right font-mono">
+                        R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-4 text-right font-mono">
+                        R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-4 text-right font-mono">
+                        R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-4 text-right pr-4 font-mono text-primary print:text-black">
+                        {totals.margin.toFixed(2)}%
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
-          </div>
-
-          {/* Legal Warning Notice */}
-          <div className="bg-[#1c0c10] border border-error/20 p-5 rounded-2xl text-[10px] text-error font-black uppercase tracking-widest leading-relaxed print:border-black print:bg-white print:text-black">
-            ⚠️ Atenção: A apuração e recolhimento do IRPJ e da CSLL sob o regime de Lucro Presumido ocorrem legalmente de forma trimestral no Brasil. As visualizações mensais exibidas acima constituem uma simulação gerencial de provisão tributária. Para relatórios finais oficiais, consulte seu sistema contábil ou contador responsável.
           </div>
         </div>
       )}

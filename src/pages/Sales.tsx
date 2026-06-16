@@ -24,18 +24,24 @@ import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 function SaleDocumentViewer({
   sale,
   customer,
-  installments,
   unit,
   hideModal,
   showNotification
 }: {
   sale: Sale;
   customer: any;
-  installments: any[];
   unit: any;
   hideModal: () => void;
   showNotification: any;
 }) {
+  const { installments: storeInstallments, fetchInstallments } = useFinanceStore();
+
+  useEffect(() => {
+    fetchInstallments(sale.unit_id);
+  }, [sale.id, sale.unit_id, fetchInstallments]);
+
+  const installments = storeInstallments.filter(inst => inst.sale_id === sale.id);
+
   const resolvedUnit = resolveUnitInfo(unit);
   const [activeTab, setActiveTab] = useState<'contract' | 'receipt' | 'pix_carne'>(
     sale.payment_type === 'vista' ? 'receipt' : 'contract'
@@ -1234,8 +1240,6 @@ export default function Sales() {
       return;
     }
 
-    const saleInstallments = installments.filter(inst => inst.sale_id === sale.id);
-
     const saleUnit = units.find(u => u.id === sale.unit_id) || units[0] || {
       name: 'MDR Celulares',
       cnpj: '____________________',
@@ -1250,7 +1254,6 @@ export default function Sales() {
           <SaleDocumentViewer
             sale={sale}
             customer={customer}
-            installments={saleInstallments}
             unit={saleUnit}
             hideModal={hideModal}
             showNotification={showNotification}
@@ -1304,6 +1307,7 @@ export default function Sales() {
             onSuccess={() => {
               hideModal();
               fetchSales(profile?.unit_id || undefined);
+              fetchInstallments(profile?.unit_id || undefined);
             }}
             onCancel={() => hideModal()}
           />
@@ -1331,6 +1335,7 @@ export default function Sales() {
             onSuccess={() => {
               hideModal();
               fetchSales(profile?.unit_id || undefined);
+              fetchInstallments(profile?.unit_id || undefined);
             }}
             onCancel={() => hideModal()}
           />

@@ -143,7 +143,7 @@ export function printElement(elementId: string) {
   }, 300);
 }
 
-export function resolveUnitInfo(unit: { name: string; cnpj?: string; address?: string; phone?: string }) {
+export function resolveUnitInfo(unit: { name: string; cnpj?: string; address?: string; phone?: string; pix_key?: string }) {
   const nameUpper = (unit.name || '').toUpperCase();
   const isGaivota = nameUpper.includes('GAIVOTA');
 
@@ -162,7 +162,86 @@ export function resolveUnitInfo(unit: { name: string; cnpj?: string; address?: s
     cnpj: cleanCnpj,
     phone: cleanPhone,
     address: cleanAddress,
-    city: isGaivota ? 'Balneário Gaivota/SC' : 'Balneário Arroio do Silva/SC'
+    city: isGaivota ? 'Balneário Gaivota/SC' : 'Balneário Arroio do Silva/SC',
+    pix_key: unit.pix_key
   };
+}
+
+export function formatPixKey(key: string): string {
+  const clean = key.replace(/\s+/g, '');
+  // Se for celular (10 ou 11 dígitos, ex: 48999035854)
+  if (/^\d{10,11}$/.test(clean)) {
+    return `+55${clean}`;
+  }
+  // Se for celular com DDI mas sem o +
+  if (/^55\d{10,11}$/.test(clean)) {
+    return `+${clean}`;
+  }
+  return clean;
+}
+
+export function generatePixPayload(key: string, name: string, city: string, amount: number, txid: string = '***'): string {
+  const cleanKey = key.trim();
+  
+  // Normaliza o nome: remove acentos, mantém apenas alfanumérico e espaço, caixa alta, max 25 caracteres
+  const cleanName = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9 ]/gi, '')
+    .substring(0, 25)
+    .trim()
+    .toUpperCase() || 'BENEFICIARIO';
+  
+  // Normaliza a cidade: remove acentos, apenas alfanumérico e espaço, caixa alta, max 15 caracteres
+  const cleanCity = city
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9 ]/gi, '')
+    .substring(0, 15)
+    .trim()
+    .toUpperCase() || 'CIDADE';
+
+  // Normaliza o TXID: apenas alfanumérico, max 25 caracteres
+  const cleanTxid = txid
+    .normalize('NFD')
+    .replace(/[^A-Z0-9]/gi, '')
+    .substring(0, 25)
+    .trim()
+    .toUpperCase() || '***';
+
+  const f = (id: string, val: string) => id + val.length.toString().padStart(2, '0') + val;
+
+  const merchantAccountInfo = f('00', 'br.gov.bcb.pix') + f('01', cleanKey);
+  
+  let payload = '000201';
+  payload += f('26', merchantAccountInfo);
+  payload += '52040000';
+  payload += '5303986';
+  
+  if (amount > 0) {
+    payload += f('54', amount.toFixed(2));
+  }
+  
+  payload += '5802BR';
+  payload += f('59', cleanName);
+  payload += f('60', cleanCity);
+  payload += f('62', f('05', cleanTxid));
+  payload += '6304';
+
+  // Cálculo de CRC16 CCITT
+  let crc = 0xFFFF;
+  for (let c = 0; c < payload.length; c++) {
+    crc ^= payload.charCodeAt(c) << 8;
+    for (let i = 0; i < 8; i++) {
+      if (crc & 0x8000) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+    }
+  }
+  const crcHex = (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+  
+  return payload + crcHex;
 }
 
