@@ -180,7 +180,7 @@ export default function Inventory() {
 
   const handleOpenValuationModal = (item: InventoryItem) => {
     showModal({
-      title: 'Avaliar Aparelho de Troca',
+      title: 'Ativar Aparelho de Troca',
       children: (
         <ValuationModal
           item={item}
@@ -1319,7 +1319,7 @@ function ValuationModal({ item, onSuccess }: { item: InventoryItem; onSuccess: (
         className="w-full py-4 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl font-black uppercase tracking-widest text-xs transition-all hover:scale-102 flex items-center justify-center gap-2"
       >
         {loading && <Loader2 className="animate-spin" size={16} />}
-        Aprovar e Ativar no Estoque
+        Ativar Aparelho de Troca
       </button>
     </form>
   );
