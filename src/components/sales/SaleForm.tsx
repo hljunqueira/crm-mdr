@@ -71,6 +71,16 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return profile?.unit_id || unit?.id || undefined;
   }, [user, units, profile, unit]);
 
+  const [selectedUnitId, setSelectedUnitId] = useState('');
+
+  useEffect(() => {
+    if (resolvedUnitId && !selectedUnitId) {
+      setSelectedUnitId(resolvedUnitId);
+    }
+  }, [resolvedUnitId]);
+
+  const finalUnitId = profile?.role === 'admin' ? (selectedUnitId || resolvedUnitId) : resolvedUnitId;
+
   const [isSuccess, setIsSuccess] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
 
@@ -192,7 +202,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         cost_price: costPriceNum,
         imei: quickProduct.imei.trim(),
         category: quickProduct.category as any,
-        unit_id: resolvedUnitId,
+        unit_id: finalUnitId,
         barcode: quickProduct.barcode.trim() || undefined,
         supplier: quickProduct.supplier || undefined,
         purchase_date: new Date().toISOString().split('T')[0]
@@ -239,7 +249,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     try {
       const newSupplier = await addSupplier({
         name: quickSupplierName.trim(),
-        unit_id: resolvedUnitId
+        unit_id: finalUnitId
       });
       if (newSupplier) {
         setQuickProduct(prev => ({ ...prev, supplier: newSupplier.name }));
@@ -729,7 +739,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         onSuccess();
       } else {
         const newSale: any = await addSale({
-          unit_id: resolvedUnitId,
+          unit_id: finalUnitId,
           customer_id: formData.customer_id,
           customer_name: selectedCustomer?.name,
           device_id: primaryDeviceId,
@@ -774,7 +784,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         // Create installments
         if (newSale?.id && formData.installments > 0) {
           const installmentsToCreate = generatedInstallments.map(inst => ({
-            unit_id: resolvedUnitId,
+            unit_id: finalUnitId,
             sale_id: newSale.id,
             customer_id: formData.customer_id,
             number: inst.number,
@@ -1134,6 +1144,25 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Seletor de Unidade (Apenas para Admin) */}
+        {profile?.role === 'admin' && (
+          <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade/Loja da Venda</label>
+            <select
+              value={selectedUnitId}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+              className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              <option value="" className="bg-[#121214]">Selecionar Unidade...</option>
+              {units.map(u => (
+                <option key={u.id} value={u.id} className="bg-[#121214]">
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Customer Section */}
         <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
@@ -1328,7 +1357,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             <button
               type="button"
               onClick={() => {
-                fetchSuppliers(resolvedUnitId, true);
+                fetchSuppliers(finalUnitId, true);
                 setQuickProduct(prev => ({
                   ...prev,
                   category: saleType === 'cellphone' ? 'smartphone' : 'other',
