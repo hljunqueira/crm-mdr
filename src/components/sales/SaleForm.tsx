@@ -67,8 +67,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         if (match) return match.id;
       }
     }
-    return profile?.unit_id || undefined;
-  }, [user, units, profile]);
+    // For admins or other users without a fixed unit in their profile, use the selected unit in the app
+    return profile?.unit_id || unit?.id || undefined;
+  }, [user, units, profile, unit]);
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
