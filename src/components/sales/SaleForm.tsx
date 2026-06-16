@@ -647,10 +647,16 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   const suggestedTotal = useMemo(() => {
     if (selectedDevices.length > 0) {
-      return selectedDevices.reduce((sum, d) => sum + d.price * d.quantity, 0);
+      return selectedDevices.reduce((sum, d) => {
+        const stockItem = inventory.find(i => i.id === d.id);
+        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price) 
+          ? stockItem.trade_in_price 
+          : d.price;
+        return sum + itemPrice * d.quantity;
+      }, 0);
     }
     return 0;
-  }, [selectedDevices]);
+  }, [selectedDevices, formData.price_type, inventory]);
 
   const costTotal = useMemo(() => {
     if (selectedDevices.length > 0) {
@@ -1379,7 +1385,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                       </div>
                       <div className="text-right">
                         <span className="font-mono text-xs font-black text-white">
-                          {(device.price * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {(((formData.price_type === 'trade' && stockItem?.trade_in_price) ? stockItem.trade_in_price : device.price) * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                       </div>
                       <button
