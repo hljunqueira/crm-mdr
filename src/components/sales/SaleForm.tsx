@@ -1233,6 +1233,199 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Seletor do Tipo de Venda */}
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
+          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('general');
+                setSelectedDevices([]);
+                setApplyAutoDiscount(false);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Vendas Em Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('cellphone');
+                setSelectedDevices([]);
+                setApplyAutoDiscount(false);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Crediário Loja
+            </button>
+          </div>
+        </div>
+
+        {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Buscar Produto no Estoque</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1 font-display">
+              <input
+                type="text"
+                placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
+                value={deviceSearch}
+                onChange={(e) => {
+                  setDeviceSearch(e.target.value);
+                  setDeviceDropdownOpen(true);
+                }}
+                onFocus={() => setDeviceDropdownOpen(true)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+              
+              {deviceDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
+                  <div className="relative md:absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
+                    {filteredDevices.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
+                    ) : (
+                      filteredDevices.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => addDeviceToSale(item)}
+                          className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
+                        >
+                          <div>
+                            <span className="font-bold text-white">{item.model}</span>
+                            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
+                            {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
+                          </div>
+                          <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                fetchSuppliers(finalUnitId, true);
+                setQuickProduct(prev => ({
+                  ...prev,
+                  category: saleType === 'cellphone' ? 'smartphone' : 'other',
+                  imei: ''
+                }));
+                setIsQuickProductOpen(true);
+              }}
+              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+              title="Cadastro Rápido de Produto"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Vincular do Estoque (Múltiplos Itens) */}
+        <div className="md:col-span-2 space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Itens Vinculados do Estoque</label>
+          
+          {selectedDevices.length === 0 ? (
+            <div className="p-4 bg-white/5 border border-white/5 border-dashed rounded-2xl text-center text-xs text-on-surface-variant/50">
+              Nenhum item do estoque vinculado. Busque itens no estoque acima.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedDevices.map((device, idx) => {
+                const stockItem = inventory.find(i => i.id === device.id);
+                const maxQty = stockItem?.stock_quantity || 99;
+                return (
+                  <div key={device.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                        <Smartphone size={16} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-white leading-tight">{device.model}</p>
+                        {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {/* Controles de Quantidade */}
+                      <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => decreaseDeviceQty(idx)}
+                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black"
+                        >
+                          −
+                        </button>
+                        <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
+                          {device.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => increaseDeviceQty(idx)}
+                          disabled={device.quantity >= maxQty}
+                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono text-xs font-black text-white">
+                          {(device.price * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDeviceFromSale(idx)}
+                        className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Tipo de Preço (Normal ou com Troca) */}
+        {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
+          <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
+                className={cn(
+                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                )}
+              >
+                Preço Especial com Troca
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
+                className={cn(
+                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                )}
+              >
+                Preço Venda Direta
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Seletor de Unidade (Apenas para Admin) */}
         {profile?.role === 'admin' && (
           <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
@@ -1295,196 +1488,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               onClick={() => setIsQuickCustomerOpen(true)}
               className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
               title="Cadastro Rápido de Cliente"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Seletor do Tipo de Venda */}
-        <div className="md:col-span-2 space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
-          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
-            <button
-              type="button"
-              onClick={() => {
-                setSaleType('general');
-                setSelectedDevices([]);
-                setApplyAutoDiscount(false);
-              }}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-              )}
-            >
-              Vendas Em Geral
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSaleType('cellphone');
-                setSelectedDevices([]);
-                setApplyAutoDiscount(false);
-              }}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-              )}
-            >
-              Crediário Loja
-            </button>
-          </div>
-        </div>
-
-        {/* Vincular do Estoque (Múltiplos Itens) */}
-        <div className="md:col-span-2 space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Itens Vinculados do Estoque</label>
-          
-          {selectedDevices.length === 0 ? (
-            <div className="p-4 bg-white/5 border border-white/5 border-dashed rounded-2xl text-center text-xs text-on-surface-variant/50">
-              Nenhum item do estoque vinculado. Busque itens no estoque abaixo.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {selectedDevices.map((device, idx) => {
-                const stockItem = inventory.find(i => i.id === device.id);
-                const maxQty = stockItem?.stock_quantity || 99;
-                return (
-                  <div key={device.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
-                        <Smartphone size={16} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-white leading-tight">{device.model}</p>
-                        {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {/* Controles de Quantidade */}
-                      <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => decreaseDeviceQty(idx)}
-                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black"
-                        >
-                          −
-                        </button>
-                        <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
-                          {device.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => increaseDeviceQty(idx)}
-                          disabled={device.quantity >= maxQty}
-                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-xs font-black text-white">
-                          {(device.price * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeDeviceFromSale(idx)}
-                        className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Tipo de Preço (Normal ou com Troca) */}
-          {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
-            <div className="space-y-2 mb-4 animate-in fade-in duration-300">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
-              <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
-                  className={cn(
-                    "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                    formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                  )}
-                >
-                  Preço Especial com Troca
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
-                  className={cn(
-                    "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                    formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                  )}
-                >
-                  Preço Venda Direta
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
-          <div className="flex gap-2 mt-2">
-            <div className="relative flex-1 font-display">
-              <input
-                type="text"
-                placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
-                value={deviceSearch}
-                onChange={(e) => {
-                  setDeviceSearch(e.target.value);
-                  setDeviceDropdownOpen(true);
-                }}
-                onFocus={() => setDeviceDropdownOpen(true)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-              />
-              
-              {deviceDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
-                  <div className="relative md:absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
-                    {filteredDevices.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
-                    ) : (
-                      filteredDevices.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => addDeviceToSale(item)}
-                          className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
-                        >
-                          <div>
-                            <span className="font-bold text-white">{item.model}</span>
-                            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
-                            {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
-                          </div>
-                          <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                fetchSuppliers(finalUnitId, true);
-                setQuickProduct(prev => ({
-                  ...prev,
-                  category: saleType === 'cellphone' ? 'smartphone' : 'other',
-                  imei: ''
-                }));
-                setIsQuickProductOpen(true);
-              }}
-              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
-              title="Cadastro Rápido de Produto"
             >
               <Plus size={18} />
             </button>
