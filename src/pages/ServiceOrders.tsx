@@ -999,7 +999,7 @@ export default function ServiceOrders() {
       .os-thermal-receipt {
         width: 80mm !important;
         margin: 0 auto !important;
-        padding: 2mm 4mm 4mm 4mm !important;
+        padding: 1mm 2mm 2mm 2mm !important;
         font-family: Arial, Helvetica, sans-serif !important;
         font-size: 11px !important;
         color: #000000 !important;
@@ -1045,6 +1045,12 @@ export default function ServiceOrders() {
         text-align: justify !important;
         line-height: 1.3 !important;
         font-weight: 700 !important;
+      }
+      .os-thermal-receipt .row-left {
+        display: flex !important;
+        justify-content: flex-start !important;
+        gap: 6px !important;
+        margin: 1px 0 !important;
       }
       .os-thermal-receipt .sig-line-box {
         margin-top: 20px;
@@ -1287,9 +1293,9 @@ export default function ServiceOrders() {
           <div className="divider"></div>
 
           {/* Buyer Section */}
-          <div className="row">
+          <div className="row-left">
             <span>Cliente:</span>
-            <span className="align-right">{currentServiceOrder.customers?.name}</span>
+            <span>{currentServiceOrder.customers?.name}</span>
           </div>
           <div className="row">
             <span>Aparelho:</span>
@@ -1363,8 +1369,7 @@ export default function ServiceOrders() {
           <div className="brand-name">{brandName}</div>
           <div className="brand-sub">{brandSub}</div>
           <div className="unit-details">
-            WhatsApp: {osUnit.phone}
-            {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
+            WHATSAPP: {osUnit.phone} {osUnit.cnpj && `| CNPJ: ${osUnit.cnpj}`}
           </div>
         </div>
 
@@ -1383,17 +1388,17 @@ export default function ServiceOrders() {
 
         {/* Buyer Section */}
         <div className="section-title">DADOS DO CLIENTE</div>
-        <div className="row">
+        <div className="row-left">
           <span>Nome:</span>
-          <span className="align-right">{currentServiceOrder.customers?.name}</span>
+          <span>{currentServiceOrder.customers?.name}</span>
         </div>
-        <div className="row">
+        <div className="row-left">
           <span>CPF:</span>
-          <span className="align-right font-mono">{currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</span>
+          <span className="font-mono">{currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</span>
         </div>
-        <div className="row">
+        <div className="row-left">
           <span>Tel:</span>
-          <span className="align-right font-mono">{currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</span>
+          <span className="font-mono">{currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</span>
         </div>
 
         <div className="divider"></div>
@@ -1471,12 +1476,12 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '40px' }}>
+        <div className="sig-line-box" style={{ marginTop: '28px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{brandName} {brandSub}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '40px' }}>
+        <div className="sig-line-box" style={{ marginTop: '28px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
         </div>
@@ -1659,8 +1664,7 @@ export default function ServiceOrders() {
           <div className="brand-name">{brandName}</div>
           <div className="brand-sub">{brandSub}</div>
           <div className="unit-details">
-            WhatsApp: {osUnit.phone}
-            {osUnit.cnpj && <><br />CNPJ: {osUnit.cnpj}</>}
+            WHATSAPP: {osUnit.phone} {osUnit.cnpj && `| CNPJ: ${osUnit.cnpj}`}
           </div>
         </div>
 
@@ -1685,13 +1689,13 @@ export default function ServiceOrders() {
 
         {/* Buyer Section */}
         <div className="section-title">DADOS DO CLIENTE</div>
-        <div className="row">
+        <div className="row-left">
           <span>Nome:</span>
-          <span className="align-right">{currentServiceOrder.customers?.name}</span>
+          <span>{currentServiceOrder.customers?.name}</span>
         </div>
-        <div className="row">
+        <div className="row-left">
           <span>CPF:</span>
-          <span className="align-right font-mono">{currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</span>
+          <span className="font-mono">{currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</span>
         </div>
 
         <div className="divider"></div>
@@ -1781,12 +1785,12 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '40px' }}>
+        <div className="sig-line-box" style={{ marginTop: '28px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">Técnico: {currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '40px' }}>
+        <div className="sig-line-box" style={{ marginTop: '28px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
         </div>
@@ -2879,7 +2883,7 @@ export default function ServiceOrders() {
             .os-thermal-receipt {
                width: 80mm;
                margin: 0 auto;
-               padding: 2mm 4mm;
+               padding: 1mm 2mm;
                box-sizing: border-box;
                font-family: 'Courier New', Courier, monospace;
                font-size: 11px;
@@ -2889,53 +2893,53 @@ export default function ServiceOrders() {
              }
              .os-thermal-receipt .header-center {
               text-align: center;
-              margin-bottom: 6px;
+              margin-bottom: 4px;
             }
             .os-thermal-receipt .brand-name {
-              font-size: 20px;
+              font-size: 16px;
               font-weight: 900;
               letter-spacing: -1px;
             }
             .os-thermal-receipt .brand-sub {
               font-size: 8px;
               letter-spacing: 1px;
-              margin-bottom: 4px;
+              margin-bottom: 2px;
             }
             .os-thermal-receipt .unit-details {
               font-size: 9px;
               color: #333;
             }
             .os-thermal-receipt .receipt-title {
-              font-size: 13px;
-              font-weight: bold;
-              margin-top: 4px;
-              border: 1px solid #000;
-              padding: 2px;
-              background: #f0f0f0;
-            }
-            .os-thermal-receipt .receipt-num {
               font-size: 11px;
               font-weight: bold;
               margin-top: 2px;
+              border: 1px solid #000;
+              padding: 1px;
+              background: #f0f0f0;
+            }
+            .os-thermal-receipt .receipt-num {
+              font-size: 10px;
+              font-weight: bold;
+              margin-top: 1px;
             }
             .os-thermal-receipt .receipt-date {
-              font-size: 10px;
+              font-size: 9px;
             }
             .os-thermal-receipt .divider {
               border-top: 1px dashed #000;
-              margin: 3px 0;
+              margin: 2px 0;
             }
             .os-thermal-receipt .double-divider {
               border-top: 1px double #000;
               border-bottom: 1px double #000;
               height: 3px;
-              margin: 3px 0;
+              margin: 2px 0;
             }
             .os-thermal-receipt .section-title {
               font-weight: bold;
               text-transform: uppercase;
-              margin-bottom: 4px;
-              font-size: 10px;
+              margin-bottom: 2px;
+              font-size: 9px;
               letter-spacing: 0.5px;
               text-decoration: underline;
             }
