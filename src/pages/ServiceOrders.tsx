@@ -1082,6 +1082,12 @@ export default function ServiceOrders() {
     const brandName = unitNameParts[0] || 'MDR';
     const brandSub = unitNameParts.slice(1).join(' ').toUpperCase() || 'INFORMÁTICA & CELULARES';
 
+    const defaultReceiptTerms = `1. Orçamento: Validade de 10 dias. Início após aprovação.
+2. Backup de Dados: A loja NÃO se responsabiliza por perdas de dados ou arquivos. Faça backup prévio.
+3. Prazo de Descarte: Aparelhos deixados por mais de 90 dias após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+4. Avarias: A assistência não se responsabiliza por danos decorrentes de defeitos ocultos ou desgaste prévio constatados durante o processo de desmontagem e reparo.`;
+    const receiptTermsText = osUnit.os_receipt_terms || defaultReceiptTerms;
+
     if (activeFormat === 'a4') {
       return (
         <div className={cn("os-a4-receipt text-left", currentServiceOrder.device_category !== 'smartphone' && "compact-layout")}>
@@ -1209,22 +1215,15 @@ export default function ServiceOrders() {
           </table>
 
           <div className="a4-section-header text-black font-bold">Termos de Recebimento</div>
-          <div className="a4-notes text-black leading-relaxed">
-            1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
-            2. <strong>Backup de Dados:</strong> A {brandName} <strong>NÃO se responsabiliza por perdas de dados</strong> ou arquivos. Faça backup prévio.<br />
-            3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+          <div className="a4-notes text-black leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>
+            {receiptTermsText}
           </div>
 
-          <div className={cn("a4-signatures text-black", currentServiceOrder.device_category === 'smartphone' ? "mt-8" : "mt-4")}>
-            <div className="a4-sig-box">
-              <div className="a4-sig-line"></div>
+          <div className={cn("a4-signatures text-black", currentServiceOrder.device_category === 'smartphone' ? "mt-12" : "mt-8")} style={{ gridTemplateColumns: '1fr', justifyItems: 'center' }}>
+            <div className="a4-sig-box" style={{ width: '60%' }}>
+              <div className="a4-sig-line" style={{ width: '100%' }}></div>
               <span>Estou de acordo com o que li no todo desta nota.</span>
               <strong className="mt-1">{currentServiceOrder.customers?.name}</strong>
-            </div>
-            <div className="a4-sig-box">
-              <div className="a4-sig-line"></div>
-              <span>Aparelho recebido por</span>
-              <strong className="mt-1">{brandName} {brandSub}</strong>
             </div>
           </div>
 
@@ -1323,10 +1322,8 @@ export default function ServiceOrders() {
 
           {/* Clauses */}
           <div className="section-title">TERMOS DE RECEBIMENTO</div>
-          <div className="clauses">
-            1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
-            2. <strong>Backup de Dados:</strong> A {brandName} <strong>NÃO se responsabiliza por perdas de dados</strong> ou arquivos. Faça backup prévio.<br />
-            3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+          <div className="clauses" style={{ whiteSpace: 'pre-wrap' }}>
+            {receiptTermsText}
           </div>
 
           <div className="divider"></div>
@@ -1477,16 +1474,14 @@ export default function ServiceOrders() {
 
         {/* Clauses */}
         <div className="section-title">TERMOS DE RECEBIMENTO</div>
-        <div className="clauses">
-          1. <strong>Orçamento:</strong> Validade de 10 dias. Início após aprovação.<br />
-          2. <strong>Backup de Dados:</strong> A {brandName} <strong>NÃO se responsabiliza por perdas de dados</strong> ou arquivos. Faça backup prévio.<br />
-          3. <strong>Prazo de Descarte:</strong> Aparelhos deixados por <strong>mais de 90 dias</strong> após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+        <div className="clauses" style={{ whiteSpace: 'pre-wrap' }}>
+          {receiptTermsText}
         </div>
 
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '28px' }}>
+        <div className="sig-line-box" style={{ marginTop: '60px', marginBottom: '20px' }}>
           <div className="sig-line"></div>
           <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
         </div>

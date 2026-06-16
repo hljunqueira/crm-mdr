@@ -228,6 +228,13 @@ router.post("/:id/notify", async (req, res) => {
       return res.status(444).json({ error: "OS ou Cliente inválido para notificações" });
     }
 
+    // Fetch store details
+    const { data: store } = await supabase
+      .from('stores')
+      .select('*')
+      .eq('id', os.unit_id)
+      .single();
+
     // Get an active WhatsApp automation channel
     const { data: channels } = await supabase
       .from('automation_channels')
@@ -258,31 +265,63 @@ router.post("/:id/notify", async (req, res) => {
       deviceNameStr = os.device_category === 'notebook' ? 'Notebook' : os.device_category === 'desktop' ? 'Computador PC' : 'Equipamento';
     }
 
+    const fillTemplate = (template: string, vars: Record<string, string | number>) => {
+      let text = template;
+      for (const [key, value] of Object.entries(vars)) {
+        text = text.replace(new RegExp(`{${key}}`, 'g'), String(value));
+      }
+      return text;
+    };
+
+    const variables = {
+      nome_cliente: os.customers.name,
+      numero_os: numberStr,
+      aparelho: deviceNameStr,
+      problema_relatado: os.reported_issue,
+      acessorios: os.accessories_left ? os.accessories_left.join(', ') : 'Nenhum',
+      valor_pecas: partsStr,
+      valor_mao_de_obra: laborStr,
+      valor_total: totalStr,
+      prazo_garantia: os.warranty_period || 90
+    };
+
     let messageText = '';
 
     if (templateType === 'entry') {
-      messageText = `🛠️ *MDR Informática & Celulares - Ordem de Serviço #${numberStr}* 🛠️\n\n` +
-        `Olá *${os.customers.name}*!\n\n` +
-        `Registramos com sucesso a entrada do seu equipamento em nossa assistência técnica.\n\n` +
-        `💻 *Aparelho:* ${deviceNameStr}\n` +
-        `📝 *Problema Relatado:* ${os.reported_issue}\n` +
-        `📋 *Acessórios:* ${os.accessories_left ? os.accessories_left.join(', ') : 'Nenhum'}\n\n` +
-        `Nosso técnico já está avaliando seu dispositivo. Enviaremos o orçamento completo por aqui em breve!`;
+      if (store?.os_entry_template) {
+        messageText = fillTemplate(store.os_entry_template, variables);
+      } else {
+        messageText = `🛠️ *MDR Informática & Celulares - Ordem de Serviço #${numberStr}* 🛠️\n\n` +
+          `Olá *${os.customers.name}*!\n\n` +
+          `Registramos com sucesso a entrada do seu equipamento em nossa assistência técnica.\n\n` +
+          `💻 *Aparelho:* ${deviceNameStr}\n` +
+          `📝 *Problema Relatado:* ${os.reported_issue}\n` +
+          `📋 *Acessórios:* ${os.accessories_left ? os.accessories_left.join(', ') : 'Nenhum'}\n\n` +
+          `Nosso técnico já está avaliando seu dispositivo. Enviaremos o orçamento completo por aqui em breve!`;
+      }
     } else if (templateType === 'budget') {
-      messageText = `📊 *MDR Informática & Celulares - Orçamento OS #${numberStr}* 📊\n\n` +
-        `Olá *${os.customers.name}*!\n\n` +
-        `O diagnóstico técnico do seu *${deviceNameStr}* foi concluído.\n\n` +
-        `🔧 *Peças necessárias:* ${partsStr}\n` +
-        `👨‍🔧 *Mão de obra:* ${laborStr}\n` +
-        `💰 *Valor Total:* *${totalStr}*\n\n` +
-        `*Garantia:* ${os.warranty_period || 90} dias após a conclusão.\n\n` +
-        `Responda a esta mensagem aprovando o conserto para iniciarmos a execução imediata!`;
+      if (store?.os_budget_template) {
+        messageText = fillTemplate(store.os_budget_template, variables);
+      } else {
+        messageText = `📊 *MDR Informática & Celulares - Orçamento OS #${numberStr}* 📊\n\n` +
+          `Olá *${os.customers.name}*!\n\n` +
+          `O diagnóstico técnico do seu *${deviceNameStr}* foi concluído.\n\n` +
+          `🔧 *Peças necessárias:* ${partsStr}\n` +
+          `👨‍🔧 *Mão de obra:* ${laborStr}\n` +
+          `💰 *Valor Total:* *${totalStr}*\n\n` +
+          `*Garantia:* ${os.warranty_period || 90} dias após a conclusão.\n\n` +
+          `Responda a esta mensagem aprovando o conserto para iniciarmos a execução imediata!`;
+      }
     } else if (templateType === 'ready') {
-      messageText = `🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #${numberStr}* 🎉\n\n` +
-        `Olá *${os.customers.name}*!\n\n` +
-        `Temos ótimas notícias! O conserto do seu *${deviceNameStr}* foi finalizado e todos os testes de qualidade foram aprovados.\n\n` +
-        `💵 *Valor Final:* *${totalStr}*\n\n` +
-        `O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!`;
+      if (store?.os_ready_template) {
+        messageText = fillTemplate(store.os_ready_template, variables);
+      } else {
+        messageText = `🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #${numberStr}* 🎉\n\n` +
+          `Olá *${os.customers.name}*!\n\n` +
+          `Temos ótimas notícias! O conserto do seu *${deviceNameStr}* foi finalizado e todos os testes de qualidade foram aprovados.\n\n` +
+          `💵 *Valor Final:* *${totalStr}*\n\n` +
+          `O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!`;
+      }
     } else {
       return res.status(400).json({ error: "Template de notificação inválido" });
     }

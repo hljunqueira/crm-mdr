@@ -17,6 +17,10 @@ export interface Unit {
   whatsapp_number?: string;      // Format: 5548999999999 (DDI+DDD+number)
   instagram_username?: string;   // @username sem o @
   print_mode?: 'thermal' | 'a4';
+  os_entry_template?: string;
+  os_budget_template?: string;
+  os_ready_template?: string;
+  os_receipt_terms?: string;
 }
 
 interface UnitState {

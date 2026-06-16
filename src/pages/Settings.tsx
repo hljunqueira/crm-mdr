@@ -222,7 +222,11 @@ export default function Settings() {
     warranty_terms: '',
     pix_key: '',
     pix_key_type: 'cnpj' as 'cpf' | 'cnpj' | 'email' | 'phone' | 'random',
-    print_mode: 'thermal' as 'thermal' | 'a4'
+    print_mode: 'thermal' as 'thermal' | 'a4',
+    os_entry_template: '',
+    os_budget_template: '',
+    os_ready_template: '',
+    os_receipt_terms: ''
   });
 
   useEffect(() => {
@@ -257,7 +261,11 @@ export default function Settings() {
         warranty_terms: currentUnit.warranty_terms || '',
         pix_key: currentUnit.pix_key || '',
         pix_key_type: (currentUnit.pix_key_type as any) || 'cnpj',
-        print_mode: (currentUnit.print_mode as any) || 'thermal'
+        print_mode: (currentUnit.print_mode as any) || 'thermal',
+        os_entry_template: currentUnit.os_entry_template || '',
+        os_budget_template: currentUnit.os_budget_template || '',
+        os_ready_template: currentUnit.os_ready_template || '',
+        os_receipt_terms: currentUnit.os_receipt_terms || ''
       });
     }
   }, [selectedUnitId, units, unit]);
@@ -275,6 +283,7 @@ export default function Settings() {
   const menuItems = [
     { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
     ...(profile?.role === 'admin' ? [
+      { id: 'notifications', label: 'Alertas WhatsApp', icon: MessageCircle },
       { id: 'users', label: 'Colaboradores', icon: User },
       { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck }
     ] : [])
@@ -497,12 +506,120 @@ export default function Settings() {
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed text-xs opacity-80"
                     />
                   </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Bell size={16} className="text-primary" />
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Termos de Recebimento de OS</label>
+                    </div>
+                    <textarea 
+                      rows={6}
+                      value={formData.os_receipt_terms}
+                      onChange={(e) => setFormData(prev => ({ ...prev, os_receipt_terms: e.target.value }))}
+                      placeholder="Descreva aqui os termos impressos no comprovante de entrada de OS do cliente..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed text-xs opacity-80"
+                    />
+                  </div>
                 </div>
               </motion.div>
             )}
 
 
 
+
+            {activeTab === 'notifications' && profile?.role === 'admin' && (
+              <motion.div 
+                key="notifications"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <MessageCircle size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Alertas do WhatsApp (n8n)</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Personalize os modelos de mensagens enviadas automaticamente</p>
+                  </div>
+                </div>
+
+                {/* Loja selector for alerts */}
+                {profile?.role === 'admin' && units.length > 0 && (
+                  <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-[32px] border border-white/10">
+                    {units.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedUnitId(u.id)}
+                        className={cn(
+                          "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
+                          selectedUnitId === u.id 
+                            ? "bg-white text-black shadow-lg shadow-white/5" 
+                            : "text-on-surface-variant hover:text-white"
+                        )}
+                      >
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Left Column: Editor Textareas */}
+                  <div className="lg:col-span-2 space-y-8">
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Entrada de OS</label>
+                      <textarea 
+                        rows={6}
+                        value={formData.os_entry_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, os_entry_template: e.target.value }))}
+                        placeholder="Deixe em branco para usar o padrão da assistência..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Orçamento de OS</label>
+                      <textarea 
+                        rows={6}
+                        value={formData.os_budget_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, os_budget_template: e.target.value }))}
+                        placeholder="Deixe em branco para usar o padrão da assistência..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: OS Pronta para Retirada</label>
+                      <textarea 
+                        rows={6}
+                        value={formData.os_ready_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, os_ready_template: e.target.value }))}
+                        placeholder="Deixe em branco para usar o padrão da assistência..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Help variables */}
+                  <div className="lg:col-span-1 glass-card p-6 border border-white/5 rounded-3xl bg-white/[0.01] h-fit space-y-4">
+                    <h3 className="text-xs font-black text-white uppercase tracking-wider text-primary">Variáveis Disponíveis</h3>
+                    <p className="text-[10px] text-on-surface-variant leading-relaxed">Você pode copiar e colar essas tags no meio do seu texto para que o sistema as substitua de forma inteligente:</p>
+                    <div className="space-y-3 font-mono text-[11px]">
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Nome do Cliente</strong> {"{nome_cliente}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Nº da OS formatado</strong> {"{numero_os}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Aparelho (Marca/Modelo)</strong> {"{aparelho}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Defeito Relatado</strong> {"{problema_relatado}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Acessórios Deixados</strong> {"{acessorios}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Valor Peças</strong> {"{valor_pecas}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Mão de Obra</strong> {"{valor_mao_de_obra}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Valor Total</strong> {"{valor_total}"}</div>
+                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Garantia (Dias)</strong> {"{prazo_garantia}"}</div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {activeTab === 'users' && profile?.role === 'admin' && (
               <motion.div 
