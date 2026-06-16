@@ -198,8 +198,8 @@ router.post("/", async (req, res) => {
           `Por favor, acesse o painel de estoque para definir o preço de revenda e ativar o aparelho.`;
 
         try {
-          const { data: storeData } = await supabase.from('stores').select('instance').eq('id', store_id).single();
-          const instance = storeData?.instance || 'MDR';
+          const { data: storeData } = await supabase.from('stores').select('evolution_instance').eq('id', store_id).single();
+          const instance = storeData?.evolution_instance || 'MDR';
 
           const n8nWebhookUrl = 'https://n8n.mdrinformaticaecelulares.com.br/webhook/trade-in-alert';
           const payload = {

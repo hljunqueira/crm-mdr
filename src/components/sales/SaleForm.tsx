@@ -1166,6 +1166,75 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           </div>
         )}
+
+        {/* Seletor de Unidade (Apenas para Admin) */}
+        {profile?.role === 'admin' && (
+          <div className="space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade/Loja da Venda</label>
+            <select
+              value={selectedUnitId}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+              className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              <option value="" className="bg-[#121214]">Selecionar Unidade...</option>
+              {units.map(u => (
+                <option key={u.id} value={u.id} className="bg-[#121214]">
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Customer Section */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <select 
+                required
+                value={formData.customer_id}
+                onChange={(e) => {
+                  const custId = e.target.value;
+                  const selectedC = customers.find(c => c.id === custId);
+                  setFormData(prev => {
+                    const isAVista = selectedC?.classification === 'A_VISTA';
+                    return {
+                      ...prev,
+                      customer_id: custId,
+                      payment_type: (isAVista && prev.payment_type === 'crediario') ? 'vista' : prev.payment_type
+                    };
+                  });
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
+                {customers.map(c => {
+                  const isBlocked = c.approved_for_purchase !== true;
+                  return (
+                    <option 
+                      key={c.id} 
+                      value={c.id} 
+                      disabled={isBlocked}
+                      className="bg-surface-container-high"
+                    >
+                      {c.name} - {c.cpf}{isBlocked ? ' (BLOQUEADO - Sem Aprovação)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsQuickCustomerOpen(true)}
+              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+              title="Cadastro Rápido de Cliente"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
+        </div>
+
       {saleType !== 'general' && selectedCustomer && (
         <>
           <div className={cn(
@@ -1239,6 +1308,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
         {/* Seletor do Tipo de Venda */}
         <div className="md:col-span-2 space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
@@ -1431,74 +1501,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           </div>
         )}
-
-        {/* Seletor de Unidade (Apenas para Admin) */}
-        {profile?.role === 'admin' && (
-          <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade/Loja da Venda</label>
-            <select
-              value={selectedUnitId}
-              onChange={(e) => setSelectedUnitId(e.target.value)}
-              className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              <option value="" className="bg-[#121214]">Selecionar Unidade...</option>
-              {units.map(u => (
-                <option key={u.id} value={u.id} className="bg-[#121214]">
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Customer Section */}
-        <div className="md:col-span-2 space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <select 
-                required
-                value={formData.customer_id}
-                onChange={(e) => {
-                  const custId = e.target.value;
-                  const selectedC = customers.find(c => c.id === custId);
-                  setFormData(prev => {
-                    const isAVista = selectedC?.classification === 'A_VISTA';
-                    return {
-                      ...prev,
-                      customer_id: custId,
-                      payment_type: (isAVista && prev.payment_type === 'crediario') ? 'vista' : prev.payment_type
-                    };
-                  });
-                }}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
-                {customers.map(c => {
-                  const isBlocked = c.approved_for_purchase !== true;
-                  return (
-                    <option 
-                      key={c.id} 
-                      value={c.id} 
-                      disabled={isBlocked}
-                      className="bg-surface-container-high"
-                    >
-                      {c.name} - {c.cpf}{isBlocked ? ' (BLOQUEADO - Sem Aprovação)' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsQuickCustomerOpen(true)}
-              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
-              title="Cadastro Rápido de Cliente"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
 
         {/* Modelo do Aparelho - Exibido apenas em vendas de celular/crediário */}
         {saleType === 'cellphone' && (

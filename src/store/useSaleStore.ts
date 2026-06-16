@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
+import { useInventoryStore } from './useInventoryStore';
 
 export interface Sale {
   id: string;
@@ -116,6 +117,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       };
       
       set((state) => ({ sales: [newSale, ...state.sales] }));
+      useInventoryStore.getState().fetchInventory().catch(() => {});
       return data; // Return to get the ID
     } catch (error) {
       console.error('Error adding sale:', error);
@@ -158,6 +160,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
           customer_name: s.customer_name
         } : s)),
       }));
+      useInventoryStore.getState().fetchInventory().catch(() => {});
     } catch (error) {
       console.error('Error updating sale:', error);
       throw error;
@@ -169,6 +172,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       set((state) => ({
         sales: state.sales.filter((s) => s.id !== id),
       }));
+      useInventoryStore.getState().fetchInventory().catch(() => {});
     } catch (error) {
       console.error('Error deleting sale:', error);
       throw error;

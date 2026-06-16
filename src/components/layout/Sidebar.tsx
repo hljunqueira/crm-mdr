@@ -80,6 +80,7 @@ export default function Sidebar() {
       icon: Wrench,
       items: [
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
+        { name: 'Estoque', displayName: 'Avaliação de Celulares', icon: ShieldCheck, path: '/device-valuations' },
         { name: 'Fornecedores', icon: Truck, path: '/suppliers' },
         { name: 'Parceiros', icon: Building, path: '/partners' },
         { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
