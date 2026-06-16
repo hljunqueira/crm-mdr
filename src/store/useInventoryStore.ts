@@ -31,7 +31,7 @@ interface InventoryState {
   isLoading: boolean;
   fetchInventory: (unitId?: string) => Promise<void>;
   addItem: (item: Omit<InventoryItem, 'id'>) => Promise<InventoryItem>;
-  updateItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
+  updateItem: (id: string, item: Partial<InventoryItem> & { is_manual?: boolean; admin_password?: string }) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 }
 
@@ -139,6 +139,10 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.purchase_date !== undefined) dbFields.purchase_date = updatedFields.purchase_date || null;
       if (updatedFields.description !== undefined) dbFields.description = updatedFields.description || null;
       if (updatedFields.short_name !== undefined) dbFields.short_name = updatedFields.short_name || null;
+      
+      // Pass-through validation parameters
+      if ((updatedFields as any).is_manual !== undefined) dbFields.is_manual = (updatedFields as any).is_manual;
+      if ((updatedFields as any).admin_password !== undefined) dbFields.admin_password = (updatedFields as any).admin_password;
 
       const userId = useAuthStore.getState().profile?.id;
       if (userId) {

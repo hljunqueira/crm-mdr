@@ -218,4 +218,51 @@ router.post('/verify-password', async (req, res) => {
   }
 });
 
+// POST /api/users/verify-admin-password — Verificar se a senha corresponde a qualquer administrador
+router.post('/verify-admin-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Senha é obrigatória.' });
+    }
+
+    // 1. Buscar todos os perfis com role = 'admin'
+    const { data: admins, error: adminError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin');
+
+    if (adminError || !admins || admins.length === 0) {
+      return res.status(404).json({ error: 'Nenhum administrador cadastrado.' });
+    }
+
+    // 2. Tentar autenticar com a senha informada para cada admin
+    for (const admin of admins) {
+      const { data: userObj } = await supabase.auth.admin.getUserById(admin.id);
+      if (userObj && userObj.user?.email) {
+        const email = userObj.user.email;
+        const tempClient = createClient(
+          process.env.VITE_SUPABASE_URL || '',
+          process.env.VITE_SUPABASE_ANON_KEY || ''
+        );
+
+        const { error: authError } = await tempClient.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (!authError) {
+          // Senha correta para este admin!
+          return res.json({ success: true, adminId: admin.id });
+        }
+      }
+    }
+
+    return res.status(401).json({ error: 'Senha do administrador incorreta.' });
+  } catch (error: any) {
+    console.error('[VerifyAdminPassword] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

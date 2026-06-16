@@ -32,7 +32,7 @@ router.post("/", async (req, res) => {
 
 // Update item
 router.patch("/:id", async (req, res) => {
-  const { user_id, ...updatePayload } = req.body;
+  const { user_id, is_manual, admin_password, ...updatePayload } = req.body;
 
   // Fields we want to check
   const hasQuantityChange = updatePayload.stock_quantity !== undefined;
@@ -74,12 +74,57 @@ router.patch("/:id", async (req, res) => {
         (hasSalePriceChange && Number(updatePayload.sale_price) !== Number(currentItem.sale_price)) ||
         (hasTradeInPriceChange && Number(updatePayload.trade_in_price) !== Number(currentItem.trade_in_price));
 
-      // Check for stock increase
-      const isStockIncreased =
-        hasQuantityChange && Number(updatePayload.stock_quantity) > Number(currentItem.stock_quantity);
+      if (isPriceModified) {
+        return res.status(403).json({ error: "Apenas administradores podem reajustar preços e custos." });
+      }
 
-      if (isPriceModified || isStockIncreased) {
-        return res.status(403).json({ error: "Apenas administradores podem reajustar preços, custos ou aumentar a quantidade de estoque." });
+      // Check for stock quantity change
+      if (hasQuantityChange) {
+        const newQty = Number(updatePayload.stock_quantity);
+        const oldQty = Number(currentItem.stock_quantity);
+
+        if (newQty < oldQty && is_manual) {
+          // It's a manual decrease! Require admin password
+          if (!admin_password) {
+            return res.status(403).json({ error: "A senha do administrador é necessária para diminuir a quantidade em estoque." });
+          }
+
+          // Verify admin password
+          // 1. Fetch all admins
+          const { data: admins } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'admin');
+
+          let passwordValid = false;
+          if (admins && admins.length > 0) {
+            const { createClient } = await import('@supabase/supabase-js');
+            for (const admin of admins) {
+              const { data: userObj } = await supabase.auth.admin.getUserById(admin.id);
+              if (userObj && userObj.user?.email) {
+                const email = userObj.user.email;
+                const tempClient = createClient(
+                  process.env.VITE_SUPABASE_URL || '',
+                  process.env.VITE_SUPABASE_ANON_KEY || ''
+                );
+
+                const { error: authError } = await tempClient.auth.signInWithPassword({
+                  email,
+                  password: admin_password
+                });
+
+                if (!authError) {
+                  passwordValid = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!passwordValid) {
+            return res.status(401).json({ error: "Senha do administrador incorreta." });
+          }
+        }
       }
     }
   }

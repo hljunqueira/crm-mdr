@@ -19,6 +19,9 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   const { profile } = useAuthStore();
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'photo' | 'notes'>('info');
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const [formData, setFormData] = useState({
     unit_id: item?.unit_id || profile?.unit_id || '',
@@ -154,7 +157,16 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     const tradeInPriceNum = formData.trade_in_price ? Number(formData.trade_in_price) : undefined;
     const costPriceNum = Number(formData.cost_price) || 0;
     const qtyNum = formData.category === 'service' ? 1 : Math.max(1, Number(formData.stock_quantity) || 1);
- 
+
+    // Security check: non-admin decreasing stock quantity manually
+    if (item && profile?.role !== 'admin' && formData.category !== 'service') {
+      const originalQty = item.stock_quantity || 0;
+      if (qtyNum < originalQty && !showPasswordPrompt) {
+        setShowPasswordPrompt(true);
+        return; // Pause submission, wait for password
+      }
+    }
+
     try {
       const payload = {
         brand: brandValue,
@@ -176,6 +188,10 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         barcode: formData.barcode,
         supplier: formData.supplier || null,
         purchase_date: formData.purchase_date || null,
+        
+        // Security parameters
+        is_manual: true,
+        admin_password: adminPassword || undefined
       };
 
       if (item) {
@@ -187,8 +203,14 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       }
       onSuccess();
       hideModal();
-    } catch (error) {
-      showNotification('error', 'Erro ao salvar item');
+    } catch (error: any) {
+      console.error(error);
+      const errorMsg = error.message || 'Erro ao salvar item';
+      if (errorMsg.includes('Senha') || errorMsg.includes('senha') || errorMsg.includes('401') || errorMsg.includes('403')) {
+        setPasswordError('Senha do administrador incorreta.');
+      } else {
+        showNotification('error', errorMsg);
+      }
     }
   };
 
@@ -359,8 +381,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                   min="1"
                   value={formData.stock_quantity}
                   onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                  disabled={item !== undefined && profile?.role !== 'admin'}
-                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none"
                   placeholder="1"
                 />
               </div>
@@ -382,18 +403,20 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Condição</label>
-              <select
-                value={formData.condition}
-                onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none appearance-none"
-              >
-                <option value="new" className="bg-[#121214] text-white">Novo (Lacre)</option>
-                <option value="used" className="bg-[#121214] text-white">Usado (Seminovo)</option>
-                <option value="vitrine" className="bg-[#121214] text-white">Vitrine</option>
-              </select>
-            </div>
+            {formData.category !== 'service' && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Condição</label>
+                <select
+                  value={formData.condition}
+                  onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none appearance-none"
+                >
+                  <option value="new" className="bg-[#121214] text-white">Novo (Lacre)</option>
+                  <option value="used" className="bg-[#121214] text-white">Usado (Seminovo)</option>
+                  <option value="vitrine" className="bg-[#121214] text-white">Vitrine</option>
+                </select>
+              </div>
+            )}
 
             {['smartphone', 'notebook', 'desktop'].includes(formData.category) && (
               <div className="space-y-2 animate-in fade-in duration-300">
@@ -408,81 +431,85 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
               </div>
             )}
 
-             <div className="space-y-2">
-              <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Fornecedor</label>
-              {!showQuickAddSupplier ? (
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <select
-                      value={formData.supplier}
-                      onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none text-white appearance-none"
+            {formData.category !== 'service' && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Fornecedor</label>
+                {!showQuickAddSupplier ? (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <select
+                        value={formData.supplier}
+                        onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                        className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none text-white appearance-none"
+                      >
+                        <option value="" className="bg-[#121214] text-white">— Selecione o Fornecedor —</option>
+                        {suppliers.map(s => (
+                          <option key={s.id} value={s.name} className="bg-[#121214] text-white">{s.name}</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-on-surface-variant/50">
+                        <Layers size={12} />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddSupplier(true)}
+                      className="p-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl transition-all active:scale-95 flex items-center justify-center shrink-0"
+                      title="Cadastrar fornecedor rápido"
                     >
-                      <option value="" className="bg-[#121214] text-white">— Selecione o Fornecedor —</option>
-                      {suppliers.map(s => (
-                        <option key={s.id} value={s.name} className="bg-[#121214] text-white">{s.name}</option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-on-surface-variant/50">
-                      <Layers size={12} />
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
+                    <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Fornecedor Rápido</span>
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="text"
+                        value={newSupplierName}
+                        onChange={(e) => setNewSupplierName(e.target.value)}
+                        placeholder="Nome do fornecedor"
+                        className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-2 text-xs focus:border-primary transition-all outline-none"
+                        disabled={isAddingSupplier}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQuickAddSupplier(false);
+                            setNewSupplierName('');
+                          }}
+                          disabled={isAddingSupplier}
+                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+                        >
+                          Voltar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleQuickAddSupplier}
+                          disabled={isAddingSupplier}
+                          className="px-4 py-1.5 bg-primary text-on-primary rounded-2xl text-[9px] font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                        >
+                          {isAddingSupplier ? '...' : 'Salvar'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowQuickAddSupplier(true)}
-                    className="p-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl transition-all active:scale-95 flex items-center justify-center shrink-0"
-                    title="Cadastrar fornecedor rápido"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
-                  <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Fornecedor Rápido</span>
-                  <div className="flex flex-col gap-2">
-                    <input
-                      type="text"
-                      value={newSupplierName}
-                      onChange={(e) => setNewSupplierName(e.target.value)}
-                      placeholder="Nome do fornecedor"
-                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-2 text-xs focus:border-primary transition-all outline-none"
-                      disabled={isAddingSupplier}
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowQuickAddSupplier(false);
-                          setNewSupplierName('');
-                        }}
-                        disabled={isAddingSupplier}
-                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
-                      >
-                        Voltar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleQuickAddSupplier}
-                        disabled={isAddingSupplier}
-                        className="px-4 py-1.5 bg-primary text-on-primary rounded-2xl text-[9px] font-black uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
-                      >
-                        {isAddingSupplier ? '...' : 'Salvar'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
-            <div className="space-y-2 sm:col-span-2 md:col-span-1">
-              <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Data de Compra</label>
-              <input
-                type="date"
-                value={formData.purchase_date}
-                onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none text-white"
-              />
-            </div>
+            {formData.category !== 'service' && (
+              <div className="space-y-2 sm:col-span-2 md:col-span-1">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Data de Compra</label>
+                <input
+                  type="date"
+                  value={formData.purchase_date}
+                  onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none text-white"
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -570,6 +597,32 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
           </div>
         )}
       </div>
+
+      {showPasswordPrompt && (
+        <div className="space-y-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl animate-in slide-in-from-bottom-2">
+          <span className="text-[9px] font-black text-red-400 uppercase tracking-widest block leading-none">⚠️ Autorização Necessária</span>
+          <p className="text-[10px] text-on-surface-variant/80 leading-normal">
+            Você está reduzindo a quantidade em estoque de <strong>{item?.stock_quantity}</strong> para <strong>{formData.stock_quantity}</strong>. 
+            Esta ação exige a senha de um administrador para ser autorizada:
+          </p>
+          <div className="space-y-2">
+            <input
+              type="password"
+              placeholder="Senha do Administrador"
+              value={adminPassword}
+              onChange={(e) => {
+                setAdminPassword(e.target.value);
+                setPasswordError('');
+              }}
+              required
+              className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none font-mono text-white"
+            />
+            {passwordError && (
+              <span className="text-[9px] font-black text-red-400 uppercase tracking-wider block">{passwordError}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Botões de Ação */}
       <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-white/5">
