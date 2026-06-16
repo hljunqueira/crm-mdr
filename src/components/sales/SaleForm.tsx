@@ -276,6 +276,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     payment_type: initialData?.payment_type || 'crediario',
     interest_table: 'standard',
     down_payment_method: 'money_pix',
+    payment_method: (initialData as any)?.payment_method || 'money',
     trade_device_model: '',
     trade_device_imei: '',
     // Trade-in feature fields
@@ -806,7 +807,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           trade_in_device_model: formData.trade_in_device_model,
           trade_in_device_imei: formData.trade_in_device_imei,
           trade_in_valuation: formData.trade_in_valuation,
-          trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate
+          trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
+          payment_method: formData.payment_method
         });
         showNotification('success', 'Venda Atualizada');
         onSuccess();
@@ -834,7 +836,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           trade_in_device_model: formData.trade_in_device_model,
           trade_in_device_imei: formData.trade_in_device_imei,
           trade_in_valuation: formData.trade_in_valuation,
-          trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate
+          trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
+          payment_method: formData.payment_method
         });
 
         // Decrement stock for all selected devices
@@ -1766,6 +1769,22 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           )}
         </div>
+
+        {(formData.payment_type === 'vista' || (formData.payment_type !== 'debit' && formData.payment_type !== 'card' && formData.down_payment > 0)) && (
+          <div className="space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
+              Forma de Recebimento ({formData.payment_type === 'vista' ? 'Valor Integral' : 'Valor da Entrada'})
+            </label>
+            <select
+              value={formData.payment_method}
+              onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              <option value="money" className="bg-[#121214]">Dinheiro (Físico)</option>
+              <option value="pix" className="bg-[#121214]">PIX (Digital)</option>
+            </select>
+          </div>
+        )}
 
         {formData.payment_type === 'crediario' && (
           <div className="space-y-2 animate-in fade-in duration-300">

@@ -39,7 +39,7 @@ interface CashState {
   transactions: CashTransaction[];
   shiftHistory: CashShift[];
   isLoading: boolean;
-  fetchActiveShift: (unitId: string) => Promise<void>;
+  fetchActiveShift: (unitId: string) => Promise<CashShift | null>;
   openShift: (unitId: string, openedBy: string, openingBalance: number) => Promise<void>;
   closeShift: (shiftId: string, closedBy: string, closingCash: number, notes?: string) => Promise<void>;
   fetchTransactions: (unitId: string) => Promise<void>;
@@ -69,9 +69,11 @@ export const useCashStore = create<CashState>()((set, get) => ({
     try {
       const data = await api.get(`/finance/shifts/active?unit_id=${unitId}`);
       set({ activeShift: data || null });
+      return data || null;
     } catch (error) {
       console.error('Error fetching active shift:', error);
       set({ activeShift: null });
+      return null;
     } finally {
       set({ isLoading: false });
     }

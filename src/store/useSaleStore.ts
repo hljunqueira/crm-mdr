@@ -26,6 +26,7 @@ export interface Sale {
   trade_in_device_imei?: string;
   trade_in_valuation?: number;
   trade_in_sale_price_estimate?: number;
+  payment_method?: string;
 }
 
 interface SaleState {
@@ -62,6 +63,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
         accessories: s.accessories,
         status: s.status,
         payment_type: s.payment_type || 'crediario',
+        payment_method: s.payment_method || 'money',
         seller_id: s.seller_id,
         is_trade_in: !!s.is_trade_in,
         trade_in_device_brand: s.trade_in_device_brand || '',
@@ -95,6 +97,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
         accessories: sale.accessories,
         status: sale.status,
         payment_type: sale.payment_type,
+        payment_method: (sale as any).payment_method || 'money',
         seller_id: sale.seller_id,
         is_trade_in: sale.is_trade_in || false,
         trade_in_device_brand: sale.trade_in_device_brand || null,
@@ -137,6 +140,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
       if (updatedFields.accessories) dbFields.accessories = updatedFields.accessories;
       if (updatedFields.status) dbFields.status = updatedFields.status;
       if (updatedFields.payment_type) dbFields.payment_type = updatedFields.payment_type;
+      if ((updatedFields as any).payment_method) dbFields.payment_method = (updatedFields as any).payment_method;
       if (updatedFields.seller_id) dbFields.seller_id = updatedFields.seller_id;
       if (updatedFields.is_trade_in !== undefined) dbFields.is_trade_in = updatedFields.is_trade_in;
       if (updatedFields.trade_in_device_brand !== undefined) dbFields.trade_in_device_brand = updatedFields.trade_in_device_brand;

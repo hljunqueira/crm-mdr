@@ -1292,9 +1292,13 @@ export default function Sales() {
     });
   };
 
-  const handleEditSale = (sale: Sale) => {
-    if (!activeShift) {
-      showNotification('error', 'Caixa fechado. Abra o caixa para editar/lançar vendas.');
+  const handleEditSale = async (sale: Sale) => {
+    let currentShift = activeShift;
+    if (profile?.unit_id) {
+      currentShift = await fetchActiveShift(profile.unit_id);
+    }
+    if (!currentShift) {
+      showNotification('error', 'Caixa Fechado', 'Abra o caixa para editar/lançar vendas.');
       return;
     }
     showModal({
@@ -1314,9 +1318,13 @@ export default function Sales() {
     });
   };
 
-  const handleNewSale = () => {
-    if (!activeShift) {
-      showNotification('error', 'Caixa fechado. Abra o caixa para registrar novas vendas.');
+  const handleNewSale = async () => {
+    let currentShift = activeShift;
+    if (profile?.unit_id) {
+      currentShift = await fetchActiveShift(profile.unit_id);
+    }
+    if (!currentShift) {
+      showNotification('error', 'Caixa Fechado', 'Abra o caixa para registrar novas vendas.');
       return;
     }
     showModal({

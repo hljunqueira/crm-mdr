@@ -3,6 +3,15 @@ import { supabase } from "../lib/supabase.js";
 
 const router = Router();
 
+const validSalesColumns = [
+  'store_id', 'customer_id', 'seller_id', 'device_id', 'device_model_manual', 
+  'imei_manual', 'total_value', 'down_payment', 'installments_count', 
+  'service_fee', 'original_price', 'sale_date', 'status', 'payment_type', 
+  'accessories', 'is_trade_in', 'trade_in_device_brand', 'trade_in_device_model', 
+  'trade_in_device_imei', 'trade_in_valuation', 'trade_in_sale_price_estimate',
+  'payment_method'
+];
+
 // Get all sales
 router.get("/", async (req, res) => {
   const { data, error } = await supabase
@@ -24,7 +33,7 @@ router.post("/", async (req, res) => {
   // Check if cashier shift is open for this unit
   const { data: activeShift, error: shiftError } = await supabase
     .from('cash_shifts')
-    .select('id')
+    .select('*')
     .eq('unit_id', store_id)
     .eq('status', 'open')
     .maybeSingle();
@@ -56,14 +65,83 @@ router.post("/", async (req, res) => {
       }
     }
 
+    const cleanSaleBody = {};
+    validSalesColumns.forEach(col => {
+      if (req.body[col] !== undefined) {
+        cleanSaleBody[col] = req.body[col];
+      }
+    });
+
     // 2. Insert Sale
     const { data: saleData, error: saleError } = await supabase
       .from('sales')
-      .insert([req.body])
+      .insert([cleanSaleBody])
       .select()
       .single();
 
     if (saleError) return res.status(500).json({ error: saleError.message });
+
+    // 2.5 Integrate with Cash Flow
+    if (activeShift) {
+      const isCashLike = saleData.payment_type === 'vista' || saleData.payment_type === 'debit';
+      const paymentMethod = saleData.payment_type === 'debit' ? 'card' : (req.body.payment_method || 'money');
+      const isCash = paymentMethod === 'money';
+      const isDigital = paymentMethod === 'pix' || paymentMethod === 'card' || paymentMethod === 'bank';
+
+      if (isCashLike) {
+        const desc = saleData.payment_type === 'debit' 
+          ? `Venda no cartão de débito: ${saleData.device_model_manual || 'Aparelho'}` 
+          : `Venda à vista: ${saleData.device_model_manual || 'Aparelho'}`;
+
+        await supabase.from('cash_transactions').insert({
+          unit_id: store_id,
+          shift_id: activeShift.id,
+          type: 'inflow',
+          category: 'sale',
+          amount: Number(saleData.total_value),
+          payment_method: paymentMethod,
+          description: desc,
+          sale_id: saleData.id,
+          created_by: seller_id || activeShift.opened_by
+        });
+
+        // Update shift expected balances
+        const updatePayload: any = {};
+        if (isCash) {
+          updatePayload.expected_cash = Number(activeShift.expected_cash || 0) + Number(saleData.total_value);
+        } else if (isDigital) {
+          updatePayload.expected_digital = Number(activeShift.expected_digital || 0) + Number(saleData.total_value);
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+        }
+      } else if (Number(saleData.down_payment) > 0 && req.body.payment_method !== 'trade') {
+        const desc = `Entrada da venda: ${saleData.device_model_manual || 'Aparelho'}`;
+
+        await supabase.from('cash_transactions').insert({
+          unit_id: store_id,
+          shift_id: activeShift.id,
+          type: 'inflow',
+          category: 'sale',
+          amount: Number(saleData.down_payment),
+          payment_method: paymentMethod,
+          description: desc,
+          sale_id: saleData.id,
+          created_by: seller_id || activeShift.opened_by
+        });
+
+        // Update shift expected balances
+        const updatePayload: any = {};
+        if (isCash) {
+          updatePayload.expected_cash = Number(activeShift.expected_cash || 0) + Number(saleData.down_payment);
+        } else if (isDigital) {
+          updatePayload.expected_digital = Number(activeShift.expected_digital || 0) + Number(saleData.down_payment);
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+        }
+      }
+    }
 
     // 3. If it's a trade-in, insert the traded phone into devices (inventory)
     if (is_trade_in) {
@@ -168,15 +246,139 @@ router.post("/", async (req, res) => {
 
 // Update sale
 router.patch("/:id", async (req, res) => {
-  const { data, error } = await supabase
-    .from('sales')
-    .update(req.body)
-    .eq('id', req.params.id)
-    .select()
-    .single();
-
-  if (error) return res.status(404).json({ error: error.message });
-  res.json(data);
+  try {
+    // 1. Fetch old sale
+    const { data: oldSale, error: oldError } = await supabase
+      .from('sales')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+       
+    if (oldError || !oldSale) return res.status(404).json({ error: "Venda não encontrada." });
+     
+    const storeId = req.body.store_id || oldSale.store_id;
+     
+    // 2. Fetch active shift
+    const { data: activeShift } = await supabase
+      .from('cash_shifts')
+      .select('*')
+      .eq('unit_id', storeId)
+      .eq('status', 'open')
+      .maybeSingle();
+       
+    // 3. Revert old transaction if shift is open
+    if (activeShift) {
+      const { data: oldTx } = await supabase
+        .from('cash_transactions')
+        .select('*')
+        .eq('sale_id', req.params.id)
+        .maybeSingle();
+         
+      if (oldTx) {
+        const isCash = oldTx.payment_method === 'money';
+        const isDigital = oldTx.payment_method === 'pix' || oldTx.payment_method === 'card' || oldTx.payment_method === 'bank';
+        const updatePayload: any = {};
+        if (isCash) {
+          updatePayload.expected_cash = Math.max(0, Number(activeShift.expected_cash || 0) - Number(oldTx.amount));
+        } else if (isDigital) {
+          updatePayload.expected_digital = Math.max(0, Number(activeShift.expected_digital || 0) - Number(oldTx.amount));
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+          // Refresh activeShift reference balances
+          activeShift.expected_cash = updatePayload.expected_cash !== undefined ? updatePayload.expected_cash : activeShift.expected_cash;
+          activeShift.expected_digital = updatePayload.expected_digital !== undefined ? updatePayload.expected_digital : activeShift.expected_digital;
+        }
+         
+        // Delete old transaction
+        await supabase.from('cash_transactions').delete().eq('id', oldTx.id);
+      }
+    }
+     
+    // 4. Update the sale
+    const cleanSaleBody: any = {};
+    validSalesColumns.forEach(col => {
+      if (req.body[col] !== undefined) {
+        cleanSaleBody[col] = req.body[col];
+      }
+    });
+     
+    const { data: updatedSale, error: updateError } = await supabase
+      .from('sales')
+      .update(cleanSaleBody)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+       
+    if (updateError) return res.status(500).json({ error: updateError.message });
+     
+    // 5. Create new transaction if shift is open and has new payment
+    if (activeShift && updatedSale) {
+      const isCashLike = updatedSale.payment_type === 'vista' || updatedSale.payment_type === 'debit';
+      const finalVal = Number(updatedSale.total_value);
+      const downPaymentVal = Number(updatedSale.down_payment);
+      const paymentMethod = updatedSale.payment_type === 'debit' ? 'card' : (updatedSale.payment_method || 'money');
+       
+      if (isCashLike) {
+        const isCash = paymentMethod === 'money';
+        const isDigital = paymentMethod === 'pix' || paymentMethod === 'card' || paymentMethod === 'bank';
+        const desc = updatedSale.payment_type === 'debit' 
+          ? `Venda no cartão de débito (Editada): ${updatedSale.device_model_manual || 'Aparelho'}` 
+          : `Venda à vista (Editada): ${updatedSale.device_model_manual || 'Aparelho'}`;
+         
+        await supabase.from('cash_transactions').insert({
+          unit_id: storeId,
+          shift_id: activeShift.id,
+          type: 'inflow',
+          category: 'sale',
+          amount: finalVal,
+          payment_method: paymentMethod,
+          description: desc,
+          sale_id: updatedSale.id,
+          created_by: updatedSale.seller_id || activeShift.opened_by
+        });
+         
+        const updatePayload: any = {};
+        if (isCash) {
+          updatePayload.expected_cash = Number(activeShift.expected_cash || 0) + finalVal;
+        } else if (isDigital) {
+          updatePayload.expected_digital = Number(activeShift.expected_digital || 0) + finalVal;
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+        }
+      } else if (downPaymentVal > 0 && updatedSale.payment_method !== 'trade') {
+        const isCash = paymentMethod === 'money';
+        const isDigital = paymentMethod === 'pix' || paymentMethod === 'card' || paymentMethod === 'bank';
+         
+        await supabase.from('cash_transactions').insert({
+          unit_id: storeId,
+          shift_id: activeShift.id,
+          type: 'inflow',
+          category: 'sale',
+          amount: downPaymentVal,
+          payment_method: paymentMethod,
+          description: `Entrada da venda (Editada): ${updatedSale.device_model_manual || 'Aparelho'}`,
+          sale_id: updatedSale.id,
+          created_by: updatedSale.seller_id || activeShift.opened_by
+        });
+         
+        const updatePayload: any = {};
+        if (isCash) {
+          updatePayload.expected_cash = Number(activeShift.expected_cash || 0) + downPaymentVal;
+        } else if (isDigital) {
+          updatePayload.expected_digital = Number(activeShift.expected_digital || 0) + downPaymentVal;
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+        }
+      }
+    }
+     
+    res.json(updatedSale);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Delete sale
@@ -283,6 +485,41 @@ router.delete("/:id", async (req, res) => {
         .from('devices')
         .delete()
         .eq('notes', `Aparelho recebido como troca na venda ID: ${sale.id}`);
+    }
+
+    // 4.5 Revert cash transactions associated with this sale
+    const { data: transactions } = await supabase
+      .from('cash_transactions')
+      .select('*')
+      .eq('sale_id', req.params.id);
+       
+    if (transactions && transactions.length > 0) {
+      for (const tx of transactions) {
+        if (tx.shift_id) {
+          const { data: shift } = await supabase
+            .from('cash_shifts')
+            .select('*')
+            .eq('id', tx.shift_id)
+            .maybeSingle();
+             
+          if (shift && shift.status === 'open') {
+            const isCash = tx.payment_method === 'money';
+            const isDigital = tx.payment_method === 'pix' || tx.payment_method === 'card' || tx.payment_method === 'bank';
+            const updatePayload: any = {};
+            if (isCash) {
+              updatePayload.expected_cash = Math.max(0, Number(shift.expected_cash || 0) - Number(tx.amount));
+            } else if (isDigital) {
+              updatePayload.expected_digital = Math.max(0, Number(shift.expected_digital || 0) - Number(tx.amount));
+            }
+            if (Object.keys(updatePayload).length > 0) {
+              await supabase.from('cash_shifts').update(updatePayload).eq('id', shift.id);
+            }
+          }
+        }
+      }
+      
+      // Delete transactions
+      await supabase.from('cash_transactions').delete().eq('sale_id', req.params.id);
     }
 
     // 5. Finally delete the sale (which cascades to delete installments)

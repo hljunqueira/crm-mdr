@@ -49,8 +49,8 @@ export default function Login() {
             <img src="/logo-mdr.png" alt="Logo" className="h-32 w-auto object-contain drop-shadow-2xl" />
           </a>
           <div className="pt-4">
-            <h1 className="text-2xl font-black text-on-surface uppercase tracking-tight">Acesso Restrito</h1>
-            <p className="text-on-surface-variant text-sm font-display uppercase tracking-widest mt-1 opacity-60">Painel de Administração</p>
+            <h1 className="text-2xl font-black text-on-surface tracking-tight">Acesso Restrito</h1>
+            <p className="text-on-surface-variant text-sm font-display tracking-widest mt-1 opacity-60">Painel de Administração</p>
           </div>
         </div>
 
@@ -65,12 +65,12 @@ export default function Login() {
                 className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl"
               >
                 <AlertCircle className="text-red-500 shrink-0" size={18} />
-                <p className="text-[11px] font-bold text-red-500 uppercase tracking-wider">{error}</p>
+                <p className="text-[11px] font-bold text-red-500 tracking-wider">{error}</p>
               </motion.div>
             )}
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em] pl-1">E-mail</label>
+              <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">E-mail</label>
               <div className="relative group">
                 <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
                 <input 
@@ -86,8 +86,8 @@ export default function Login() {
 
             <div className="space-y-2">
               <div className="flex justify-between items-center pl-1">
-                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-[0.2em]">Senha</label>
-                <button type="button" className="text-[9px] font-black text-on-surface/40 hover:text-white uppercase tracking-widest transition-colors">Esqueci a senha</button>
+                <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em]">Senha</label>
+                <button type="button" className="text-[9px] font-black text-on-surface/40 hover:text-white tracking-widest transition-colors">Esqueci a senha</button>
               </div>
               <div className="relative group">
                 <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
@@ -113,21 +113,21 @@ export default function Login() {
             <button 
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-5 bg-primary text-white rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(59,130,246,0.15)] hover:scale-[1.02] active:scale-95 transition-all text-base flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
+              className="w-full py-5 bg-primary text-white rounded-[24px] font-display font-black tracking-[0.2em] shadow-[0_15px_40px_rgba(59,130,246,0.15)] hover:scale-[1.02] active:scale-95 transition-all text-base flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
             >
               {isSubmitting ? 'Entrando...' : 'Entrar'} <ArrowRight size={18} />
             </button>
           </form>
 
           <div className="mt-8 pt-8 border-t border-outline-variant/20">
-            <a href="https://mdrinformaticaecelulares.com.br" className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/40 hover:text-white uppercase tracking-widest justify-center transition-colors">
+            <a href="https://mdrinformaticaecelulares.com.br" className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/40 hover:text-white tracking-widest justify-center transition-colors">
               <span>← Voltar ao site</span>
             </a>
           </div>
         </div>
 
 
-        <p className="mt-10 text-center text-[10px] font-black text-on-surface-variant/40 uppercase tracking-[0.3em]">
+        <p className="mt-10 text-center text-[10px] font-black text-on-surface-variant/40 tracking-[0.3em]">
           ©2026 MDR Informática & Celulares • Todos os direitos reservados.
         </p>
       </motion.div>
