@@ -251,20 +251,27 @@ router.post("/:id/notify", async (req, res) => {
     const partsStr = Number(os.parts_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const totalStr = Number(os.labor_value + os.parts_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+    const cleanBrand = (os.device_brand || '').trim();
+    const cleanModel = (os.device_model || '').trim();
+    let deviceNameStr = `${cleanBrand === '-' ? '' : cleanBrand} ${cleanModel === '-' ? '' : cleanModel}`.trim();
+    if (!deviceNameStr) {
+      deviceNameStr = os.device_category === 'notebook' ? 'Notebook' : os.device_category === 'desktop' ? 'Computador PC' : 'Equipamento';
+    }
+
     let messageText = '';
 
     if (templateType === 'entry') {
       messageText = `🛠️ *MDR Informática & Celulares - Ordem de Serviço #${numberStr}* 🛠️\n\n` +
         `Olá *${os.customers.name}*!\n\n` +
         `Registramos com sucesso a entrada do seu equipamento em nossa assistência técnica.\n\n` +
-        `💻 *Aparelho:* ${os.device_brand} ${os.device_model}\n` +
+        `💻 *Aparelho:* ${deviceNameStr}\n` +
         `📝 *Problema Relatado:* ${os.reported_issue}\n` +
         `📋 *Acessórios:* ${os.accessories_left ? os.accessories_left.join(', ') : 'Nenhum'}\n\n` +
         `Nosso técnico já está avaliando seu dispositivo. Enviaremos o orçamento completo por aqui em breve!`;
     } else if (templateType === 'budget') {
       messageText = `📊 *MDR Informática & Celulares - Orçamento OS #${numberStr}* 📊\n\n` +
         `Olá *${os.customers.name}*!\n\n` +
-        `O diagnóstico técnico do seu *${os.device_brand} ${os.device_model}* foi concluído.\n\n` +
+        `O diagnóstico técnico do seu *${deviceNameStr}* foi concluído.\n\n` +
         `🔧 *Peças necessárias:* ${partsStr}\n` +
         `👨‍🔧 *Mão de obra:* ${laborStr}\n` +
         `💰 *Valor Total:* *${totalStr}*\n\n` +
@@ -273,7 +280,7 @@ router.post("/:id/notify", async (req, res) => {
     } else if (templateType === 'ready') {
       messageText = `🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #${numberStr}* 🎉\n\n` +
         `Olá *${os.customers.name}*!\n\n` +
-        `Temos ótimas notícias! O conserto do seu *${os.device_brand} ${os.device_model}* foi finalizado e todos os testes de qualidade foram aprovados.\n\n` +
+        `Temos ótimas notícias! O conserto do seu *${deviceNameStr}* foi finalizado e todos os testes de qualidade foram aprovados.\n\n` +
         `💵 *Valor Final:* *${totalStr}*\n\n` +
         `O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!`;
     } else {

@@ -288,6 +288,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [preAuthenticatedSellerId, setPreAuthenticatedSellerId] = useState<string | null>(null);
+  const activeSeller = employees.find(e => e.id === (preAuthenticatedSellerId || initialData?.seller_id || profile?.id));
 
   const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
                      user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
@@ -1042,12 +1043,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           unit={unit || { name: 'MDR Informática' }}
           installmentValue={installmentValue}
           firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
+          sellerName={activeSeller?.full_name}
         />
       </div>
     );
   }
 
-  const activeSeller = employees.find(e => e.id === (preAuthenticatedSellerId || initialData?.seller_id || profile?.id));
 
   return (
     <>

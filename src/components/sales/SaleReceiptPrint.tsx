@@ -33,9 +33,10 @@ interface SaleReceiptPrintProps {
   };
   installmentValue?: number;
   firstInstallmentValue?: number;
+  sellerName?: string;
 }
 
-export default function SaleReceiptPrint({ sale, customer, unit, installmentValue, firstInstallmentValue }: SaleReceiptPrintProps) {
+export default function SaleReceiptPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, sellerName }: SaleReceiptPrintProps) {
   const today = new Date().toLocaleDateString('pt-BR');
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
@@ -86,8 +87,9 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         {/* Title and Meta */}
         <div className="header-center">
           <div className="receipt-title">NOTA DE VENDA</div>
-          <div className="receipt-num">N° #{receiptNumber}</div>
-          <div className="receipt-date">Data: {today}</div>
+          <div className="receipt-date" style={{ fontSize: '9px', marginTop: '2px' }}>
+            N° #{receiptNumber} | DATA: {today} {sellerName ? `| ATENDENTE: ${sellerName.toUpperCase()}` : ''}
+          </div>
         </div>
 
         <div className="divider"></div>
