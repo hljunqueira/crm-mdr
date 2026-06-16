@@ -42,7 +42,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
   const firstInstValue = firstInstallmentValue ?? instValue;
   const hasGracePeriod = firstInstallmentValue !== undefined && firstInstallmentValue > instValue;
-  
+
   const getPaymentLabel = (type?: string) => {
     switch (type) {
       case 'pix': return 'PIX';
@@ -150,7 +150,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           <span>Preço Base:</span>
           <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
         </div>
-        
+
         {sale.down_payment > 0 && (
           <>
             <div className="row">
@@ -200,7 +200,9 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         {sale.payment_type === 'card' && (
           <div className="row">
             <span>Parcelamento:</span>
-            <span className="align-right font-mono">{sale.installments}x no Cartão</span>
+            <span className="align-right font-mono">
+              {sale.installments}x {instValue > 0 ? `de R$ ${instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''} no Cartão
+            </span>
           </div>
         )}
 
