@@ -33,6 +33,7 @@ interface PixBoletoPrintProps {
 export default function PixBoletoPrint({ installments, customer, unit }: PixBoletoPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
   const today = new Date().toLocaleDateString('pt-BR');
+  const PIX_PAYLOAD = '00020126360014BR.GOV.BCB.PIX0114+55489990358545204000053039865802BR5901N6001C62160512MaykondaRosa6304AC2B';
 
   const calculateOverdueFees = (value: number, dueDateStr: string, status: string) => {
     if (status === 'paid') {
@@ -347,19 +348,12 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
             margin: 0 !important;
           }
         }
-      `}} />      {chunkedInstallments.map((group, pageIndex) => (
+      `}} />
+      {chunkedInstallments.map((group, pageIndex) => (
         <div key={pageIndex} className="pix-carne-page">
           {group.map((inst, idx) => {
             const fees = calculateOverdueFees(inst.value, inst.due_date, inst.status);
             const formatValue = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-            const rawPixKey = unit.pix_key || resolvedUnit.phone || '+5548999035854';
-            const cleanKey = formatPixKey(rawPixKey);
-            const cleanName = resolvedUnit.name || 'MDR';
-            const cleanCity = resolvedUnit.city ? resolvedUnit.city.split('/')[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9 ]/gi, '').trim().substring(0, 15).toUpperCase() : 'ARARANGUA';
-            
-            const payload = generatePixPayload(cleanKey, cleanName, cleanCity, fees.total, `MDR${inst.number}`);
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(payload)}`;
 
             return (
               <React.Fragment key={inst.id}>
@@ -440,14 +434,14 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                       <div className="pix-instructions-box">
                         <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado ou utilize o Pix Copia-e-Cola abaixo:
                         <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
-                          {payload}
+                          {PIX_PAYLOAD}
                         </div>
                       </div>
                     </div>
 
                     <div className="pix-corpo-right">
                       <div className="pix-qr-box">
-                        <img src={qrUrl} alt="PIX QR Code" className="pix-qr-img" />
+                        <img src="/Pix.png" alt="PIX QR Code" className="pix-qr-img" />
                       </div>
                       <div className="pix-payment-info">
                         <span className="pix-corpo-label">PARCELA</span>
