@@ -217,9 +217,21 @@ export default function Customers() {
                              customer.credit_status === 'APROVADO_COM_ENTRADA' ? 'APROVADO C/ ENTRADA' : 'REPROVADO'}
                           </span>
                         </div>
-                        <div className="text-[10px] text-on-surface font-mono font-bold">
-                          Limite: R$ {(customer.credit_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
+                        {(() => {
+                          const isCreditAnalysis = 
+                            !!customer.address || 
+                            !!customer.parent_contact_phone || 
+                            !!customer.reference1_name || 
+                            !!customer.document_id_url || 
+                            !!customer.desired_device ||
+                            customer.registration_status === 'PRE_CADASTRO' || 
+                            customer.credit_status === 'EM_ANALISE';
+                          return isCreditAnalysis && (
+                            <div className="text-[10px] text-on-surface font-mono font-bold">
+                              Limite: R$ {(customer.credit_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-8 py-6 hidden lg:table-cell">

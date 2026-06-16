@@ -542,6 +542,52 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return ['smartphone', 'notebook', 'desktop'].includes(manualCategory);
   }, [saleType, selectedDevices, manualCategory]);
 
+  const isSellingCellphone = useMemo(() => {
+    const hasSelectedCellphone = selectedDevices.some(d => {
+      const category = d.category || '';
+      if (category === 'smartphone') return true;
+      
+      const modelLower = (d.model || '').toLowerCase();
+      const brandLower = (d.brand || '').toLowerCase();
+      
+      const hasKeywords = modelLower.includes('celular') || modelLower.includes('smartphone') || modelLower.includes('phone');
+      const hasBrands = ['iphone', 'samsung', 'xiaomi', 'motorola', 'lg', 'asus', 'realme', 'redmi', 'poco', 'nokia', 'tcl', 'infinix', 'huawei', 'oneplus'].some(b => 
+        modelLower.includes(b) || brandLower.includes(b)
+      );
+      
+      return hasKeywords || hasBrands;
+    });
+
+    if (hasSelectedCellphone) return true;
+
+    if (saleType === 'cellphone') {
+      if (!formData.device_model) return true;
+      const modelLower = formData.device_model.toLowerCase();
+      const hasKeywords = modelLower.includes('celular') || modelLower.includes('smartphone') || modelLower.includes('phone');
+      const hasBrands = ['iphone', 'samsung', 'xiaomi', 'motorola', 'lg', 'asus', 'realme', 'redmi', 'poco', 'nokia', 'tcl', 'infinix', 'huawei', 'oneplus'].some(b => 
+        modelLower.includes(b)
+      );
+      return hasKeywords || hasBrands || selectedDevices.length === 0;
+    }
+
+    return false;
+  }, [selectedDevices, saleType, formData.device_model]);
+
+  useEffect(() => {
+    if (!isSellingCellphone) {
+      setFormData(prev => ({
+        ...prev,
+        is_trade_in: false,
+        trade_in_device_brand: '',
+        trade_in_device_model: '',
+        trade_in_device_imei: '',
+        trade_in_valuation: 0,
+        trade_in_sale_price_estimate: 0
+      }));
+    }
+  }, [isSellingCellphone]);
+
+
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
   // MDR Coefficient Calculations
@@ -1491,10 +1537,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           )}
           {selectedDevices.length > 0 && (
             <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
-              <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+              <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
               {profile?.role === 'admin' && (
                 <>
-                  <span>Custo: <strong className="text-amber-400 font-mono">R$ {costTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                  <span>Custo: <strong className="text-amber-400 font-mono">R$ {costTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                   {costTotal > 0 && (
                     <span className={cn(
                       "font-bold",
@@ -1531,7 +1577,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         )}
 
         {/* Tipo de Preço (Normal ou com Troca) */}
-        {selectedDevices.some(d => d.category === 'smartphone') && (
+        {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
           <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
             <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
@@ -1560,94 +1606,98 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         )}
 
         {/* Checkbox Receber Aparelho na Troca */}
-        <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
-          <div>
-            <p className="text-[10px] font-black text-white uppercase tracking-widest">Receber Aparelho de Cliente na Troca (Trade-in)</p>
-            <p className="text-[11px] text-on-surface-variant/70">Ative para cadastrar os dados do celular usado recebido como abatimento.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setFormData(prev => ({ ...prev, is_trade_in: !prev.is_trade_in }))}
-            className={cn(
-              "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
-              formData.is_trade_in 
-                ? "bg-primary/20 border-primary/30 text-primary" 
-                : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
-            )}
-          >
-            {formData.is_trade_in ? "Troca Ativa" : "Desativado"}
-          </button>
-        </div>
-
-        {/* Sub-formulário Trade-in */}
-        {formData.is_trade_in && (
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-[32px] animate-in fade-in duration-300">
-            <div className="md:col-span-3 pb-2 border-b border-white/5">
-              <span className="text-[10px] font-black text-primary uppercase tracking-wider block">📱 Dados do Celular Recebido (Troca)</span>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição *</label>
-              <input 
-                type="text" 
-                required
-                placeholder="Ex: Apple iPhone 11 64GB Preto Usado"
-                value={formData.trade_in_device_brand}
-                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
-                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
-              />
+        {isSellingCellphone && (
+          <>
+            <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
+              <div>
+                <p className="text-[10px] font-black text-white uppercase tracking-widest">Receber Aparelho de Cliente na Troca (Trade-in)</p>
+                <p className="text-[11px] text-on-surface-variant/70">Ative para cadastrar os dados do celular usado recebido como abatimento.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, is_trade_in: !prev.is_trade_in }))}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                  formData.is_trade_in 
+                    ? "bg-primary/20 border-primary/30 text-primary" 
+                    : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+                )}
+              >
+                {formData.is_trade_in ? "Troca Ativa" : "Desativado"}
+              </button>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto *</label>
-              <input 
-                type="text" 
-                required
-                placeholder="Ex: iPhone 11 64GB"
-                value={formData.trade_in_device_model}
-                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_model: e.target.value }))}
-                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
-              />
-            </div>
+            {/* Sub-formulário Trade-in */}
+            {formData.is_trade_in && (
+              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-[32px] animate-in fade-in duration-300">
+                <div className="md:col-span-3 pb-2 border-b border-white/5">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-wider block">📱 Dados do Celular Recebido (Troca)</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ex: Apple iPhone 11 64GB Preto Usado"
+                    value={formData.trade_in_device_brand}
+                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
+                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
-              <input 
-                type="text" 
-                maxLength={15}
-                placeholder="IMEI de 15 dígitos"
-                value={formData.trade_in_device_imei}
-                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_imei: e.target.value.replace(/\D/g, '') }))}
-                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto *</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ex: iPhone 11 64GB"
+                    value={formData.trade_in_device_model}
+                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_model: e.target.value }))}
+                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Avaliação (Abatimento) *</label>
-              <input 
-                type="number" 
-                required
-                placeholder="R$ 0.00"
-                value={formData.trade_in_valuation === 0 ? '' : formData.trade_in_valuation}
-                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_valuation: Number(e.target.value) || 0 }))}
-                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+                  <input 
+                    type="text" 
+                    maxLength={15}
+                    placeholder="IMEI de 15 dígitos"
+                    value={formData.trade_in_device_imei}
+                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_imei: e.target.value.replace(/\D/g, '') }))}
+                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
 
-            {profile?.role === 'admin' && (
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado *</label>
-                <input 
-                  type="number" 
-                  required
-                  placeholder="R$ 0.00"
-                  value={formData.trade_in_sale_price_estimate === 0 ? '' : formData.trade_in_sale_price_estimate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, trade_in_sale_price_estimate: Number(e.target.value) || 0 }))}
-                  className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Avaliação (Abatimento) *</label>
+                  <input 
+                    type="number" 
+                    required
+                    placeholder="R$ 0.00"
+                    value={formData.trade_in_valuation === 0 ? '' : formData.trade_in_valuation}
+                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_valuation: Number(e.target.value) || 0 }))}
+                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+
+                {profile?.role === 'admin' && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado *</label>
+                    <input 
+                      type="number" 
+                      required
+                      placeholder="R$ 0.00"
+                      value={formData.trade_in_sale_price_estimate === 0 ? '' : formData.trade_in_sale_price_estimate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, trade_in_sale_price_estimate: Number(e.target.value) || 0 }))}
+                      className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                    />
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </>
         )}
 
         {formData.payment_type !== 'vista' && (
@@ -1780,7 +1830,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                     <div key={acc.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-black text-white truncate">{acc.model}</p>
-                        <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                       {/* Brinde / Venda toggle */}
                       <button

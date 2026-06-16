@@ -81,20 +81,32 @@ export default function CreditAnalysis() {
 
   const [listFilter, setListFilter] = useState<'pending' | 'history'>('pending');
 
-  const pendingCount = useMemo(() => {
-    return customers.filter(c => c.registration_status === 'PRE_CADASTRO' || c.credit_status === 'EM_ANALISE').length;
+  const creditAnalysisCustomers = useMemo(() => {
+    return customers.filter(c => {
+      return !!c.address || 
+             !!c.parent_contact_phone || 
+             !!c.reference1_name || 
+             !!c.document_id_url || 
+             !!c.desired_device ||
+             c.registration_status === 'PRE_CADASTRO' || 
+             c.credit_status === 'EM_ANALISE';
+    });
   }, [customers]);
+
+  const pendingCount = useMemo(() => {
+    return creditAnalysisCustomers.filter(c => c.registration_status === 'PRE_CADASTRO' || c.credit_status === 'EM_ANALISE').length;
+  }, [creditAnalysisCustomers]);
 
   const historyCount = useMemo(() => {
-    return customers.filter(c => c.registration_status !== 'PRE_CADASTRO' && c.credit_status !== 'EM_ANALISE').length;
-  }, [customers]);
+    return creditAnalysisCustomers.filter(c => c.registration_status !== 'PRE_CADASTRO' && c.credit_status !== 'EM_ANALISE').length;
+  }, [creditAnalysisCustomers]);
 
   const displayCustomers = useMemo(() => {
-    return customers.filter(c => {
+    return creditAnalysisCustomers.filter(c => {
       const isPending = c.registration_status === 'PRE_CADASTRO' || c.credit_status === 'EM_ANALISE';
       return listFilter === 'pending' ? isPending : !isPending;
     });
-  }, [customers, listFilter]);
+  }, [creditAnalysisCustomers, listFilter]);
 
   const filteredCustomers = useMemo(() => {
     return displayCustomers.filter(c => 
@@ -529,7 +541,7 @@ export default function CreditAnalysis() {
 
       case 'bacen':
         const resumoBacen = retorno.resumo || {};
-        const aVencer = Number(resumoBacen.vencido || resumoBacen.Vencido || 0);
+        const aVencer = Number(resumoBacen.aVencer || resumoBacen.AVencer || resumoBacen.a_vencer || 0);
         const vencido = Number(resumoBacen.vencido || resumoBacen.Vencido || 0);
         const prejuizo = Number(resumoBacen.prejuizo || resumoBacen.Prejuizo || 0);
         return (
@@ -539,7 +551,7 @@ export default function CreditAnalysis() {
               <div className="bg-white/5 border border-white/5 rounded-3xl p-5 flex flex-col justify-between min-h-[100px]">
                 <span className="text-[8px] font-black text-green-400 uppercase tracking-widest">A Vencer (Crédito Ativo)</span>
                 <h4 className="text-xl font-black text-white font-mono leading-none mt-2">
-                  R$ {aVencer.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {aVencer.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h4>
               </div>
               <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
@@ -547,7 +559,7 @@ export default function CreditAnalysis() {
               }`}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Dívida Vencida (Atraso)</span>
                 <h4 className={`text-xl font-black font-mono leading-none mt-2 ${vencido > 0 ? 'text-amber-400' : 'text-white'}`}>
-                  R$ {vencido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {vencido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h4>
               </div>
               <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
@@ -555,7 +567,7 @@ export default function CreditAnalysis() {
               }`}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Prejuízos (Financeiras)</span>
                 <h4 className={`text-xl font-black font-mono leading-none mt-2 ${prejuizo > 0 ? 'text-red-400' : 'text-white'}`}>
-                  R$ {prejuizo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {prejuizo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h4>
               </div>
             </div>
@@ -638,7 +650,7 @@ export default function CreditAnalysis() {
                         <p className="text-[9px] text-on-surface-variant mt-0.5 font-mono">Contrato: {pend.contrato || '—'} | Origem: {pend.origem || '—'}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-red-400 font-mono">R$ {Number(pend.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="font-bold text-red-400 font-mono">R$ {Number(pend.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <p className="text-[9px] text-on-surface-variant mt-0.5 font-mono">Vencimento: {pend.dataVencimento || '—'}</p>
                       </div>
                     </div>
@@ -814,7 +826,7 @@ export default function CreditAnalysis() {
                             <div>
                               <span className="text-xs font-bold block">{srv.name}</span>
                               <span className="text-[9px] text-on-surface-variant/70 leading-normal block mt-0.5">{srv.desc}</span>
-                              <span className="text-[10px] font-mono font-bold text-primary block mt-1">Cost: R$ {srv.price.toFixed(2)}</span>
+                              <span className="text-[10px] font-mono font-bold text-primary block mt-1">Custo: R$ {srv.price.toFixed(2)}</span>
                             </div>
                           </button>
                         );

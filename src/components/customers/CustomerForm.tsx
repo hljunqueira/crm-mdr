@@ -405,11 +405,17 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           submitData.registration_status = 'PRE_CADASTRO';
           submitData.credit_status = 'EM_ANALISE';
           submitData.approved_for_purchase = false;
-        } else if (initialData.registration_status === 'APROVADO' && (selectedDevices.length > 0 || formData.needed_credit > 0)) {
-          // Se o cliente simples já estava aprovado mas agora foi atualizado para completo com simulação de crédito
-          submitData.registration_status = 'PRE_CADASTRO';
-          submitData.credit_status = 'EM_ANALISE';
-          submitData.approved_for_purchase = false;
+        } else {
+          const wasSimple = !initialData.address && 
+                            !initialData.parent_contact_phone && 
+                            !initialData.reference1_name && 
+                            !initialData.document_id_url && 
+                            !initialData.desired_device;
+          if (wasSimple) {
+            submitData.registration_status = 'PRE_CADASTRO';
+            submitData.credit_status = 'EM_ANALISE';
+            submitData.approved_for_purchase = false;
+          }
         }
       }
 
@@ -461,6 +467,22 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
           Cadastro c/ Análise de Crédito
         </button>
       </div>
+
+      {initialData && formType === 'simple' && (
+        <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in max-w-md mx-auto">
+          <div>
+            <p className="font-bold text-white uppercase tracking-wider">Cliente com Cadastro Simples</p>
+            <p className="text-on-surface-variant/80 mt-0.5 text-[11px]">Deseja iniciar uma análise de crédito para este cliente e preencher as informações pendentes?</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormType('complete')}
+            className="px-4 py-2 bg-primary hover:bg-primary/80 text-on-primary font-black uppercase text-[10px] tracking-wider rounded-xl transition-all shrink-0"
+          >
+            Iniciar Análise
+          </button>
+        </div>
+      )}
 
       {/* SEÇÃO 1: INFORMAÇÕES PESSOAIS */}
       <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
