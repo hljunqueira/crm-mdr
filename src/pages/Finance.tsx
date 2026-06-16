@@ -15,7 +15,7 @@ import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore, CashShift, CashTransaction } from '../store/useCashStore';
-import { formatCPF, formatPhone } from '../lib/utils';
+import { formatCPF, formatPhone, printElement } from '../lib/utils';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 
 // PIX defaults — overridden by unit settings
@@ -42,7 +42,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
   };
 
   const handlePrint = () => {
-    window.print();
+    printElement('print-mount-point');
   };
 
   return (
@@ -135,14 +135,6 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
             Imprimir / Salvar PDF
           </button>
         </div>
-
-        {/* Print-only styles */}
-        <style>{`
-          @media print {
-            body > *:not(.pix-boleto-print-wrapper) { display: none !important; }
-            .pix-boleto-print-wrapper { display: block !important; }
-          }
-        `}</style>
       </motion.div>
     </div>
   );

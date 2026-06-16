@@ -326,9 +326,6 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
             background: #ffffff !important;
             color: #000000 !important;
           }
-          body > *:not(#print-mount-point) { display: none !important; }
-          #print-mount-point { display: block !important; }
-          #print-mount-point .pix-boleto-print-wrapper { display: block !important; }
           .pix-carne-page {
             border: none !important;
             margin: 0 !important;

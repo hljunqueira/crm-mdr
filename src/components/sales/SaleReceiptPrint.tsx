@@ -300,8 +300,6 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
             background: #ffffff !important;
             color: #000000 !important;
           }
-          body > *:not(#print-mount-point) { display: none !important; }
-          #print-mount-point { display: block !important; }
           @page {
             margin: 0;
             size: auto;
