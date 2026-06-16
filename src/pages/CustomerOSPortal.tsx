@@ -12,14 +12,14 @@ import {
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
-import { formatCPF, validateCPF, validateCNPJ } from '../lib/utils';
+import { formatPhone } from '../lib/utils';
 import RepairTimeline from '../components/layout/RepairTimeline';
 import CustomerSalesCatalog from '../components/layout/CustomerSalesCatalog';
 
 
 
 export default function CustomerOSPortal() {
-  const [cpf, setCpf] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -29,23 +29,17 @@ export default function CustomerOSPortal() {
   const [hasSearched, setHasSearched] = useState(false);
   const [showCompletedOpen, setShowCompletedOpen] = useState(false);
 
-  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCpf(formatCPF(e.target.value));
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(formatPhone(e.target.value));
     setError(null);
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanCpf = cpf.replace(/\D/g, '');
+    const cleanPhone = phone.replace(/\D/g, '');
 
-    if (!cleanCpf) {
-      setError('Por favor, digite seu CPF ou CNPJ.');
-      return;
-    }
-
-    const isDocValid = cleanCpf.length === 11 ? validateCPF(cleanCpf) : (cleanCpf.length === 14 ? validateCNPJ(cleanCpf) : false);
-    if (!isDocValid) {
-      setError('CPF ou CNPJ inválido. Por favor, verifique os dígitos.');
+    if (cleanPhone.length < 10) {
+      setError('Por favor, digite seu telefone celular completo com DDD.');
       return;
     }
 
@@ -57,29 +51,28 @@ export default function CustomerOSPortal() {
     setCustomerName(null);
 
     try {
-      // 1. Encontrar o cliente pelo CPF formatado (ou limpo dependendo de como está salvo)
-      // Buscamos das duas formas para garantir compatibilidade
-      const { data: customer, error: customerErr } = await supabase
+      // 1. Buscar todos os clientes que possuem este telefone (limpo ou formatado)
+      const { data: matchedCustomers, error: customerErr } = await supabase
         .from('customers')
         .select('id, name')
-        .or(`cpf.eq.${cpf},cpf.eq.${cleanCpf}`)
-        .maybeSingle();
+        .or(`phone.eq.${phone},phone.eq.${cleanPhone}`);
 
       if (customerErr) throw customerErr;
 
-      if (!customer) {
-        setError('Nenhum cadastro ou ordem de serviço encontrado para este CPF.');
+      if (!matchedCustomers || matchedCustomers.length === 0) {
+        setError('Nenhum cadastro ou ordem de serviço encontrado para este telefone.');
         setLoading(false);
         return;
       }
 
-      setCustomerName(customer.name);
+      setCustomerName(matchedCustomers[0].name);
+      const customerIds = matchedCustomers.map(c => c.id);
 
-      // 2. Buscar ordens de serviço deste cliente
+      // 2. Buscar ordens de serviço desses clientes
       const { data: orders, error: ordersErr } = await supabase
         .from('service_orders')
         .select('*')
-        .eq('customer_id', customer.id)
+        .in('customer_id', customerIds)
         .order('created_at', { ascending: false });
 
       if (ordersErr) throw ordersErr;
@@ -129,7 +122,7 @@ export default function CustomerOSPortal() {
           
           <AnimatePresence mode="wait">
             {!hasSearched ? (
-              /* CPF INPUT PORTAL BOARD */
+              /* PHONE INPUT PORTAL BOARD */
               <motion.div
                 key="login-board"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -150,14 +143,14 @@ export default function CustomerOSPortal() {
                 <div className="glass-card border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl relative overflow-hidden bg-white/[0.01] max-w-xl mx-auto">
                   <form onSubmit={handleSearch} className="space-y-6">
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] pl-1">Digite seu CPF ou CNPJ cadastrado</label>
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em] pl-1">Digite seu Celular / WhatsApp cadastrado</label>
                       <div className="relative group">
                         <input 
                           type="text" 
                           required
-                          placeholder="CPF ou CNPJ" 
-                          value={cpf}
-                          onChange={handleCpfChange}
+                          placeholder="(00) 00000-0000" 
+                          value={phone}
+                          onChange={handlePhoneChange}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 text-lg text-center text-white focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none font-mono" 
                         />
                       </div>
@@ -209,7 +202,7 @@ export default function CustomerOSPortal() {
                     onClick={() => setHasSearched(false)}
                     className="self-start sm:self-auto flex items-center gap-2 bg-white/5 border border-white/10 px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider hover:bg-white/10 transition-all text-white"
                   >
-                    Consultar outro CPF
+                    Consultar outro Telefone
                   </button>
                 </div>
 

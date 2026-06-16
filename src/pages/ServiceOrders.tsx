@@ -1262,7 +1262,7 @@ export default function ServiceOrders() {
               </div>
             </div>
             <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-1 text-[9px] text-slate-700">
-              <p><strong>Acompanhamento:</strong> mdrinformaticaecelulares.com.br/consulta-os (Acesse com seu CPF)</p>
+              <p><strong>Acompanhamento:</strong> mdrinformaticaecelulares.com.br/consulta-os (Acesse com seu Celular/WhatsApp)</p>
               <p><strong>Forma de Pagamento (PIX):</strong> Chave Celular: <strong>48999035854</strong> | Favorecido: <strong>Maykon da Rosa</strong></p>
             </div>
             <p className="text-[8px] text-slate-500 italic mt-3 text-center">
@@ -1336,7 +1336,7 @@ export default function ServiceOrders() {
           <div className="clauses" style={{ textAlign: 'center', fontSize: '9px', marginBottom: '8px' }}>
             Consulte o status em tempo real do seu aparelho acessando:<br />
             <strong>mdrinformaticaecelulares.com.br/consulta-os</strong><br />
-            e informe o seu CPF.
+            e informe o seu Celular/WhatsApp.
           </div>
 
           <div className="divider"></div>
@@ -1779,7 +1779,7 @@ export default function ServiceOrders() {
         <div className="clauses" style={{ textAlign: 'center', fontSize: '9px', marginBottom: '8px' }}>
           Consulte a situação e a garantia do seu aparelho acessando:<br />
           <strong>mdrinformaticaecelulares.com.br/consulta-os</strong><br />
-          e informe o seu CPF.
+          e informe o seu Celular/WhatsApp.
         </div>
 
         <div className="divider"></div>
