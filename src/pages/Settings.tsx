@@ -283,7 +283,7 @@ export default function Settings() {
   const menuItems = [
     { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
     ...(profile?.role === 'admin' ? [
-      { id: 'notifications', label: 'Alertas WhatsApp', icon: MessageCircle },
+      { id: 'notifications', label: 'Alertas e Termos de OS', icon: MessageCircle },
       { id: 'users', label: 'Colaboradores', icon: User },
       { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck }
     ] : [])
@@ -507,19 +507,6 @@ export default function Settings() {
                     />
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Bell size={16} className="text-primary" />
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Termos de Recebimento de OS</label>
-                    </div>
-                    <textarea 
-                      rows={6}
-                      value={formData.os_receipt_terms}
-                      onChange={(e) => setFormData(prev => ({ ...prev, os_receipt_terms: e.target.value }))}
-                      placeholder="Descreva aqui os termos impressos no comprovante de entrada de OS do cliente..."
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed text-xs opacity-80"
-                    />
-                  </div>
                 </div>
               </motion.div>
             )}
@@ -539,8 +526,8 @@ export default function Settings() {
                     <MessageCircle size={24} />
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Alertas do WhatsApp (n8n)</h2>
-                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Personalize os modelos de mensagens enviadas automaticamente</p>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Alertas e Termos da OS</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Personalize as mensagens automáticas de WhatsApp (n8n) e o termo impresso da OS</p>
                   </div>
                 </div>
 
@@ -568,34 +555,45 @@ export default function Settings() {
                   {/* Left Column: Editor Textareas */}
                   <div className="lg:col-span-2 space-y-8">
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Entrada de OS</label>
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Entrada de OS (WhatsApp)</label>
                       <textarea 
-                        rows={6}
+                        rows={7}
                         value={formData.os_entry_template}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_entry_template: e.target.value }))}
-                        placeholder="Deixe em branco para usar o padrão da assistência..."
+                        placeholder="🛠️ *MDR Informática & Celulares - Ordem de Serviço #{numero_os}* 🛠️&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;Registramos com sucesso a entrada do seu equipamento em nossa assistência técnica.&#10;&#10;💻 *Aparelho:* {aparelho}&#10;📝 *Problema Relatado:* {problema_relatado}&#10;📋 *Acessórios:* {acessorios}&#10;&#10;Nosso técnico já está avaliando seu dispositivo. Enviaremos o orçamento completo por aqui em breve!"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Orçamento de OS</label>
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Orçamento de OS (WhatsApp)</label>
                       <textarea 
-                        rows={6}
+                        rows={7}
                         value={formData.os_budget_template}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_budget_template: e.target.value }))}
-                        placeholder="Deixe em branco para usar o padrão da assistência..."
+                        placeholder="📊 *MDR Informática & Celulares - Orçamento OS #{numero_os}* 📊&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;O diagnóstico técnico do seu *{aparelho}* foi concluído.&#10;&#10;🔧 *Peças necessárias:* {valor_pecas}&#10;👨‍🔧 *Mão de obra:* {valor_mao_de_obra}&#10;💰 *Valor Total:* *{valor_total}*&#10;&#10;*Garantia:* {prazo_garantia} dias após a conclusão.&#10;&#10;Responda a esta mensagem aprovando o conserto para iniciarmos a execução imediata!"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: OS Pronta para Retirada</label>
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: OS Pronta para Retirada (WhatsApp)</label>
                       <textarea 
-                        rows={6}
+                        rows={7}
                         value={formData.os_ready_template}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_ready_template: e.target.value }))}
-                        placeholder="Deixe em branco para usar o padrão da assistência..."
+                        placeholder="🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #{numero_os}* 🎉&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;Temos ótimas notícias! O conserto do seu *{aparelho}* foi finalizado e todos os testes de qualidade foram aprovados.&#10;&#10;💵 *Valor Final:* *{valor_total}*&#10;&#10;O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Termos de Recebimento da OS (Impresso - Canhoto)</label>
+                      <textarea 
+                        rows={6}
+                        value={formData.os_receipt_terms}
+                        onChange={(e) => setFormData(prev => ({ ...prev, os_receipt_terms: e.target.value }))}
+                        placeholder="1. Orçamento: Validade de 10 dias. Início após aprovação.&#10;2. Backup de Dados: A loja NÃO se responsabiliza por perdas de dados ou arquivos. Faça backup prévio.&#10;3. Prazo de Descarte: Aparelhos deixados por mais de 90 dias após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.&#10;4. Avarias: A assistência não se responsabiliza por danos decorrentes de defeitos ocultos ou desgaste prévio constatados durante o processo de desmontagem e reparo."
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
