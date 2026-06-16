@@ -78,7 +78,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           width: 100%;
           max-width: 210mm;
           height: 297mm;
-          padding: 10mm 12mm;
+          padding: 10mm 15mm;
           box-sizing: border-box;
           background: #ffffff;
           position: relative;
@@ -332,7 +332,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           .pix-carne-page {
             border: none !important;
             margin: 0 !important;
-            padding: 8mm 10mm !important;
+            padding: 10mm 15mm !important;
             height: 297mm !important;
             width: 210mm !important;
             box-sizing: border-box !important;
