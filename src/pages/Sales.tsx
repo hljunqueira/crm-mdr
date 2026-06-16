@@ -1075,12 +1075,22 @@ function SaleDocumentViewer({
                   <span className="align-right">{sale.device_color}</span>
                 </div>
               )}
-              {sale.accessories && (
-                <div className="row">
-                  <span>Acessórios:</span>
-                  <span className="align-right text-small">{sale.accessories}</span>
-                </div>
-              )}
+              {(() => {
+                const cleanedAccessories = sale.accessories
+                  ? sale.accessories
+                      .split('|')
+                      .map(item => item.trim())
+                      .filter(item => item && !(item.startsWith('[') && item.endsWith(']')))
+                      .join(' | ')
+                  : '';
+                if (!cleanedAccessories) return null;
+                return (
+                  <div className="row">
+                    <span>Acessórios:</span>
+                    <span className="align-right text-small">{cleanedAccessories}</span>
+                  </div>
+                );
+              })()}
               <div className="row">
                 <span>Pagamento:</span>
                 <span className="align-right">{getPaymentLabel(sale.payment_type)}</span>
