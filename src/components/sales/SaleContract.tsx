@@ -3,7 +3,7 @@ import { Sale } from '../../store/useSaleStore';
 import { Customer } from '../../store/useCustomerStore';
 import { Installment } from '../../store/useFinanceStore';
 import { useUnitStore } from '../../store/useUnitStore';
-import { formatCPF, formatPhone } from '../../lib/utils';
+import { formatCPF, formatPhone, resolveUnitInfo } from '../../lib/utils';
 
 interface SaleContractProps {
   sale: Sale;
@@ -33,12 +33,7 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
     }
   }
 
-  const currentUnit = unit || {
-    name: 'MDR Informática & Celulares',
-    cnpj: '____________________',
-    address: '____________________',
-    phone: '____________________'
-  };
+  const currentUnit = resolveUnitInfo(unit || { name: 'MDR Informática' });
 
   return (
     <div id="contract-print-area" className="p-8 text-black bg-white font-sans max-w-[800px] mx-auto text-xs leading-relaxed">

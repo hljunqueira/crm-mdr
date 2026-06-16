@@ -55,7 +55,7 @@ export default function App() {
           <Route path="/service-orders" element={<PrivateRoute pageName="Assistência Técnica (OS)"><AppLayout><ServiceOrders /></AppLayout></PrivateRoute>} />
           <Route path="/outsourcing" element={<PrivateRoute pageName="OS Terceirizadas"><AppLayout><OutsourcedOrders /></AppLayout></PrivateRoute>} />
           <Route path="/inventory" element={<PrivateRoute pageName="Estoque"><AppLayout><Inventory /></AppLayout></PrivateRoute>} />
-          <Route path="/device-valuations" element={<PrivateRoute pageName="Estoque"><AppLayout><DeviceValuations /></AppLayout></PrivateRoute>} />
+          <Route path="/device-valuations" element={<PrivateRoute requireAdmin={true}><AppLayout><DeviceValuations /></AppLayout></PrivateRoute>} />
           <Route path="/suppliers" element={<PrivateRoute pageName="Fornecedores"><AppLayout><Suppliers /></AppLayout></PrivateRoute>} />
           <Route path="/partners" element={<PrivateRoute pageName="Parceiros"><AppLayout><Partners /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute pageName="Financeiro"><AppLayout><Finance /></AppLayout></PrivateRoute>} />

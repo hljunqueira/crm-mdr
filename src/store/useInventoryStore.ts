@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
+import { useAuthStore } from './useAuthStore';
 
 export interface InventoryItem {
   id: string;
@@ -15,7 +16,7 @@ export interface InventoryItem {
   status: 'available' | 'sold' | 'reserved' | 'in_repair' | 'pending_valuation';
   stock_quantity: number;
   notes?: string;
-  category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other';
+  category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'service' | 'other';
   image_url?: string;
   show_on_landing?: boolean;
   barcode?: string;
@@ -138,6 +139,11 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.purchase_date !== undefined) dbFields.purchase_date = updatedFields.purchase_date || null;
       if (updatedFields.description !== undefined) dbFields.description = updatedFields.description || null;
       if (updatedFields.short_name !== undefined) dbFields.short_name = updatedFields.short_name || null;
+
+      const userId = useAuthStore.getState().profile?.id;
+      if (userId) {
+        dbFields.user_id = userId;
+      }
 
       const data = await api.patch(`/inventory/${id}`, dbFields);
       set((state) => ({

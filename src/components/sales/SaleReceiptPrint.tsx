@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCPF, formatPhone } from '../../lib/utils';
+import { formatCPF, formatPhone, resolveUnitInfo } from '../../lib/utils';
 
 interface SaleReceiptPrintProps {
   sale: {
@@ -43,6 +43,7 @@ interface SaleReceiptPrintProps {
 }
 
 export default function SaleReceiptPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, sellerName }: SaleReceiptPrintProps) {
+  const resolvedUnit = resolveUnitInfo(unit);
   const today = new Date().toLocaleDateString('pt-BR');
   const basePrice = sale.original_price ?? sale.total_value;
   const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
@@ -73,17 +74,17 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
 
         {/* Company Header */}
         {(() => {
-          const cleanUnitName = (unit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
+          const cleanUnitName = (resolvedUnit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
           return (
             <div className="header-center">
               <div className="brand-name">MDR</div>
               <div className="brand-sub">INFORMÁTICA & CELULARES</div>
               <div className="unit-details" style={{ fontSize: '9px', lineHeight: '1.25', color: '#333' }}>
                 <strong>LOJA: {cleanUnitName}</strong>
-                {unit.cnpj && <> | CNPJ: {unit.cnpj}</>}
-                {unit.phone && <> | Tel: {formatPhone(unit.phone)}</>}
+                {resolvedUnit.cnpj && <> | CNPJ: {resolvedUnit.cnpj}</>}
+                {resolvedUnit.phone && <> | Tel: {formatPhone(resolvedUnit.phone)}</>}
                 <br />
-                {unit.address}
+                {resolvedUnit.address}
               </div>
             </div>
           );
@@ -248,28 +249,17 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           <div className="total-val">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
         </div>
 
-        {/* Discount Policy */}
-        {sale.payment_type === 'crediario' && (
-          <div className="discount-info">
-            <span className="discount-title">POLÍTICA DE ANTECIPAÇÃO:</span><br />
-            • 1 parc.: 3% de desc. nos juros<br />
-            • 2 parc.: 5% de desc. nos juros<br />
-            • 3+ parc.: 8% de desc. nos juros<br />
-            • Quitação total: Negociação
-          </div>
-        )}
-
         <div className="divider"></div>
 
         {/* Signatures */}
         {sale.payment_type === 'crediario' && (
           <>
-            <div className="sig-line-box" style={{ marginTop: '25px' }}>
+            <div className="sig-line-box" style={{ marginTop: '50px' }}>
               <div className="sig-line"></div>
-              <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
+              <span className="sig-label">{resolvedUnit.name}<br />Vendedor / Responsável</span>
             </div>
 
-            <div className="sig-line-box" style={{ marginTop: '60px' }}>
+            <div className="sig-line-box" style={{ marginTop: '50px' }}>
               <div className="sig-line"></div>
               <span className="sig-label">{customer.name}<br />Comprador</span>
             </div>
@@ -280,7 +270,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
 
         {/* Footer Note */}
         <div className="footer-note">
-          Comprovante interno emitido por {unit.name || 'MDR Informática & Celulares'}.<br />
+          Comprovante interno emitido por {resolvedUnit.name}.<br />
           {sale.payment_type === 'crediario' ? (
             <>O aparelho é propriedade do vendedor até a quitação total das parcelas.<br />Pagamentos via PIX/Dinheiro/Transferência.</>
           ) : (

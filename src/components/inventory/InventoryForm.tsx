@@ -153,7 +153,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     const priceNum = Number(formData.price) || 0;
     const tradeInPriceNum = formData.trade_in_price ? Number(formData.trade_in_price) : undefined;
     const costPriceNum = Number(formData.cost_price) || 0;
-    const qtyNum = Math.max(1, Number(formData.stock_quantity) || 1);
+    const qtyNum = formData.category === 'service' ? 1 : Math.max(1, Number(formData.stock_quantity) || 1);
  
     try {
       const payload = {
@@ -317,7 +317,8 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 required
                 value={formData.cost_price}
                 onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none"
+                disabled={item !== undefined && profile?.role !== 'admin'}
+                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="0,00"
               />
             </div>
@@ -329,7 +330,8 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 required
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none"
+                disabled={item !== undefined && profile?.role !== 'admin'}
+                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 placeholder="0,00"
               />
             </div>
@@ -341,24 +343,28 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                   type="number"
                   value={formData.trade_in_price}
                   onChange={(e) => setFormData({ ...formData, trade_in_price: e.target.value })}
-                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none text-white"
+                  disabled={item !== undefined && profile?.role !== 'admin'}
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="0,00"
                 />
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Qtd em Estoque</label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={formData.stock_quantity}
-                onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none"
-                placeholder="1"
-              />
-            </div>
+            {formData.category !== 'service' && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Qtd em Estoque</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={formData.stock_quantity}
+                  onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
+                  disabled={item !== undefined && profile?.role !== 'admin'}
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  placeholder="1"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
@@ -371,6 +377,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 <option value="accessory_mobile" className="bg-[#121214] text-white">🔌 Acessório Celular</option>
                 <option value="accessory_it" className="bg-[#121214] text-white">💻 Acessório Informática</option>
                 <option value="part" className="bg-[#121214] text-white">🔧 Peça de Reposição</option>
+                <option value="service" className="bg-[#121214] text-white">🛠️ Mão de Obra / Serviço</option>
                 <option value="other" className="bg-[#121214] text-white">📦 Outros</option>
               </select>
             </div>

@@ -15,7 +15,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore } from '../store/useCashStore';
-import { formatCPF, formatPhone } from '../lib/utils';
+import { formatCPF, formatPhone, resolveUnitInfo } from '../lib/utils';
 import SaleForm from '../components/sales/SaleForm';
 import SaleContract from '../components/sales/SaleContract';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
@@ -36,6 +36,7 @@ function SaleDocumentViewer({
   hideModal: () => void;
   showNotification: any;
 }) {
+  const resolvedUnit = resolveUnitInfo(unit);
   const [activeTab, setActiveTab] = useState<'contract' | 'receipt' | 'pix_carne'>(
     sale.payment_type === 'vista' ? 'receipt' : 'contract'
   );
@@ -284,28 +285,28 @@ function SaleDocumentViewer({
                   font-family: 'Inter', Arial, sans-serif;
                 }
                 #sale-document-preview-area table.ccb-table td {
-                  border: 1px solid #cbd5e1;
+                  border: 1.5px solid #000000;
                   padding: 6px 10px;
                   vertical-align: top;
-                  font-size: 10px;
-                  color: #1e293b;
+                  font-size: 11.5px;
+                  color: #000000;
                 }
                 #sale-document-preview-area table.ccb-table tr:nth-child(even) td {
                   background-color: #f8fafc;
                 }
                 #sale-document-preview-area table.ccb-table td.header-cell {
-                  background-color: #f1f5f9;
-                  color: #0f172a;
+                  background-color: #000000;
+                  color: #ffffff;
                   font-weight: 800;
                   text-transform: uppercase;
-                  font-size: 9px;
-                  border-bottom: 2px solid #0f172a;
+                  font-size: 11px;
+                  border-bottom: 1.5px solid #000000;
                   padding: 6px 10px;
                   letter-spacing: 0.5px;
                 }
                 #sale-document-preview-area table.ccb-table .label {
-                  font-size: 7.5px;
-                  color: #64748b;
+                  font-size: 8px;
+                  color: #475569;
                   text-transform: uppercase;
                   display: block;
                   margin-bottom: 2px;
@@ -313,27 +314,27 @@ function SaleDocumentViewer({
                   letter-spacing: 0.5px;
                 }
                 #sale-document-preview-area table.ccb-table .value {
-                  font-weight: 500;
-                  font-size: 9.5px;
-                  color: #0f172a;
+                  font-weight: 700;
+                  font-size: 11px;
+                  color: #000000;
                 }
                 #sale-document-preview-area .clause-title {
-                  font-size: 9.5px;
+                  font-size: 11.5px;
                   font-weight: 800;
                   text-transform: uppercase;
                   margin-top: 10px;
                   margin-bottom: 4px;
-                  color: #0f172a;
-                  border-bottom: 1.5px solid #0f172a;
+                  color: #000000;
+                  border-bottom: 1.5px solid #000000;
                   padding-bottom: 2px;
                   letter-spacing: 0.5px;
                 }
                 #sale-document-preview-area .clause-text {
-                  font-size: 8.5px;
+                  font-size: 10.5px;
                   text-align: justify;
                   margin-bottom: 6px;
-                  color: #334155;
-                  line-height: 1.5;
+                  color: #000000;
+                  line-height: 1.25;
                 }
                 #sale-document-preview-area .contract-page {
                   page-break-after: always;
@@ -343,10 +344,12 @@ function SaleDocumentViewer({
                   position: relative;
                   padding: 15mm 12mm 20mm 12mm;
                   background-color: #ffffff;
-                  color: #1e293b;
+                  color: #000000;
                   border-bottom: 1px dashed #cbd5e1;
                   margin-bottom: 20px;
                   font-family: 'Inter', Arial, sans-serif;
+                  font-size: 12px;
+                  line-height: 1.25;
                 }
                 #sale-document-preview-area .contract-page:last-child {
                   page-break-after: avoid;
@@ -358,14 +361,14 @@ function SaleDocumentViewer({
                   display: grid;
                   grid-template-columns: 1fr 1fr;
                   gap: 25px;
-                  margin-top: 25px;
+                  margin-top: 50px;
                 }
                 #sale-document-preview-area .signature-line-block {
-                  border-top: 1px solid #cbd5e1;
+                  border-top: 1.5px solid #000000;
                   padding-top: 6px;
-                  font-size: 8.5px;
+                  font-size: 10px;
                   text-align: center;
-                  color: #334155;
+                  color: #000000;
                 }
               `}} />
 
@@ -400,21 +403,21 @@ function SaleDocumentViewer({
                     <tr>
                       <td style={{ width: '40%' }}>
                         <span className="label">Razão Social / Nome Fantasia</span>
-                        <span className="value">{unit.name || 'MDR Informática & Celulares'}</span>
+                        <span className="value">{resolvedUnit.name}</span>
                       </td>
                       <td style={{ width: '30%' }}>
                         <span className="label">CNPJ / CPF</span>
-                        <span className="value">{unit.cnpj || '____________________'}</span>
+                        <span className="value">{resolvedUnit.cnpj}</span>
                       </td>
                       <td style={{ width: '30%' }}>
                         <span className="label">Telefone / WhatsApp</span>
-                        <span className="value">{unit.phone || '____________________'}</span>
+                        <span className="value">{formatPhone(resolvedUnit.phone)}</span>
                       </td>
                     </tr>
                     <tr>
                       <td colSpan={3}>
                         <span className="label">Endereço do Estabelecimento</span>
-                        <span className="value">{unit.address || '____________________'}</span>
+                        <span className="value">{resolvedUnit.address}</span>
                       </td>
                     </tr>
                   </tbody>
@@ -536,7 +539,7 @@ function SaleDocumentViewer({
                       </td>
                       <td>
                         <span className="label">Praça de Pagamento</span>
-                        <span className="value">Balneário Arroio do Silva/SC</span>
+                        <span className="value">{resolvedUnit.city}</span>
                       </td>
                       <td colSpan={2}>
                         <span className="label">Data de Vencimento</span>
@@ -581,11 +584,11 @@ function SaleDocumentViewer({
                     <tr>
                       <td style={{ width: '40%' }}>
                         <span className="label">Titular</span>
-                        <span className="value">{unit.name || 'MDR Informática'}</span>
+                        <span className="value">{resolvedUnit.name}</span>
                       </td>
                       <td style={{ width: '30%' }}>
                         <span className="label">CPF / CNPJ</span>
-                        <span className="value">{unit.cnpj || '____________________'}</span>
+                        <span className="value">{resolvedUnit.cnpj}</span>
                       </td>
                       <td style={{ width: '30%' }}>
                         <span className="label">Banco / Agência / Conta</span>
@@ -799,22 +802,22 @@ function SaleDocumentViewer({
                   <br /><br />
                   6.25. Assinatura Eletrônica: Em caso de contratação eletrônica, o EMITENTE ratifica que admite como válido, para fins de comprovação de autoria e integridade, a assinatura e informações constantes no presente documento, as quais foram capturadas de forma eletrônica e utilizadas nesta CCB, constituindo título executivo extrajudicial nos termos do artigo 28 da Lei nº 10.931/2004 e para todos os fins de direito, ainda que seja estabelecida com assinatura eletrônica ou certificação fora dos padrões ICP-BRASIL, conforme disposto pelo art. 10 da Medida Provisória nº 2.200/2001.
                   <br /><br />
-                  6.26. Foro: Ajustam as Partes que será sempre competente para conhecer e dirimir qualquer questão oriunda ou decorrente da presente CCB, o foro da Comarca de Balneário Arroio do Silva/SC, com a exclusão de qualquer outro, por mais privilegiado que seja, reservando-se o credor da CCB o direito de optar, a seu exclusivo critério, pelo foro do domicílio do EMITENTE.
+                  6.26. Foro: Ajustam as Partes que será sempre competente para conhecer e dirimir qualquer questão oriunda ou decorrente da presente CCB, o foro da Comarca de {resolvedUnit.city}, com a exclusão de qualquer outro, por mais privilegiado que seja, reservando-se o credor da CCB o direito de optar, a seu exclusivo critério, pelo foro do domicílio do EMITENTE.
                   <br /><br />
                   6.27. A presente CCB é emitida e firmada em 2 (DUAS) vias, constando em apenas 01(uma) via a expressão “Via Negociável”.
                 </div>
 
                 <div className="mt-4 font-bold">
-                  Local e data: Balneário Arroio do Silva/SC, {issueDateFormatted}
+                  Local e data: {resolvedUnit.city}, {issueDateFormatted}
                 </div>
 
                 <div className="font-bold text-[9px] uppercase tracking-wider mt-4 mb-2">Assinaturas:</div>
-                
+
                 <div className="signature-box-grid">
                   <div className="signature-line-block">
-                    <strong>{unit.name ? unit.name.toUpperCase() : 'MDR INFORMÁTICA & CELULARES'}</strong><br />
+                    <strong>{resolvedUnit.name.toUpperCase()}</strong><br />
                     Representante Credor / Vendedor<br />
-                    CNPJ: {unit.cnpj || '____________________'}
+                    CNPJ: {resolvedUnit.cnpj}
                   </div>
                   <div className="signature-line-block">
                     <strong>{customer.name.toUpperCase()}</strong><br />
@@ -823,7 +826,7 @@ function SaleDocumentViewer({
                   </div>
                 </div>
 
-                <div className="signature-box-grid" style={{ marginTop: '20px' }}>
+                <div className="signature-box-grid" style={{ marginTop: '50px' }}>
                   <div className="signature-line-block">
                     Testemunha 1: ______________________________<br />
                     Nome:<br />
@@ -832,7 +835,7 @@ function SaleDocumentViewer({
                   <div className="signature-line-block">
                     Testemunha 2: ______________________________<br />
                     Nome:<br />
-                  CPF:
+                    CPF:
                   </div>
                 </div>
 
@@ -850,7 +853,7 @@ function SaleDocumentViewer({
                 .sort((a, b) => a.number - b.number)
               }
               customer={customer}
-              unit={unit}
+              unit={resolvedUnit}
             />
           ) : (
             /* Nota de Venda / Recibo de 80mm */
@@ -1000,17 +1003,17 @@ function SaleDocumentViewer({
 
               {/* Company Header */}
               {(() => {
-                const cleanUnitName = (unit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
+                const cleanUnitName = (resolvedUnit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
                 return (
                   <div className="header-center">
                     <div className="brand-name">MDR</div>
                     <div className="brand-sub">INFORMÁTICA &amp; CELULARES</div>
                     <div className="unit-details" style={{ fontSize: '9px', lineHeight: '1.25', color: '#333' }}>
                       <strong>LOJA: {cleanUnitName}</strong>
-                      {unit.cnpj && <> | CNPJ: {unit.cnpj}</>}
-                      {unit.phone && <> | Tel: {formatPhone(unit.phone)}</>}
+                      {resolvedUnit.cnpj && <> | CNPJ: {resolvedUnit.cnpj}</>}
+                      {resolvedUnit.phone && <> | Tel: {formatPhone(resolvedUnit.phone)}</>}
                       <br />
-                      {unit.address}
+                      {resolvedUnit.address}
                     </div>
                   </div>
                 );
@@ -1144,26 +1147,15 @@ function SaleDocumentViewer({
                 <div className="total-label">VALOR TOTAL</div>
                 <div className="total-val">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               </div>
-              {/* Discount Policy */}
-              {sale.payment_type === 'crediario' && (
-                <div className="discount-info">
-                  <span className="discount-title">POLÍTICA DE ANTECIPAÇÃO:</span><br />
-                  • 1 parc.: 3% de desc. nos juros<br />
-                  • 2 parc.: 5% de desc. nos juros<br />
-                  • 3+ parc.: 8% de desc. nos juros<br />
-                  • Quitação total: Negociação
-                </div>
-              )}
-
               <div className="divider"></div>
 
               {/* Signatures */}
-              <div className="sig-line-box" style={{ marginTop: '25px' }}>
+              <div className="sig-line-box" style={{ marginTop: '50px' }}>
                 <div className="sig-line"></div>
-                <span className="sig-label">{unit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
+                <span className="sig-label">{resolvedUnit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
               </div>
 
-              <div className="sig-line-box" style={{ marginTop: '35px' }}>
+              <div className="sig-line-box" style={{ marginTop: '50px' }}>
                 <div className="sig-line"></div>
                 <span className="sig-label">{customer.name}<br />Comprador</span>
               </div>

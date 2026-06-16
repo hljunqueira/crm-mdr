@@ -434,6 +434,7 @@ export default function Reports() {
 
   const filteredAuditItems = useMemo(() => {
     return auditItems.filter(item => {
+      if (item.category === 'service') return false;
       const matchesSearch = 
         item.model.toLowerCase().includes(auditSearch.toLowerCase()) ||
         item.brand.toLowerCase().includes(auditSearch.toLowerCase()) ||

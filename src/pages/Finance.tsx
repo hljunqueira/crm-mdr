@@ -935,7 +935,7 @@ export default function Finance() {
               phone: pixModalItem.customer_phone || '',
               address: pixModalItem.customer_address || ''
             }}
-            unit={unit || { name: pixName, cnpj: pixKey, phone: pixPhone }}
+            unit={units.find(u => u.id === selectedUnitId) || unit || { name: pixName, cnpj: pixKey, phone: pixPhone }}
           />
         )}
       </div>

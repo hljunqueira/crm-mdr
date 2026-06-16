@@ -6,6 +6,7 @@ import { usePermissionStore } from '../../store/usePermissionStore';
 interface PrivateRouteProps {
   children: ReactNode;
   pageName?: string;
+  requireAdmin?: boolean;
 }
 
 const PAGE_ROUTES = [
@@ -29,7 +30,7 @@ const PAGE_ROUTES = [
   { name: 'Configurações', path: '/settings' },
 ];
 
-export default function PrivateRoute({ children, pageName }: PrivateRouteProps) {
+export default function PrivateRoute({ children, pageName, requireAdmin }: PrivateRouteProps) {
   const { session, profile, isLoading } = useAuthStore();
   const { userPermissions, fetchUserPermissions } = usePermissionStore();
 
@@ -49,6 +50,11 @@ export default function PrivateRoute({ children, pageName }: PrivateRouteProps) 
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check strict admin lock
+  if (requireAdmin && profile?.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   // Check RBAC custom page visibility

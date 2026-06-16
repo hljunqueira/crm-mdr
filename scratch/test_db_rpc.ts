@@ -8,17 +8,16 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function test() {
-  console.log('Querying customers...');
-  const { data: customers, error } = await supabase
-    .from('customers')
-    .select('*')
-    .order('created_at', { ascending: false });
+  console.log('Querying stores...');
+  const { data: stores, error } = await supabase
+    .from('stores')
+    .select('*');
 
   if (error) {
-    console.error('Error fetching customers:', error);
+    console.error('Error fetching stores:', error);
   } else {
-    console.log('Customers Count:', customers?.length);
-    console.log('Recent Customers:', JSON.stringify(customers?.slice(0, 5), null, 2));
+    console.log('Stores Count:', stores?.length);
+    console.log('Stores Data:', JSON.stringify(stores, null, 2));
   }
 }
 

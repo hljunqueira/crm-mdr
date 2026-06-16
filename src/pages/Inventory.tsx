@@ -85,6 +85,8 @@ export default function Inventory() {
         return { label: 'Acessório TI', color: 'border-teal-500/20 text-teal-400 bg-teal-500/5', icon: Monitor };
       case 'part':
         return { label: 'Peça', color: 'border-amber-500/20 text-amber-400 bg-amber-500/5', icon: Wrench };
+      case 'service':
+        return { label: 'Serviço / Mão de Obra', color: 'border-green-500/20 text-green-400 bg-green-500/5', icon: Wrench };
       case 'other':
         return { label: 'Outros', color: 'border-white/15 text-white/60 bg-white/5', icon: Package };
       default:
@@ -235,8 +237,8 @@ export default function Inventory() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { label: 'Modelos Diferentes', value: filteredInventory.length.toString(), icon: Smartphone, color: 'text-primary' },
-          { label: 'Quantidade em Estoque', value: filteredInventory.reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
-          { label: 'Valor do Estoque (Venda)', value: `R$ ${filteredInventory.reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
+          { label: 'Quantidade em Estoque', value: filteredInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
+          { label: 'Valor do Estoque (Venda)', value: `R$ ${filteredInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
         ].map((stat, i) => (
           <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/[0.02]">
             <div className="flex items-center gap-4">
@@ -324,6 +326,7 @@ export default function Inventory() {
           { id: 'accessory_mobile', label: 'Acessórios Celular', icon: Smartphone },
           { id: 'accessory_it', label: 'Acessórios TI', icon: Monitor },
           { id: 'part', label: 'Peças de Reposição', icon: Wrench },
+          { id: 'service', label: 'Serviços / Mão de Obra', icon: Wrench },
           { id: 'other', label: 'Outros', icon: Package }
         ].map(cat => {
           const CatIcon = cat.icon;
@@ -733,12 +736,13 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           const brand = rawBrand || (firstWord.length > 20 ? firstWord.substring(0, 20) : firstWord);
 
           const cat = rawCategory.toLowerCase();
-          let mappedCategory: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'other' = 'other';
+          let mappedCategory: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'service' | 'other' = 'other';
           if (cat.includes('celular') || cat.includes('smartphone')) mappedCategory = 'smartphone';
           else if (cat.includes('acessório celular') || cat.includes('acessorio celular')) mappedCategory = 'accessory_mobile';
           else if (cat.includes('acessório ti') || cat.includes('acessorio ti')) mappedCategory = 'accessory_it';
           else if (cat.includes('acessório') || cat.includes('acessorio') || cat.includes('accessory')) mappedCategory = 'accessory_mobile';
           else if (cat.includes('peça') || cat.includes('peca')) mappedCategory = 'part';
+          else if (cat.includes('serviço') || cat.includes('servico') || cat.includes('mão de obra') || cat.includes('mao de obra') || cat.includes('labor')) mappedCategory = 'service';
 
           const cond = rawCondition.toLowerCase();
           let mappedCondition: 'new' | 'used' | 'refurbished' | 'vitrine' = 'new';
@@ -797,6 +801,22 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
     const validRows = previewRows.filter(r => r._errors.length === 0);
     if (validRows.length === 0) {
       alert('Nenhuma linha válida para importar.');
+      return;
+    }
+
+    // Security check: non-admins cannot update existing items
+    const hasExistingUpdates = validRows.some(row => {
+      const isDevice = row.mappedCategory === 'smartphone';
+      const hasBarcode = !!row.barcode;
+      if (!isDevice && hasBarcode) {
+        const existing = inventory.find(i => i.unit_id === targetUnit && i.barcode === row.barcode);
+        return !!existing;
+      }
+      return false;
+    });
+
+    if (hasExistingUpdates && profile?.role !== 'admin') {
+      alert('Apenas administradores podem atualizar quantidades ou preços de produtos já existentes via planilha.');
       return;
     }
 

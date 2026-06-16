@@ -142,3 +142,27 @@ export function printElement(elementId: string) {
     }
   }, 300);
 }
+
+export function resolveUnitInfo(unit: { name: string; cnpj?: string; address?: string; phone?: string }) {
+  const nameUpper = (unit.name || '').toUpperCase();
+  const isGaivota = nameUpper.includes('GAIVOTA');
+
+  const isPlaceholder = (val?: string) => !val || val.includes('____') || val.trim() === '';
+
+  const cleanCnpj = isPlaceholder(unit.cnpj) ? '60.207.477/0001-74' : unit.cnpj!;
+  const cleanPhone = isPlaceholder(unit.phone) ? (isGaivota ? '(48) 99654-5259' : '(48) 99936-2282') : unit.phone!;
+  const cleanAddress = isPlaceholder(unit.address)
+    ? (isGaivota
+      ? 'Esquina com Espírito Santo - Rod. Interpraias, Balneário Gaivota - SC, 88955-000'
+      : 'Av. Salmi Paladini, 1541 - Sala 01 - Centro, Balneário Arroio do Silva - SC, 88914-000')
+    : unit.address!;
+
+  return {
+    name: unit.name || (isGaivota ? 'MDR Gaivota' : 'MDR Arroio'),
+    cnpj: cleanCnpj,
+    phone: cleanPhone,
+    address: cleanAddress,
+    city: isGaivota ? 'Balneário Gaivota/SC' : 'Balneário Arroio do Silva/SC'
+  };
+}
+

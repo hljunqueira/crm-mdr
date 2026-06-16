@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCPF, formatPhone } from '../../lib/utils';
+import { formatCPF, formatPhone, resolveUnitInfo } from '../../lib/utils';
 
 interface ContractPrintProps {
   sale: {
@@ -50,6 +50,7 @@ const formatPaymentDate = (dateStr?: string) => {
 };
 
 export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue }: ContractPrintProps) {
+  const resolvedUnit = resolveUnitInfo(unit);
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
@@ -163,17 +164,17 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           padding: 15mm 12mm 20mm 12mm;
           box-sizing: border-box;
           font-family: 'Inter', Arial, sans-serif;
-          font-size: 10px;
-          color: #1e293b;
+          font-size: 12px;
+          color: #000000;
           background: #fff;
-          line-height: 1.4;
+          line-height: 1.25;
           position: relative;
           border: 1px solid #cbd5e1;
           margin-bottom: 20px;
         }
 
         #sale-contract h1, #sale-contract h2, #sale-contract h3, #sale-contract h4 {
-          color: #0f172a !important;
+          color: #000000 !important;
         }
 
         #sale-contract table.ccb-table {
@@ -183,28 +184,28 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           font-family: 'Inter', Arial, sans-serif;
         }
         #sale-contract table.ccb-table td {
-          border: 1px solid #cbd5e1;
+          border: 1.5px solid #000000;
           padding: 6px 10px;
           vertical-align: top;
-          font-size: 10px;
-          color: #1e293b;
+          font-size: 11.5px;
+          color: #000000;
         }
         #sale-contract table.ccb-table tr:nth-child(even) td {
           background-color: #f8fafc;
         }
         #sale-contract table.ccb-table td.header-cell {
-          background-color: #f1f5f9;
-          color: #0f172a;
+          background-color: #000000;
+          color: #ffffff;
           font-weight: 800;
           text-transform: uppercase;
-          font-size: 9px;
-          border-bottom: 2px solid #0f172a;
+          font-size: 11px;
+          border-bottom: 1.5px solid #000000;
           padding: 6px 10px;
           letter-spacing: 0.5px;
         }
         #sale-contract table.ccb-table .label {
-          font-size: 7.5px;
-          color: #64748b;
+          font-size: 8px;
+          color: #475569;
           text-transform: uppercase;
           display: block;
           margin-bottom: 2px;
@@ -212,40 +213,40 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           letter-spacing: 0.5px;
         }
         #sale-contract table.ccb-table .value {
-          font-weight: 500;
-          font-size: 9.5px;
-          color: #0f172a;
+          font-weight: 700;
+          font-size: 11px;
+          color: #000000;
         }
         #sale-contract .clause-title {
-          font-size: 9.5px;
+          font-size: 11.5px;
           font-weight: 800;
           text-transform: uppercase;
           margin-top: 10px;
           margin-bottom: 4px;
-          color: #0f172a;
-          border-bottom: 1.5px solid #0f172a;
+          color: #000000;
+          border-bottom: 1.5px solid #000000;
           padding-bottom: 2px;
           letter-spacing: 0.5px;
         }
         #sale-contract .clause-text {
-          font-size: 8.5px;
+          font-size: 10.5px;
           text-align: justify;
           margin-bottom: 6px;
-          color: #334155;
-          line-height: 1.5;
+          color: #000000;
+          line-height: 1.25;
         }
         #sale-contract .signature-box-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 25px;
-          margin-top: 25px;
+          margin-top: 50px;
         }
         #sale-contract .signature-line-block {
-          border-top: 1px solid #cbd5e1;
+          border-top: 1.5px solid #000000;
           padding-top: 6px;
-          font-size: 8.5px;
+          font-size: 10px;
           text-align: center;
-          color: #334155;
+          color: #000000;
         }
       `}</style>
 
@@ -282,21 +283,21 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             <tr>
               <td style={{ width: '40%' }}>
                 <span className="label">Razão Social / Nome Fantasia</span>
-                <span className="value">{unit.name || 'MDR Informática & Celulares'}</span>
+                <span className="value">{resolvedUnit.name}</span>
               </td>
               <td style={{ width: '30%' }}>
                 <span className="label">CNPJ / CPF</span>
-                <span className="value">{unit.cnpj || '____________________'}</span>
+                <span className="value">{resolvedUnit.cnpj}</span>
               </td>
               <td style={{ width: '30%' }}>
                 <span className="label">Telefone / WhatsApp</span>
-                <span className="value">{unit.phone || '____________________'}</span>
+                <span className="value">{formatPhone(resolvedUnit.phone)}</span>
               </td>
             </tr>
             <tr>
               <td colSpan={3}>
                 <span className="label">Endereço do Estabelecimento</span>
-                <span className="value">{unit.address || '____________________'}</span>
+                <span className="value">{resolvedUnit.address}</span>
               </td>
             </tr>
           </tbody>
@@ -420,7 +421,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
               </td>
               <td>
                 <span className="label">Praça de Pagamento</span>
-                <span className="value">Balneário Arroio do Silva/SC</span>
+                <span className="value">{resolvedUnit.city}</span>
               </td>
               <td colSpan={2}>
                 <span className="label">Data de Vencimento</span>
@@ -468,11 +469,11 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             <tr>
               <td style={{ width: '40%' }}>
                 <span className="label">Titular</span>
-                <span className="value">{unit.name || 'MDR Informática'}</span>
+                <span className="value">{resolvedUnit.name}</span>
               </td>
               <td style={{ width: '30%' }}>
                 <span className="label">CPF / CNPJ</span>
-                <span className="value">{unit.cnpj || '____________________'}</span>
+                <span className="value">{resolvedUnit.cnpj}</span>
               </td>
               <td style={{ width: '30%' }}>
                 <span className="label">Banco / Agência / Conta</span>
@@ -686,22 +687,22 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           <br /><br />
           6.25. Assinatura Eletrônica: Em caso de contratação eletrônica, o EMITENTE ratifica que admite como válido, para fins de comprovação de autoria e integridade, a assinatura e informações constantes no presente documento, as quais foram capturadas de forma eletrônica e utilizadas nesta CCB, constituindo título executivo extrajudicial nos termos do artigo 28 da Lei nº 10.931/2004 e para todos os fins de direito, ainda que seja estabelecida com assinatura eletrônica ou certificação fora dos padrões ICP-BRASIL, conforme disposto pelo art. 10 da Medida Provisória nº 2.200/2001.
           <br /><br />
-          6.26. Foro: Ajustam as Partes que será sempre competente para conhecer e dirimir qualquer questão oriunda ou decorrente da presente CCB, o foro da Comarca de Balneário Arroio do Silva/SC, com a exclusão de qualquer outro, por mais privilegiado que seja, reservando-se o credor da CCB o direito de optar, a seu exclusivo critério, pelo foro do domicílio do EMITENTE.
+          6.26. Foro: Ajustam as Partes que será sempre competente para conhecer e dirimir qualquer questão oriunda ou decorrente da presente CCB, o foro da Comarca de {resolvedUnit.city}, com a exclusão de qualquer outro, por mais privilegiado que seja, reservando-se o credor da CCB o direito de optar, a seu exclusivo critério, pelo foro do domicílio do EMITENTE.
           <br /><br />
           6.27. A presente CCB é emitida e firmada em 2 (DUAS) vias, constando em apenas 01(uma) via a expressão “Via Negociável”.
         </div>
 
         <div className="mt-4 font-bold">
-          Local e data: Balneário Arroio do Silva/SC, {issueDateFormatted}
+          Local e data: {resolvedUnit.city}, {issueDateFormatted}
         </div>
 
         <div className="font-bold text-[9px] uppercase tracking-wider mt-4 mb-2">Assinaturas:</div>
 
         <div className="signature-box-grid">
           <div className="signature-line-block">
-            <strong>{unit.name ? unit.name.toUpperCase() : 'MDR INFORMÁTICA & CELULARES'}</strong><br />
+            <strong>{resolvedUnit.name.toUpperCase()}</strong><br />
             Representante Credor / Vendedor<br />
-            CNPJ: {unit.cnpj || '____________________'}
+            CNPJ: {resolvedUnit.cnpj}
           </div>
           <div className="signature-line-block">
             <strong>{customer.name.toUpperCase()}</strong><br />
@@ -710,7 +711,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           </div>
         </div>
 
-        <div className="signature-box-grid" style={{ marginTop: '20px' }}>
+        <div className="signature-box-grid" style={{ marginTop: '50px' }}>
           <div className="signature-line-block">
             Testemunha 1: ______________________________<br />
             Nome:<br />

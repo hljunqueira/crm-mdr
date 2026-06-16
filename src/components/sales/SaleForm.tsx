@@ -80,6 +80,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [resolvedUnitId]);
 
   const finalUnitId = profile?.role === 'admin' ? (selectedUnitId || resolvedUnitId) : resolvedUnitId;
+  const resolvedUnit = useMemo(() => {
+    return units.find(u => u.id === finalUnitId) || unit || units[0] || { name: 'MDR Informática' };
+  }, [units, finalUnitId, unit]);
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
@@ -457,7 +460,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [formData.customer_id, fetchInstallments]);
 
   const availableDevices = useMemo(() => 
-    inventory.filter(item => (item.stock_quantity || 0) > 0 && item.status === 'available'), 
+    inventory.filter(item => ((item.stock_quantity || 0) > 0 || item.category === 'service') && item.status === 'available'), 
   [inventory]);
 
   const filteredDevices = useMemo(() => {
@@ -515,7 +518,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     setSelectedDevices(prev => prev.map((d, i) => {
       if (i !== idx) return d;
       const stockItem = inventory.find(inv => inv.id === d.id);
-      const maxQty = stockItem?.stock_quantity || 99;
+      const maxQty = stockItem?.category === 'service' ? 9999 : (stockItem?.stock_quantity || 99);
       if (d.quantity >= maxQty) {
         showNotification('info', `Estoque máximo atingido (${maxQty} unidades).`);
         return d;
@@ -849,7 +852,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         // Decrement stock for all selected devices
         for (const device of selectedDevices) {
           const deviceItem = inventory.find(d => d.id === device.id);
-          if (deviceItem) {
+          if (deviceItem && deviceItem.category !== 'service') {
             const currentStock = deviceItem.stock_quantity || 0;
             const newQty = Math.max(0, currentStock - device.quantity);
             await updateItem(device.id, {
@@ -1120,21 +1123,21 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 customer_name: selectedCustomer.name
               }))}
               customer={selectedCustomer}
-              unit={unit || { name: 'MDR Informática' }}
+              unit={resolvedUnit}
             />
           </div>
         </div>
         <ContractPrint 
           sale={saleDataForPrint}
           customer={selectedCustomer}
-          unit={unit || { name: 'MDR Informática' }}
+          unit={resolvedUnit}
           installmentValue={installmentValue}
           firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
         />
         <SaleReceiptPrint
           sale={saleDataForPrint}
           customer={selectedCustomer}
-          unit={unit || { name: 'MDR Informática' }}
+          unit={resolvedUnit}
           installmentValue={installmentValue}
           firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
           sellerName={activeSeller?.full_name}
@@ -2272,6 +2275,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                     <option value="notebook" className="bg-[#121224]">💻 Notebook</option>
                     <option value="desktop" className="bg-[#121224]">🖥️ Computador Desktop</option>
                     <option value="part" className="bg-[#121224]">🔧 Peça de Reposição</option>
+                    <option value="service" className="bg-[#121224]">🛠️ Mão de Obra / Serviço</option>
                     <option value="other" className="bg-[#121224]">📦 Outros</option>
                   </select>
                 </div>

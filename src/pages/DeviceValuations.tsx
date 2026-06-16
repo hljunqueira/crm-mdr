@@ -228,6 +228,7 @@ export default function DeviceValuations() {
 function ValuationForm({ item, onSuccess }: { item: InventoryItem; onSuccess: () => void }) {
   const { updateItem } = useInventoryStore();
   const [salePrice, setSalePrice] = useState(item.price || 0);
+  const [tradeInPrice, setTradeInPrice] = useState(item.trade_in_price || 0);
   const [costPrice, setCostPrice] = useState(item.cost_price || 0);
   const [loading, setLoading] = useState(false);
 
@@ -237,6 +238,7 @@ function ValuationForm({ item, onSuccess }: { item: InventoryItem; onSuccess: ()
     try {
       await updateItem(item.id, {
         price: salePrice,
+        trade_in_price: tradeInPrice,
         cost_price: costPrice,
         status: 'available'
       });
@@ -256,7 +258,7 @@ function ValuationForm({ item, onSuccess }: { item: InventoryItem; onSuccess: ()
         <p className="text-[10px] text-on-surface-variant font-mono">IMEI: {item.imei || 'N/A'}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-1">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Custo (Abatimento)</label>
           <input
@@ -268,13 +270,23 @@ function ValuationForm({ item, onSuccess }: { item: InventoryItem; onSuccess: ()
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado</label>
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço à Vista</label>
           <input
             type="number"
             required
             autoFocus
             value={salePrice === 0 ? '' : salePrice}
             onChange={(e) => setSalePrice(Number(e.target.value) || 0)}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço com Troca</label>
+          <input
+            type="number"
+            required
+            value={tradeInPrice === 0 ? '' : tradeInPrice}
+            onChange={(e) => setTradeInPrice(Number(e.target.value) || 0)}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all font-mono"
           />
         </div>

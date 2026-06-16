@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCPF, formatPhone } from '../../lib/utils';
+import { formatCPF, formatPhone, resolveUnitInfo } from '../../lib/utils';
 
 export interface PixInstallment {
   id: string;
@@ -30,6 +30,7 @@ interface PixBoletoPrintProps {
 }
 
 export default function PixBoletoPrint({ installments, customer, unit }: PixBoletoPrintProps) {
+  const resolvedUnit = resolveUnitInfo(unit);
   const today = new Date().toLocaleDateString('pt-BR');
   const PIX_PAYLOAD = '00020126360014BR.GOV.BCB.PIX0114+55489990358545204000053039865802BR5901N6001C62160512MaykondaRosa6304AC2B';
 
@@ -53,10 +54,10 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
     return { multa, juros, total, daysLate, isLate: true };
   };
 
-  // Divide as parcelas em grupos de no máximo 5 para caberem em uma página A4
+  // Divide as parcelas em grupos de no máximo 4 para caberem em uma página A4
   const chunkedInstallments = [];
-  for (let i = 0; i < installments.length; i += 5) {
-    chunkedInstallments.push(installments.slice(i, i + 5));
+  for (let i = 0; i < installments.length; i += 4) {
+    chunkedInstallments.push(installments.slice(i, i + 4));
   }
 
   return (
@@ -83,7 +84,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           break-after: page;
           display: flex;
           flex-direction: column;
-          gap: 4.5mm;
+          gap: 3mm;
         }
 
         .pix-carne-page:last-child {
@@ -94,8 +95,8 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         .pix-carne-row {
           display: flex;
           width: 100%;
-          height: 52mm;
-          border: 1px solid #94a3b8;
+          height: 62mm;
+          border: 1.5px solid #000000;
           border-radius: 6px;
           box-sizing: border-box;
           overflow: hidden;
@@ -104,9 +105,9 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
         /* Canhoto (narrow left slip) */
         .pix-canhoto {
-          width: 48mm;
-          border-right: 1.5px dashed #64748b;
-          padding: 6px;
+          width: 50mm;
+          border-right: 1.5px dashed #000000;
+          padding: 8px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
@@ -115,11 +116,11 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-canhoto-title {
-          font-size: 9px;
+          font-size: 11px;
           font-weight: 900;
-          color: #0f172a;
+          color: #000000;
           text-transform: uppercase;
-          border-bottom: 1px solid #cbd5e1;
+          border-bottom: 1.5px solid #000000;
           padding-bottom: 3px;
           display: flex;
           justify-content: space-between;
@@ -127,7 +128,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-canhoto-info {
-          font-size: 8px;
+          font-size: 10px;
           line-height: 1.3;
           margin: 4px 0;
           flex-grow: 1;
@@ -143,23 +144,23 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         .pix-canhoto-label {
           font-weight: 800;
           text-transform: uppercase;
-          color: #64748b;
-          font-size: 7px;
+          color: #475569;
+          font-size: 8px;
           display: block;
         }
 
         .pix-canhoto-value {
-          font-weight: 700;
-          color: #0f172a;
+          font-weight: bold;
+          color: #000000;
         }
 
         .pix-canhoto-sig {
-          border-top: 1px solid #94a3b8;
+          border-top: 1.5px solid #000000;
           text-align: center;
           padding-top: 2px;
-          font-size: 6.5px;
+          font-size: 7.5px;
           font-weight: bold;
-          color: #64748b;
+          color: #475569;
           text-transform: uppercase;
           margin-top: auto;
         }
@@ -167,7 +168,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         /* Corpo (wide right slip) */
         .pix-corpo {
           flex: 1;
-          padding: 6px 10px;
+          padding: 8px 12px;
           display: flex;
           justify-content: space-between;
           box-sizing: border-box;
@@ -186,7 +187,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           display: flex;
           justify-content: space-between;
           align-items: center;
-          border-bottom: 1.5px solid #0f172a;
+          border-bottom: 1.5px solid #000000;
           padding-bottom: 4px;
         }
 
@@ -197,22 +198,22 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-brand-title {
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 900;
           letter-spacing: -0.5px;
         }
 
         .pix-brand-sub {
-          font-size: 7.5px;
+          font-size: 8.5px;
           font-weight: 800;
-          color: #64748b;
+          color: #475569;
         }
 
         .pix-doc-title {
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 900;
           text-transform: uppercase;
-          color: #0f172a;
+          color: #000000;
         }
 
         .pix-corpo-details {
@@ -224,23 +225,23 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
         .pix-corpo-field {
           background-color: #f8fafc;
-          border: 1px solid #e2e8f0;
+          border: 1.5px solid #000000;
           border-radius: 4px;
           padding: 3px 6px;
         }
 
         .pix-corpo-label {
-          font-size: 6.5px;
+          font-size: 8.5px;
           font-weight: 800;
-          color: #64748b;
+          color: #475569;
           text-transform: uppercase;
           display: block;
         }
 
         .pix-corpo-value {
-          font-size: 8.5px;
+          font-size: 10.5px;
           font-weight: 700;
-          color: #0f172a;
+          color: #000000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -248,34 +249,34 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
         .pix-instructions-box {
           margin-top: 4px;
-          border: 1px solid #e2e8f0;
+          border: 1.5px solid #000000;
           background-color: #fdfdfd;
           border-radius: 4px;
           padding: 4px;
-          font-size: 8px;
+          font-size: 10px;
           line-height: 1.3;
-          color: #334155;
+          color: #000000;
         }
 
         .pix-copia-cola-box {
           background: #f1f5f9;
-          border: 1px solid #cbd5e1;
+          border: 1.5px solid #000000;
           padding: 2px 4px;
           border-radius: 3px;
           font-family: monospace;
-          font-size: 7px;
+          font-size: 8px;
           word-break: break-all;
           margin-top: 2px;
-          color: #0f172a;
-          max-height: 18px;
+          color: #000000;
+          max-height: 22px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
         .pix-corpo-right {
-          width: 110px;
-          border-left: 1px dashed #cbd5e1;
+          width: 130px;
+          border-left: 1.5px dashed #000000;
           padding-left: 8px;
           display: flex;
           flex-direction: column;
@@ -284,7 +285,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-qr-box {
-          border: 1px solid #cbd5e1;
+          border: 1.5px solid #000000;
           border-radius: 4px;
           padding: 4px;
           background: #ffffff;
@@ -294,16 +295,28 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-qr-img {
-          width: 65px;
-          height: 65px;
+          width: 85px;
+          height: 85px;
           object-fit: contain;
         }
 
         .pix-payment-info {
-          font-size: 7px;
-          color: #475569;
+          font-size: 8.5px;
+          color: #000000;
           text-align: center;
           line-height: 1.2;
+        }
+
+        .pix-cut-line {
+          height: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          color: #94a3b8;
+          user-select: none;
+          margin-top: 1mm;
+          margin-bottom: 1mm;
         }
 
         @media print {
@@ -334,118 +347,123 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
             margin: 0 !important;
           }
         }
-      `}} />
-
-      {chunkedInstallments.map((group, pageIndex) => (
+      `}} />      {chunkedInstallments.map((group, pageIndex) => (
         <div key={pageIndex} className="pix-carne-page">
-          {group.map((inst) => {
+          {group.map((inst, idx) => {
             const fees = calculateOverdueFees(inst.value, inst.due_date, inst.status);
             const formatValue = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
             return (
-              <div key={inst.id} className="pix-carne-row">
-                {/* CANHOTO (STUB) */}
-                <div className="pix-canhoto">
-                  <div className="pix-canhoto-title">
-                    <span>MDR</span>
-                    <span style={{ fontSize: '7.5px' }}>PARC. {inst.number}/{inst.total}</span>
-                  </div>
-                  <div className="pix-canhoto-info">
-                    <div className="pix-canhoto-field">
-                      <span className="pix-canhoto-label">Vencimento</span>
-                      <span className="pix-canhoto-value">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              <React.Fragment key={inst.id}>
+                <div className="pix-carne-row">
+                  {/* CANHOTO (STUB) */}
+                  <div className="pix-canhoto">
+                    <div className="pix-canhoto-title">
+                      <span>MDR</span>
+                      <span style={{ fontSize: '7.5px' }}>PARC. {inst.number}/{inst.total}</span>
                     </div>
-                    <div className="pix-canhoto-field">
-                      <span className="pix-canhoto-label">Valor Parcela</span>
-                      <span className="pix-canhoto-value">R$ {formatValue(inst.value)}</span>
-                    </div>
-                    {fees.isLate && (
+                    <div className="pix-canhoto-info">
                       <div className="pix-canhoto-field">
-                        <span className="pix-canhoto-label" style={{ color: '#ef4444' }}>Atraso / Total</span>
-                        <span className="pix-canhoto-value" style={{ color: '#ef4444' }}>R$ {formatValue(fees.total)}</span>
+                        <span className="pix-canhoto-label">Vencimento</span>
+                        <span className="pix-canhoto-value">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                       </div>
-                    )}
-                    <div className="pix-canhoto-field">
-                      <span className="pix-canhoto-label">Pagador</span>
-                      <span className="pix-canhoto-value" style={{ fontSize: '7.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '40mm' }}>
-                        {customer.name}
-                      </span>
+                      <div className="pix-canhoto-field">
+                        <span className="pix-canhoto-label">Valor Parcela</span>
+                        <span className="pix-canhoto-value">R$ {formatValue(inst.value)}</span>
+                      </div>
+                      {fees.isLate && (
+                        <div className="pix-canhoto-field">
+                          <span className="pix-canhoto-label" style={{ color: '#ef4444' }}>Atraso / Total</span>
+                          <span className="pix-canhoto-value" style={{ color: '#ef4444' }}>R$ {formatValue(fees.total)}</span>
+                        </div>
+                      )}
+                      <div className="pix-canhoto-field">
+                        <span className="pix-canhoto-label">Pagador</span>
+                        <span className="pix-canhoto-value" style={{ fontSize: '7.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', maxWidth: '40mm' }}>
+                          {customer.name}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pix-canhoto-sig">
+                      Assinatura / Visto
                     </div>
                   </div>
-                  <div className="pix-canhoto-sig">
-                    Assinatura / Visto
+
+                  {/* CORPO DO BOLETO */}
+                  <div className="pix-corpo">
+                    <div className="pix-corpo-left">
+                      {/* Header */}
+                      <div className="pix-corpo-header">
+                        <div className="pix-brand-box">
+                          <span className="pix-brand-title">MDR</span>
+                          <span className="pix-brand-sub">INFORMÁTICA & CELULARES</span>
+                        </div>
+                        <div className="pix-doc-title">
+                          RECIBO / BOLETO PIX
+                        </div>
+                      </div>
+
+                      {/* Dados do sacado/cedente */}
+                      <div className="pix-corpo-details">
+                        <div className="pix-corpo-field">
+                          <span className="pix-corpo-label">Beneficiário</span>
+                          <div className="pix-corpo-value">{resolvedUnit.name}</div>
+                        </div>
+                        <div className="pix-corpo-field">
+                          <span className="pix-corpo-label">CNPJ / CPF</span>
+                          <div className="pix-corpo-value">{resolvedUnit.cnpj || '—'}</div>
+                        </div>
+                        <div className="pix-corpo-field">
+                          <span className="pix-corpo-label">WhatsApp</span>
+                          <div className="pix-corpo-value">{resolvedUnit.phone ? formatPhone(resolvedUnit.phone) : '—'}</div>
+                        </div>
+
+                        <div className="pix-corpo-field" style={{ gridColumn: 'span 2' }}>
+                          <span className="pix-corpo-label">Pagador</span>
+                          <div className="pix-corpo-value">{customer.name} - CPF: {formatCPF(customer.cpf)}</div>
+                        </div>
+                        <div className="pix-corpo-field">
+                          <span className="pix-corpo-label">WhatsApp</span>
+                          <div className="pix-corpo-value">{formatPhone(customer.phone)}</div>
+                        </div>
+                      </div>
+
+                      {/* Instruções */}
+                      <div className="pix-instructions-box">
+                        <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado ou utilize o Pix Copia-e-Cola abaixo:
+                        <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
+                          {PIX_PAYLOAD}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pix-corpo-right">
+                      <div className="pix-qr-box">
+                        <img src="/Pix.png" alt="PIX QR Code" className="pix-qr-img" />
+                      </div>
+                      <div className="pix-payment-info">
+                        <span className="pix-corpo-label">PARCELA</span>
+                        <strong style={{ fontSize: '10px' }}>{inst.number} / {inst.total}</strong>
+                      </div>
+                      <div className="pix-payment-info">
+                        <span className="pix-corpo-label">VENCIMENTO</span>
+                        <strong style={{ fontSize: '9px' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>
+                      </div>
+                      <div className="pix-payment-info">
+                        <span className="pix-corpo-label">VALOR A PAGAR</span>
+                        <strong style={{ fontSize: '11px', color: fees.isLate ? '#ef4444' : '#15803d' }}>
+                          R$ {formatValue(fees.total)}
+                        </strong>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                {/* CORPO DO BOLETO */}
-                <div className="pix-corpo">
-                  <div className="pix-corpo-left">
-                    {/* Header */}
-                    <div className="pix-corpo-header">
-                      <div className="pix-brand-box">
-                        <span className="pix-brand-title">MDR</span>
-                        <span className="pix-brand-sub">INFORMÁTICA & CELULARES</span>
-                      </div>
-                      <div className="pix-doc-title">
-                        RECIBO / BOLETO PIX
-                      </div>
-                    </div>
-
-                    {/* Dados do sacado/cedente */}
-                    <div className="pix-corpo-details">
-                      <div className="pix-corpo-field">
-                        <span className="pix-corpo-label">Beneficiário</span>
-                        <div className="pix-corpo-value">{unit.name}</div>
-                      </div>
-                      <div className="pix-corpo-field">
-                        <span className="pix-corpo-label">CNPJ / CPF</span>
-                        <div className="pix-corpo-value">{unit.cnpj || '—'}</div>
-                      </div>
-                      <div className="pix-corpo-field">
-                        <span className="pix-corpo-label">WhatsApp</span>
-                        <div className="pix-corpo-value">{unit.phone ? formatPhone(unit.phone) : '—'}</div>
-                      </div>
-
-                      <div className="pix-corpo-field" style={{ gridColumn: 'span 2' }}>
-                        <span className="pix-corpo-label">Pagador</span>
-                        <div className="pix-corpo-value">{customer.name} - CPF: {formatCPF(customer.cpf)}</div>
-                      </div>
-                      <div className="pix-corpo-field">
-                        <span className="pix-corpo-label">WhatsApp</span>
-                        <div className="pix-corpo-value">{formatPhone(customer.phone)}</div>
-                      </div>
-                    </div>
-
-                    {/* Instruções */}
-                    <div className="pix-instructions-box">
-                      <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado ou utilize o Pix Copia-e-Cola abaixo:
-                      <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
-                        {PIX_PAYLOAD}
-                      </div>
-                    </div>
+                {idx < group.length - 1 && (
+                  <div className="pix-cut-line">
+                    <span>✂️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</span>
                   </div>
-
-                  <div className="pix-corpo-right">
-                    <div className="pix-qr-box">
-                      <img src="/Pix.png" alt="PIX QR Code" className="pix-qr-img" />
-                    </div>
-                    <div className="pix-payment-info">
-                      <span className="pix-corpo-label">PARCELA</span>
-                      <strong style={{ fontSize: '10px' }}>{inst.number} / {inst.total}</strong>
-                    </div>
-                    <div className="pix-payment-info">
-                      <span className="pix-corpo-label">VENCIMENTO</span>
-                      <strong style={{ fontSize: '9px' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>
-                    </div>
-                    <div className="pix-payment-info">
-                      <span className="pix-corpo-label">VALOR A PAGAR</span>
-                      <strong style={{ fontSize: '11px', color: fees.isLate ? '#ef4444' : '#15803d' }}>
-                        R$ {formatValue(fees.total)}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
