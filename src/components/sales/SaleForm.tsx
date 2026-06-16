@@ -1529,13 +1529,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               placeholder="Número do IMEI"
               value={formData.imei}
               onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
-              readOnly={selectedDevices.length > 0}
-              className={cn(
-                "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-                selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
-              )}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
             />
-            {selectedDevices.length > 0 && <p className="text-[10px] text-on-surface-variant pl-1 opacity-60">Preenchido do estoque</p>}
           </div>
         )}
 

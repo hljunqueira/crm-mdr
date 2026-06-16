@@ -166,7 +166,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         id: item.id,
         model: item.model,
         brand: item.brand,
-        price: item.price,
+        price: item.trade_in_price || item.price,
         quantity: 1,
         store_name: item.store_name || undefined
       }]);
@@ -881,7 +881,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                             {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
                           </div>
                           <div className="text-right shrink-0 ml-3">
-                            <span className="font-black text-primary font-mono">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            <span className="font-black text-primary font-mono">{(item.trade_in_price || item.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            <p className="text-[9px] text-on-surface-variant/70">Preço com Troca: {item.trade_in_price ? item.trade_in_price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'N/A'}</p>
                             <p className="text-[9px] text-green-400">Qtd: {item.stock_quantity}</p>
                           </div>
                         </button>
