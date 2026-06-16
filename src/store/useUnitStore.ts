@@ -21,6 +21,10 @@ export interface Unit {
   os_budget_template?: string;
   os_ready_template?: string;
   os_receipt_terms?: string;
+  billing_reminder_template?: string;
+  billing_cron_hour?: number;
+  billing_reminder_days_before?: number;
+  billing_reminder_days_after?: number;
 }
 
 interface UnitState {

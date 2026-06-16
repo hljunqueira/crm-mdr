@@ -18,6 +18,12 @@ interface SaleReceiptPrintProps {
     trade_device_model?: string;
     trade_device_imei?: string;
     interest_table?: string;
+    is_trade_in?: boolean;
+    trade_in_device_brand?: string;
+    trade_in_device_model?: string;
+    trade_in_device_imei?: string;
+    trade_in_valuation?: number;
+    trade_valuation?: number;
   };
   customer: {
     name: string;
@@ -39,7 +45,8 @@ interface SaleReceiptPrintProps {
 export default function SaleReceiptPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, sellerName }: SaleReceiptPrintProps) {
   const today = new Date().toLocaleDateString('pt-BR');
   const basePrice = sale.original_price ?? sale.total_value;
-  const financed = basePrice - sale.down_payment;
+  const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
+  const financed = basePrice - sale.down_payment - tradeInVal;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
   const firstInstValue = firstInstallmentValue ?? instValue;
   const hasGracePeriod = firstInstallmentValue !== undefined && firstInstallmentValue > instValue;
@@ -164,6 +171,18 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
                 Recebido: {sale.trade_device_model} (IMEI: {sale.trade_device_imei || 'N/A'})
               </div>
             )}
+          </>
+        )}
+
+        {sale.is_trade_in && (
+          <>
+            <div className="row text-primary">
+              <span>Valor da Troca (Dedução):</span>
+              <span className="align-right font-mono">- R$ {Number(sale.trade_valuation ?? sale.trade_in_valuation).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="trade-box">
+              Troca: {sale.trade_in_device_brand} {sale.trade_in_device_model} {sale.trade_in_device_imei ? `(IMEI: ${sale.trade_in_device_imei})` : ''}
+            </div>
           </>
         )}
 

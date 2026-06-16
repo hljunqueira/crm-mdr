@@ -25,6 +25,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     description: item?.description || item?.notes || '', // fallback to notes for legacy items
     model: item?.model || '', // Nome Curto
     price: item?.price !== undefined ? String(item.price) : '',
+    trade_in_price: item?.trade_in_price !== undefined ? String(item.trade_in_price) : '',
     cost_price: item?.cost_price !== undefined ? String(item.cost_price) : '',
     condition: item?.condition || 'new',
     stock_quantity: item?.stock_quantity !== undefined ? String(item.stock_quantity) : '1',
@@ -149,22 +150,23 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     const shortNameFinal = (formData.model || formData.description).substring(0, 25).trim();
     const firstWord = formData.description.trim().split(/\s+/)[0] || '-';
     const brandValue = firstWord.length > 20 ? firstWord.substring(0, 20) : firstWord;
-
     const priceNum = Number(formData.price) || 0;
+    const tradeInPriceNum = formData.trade_in_price ? Number(formData.trade_in_price) : undefined;
     const costPriceNum = Number(formData.cost_price) || 0;
     const qtyNum = Math.max(1, Number(formData.stock_quantity) || 1);
-
+ 
     try {
       const payload = {
-        brand: brandValue, // brand maps auto-extracted from description
-        model: shortNameFinal, // model column stores short_name
+        brand: brandValue,
+        model: shortNameFinal,
         description: formData.description,
         short_name: shortNameFinal,
         condition: formData.condition,
         status: (item?.status || 'available') as any,
         stock_quantity: qtyNum,
-        notes: formData.notes || formData.description, // replicate description to notes for legacy card layout
+        notes: formData.notes || formData.description,
         price: priceNum,
+        trade_in_price: tradeInPriceNum,
         cost_price: costPriceNum,
         imei: formData.imei.trim(),
         category: formData.category,
@@ -331,6 +333,19 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 placeholder="0,00"
               />
             </div>
+ 
+            {formData.category === 'smartphone' && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço com Troca (R$)</label>
+                <input
+                  type="number"
+                  value={formData.trade_in_price}
+                  onChange={(e) => setFormData({ ...formData, trade_in_price: e.target.value })}
+                  className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none text-white"
+                  placeholder="0,00"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Qtd em Estoque</label>

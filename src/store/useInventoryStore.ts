@@ -9,6 +9,7 @@ export interface InventoryItem {
   brand: string;
   imei: string;
   price: number;
+  trade_in_price?: number;
   cost_price: number;
   condition: 'new' | 'used' | 'refurbished' | 'vitrine';
   status: 'available' | 'sold' | 'reserved' | 'in_repair';
@@ -49,6 +50,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         brand: item.brand,
         imei: item.imei || '',
         price: Number(item.sale_price) || 0,
+        trade_in_price: Number(item.trade_in_price) || 0,
         cost_price: Number(item.cost_price) || 0,
         condition: item.condition,
         status: item.status,
@@ -80,6 +82,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         condition: item.condition,
         cost_price: item.cost_price,
         sale_price: item.price,
+        trade_in_price: item.trade_in_price || null,
         status: item.status,
         stock_quantity: item.stock_quantity,
         notes: item.notes || null,
@@ -123,6 +126,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       if (updatedFields.condition !== undefined) dbFields.condition = updatedFields.condition;
       if (updatedFields.cost_price !== undefined) dbFields.cost_price = updatedFields.cost_price;
       if (updatedFields.price !== undefined) dbFields.sale_price = updatedFields.price;
+      if (updatedFields.trade_in_price !== undefined) dbFields.trade_in_price = updatedFields.trade_in_price;
       if (updatedFields.status !== undefined) dbFields.status = updatedFields.status;
       if (updatedFields.stock_quantity !== undefined) dbFields.stock_quantity = updatedFields.stock_quantity;
       if (updatedFields.notes !== undefined) dbFields.notes = updatedFields.notes || null;

@@ -16,7 +16,7 @@ router.get("/", async (req, res) => {
 
 // Create sale
 router.post("/", async (req, res) => {
-  const { store_id } = req.body;
+  const { store_id, is_trade_in, trade_in_device_imei, trade_in_device_brand, trade_in_device_model, trade_in_valuation, trade_in_sale_price_estimate } = req.body;
   if (!store_id) {
     return res.status(400).json({ error: "O campo store_id (unidade) é obrigatório." });
   }
@@ -37,14 +37,60 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "Não existe um caixa aberto para esta unidade. Abra o caixa antes de realizar vendas." });
   }
 
-  const { data, error } = await supabase
-    .from('sales')
-    .insert([req.body])
-    .select()
-    .single();
+  try {
+    // 1. If it's a trade-in, handle IMEI unique constraint release
+    if (is_trade_in && trade_in_device_imei) {
+      const cleanImei = String(trade_in_device_imei).trim();
+      const { data: existingDevice } = await supabase
+        .from('devices')
+        .select('id, status, imei')
+        .eq('imei', cleanImei)
+        .maybeSingle();
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(201).json(data);
+      if (existingDevice && existingDevice.status === 'sold') {
+        // Rename the old IMEI to release unique constraint
+        await supabase
+          .from('devices')
+          .update({ imei: `${cleanImei}_sold` })
+          .eq('id', existingDevice.id);
+      }
+    }
+
+    // 2. Insert Sale
+    const { data: saleData, error: saleError } = await supabase
+      .from('sales')
+      .insert([req.body])
+      .select()
+      .single();
+
+    if (saleError) return res.status(500).json({ error: saleError.message });
+
+    // 3. If it's a trade-in, insert the traded phone into devices (inventory)
+    if (is_trade_in) {
+      const { error: deviceError } = await supabase
+        .from('devices')
+        .insert({
+          store_id: store_id,
+          brand: trade_in_device_brand,
+          model: trade_in_device_model,
+          imei: trade_in_device_imei ? String(trade_in_device_imei).trim() : null,
+          condition: 'used',
+          cost_price: Number(trade_in_valuation) || 0,
+          sale_price: Number(trade_in_sale_price_estimate) || 0,
+          stock_quantity: 1,
+          status: 'available',
+          notes: `Aparelho recebido como troca na venda ID: ${saleData.id}`
+        });
+
+      if (deviceError) {
+        console.error("Erro ao cadastrar aparelho de troca no estoque:", deviceError);
+      }
+    }
+
+    res.status(201).json(saleData);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Update sale
@@ -158,7 +204,20 @@ router.delete("/:id", async (req, res) => {
       }
     }
 
-    // 4. Finally delete the sale (which cascades to delete installments)
+    // 4. If it was a trade-in, clean up the received device in stock
+    if (sale.is_trade_in) {
+      await supabase
+        .from('devices')
+        .delete()
+        .eq('store_id', sale.store_id)
+        .eq('brand', sale.trade_in_device_brand)
+        .eq('model', sale.trade_in_device_model)
+        .eq('cost_price', sale.trade_in_valuation)
+        .eq('condition', 'used')
+        .limit(1);
+    }
+
+    // 5. Finally delete the sale (which cascades to delete installments)
     const { error: deleteError } = await supabase
       .from('sales')
       .delete()

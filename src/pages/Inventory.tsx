@@ -385,9 +385,17 @@ export default function Inventory() {
                         <span className="font-mono tracking-widest uppercase">Cód: {item.barcode}</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between pt-4">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço Sugerido</span>
-                      <span className="text-xl font-black text-white">R$ {item.price.toLocaleString('pt-BR')}</span>
+                    <div className="flex flex-col gap-1 pt-4 border-t border-white/5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço Venda Direta</span>
+                        <span className="text-sm font-bold text-white">R$ {item.price.toLocaleString('pt-BR')}</span>
+                      </div>
+                      {item.trade_in_price !== undefined && item.trade_in_price !== null && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/40">Preço com Troca</span>
+                          <span className="text-sm font-bold text-primary">R$ {Number(item.trade_in_price).toLocaleString('pt-BR')}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

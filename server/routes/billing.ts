@@ -26,7 +26,8 @@ router.post("/send-warning", async (req, res) => {
           ),
           store:stores (
             name,
-            phone
+            phone,
+            billing_reminder_template
           )
         )
       `)
@@ -45,6 +46,34 @@ router.post("/send-warning", async (req, res) => {
       return res.status(400).json({ error: "Cliente não possui telefone cadastrado." });
     }
 
+    // 1.5. Compile the customized billing message template if available
+    const DEFAULT_BILLING_REMINDER_TEMPLATE = `Olá *{nome_cliente}*!\n\nLembramos que a sua parcela *{parcela_atual}/{total_parcelas}* no valor de *{valor_parcela}*, referente ao aparelho *{aparelho}*, vence no dia *{data_vencimento}*.\n\nEvite bloqueios ou multas efetuando o pagamento via PIX ou em nossa loja. \n\nSe você já realizou o pagamento, por favor desconsidere esta mensagem.\n\nAgradecemos a preferência!\n*{nome_loja}*`;
+
+    const fillTemplate = (template: string, vars: Record<string, string | number>) => {
+      let text = template;
+      for (const [key, value] of Object.entries(vars)) {
+        text = text.replace(new RegExp(`{${key}}`, 'g'), String(value));
+      }
+      return text;
+    };
+
+    const valueStr = Number(installment.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formattedDueDate = new Date(installment.due_date).toLocaleDateString('pt-BR');
+
+    const variables = {
+      nome_cliente: customer.name,
+      parcela_atual: installment.number,
+      total_parcelas: installment.total,
+      valor_parcela: valueStr,
+      aparelho: sale.device_model || "Aparelho Celular",
+      data_vencimento: formattedDueDate,
+      nome_loja: store?.name || "MDR Celulares",
+      telefone_loja: store?.phone || ""
+    };
+
+    const templateText = store?.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE;
+    const messageText = fillTemplate(templateText, variables);
+
     // 2. n8n webhook payload
     const n8nPayload = {
       installment_id: installment.id,
@@ -58,7 +87,8 @@ router.post("/send-warning", async (req, res) => {
       device_model: sale.device_model || "Aparelho Celular",
       device_imei: sale.imei || "Não Informado",
       store_name: store?.name || "MDR Celulares",
-      store_phone: store?.phone || ""
+      store_phone: store?.phone || "",
+      text: messageText
     };
 
     const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || "https://n8n.mdrinformaticaecelulares.com.br/webhook/billing-warning";

@@ -277,7 +277,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     interest_table: 'standard',
     down_payment_method: 'money_pix',
     trade_device_model: '',
-    trade_device_imei: ''
+    trade_device_imei: '',
+    // Trade-in feature fields
+    price_type: 'normal' as 'normal' | 'trade',
+    is_trade_in: false,
+    trade_in_device_brand: '',
+    trade_in_device_model: '',
+    trade_in_device_imei: '',
+    trade_in_valuation: 0,
+    trade_in_sale_price_estimate: 0
   });
 
   // Colaborador authentication states
@@ -320,7 +328,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   // Automatically calculate total value, concatenated model names and IMEIs when selectedDevices changes
   React.useEffect(() => {
     if (selectedDevices.length > 0) {
-      const total = selectedDevices.reduce((sum, d) => sum + d.price * d.quantity, 0);
+      const total = selectedDevices.reduce((sum, d) => {
+        const stockItem = inventory.find(i => i.id === d.id);
+        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price) 
+          ? stockItem.trade_in_price 
+          : d.price;
+        return sum + itemPrice * d.quantity;
+      }, 0);
       const discountedTotal = applyAutoDiscount ? Number((total * 0.9).toFixed(2)) : total;
       const models = selectedDevices.map(d => `${d.model} (x${d.quantity})`).join(' + ');
       const imeis = selectedDevices.map(d => d.imei || 'N/A').filter(val => val !== 'N/A').join(', ');
@@ -339,7 +353,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         imei: ''
       }));
     }
-  }, [selectedDevices, applyAutoDiscount]);
+  }, [selectedDevices, applyAutoDiscount, formData.price_type, inventory]);
 
   // Prevent crediario/card/debit on general/IT sales
   React.useEffect(() => {
@@ -563,11 +577,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
     const extraDays = Math.max(0, diffDays - 30);
     if (extraDays === 0) return 0;
-    const financed = formData.total_value - formData.down_payment;
+    const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
+    const financed = formData.total_value - formData.down_payment - tradeInVal;
     if (financed <= 0) return 0;
     const dailyRate = monthlyRate / 30;
     return financed * dailyRate * extraDays;
-  }, [formData.first_due_date, formData.total_value, formData.down_payment, paymentType, monthlyRate]);
+  }, [formData.first_due_date, formData.total_value, formData.down_payment, paymentType, monthlyRate, formData.is_trade_in, formData.trade_in_valuation]);
 
   // Customer Debt & Limit Calculations
   const customerDebts = useMemo(() => {
@@ -614,8 +629,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   [selectedAccessories]);
 
   const newFinancedAmount = useMemo(() => {
-    return Math.max(0, (formData.total_value + accessoriesTotal) - formData.down_payment);
-  }, [formData.total_value, accessoriesTotal, formData.down_payment]);
+    const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
+    return Math.max(0, (formData.total_value + accessoriesTotal) - formData.down_payment - tradeInVal);
+  }, [formData.total_value, accessoriesTotal, formData.down_payment, formData.is_trade_in, formData.trade_in_valuation]);
 
   const isOverLimit = useMemo(() => {
     if (formData.payment_type !== 'crediario' || !selectedCustomer) return false;
@@ -625,10 +641,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const minDownPayment = useMemo(() => {
     if (isCashLike || !selectedCustomer) return 0;
     const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
-    if (classification === 'RUIM') return formData.total_value * 0.5;
-    if (classification === 'MEDIO') return formData.total_value * 0.2;
+    const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
+    const baseVal = Math.max(0, formData.total_value - tradeInVal);
+    if (classification === 'RUIM') return baseVal * 0.5;
+    if (classification === 'MEDIO') return baseVal * 0.2;
     return 0;
-  }, [selectedCustomer, formData.total_value, isCashLike]);
+  }, [selectedCustomer, formData.total_value, isCashLike, formData.is_trade_in, formData.trade_in_valuation]);
 
   const riskMultiplier = useMemo(() => {
     if (paymentType === 'card' || !selectedCustomer) return 1.00;
@@ -640,11 +658,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   const installmentValue = useMemo(() => {
     if (isCashLike) return 0;
-    const financed = formData.total_value - formData.down_payment;
+    const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
+    const financed = formData.total_value - formData.down_payment - tradeInVal;
     if (financed <= 0) return 0;
     const finalCoeff = baseCoefficient * riskMultiplier;
     return financed * finalCoeff;
-  }, [isCashLike, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier]);
+  }, [isCashLike, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier, formData.is_trade_in, formData.trade_in_valuation]);
 
   // First installment value includes grace period interest (if any)
   const firstInstallmentValue = useMemo(() => {
@@ -657,11 +676,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   }, [firstInstallmentValue, installmentValue, installmentCount]);
 
   const finalValue = useMemo(() => {
+    const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
     if (isCashLike) {
-      return formData.total_value + accessoriesTotal;
+      return Math.max(0, formData.total_value + accessoriesTotal - tradeInVal);
     }
-    return formData.down_payment + totalInstallmentsValue + accessoriesTotal;
-  }, [isCashLike, formData.total_value, formData.down_payment, totalInstallmentsValue, accessoriesTotal]);
+    return Math.max(0, formData.down_payment + totalInstallmentsValue + accessoriesTotal);
+  }, [isCashLike, formData.total_value, formData.down_payment, totalInstallmentsValue, accessoriesTotal, formData.is_trade_in, formData.trade_in_valuation]);
 
   const feeValue = useMemo(() => {
     if (isCashLike) return 0;
@@ -734,7 +754,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           device_color: formData.device_color,
           accessories: accessoriesStr,
           payment_type: formData.payment_type as any,
-          seller_id: sellerId
+          seller_id: sellerId,
+          is_trade_in: formData.is_trade_in,
+          trade_in_device_brand: formData.trade_in_device_brand,
+          trade_in_device_model: formData.trade_in_device_model,
+          trade_in_device_imei: formData.trade_in_device_imei,
+          trade_in_valuation: formData.trade_in_valuation,
+          trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate
         });
         showNotification('success', 'Venda Atualizada');
         onSuccess();
@@ -756,7 +782,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           accessories: accessoriesStr,
           status: 'completed',
           payment_type: formData.payment_type as any,
-          seller_id: sellerId
+          seller_id: sellerId,
+          is_trade_in: formData.is_trade_in,
+          trade_in_device_brand: formData.trade_in_device_brand,
+          trade_in_device_model: formData.trade_in_device_model,
+          trade_in_device_imei: formData.trade_in_device_imei,
+          trade_in_valuation: formData.trade_in_valuation,
+          trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate
         });
 
         // Decrement stock for all selected devices
@@ -948,7 +980,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       service_fee: feeValue,
       accessories: finalAccessoriesStr,
       amount_paid: amountPaid,
-      change_value: changeValue
+      change_value: changeValue,
+      is_trade_in: formData.is_trade_in,
+      trade_in_device_brand: formData.trade_in_device_brand,
+      trade_in_device_model: formData.trade_in_device_model,
+      trade_in_device_imei: formData.trade_in_device_imei,
+      trade_in_valuation: formData.trade_in_valuation,
+      trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate
     };
     return (
       <div className="text-center py-12 space-y-8 animate-in zoom-in duration-500">
@@ -969,6 +1007,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           <p className="text-[10px] text-on-surface-variant">
             Total: R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             {!isCashLike && ` | Entrada: R$ ${formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            {formData.is_trade_in && ` | Troca Recebida: R$ ${formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           </p>
         </div>
 
@@ -1491,9 +1530,127 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </div>
         )}
 
+        {/* Tipo de Preço (Normal ou com Troca) */}
+        {selectedDevices.some(d => d.category === 'smartphone') && (
+          <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
+                className={cn(
+                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                )}
+              >
+                Preço Venda Direta
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
+                className={cn(
+                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                )}
+              >
+                Preço Especial com Troca
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Checkbox Receber Aparelho na Troca */}
+        <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
+          <div>
+            <p className="text-[10px] font-black text-white uppercase tracking-widest">Receber Aparelho de Cliente na Troca (Trade-in)</p>
+            <p className="text-[11px] text-on-surface-variant/70">Ative para cadastrar os dados do celular usado recebido como abatimento.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, is_trade_in: !prev.is_trade_in }))}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+              formData.is_trade_in 
+                ? "bg-primary/20 border-primary/30 text-primary" 
+                : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+            )}
+          >
+            {formData.is_trade_in ? "Troca Ativa" : "Desativado"}
+          </button>
+        </div>
+
+        {/* Sub-formulário Trade-in */}
+        {formData.is_trade_in && (
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-[32px] animate-in fade-in duration-300">
+            <div className="md:col-span-3 pb-2 border-b border-white/5">
+              <span className="text-[10px] font-black text-primary uppercase tracking-wider block">📱 Dados do Celular Recebido (Troca)</span>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Marca *</label>
+              <input 
+                type="text" 
+                required
+                placeholder="Ex: Apple, Samsung"
+                value={formData.trade_in_device_brand}
+                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
+                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo *</label>
+              <input 
+                type="text" 
+                required
+                placeholder="Ex: iPhone 11 64GB"
+                value={formData.trade_in_device_model}
+                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_model: e.target.value }))}
+                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+              <input 
+                type="text" 
+                maxLength={15}
+                placeholder="IMEI de 15 dígitos"
+                value={formData.trade_in_device_imei}
+                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_imei: e.target.value.replace(/\D/g, '') }))}
+                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Avaliação (Abatimento) *</label>
+              <input 
+                type="number" 
+                required
+                placeholder="R$ 0.00"
+                value={formData.trade_in_valuation === 0 ? '' : formData.trade_in_valuation}
+                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_valuation: Number(e.target.value) || 0 }))}
+                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado *</label>
+              <input 
+                type="number" 
+                required
+                placeholder="R$ 0.00"
+                value={formData.trade_in_sale_price_estimate === 0 ? '' : formData.trade_in_sale_price_estimate}
+                onChange={(e) => setFormData(prev => ({ ...prev, trade_in_sale_price_estimate: Number(e.target.value) || 0 }))}
+                className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+              />
+            </div>
+          </div>
+        )}
+
         {formData.payment_type !== 'vista' && (
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada (R$)</label>
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada Financeira (Dinheiro/PIX) (R$)</label>
             <input 
               type="number" 
               placeholder="0.00"

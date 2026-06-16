@@ -20,6 +20,12 @@ export interface Sale {
   payment_type?: 'crediario' | 'card' | 'vista' | 'debit';
   seller_id?: string;
   device_id?: string;
+  is_trade_in?: boolean;
+  trade_in_device_brand?: string;
+  trade_in_device_model?: string;
+  trade_in_device_imei?: string;
+  trade_in_valuation?: number;
+  trade_in_sale_price_estimate?: number;
 }
 
 interface SaleState {
@@ -56,7 +62,13 @@ export const useSaleStore = create<SaleState>()((set) => ({
         accessories: s.accessories,
         status: s.status,
         payment_type: s.payment_type || 'crediario',
-        seller_id: s.seller_id
+        seller_id: s.seller_id,
+        is_trade_in: !!s.is_trade_in,
+        trade_in_device_brand: s.trade_in_device_brand || '',
+        trade_in_device_model: s.trade_in_device_model || '',
+        trade_in_device_imei: s.trade_in_device_imei || '',
+        trade_in_valuation: Number(s.trade_in_valuation) || 0,
+        trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0
       }));
       set({ sales: mappedSales });
     } catch (error) {
@@ -83,7 +95,13 @@ export const useSaleStore = create<SaleState>()((set) => ({
         accessories: sale.accessories,
         status: sale.status,
         payment_type: sale.payment_type,
-        seller_id: sale.seller_id
+        seller_id: sale.seller_id,
+        is_trade_in: sale.is_trade_in || false,
+        trade_in_device_brand: sale.trade_in_device_brand || null,
+        trade_in_device_model: sale.trade_in_device_model || null,
+        trade_in_device_imei: sale.trade_in_device_imei || null,
+        trade_in_valuation: sale.trade_in_valuation || 0,
+        trade_in_sale_price_estimate: sale.trade_in_sale_price_estimate || 0
       };
       const data = await api.post('/sales', dbSale);
       
@@ -120,6 +138,12 @@ export const useSaleStore = create<SaleState>()((set) => ({
       if (updatedFields.status) dbFields.status = updatedFields.status;
       if (updatedFields.payment_type) dbFields.payment_type = updatedFields.payment_type;
       if (updatedFields.seller_id) dbFields.seller_id = updatedFields.seller_id;
+      if (updatedFields.is_trade_in !== undefined) dbFields.is_trade_in = updatedFields.is_trade_in;
+      if (updatedFields.trade_in_device_brand !== undefined) dbFields.trade_in_device_brand = updatedFields.trade_in_device_brand;
+      if (updatedFields.trade_in_device_model !== undefined) dbFields.trade_in_device_model = updatedFields.trade_in_device_model;
+      if (updatedFields.trade_in_device_imei !== undefined) dbFields.trade_in_device_imei = updatedFields.trade_in_device_imei;
+      if (updatedFields.trade_in_valuation !== undefined) dbFields.trade_in_valuation = updatedFields.trade_in_valuation;
+      if (updatedFields.trade_in_sale_price_estimate !== undefined) dbFields.trade_in_sale_price_estimate = updatedFields.trade_in_sale_price_estimate;
 
       const data = await api.patch(`/sales/${id}`, dbFields);
       

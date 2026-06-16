@@ -213,6 +213,58 @@ export default function Settings() {
   };
 
 
+  const DEFAULT_ENTRY_TEMPLATE = `🛠️ *MDR Informática & Celulares - Ordem de Serviço #{numero_os}* 🛠️
+
+Olá *{nome_cliente}*!
+
+Registramos com sucesso a entrada do seu equipamento em nossa assistência técnica.
+
+💻 *Aparelho:* {aparelho}
+📝 *Problema Relatado:* {problema_relatado}
+📋 *Acessórios:* {acessorios}
+
+Nosso técnico já está avaliando seu dispositivo. Enviaremos o orçamento completo por aqui em breve!`;
+
+  const DEFAULT_BUDGET_TEMPLATE = `📊 *MDR Informática & Celulares - Orçamento OS #{numero_os}* 📊
+
+Olá *{nome_cliente}*!
+
+O diagnóstico técnico do seu *{aparelho}* foi concluído.
+
+🔧 *Peças necessárias:* {valor_pecas}
+👨‍🔧 *Mão de obra:* {valor_mao_de_obra}
+💰 *Valor Total:* *{valor_total}*
+
+*Garantia:* {prazo_garantia} dias após a conclusão.
+
+Responda a esta mensagem aprovando o conserto para iniciarmos a execução imediata!`;
+
+  const DEFAULT_READY_TEMPLATE = `🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #{numero_os}* 🎉
+
+Olá *{nome_cliente}*!
+
+Temos ótimas notícias! O conserto do seu *{aparelho}* foi finalizado e todos os testes de qualidade foram aprovados.
+
+💵 *Valor Final:* *{valor_total}*
+
+O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!`;
+
+  const DEFAULT_RECEIPT_TERMS = `1. Orçamento: Validade de 10 dias. Início após aprovação.
+2. Backup de Dados: A loja NÃO se responsabiliza por perdas de dados ou arquivos. Faça backup prévio.
+3. Prazo de Descarte: Aparelhos deixados por mais de 90 dias após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
+4. Avarias: A assistência não se responsabiliza por danos decorrentes de defeitos ocultos ou desgaste prévio constatados durante o processo de desmontagem e reparo.`;
+
+  const DEFAULT_BILLING_REMINDER_TEMPLATE = `Olá *{nome_cliente}*!
+
+Lembramos que a sua parcela *{parcela_atual}/{total_parcelas}* no valor de *{valor_parcela}*, referente ao aparelho *{aparelho}*, vence no dia *{data_vencimento}*.
+
+Evite bloqueios ou multas efetuando o pagamento via PIX ou em nossa loja. 
+
+Se você já realizou o pagamento, por favor desconsidere esta mensagem.
+
+Agradecemos a preferência!
+*{nome_loja}*`;
+
   const [formData, setFormData] = useState({
     name: '',
     cnpj: '',
@@ -226,8 +278,50 @@ export default function Settings() {
     os_entry_template: '',
     os_budget_template: '',
     os_ready_template: '',
-    os_receipt_terms: ''
+    os_receipt_terms: '',
+    billing_reminder_template: '',
+    billing_cron_hour: 9,
+    billing_reminder_days_before: 3,
+    billing_reminder_days_after: 5
   });
+
+  const [focusedField, setFocusedField] = useState<'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template' | null>(null);
+  const [selectionStart, setSelectionStart] = useState<number>(0);
+  const [selectionEnd, setSelectionEnd] = useState<number>(0);
+
+  const updateSelection = (
+    field: 'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template',
+    e: React.SyntheticEvent<HTMLTextAreaElement>
+  ) => {
+    setFocusedField(field);
+    setSelectionStart(e.currentTarget.selectionStart || 0);
+    setSelectionEnd(e.currentTarget.selectionEnd || 0);
+  };
+
+  const insertVariable = (variable: string) => {
+    const targetField = focusedField || 'os_entry_template';
+    const currentValue = formData[targetField] || '';
+    const start = selectionStart;
+    const end = selectionEnd;
+    const newValue = currentValue.slice(0, start) + variable + currentValue.slice(end);
+    
+    setFormData(prev => ({
+      ...prev,
+      [targetField]: newValue
+    }));
+
+    const newCursorPos = start + variable.length;
+    setSelectionStart(newCursorPos);
+    setSelectionEnd(newCursorPos);
+
+    setTimeout(() => {
+      const textarea = document.getElementById(targetField) as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
 
   useEffect(() => {
     if (profile?.role === 'admin') {
@@ -262,10 +356,14 @@ export default function Settings() {
         pix_key: currentUnit.pix_key || '',
         pix_key_type: (currentUnit.pix_key_type as any) || 'cnpj',
         print_mode: (currentUnit.print_mode as any) || 'thermal',
-        os_entry_template: currentUnit.os_entry_template || '',
-        os_budget_template: currentUnit.os_budget_template || '',
-        os_ready_template: currentUnit.os_ready_template || '',
-        os_receipt_terms: currentUnit.os_receipt_terms || ''
+        os_entry_template: currentUnit.os_entry_template || DEFAULT_ENTRY_TEMPLATE,
+        os_budget_template: currentUnit.os_budget_template || DEFAULT_BUDGET_TEMPLATE,
+        os_ready_template: currentUnit.os_ready_template || DEFAULT_READY_TEMPLATE,
+        os_receipt_terms: currentUnit.os_receipt_terms || DEFAULT_RECEIPT_TERMS,
+        billing_reminder_template: currentUnit.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE,
+        billing_cron_hour: currentUnit.billing_cron_hour ?? 9,
+        billing_reminder_days_before: currentUnit.billing_reminder_days_before ?? 3,
+        billing_reminder_days_after: currentUnit.billing_reminder_days_after ?? 5
       });
     }
   }, [selectedUnitId, units, unit]);
@@ -557,9 +655,14 @@ export default function Settings() {
                     <div className="space-y-4">
                       <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Entrada de OS (WhatsApp)</label>
                       <textarea 
+                        id="os_entry_template"
                         rows={7}
                         value={formData.os_entry_template}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_entry_template: e.target.value }))}
+                        onFocus={(e) => updateSelection('os_entry_template', e)}
+                        onSelect={(e) => updateSelection('os_entry_template', e)}
+                        onKeyUp={(e) => updateSelection('os_entry_template', e)}
+                        onMouseUp={(e) => updateSelection('os_entry_template', e)}
                         placeholder="🛠️ *MDR Informática & Celulares - Ordem de Serviço #{numero_os}* 🛠️&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;Registramos com sucesso a entrada do seu equipamento em nossa assistência técnica.&#10;&#10;💻 *Aparelho:* {aparelho}&#10;📝 *Problema Relatado:* {problema_relatado}&#10;📋 *Acessórios:* {acessorios}&#10;&#10;Nosso técnico já está avaliando seu dispositivo. Enviaremos o orçamento completo por aqui em breve!"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
@@ -568,10 +671,15 @@ export default function Settings() {
                     <div className="space-y-4">
                       <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Orçamento de OS (WhatsApp)</label>
                       <textarea 
+                        id="os_budget_template"
                         rows={7}
                         value={formData.os_budget_template}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_budget_template: e.target.value }))}
-                        placeholder="📊 *MDR Informática & Celulares - Orçamento OS #{numero_os}* 📊&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;O diagnóstico técnico do seu *{aparelho}* foi concluído.&#10;&#10;🔧 *Peças necessárias:* {valor_pecas}&#10;👨‍🔧 *Mão de obra:* {valor_mao_de_obra}&#10;💰 *Valor Total:* *{valor_total}*&#10;&#10;*Garantia:* {prazo_garantia} dias após a conclusão.&#10;&#10;Responda a esta mensagem aprovando o conserto para iniciarmos a execução imediata!"
+                        onFocus={(e) => updateSelection('os_budget_template', e)}
+                        onSelect={(e) => updateSelection('os_budget_template', e)}
+                        onKeyUp={(e) => updateSelection('os_budget_template', e)}
+                        onMouseUp={(e) => updateSelection('os_budget_template', e)}
+                        placeholder="📊 *MDR Informática & Celulares - Orçamento OS #{numero_os}* 📊&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;O diagnóstico técnico do seu *${aparelho}* foi concluído.&#10;&#10;🔧 *Peças necessárias:* {valor_pecas}&#10;👨‍🔧 *Mão de obra:* {valor_mao_de_obra}&#10;💰 *Valor Total:* *{valor_total}*&#10;&#10;*Garantia:* {prazo_garantia} dias após a conclusão.&#10;&#10;Responda a esta mensagem aprovando o conserto para iniciarmos a execução imediata!"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
@@ -579,10 +687,15 @@ export default function Settings() {
                     <div className="space-y-4">
                       <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: OS Pronta para Retirada (WhatsApp)</label>
                       <textarea 
+                        id="os_ready_template"
                         rows={7}
                         value={formData.os_ready_template}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_ready_template: e.target.value }))}
-                        placeholder="🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #{numero_os}* 🎉&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;Temos ótimas notícias! O conserto do seu *{aparelho}* foi finalizado e todos os testes de qualidade foram aprovados.&#10;&#10;💵 *Valor Final:* *{valor_total}*&#10;&#10;O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!"
+                        onFocus={(e) => updateSelection('os_ready_template', e)}
+                        onSelect={(e) => updateSelection('os_ready_template', e)}
+                        onKeyUp={(e) => updateSelection('os_ready_template', e)}
+                        onMouseUp={(e) => updateSelection('os_ready_template', e)}
+                        placeholder="🎉 *SEU EQUIPAMENTO ESTÁ PRONTO! - OS #{numero_os}* 🎉&#10;&#10;Olá *{nome_cliente}*!&#10;&#10;Temos ótimas notícias! O conserto do seu *${aparelho}* foi finalizado e todos os testes de qualidade foram aprovados.&#10;&#10;💵 *Valor Final:* *{valor_total}*&#10;&#10;O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferência!"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
@@ -590,29 +703,154 @@ export default function Settings() {
                     <div className="space-y-4 pt-4 border-t border-white/5">
                       <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Termos de Recebimento da OS (Impresso - Canhoto)</label>
                       <textarea 
+                        id="os_receipt_terms"
                         rows={6}
                         value={formData.os_receipt_terms}
                         onChange={(e) => setFormData(prev => ({ ...prev, os_receipt_terms: e.target.value }))}
+                        onFocus={(e) => updateSelection('os_receipt_terms', e)}
+                        onSelect={(e) => updateSelection('os_receipt_terms', e)}
+                        onKeyUp={(e) => updateSelection('os_receipt_terms', e)}
+                        onMouseUp={(e) => updateSelection('os_receipt_terms', e)}
                         placeholder="1. Orçamento: Validade de 10 dias. Início após aprovação.&#10;2. Backup de Dados: A loja NÃO se responsabiliza por perdas de dados ou arquivos. Faça backup prévio.&#10;3. Prazo de Descarte: Aparelhos deixados por mais de 90 dias após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.&#10;4. Avarias: A assistência não se responsabiliza por danos decorrentes de defeitos ocultos ou desgaste prévio constatados durante o processo de desmontagem e reparo."
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Lembrete de Cobrança (WhatsApp)</label>
+                      <textarea 
+                        id="billing_reminder_template"
+                        rows={7}
+                        value={formData.billing_reminder_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_template: e.target.value }))}
+                        onFocus={(e) => updateSelection('billing_reminder_template', e)}
+                        onSelect={(e) => updateSelection('billing_reminder_template', e)}
+                        onKeyUp={(e) => updateSelection('billing_reminder_template', e)}
+                        onMouseUp={(e) => updateSelection('billing_reminder_template', e)}
+                        placeholder="Olá *{nome_cliente}*!&#10;&#10;Lembramos que a sua parcela *{parcela_atual}/{total_parcelas}* no valor de *{valor_parcela}*, referente ao aparelho *{aparelho}*, vence no dia *{data_vencimento}*.&#10;&#10;Evite bloqueios ou multas efetuando o pagamento via PIX ou em nossa loja.&#10;&#10;Se você já realizou o pagamento, por favor desconsidere esta mensagem.&#10;&#10;Agradecemos a preferência!&#10;*{nome_loja}*"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-6 pt-6 border-t border-white/5">
+                      <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-tight">Agendamento de Cobranças</h3>
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60 mt-0.5">Defina as regras de disparo automático para cobrança no crediário</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Horário do Disparo (Cron)</label>
+                          <select
+                            value={formData.billing_cron_hour}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billing_cron_hour: Number(e.target.value) }))}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all appearance-none"
+                          >
+                            {Array.from({ length: 24 }, (_, i) => (
+                              <option key={i} value={i} className="bg-surface-container-high">
+                                {String(i).padStart(2, '0')}:00
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Dias Antes (Aviso Amigável)</label>
+                          <input 
+                            type="number" 
+                            min={0}
+                            max={30}
+                            value={formData.billing_reminder_days_before}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_days_before: Number(e.target.value) }))}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Dias Depois (Cobrança Atraso)</label>
+                          <input 
+                            type="number" 
+                            min={0}
+                            max={30}
+                            value={formData.billing_reminder_days_after}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_days_after: Number(e.target.value) }))}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Right Column: Help variables */}
-                  <div className="lg:col-span-1 glass-card p-6 border border-white/5 rounded-3xl bg-white/[0.01] h-fit space-y-4">
-                    <h3 className="text-xs font-black text-white uppercase tracking-wider text-primary">Variáveis Disponíveis</h3>
-                    <p className="text-[10px] text-on-surface-variant leading-relaxed">Você pode copiar e colar essas tags no meio do seu texto para que o sistema as substitua de forma inteligente:</p>
-                    <div className="space-y-3 font-mono text-[11px]">
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Nome do Cliente</strong> {"{nome_cliente}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Nº da OS formatado</strong> {"{numero_os}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Aparelho (Marca/Modelo)</strong> {"{aparelho}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Defeito Relatado</strong> {"{problema_relatado}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Acessórios Deixados</strong> {"{acessorios}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Valor Peças</strong> {"{valor_pecas}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Mão de Obra</strong> {"{valor_mao_de_obra}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Valor Total</strong> {"{valor_total}"}</div>
-                      <div><strong className="text-white block font-sans text-[10px] uppercase tracking-wider mb-0.5">Garantia (Dias)</strong> {"{prazo_garantia}"}</div>
+                  <div className="lg:col-span-1 glass-card p-6 border border-white/5 rounded-3xl bg-white/[0.01] h-fit space-y-6">
+                    <div>
+                      <h3 className="text-xs font-black text-white uppercase tracking-wider text-primary">Variáveis Disponíveis</h3>
+                      <p className="text-[10px] text-on-surface-variant leading-relaxed mt-1">Clique nas tags abaixo para inseri-las na posição do cursor do campo ativo:</p>
+                    </div>
+
+                    {/* OS Section */}
+                    <div className="space-y-3">
+                      <div className="text-[9px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-1 rounded">Para Ordens de Serviço (OS)</div>
+                      {[
+                        { label: 'Nome do Cliente', tag: '{nome_cliente}' },
+                        { label: 'Nº da OS formatado', tag: '{numero_os}' },
+                        { label: 'Aparelho (Marca/Modelo)', tag: '{aparelho}' },
+                        { label: 'Defeito Relatado', tag: '{problema_relatado}' },
+                        { label: 'Acessórios Deixados', tag: '{acessorios}' },
+                        { label: 'Valor Peças', tag: '{valor_pecas}' },
+                        { label: 'Mão de Obra', tag: '{valor_mao_de_obra}' },
+                        { label: 'Valor Total', tag: '{valor_total}' },
+                        { label: 'Garantia (Dias)', tag: '{prazo_garantia}' },
+                      ].map((item) => (
+                        <button
+                          key={'os-' + item.tag}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertVariable(item.tag);
+                          }}
+                          className="w-full text-left p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 hover:scale-[1.01] active:scale-95 transition-all group flex flex-col gap-0.5 cursor-pointer"
+                        >
+                          <span className="text-[9px] text-on-surface-variant group-hover:text-white uppercase tracking-widest font-black transition-colors">
+                            {item.label}
+                          </span>
+                          <span className="font-mono text-[11px] text-primary font-bold">
+                            {item.tag}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Billing Section */}
+                    <div className="space-y-3 pt-4 border-t border-white/5">
+                      <div className="text-[9px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-1 rounded">Para Cobranças</div>
+                      {[
+                        { label: 'Nome do Cliente', tag: '{nome_cliente}' },
+                        { label: 'Parcela Atual', tag: '{parcela_atual}' },
+                        { label: 'Total Parcelas', tag: '{total_parcelas}' },
+                        { label: 'Valor Parcela', tag: '{valor_parcela}' },
+                        { label: 'Aparelho (Modelo)', tag: '{aparelho}' },
+                        { label: 'Data Vencimento', tag: '{data_vencimento}' },
+                        { label: 'Nome da Loja', tag: '{nome_loja}' },
+                        { label: 'Telefone da Loja', tag: '{telefone_loja}' },
+                      ].map((item) => (
+                        <button
+                          key={'billing-' + item.tag}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            insertVariable(item.tag);
+                          }}
+                          className="w-full text-left p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 hover:scale-[1.01] active:scale-95 transition-all group flex flex-col gap-0.5 cursor-pointer"
+                        >
+                          <span className="text-[9px] text-on-surface-variant group-hover:text-white uppercase tracking-widest font-black transition-colors">
+                            {item.label}
+                          </span>
+                          <span className="font-mono text-[11px] text-primary font-bold">
+                            {item.tag}
+                          </span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
