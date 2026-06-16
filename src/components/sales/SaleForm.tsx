@@ -1398,6 +1398,35 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           )}
 
+          {/* Tipo de Preço (Normal ou com Troca) */}
+          {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
+            <div className="space-y-2 mb-4 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
+              <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                  )}
+                >
+                  Preço Especial com Troca
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                  )}
+                >
+                  Preço Venda Direta
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
           <div className="flex gap-2 mt-2">
             <div className="relative flex-1 font-display">
@@ -1576,34 +1605,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </div>
         )}
 
-        {/* Tipo de Preço (Normal ou com Troca) */}
-        {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
-          <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
-            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
-                className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                Preço Especial com Troca
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
-                className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                Preço Venda Direta
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {/* Checkbox Receber Aparelho na Troca */}
         {isSellingCellphone && (
