@@ -53,11 +53,20 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [isSuccess, setIsSuccess] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
 
-  const [saleType, setSaleType] = useState<'cellphone' | 'general'>('cellphone');
+  const [saleType, setSaleType] = useState<'cellphone' | 'general'>('general');
   const [manualCategory, setManualCategory] = useState<string>('smartphone');
   const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number; imei: string; category?: string }[]>([]);
   const [deviceSearch, setDeviceSearch] = useState('');
   const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+
+  // States for automatic 10% discount and admin price unlock
+  const [applyAutoDiscount, setApplyAutoDiscount] = useState(false);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [adminAuthEmployeeId, setAdminAuthEmployeeId] = useState('');
+  const [adminAuthPassword, setAdminAuthPassword] = useState('');
+  const [adminAuthError, setAdminAuthError] = useState('');
+  const [adminAuthLoading, setAdminAuthLoading] = useState(false);
 
   // Quick Customer State
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
@@ -162,7 +171,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         cost_price: costPriceNum,
         imei: quickProduct.imei.trim(),
         category: quickProduct.category as any,
-        unit_id: profile?.unit_id || undefined,
+        unit_id: profile?.unit_id || unit?.id || undefined,
         barcode: quickProduct.barcode.trim() || undefined,
         supplier: quickProduct.supplier || undefined,
         purchase_date: new Date().toISOString().split('T')[0]
@@ -209,7 +218,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     try {
       const newSupplier = await addSupplier({
         name: quickSupplierName.trim(),
-        unit_id: profile?.unit_id || undefined
+        unit_id: profile?.unit_id || unit?.id || undefined
       });
       if (newSupplier) {
         setQuickProduct(prev => ({ ...prev, supplier: newSupplier.name }));
@@ -280,12 +289,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   React.useEffect(() => {
     if (selectedDevices.length > 0) {
       const total = selectedDevices.reduce((sum, d) => sum + d.price * d.quantity, 0);
+      const discountedTotal = applyAutoDiscount ? Number((total * 0.9).toFixed(2)) : total;
       const models = selectedDevices.map(d => `${d.model} (x${d.quantity})`).join(' + ');
       const imeis = selectedDevices.map(d => d.imei || 'N/A').filter(val => val !== 'N/A').join(', ');
       
       setFormData(prev => ({
         ...prev,
-        total_value: total,
+        total_value: discountedTotal,
         device_model: models,
         imei: imeis
       }));
@@ -297,18 +307,24 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         imei: ''
       }));
     }
-  }, [selectedDevices]);
+  }, [selectedDevices, applyAutoDiscount]);
 
-  // Prevent crediario on general/IT sales
+  // Prevent crediario/card/debit on general/IT sales
   React.useEffect(() => {
-    if (saleType === 'general' && formData.payment_type === 'crediario') {
+    if (saleType === 'general') {
       setFormData(prev => ({
         ...prev,
-        payment_type: 'card',
+        payment_type: 'vista',
+        installments: 0
+      }));
+    } else if (saleType === 'cellphone' && formData.payment_type === 'vista') {
+      setFormData(prev => ({
+        ...prev,
+        payment_type: 'crediario',
         installments: 12
       }));
     }
-  }, [saleType, formData.payment_type]);
+  }, [saleType]);
 
   // ─── Accessories from inventory ─────────────────────────────────────
   type SelectedAccessory = {
@@ -692,7 +708,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         onSuccess();
       } else {
         const newSale: any = await addSale({
-          unit_id: profile?.unit_id || undefined,
+          unit_id: profile?.unit_id || unit?.id || undefined,
           customer_id: formData.customer_id,
           customer_name: selectedCustomer?.name,
           device_id: primaryDeviceId,
@@ -737,7 +753,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         // Create installments
         if (newSale?.id && formData.installments > 0) {
           const installmentsToCreate = generatedInstallments.map(inst => ({
-            unit_id: profile?.unit_id || undefined,
+            unit_id: profile?.unit_id || unit?.id || undefined,
             sale_id: newSale.id,
             customer_id: formData.customer_id,
             number: inst.number,
@@ -754,6 +770,45 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       }
     } catch (error) {
       showNotification('error', initialData ? 'Erro ao atualizar venda' : 'Erro ao registrar venda');
+    }
+  };
+
+  const handleAdminAuth = async () => {
+    if (!adminAuthEmployeeId || !adminAuthPassword) {
+      setAdminAuthError('Selecione um administrador e digite a senha.');
+      return;
+    }
+
+    setAdminAuthLoading(true);
+    setAdminAuthError('');
+
+    try {
+      const response = await fetch('/api/users/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: adminAuthEmployeeId, password: adminAuthPassword })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Falha ao autenticar administrador.');
+      }
+
+      // Check if this employee is indeed an admin
+      const authEmp = employees.find(e => e.id === adminAuthEmployeeId);
+      if (authEmp?.role !== 'admin') {
+        throw new Error('Apenas administradores podem autorizar desconto/alteração.');
+      }
+
+      // Sucesso!
+      setIsAdminUnlocked(true);
+      setIsAdminAuthModalOpen(false);
+      setAdminAuthPassword('');
+      showNotification('success', 'Acesso Liberado', 'Edição de valores desbloqueada.');
+    } catch (err: any) {
+      setAdminAuthError(err.message || 'Senha incorreta.');
+    } finally {
+      setAdminAuthLoading(false);
     }
   };
 
@@ -1114,21 +1169,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             <button
               type="button"
               onClick={() => {
-                setSaleType('cellphone');
-                setSelectedDevices([]);
-              }}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-              )}
-            >
-              Crediário Loja
-            </button>
-            <button
-              type="button"
-              onClick={() => {
                 setSaleType('general');
                 setSelectedDevices([]);
+                setApplyAutoDiscount(false);
               }}
               className={cn(
                 "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
@@ -1136,6 +1179,20 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               )}
             >
               Vendas Em Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('cellphone');
+                setSelectedDevices([]);
+                setApplyAutoDiscount(false);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Crediário Loja
             </button>
           </div>
         </div>
@@ -1308,17 +1365,40 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         {/* Valor Total */}
         <div className="space-y-2 col-span-1 md:col-span-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Venda (R$)</label>
-          <input 
-            type="number" 
-            required
-            placeholder="0.00"
-            value={formData.total_value === 0 ? '' : formData.total_value}
-            onChange={(e) => {
-              const val = e.target.value;
-              setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
-            }}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-          />
+          <div className="relative">
+            <input 
+              type="number" 
+              required
+              placeholder="0.00"
+              value={formData.total_value === 0 ? '' : formData.total_value}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
+              }}
+              readOnly={!isAdminUnlocked}
+              className={cn(
+                "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all pr-36",
+                !isAdminUnlocked && "opacity-80 cursor-not-allowed"
+              )}
+            />
+            {!isAdminUnlocked && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminAuthError('');
+                  setAdminAuthPassword('');
+                  setAdminAuthEmployeeId('');
+                  setIsAdminAuthModalOpen(true);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+              >
+                Desbloquear Admin
+              </button>
+            )}
+          </div>
+          {isAdminUnlocked && (
+            <span className="text-[10px] text-green-400 font-bold mt-1 block">🔓 Edição liberada pelo Administrador</span>
+          )}
           {selectedDevices.length > 0 && (
             <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
               <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
@@ -1338,6 +1418,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             </div>
           )}
         </div>
+
+        {saleType === 'general' && (
+          <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
+            <div>
+              <p className="text-[10px] font-black text-white uppercase tracking-widest">Desconto de 10% Automático</p>
+              <p className="text-[11px] text-on-surface-variant/70">Aplica 10% de desconto no valor total da venda.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setApplyAutoDiscount(prev => !prev)}
+              className={cn(
+                "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                applyAutoDiscount 
+                  ? "bg-green-500/20 border-green-500/30 text-green-400" 
+                  : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+              )}
+            >
+              {applyAutoDiscount ? "Ativo" : "Desativar"}
+            </button>
+          </div>
+        )}
 
         {formData.payment_type !== 'vista' && (
           <div className="space-y-2">
@@ -1414,18 +1515,26 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             }}
             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
           >
-            {saleType !== 'general' && (
-              <option 
-                value="crediario" 
-                disabled={selectedCustomer?.classification === 'A_VISTA'}
-                className="bg-surface-container-high"
-              >
-                Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : ''}
-              </option>
+            {saleType === 'general' ? (
+              <>
+                <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
+                <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+                <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
+              </>
+            ) : (
+              <>
+                <option 
+                  value="crediario" 
+                  disabled={selectedCustomer?.classification === 'A_VISTA'}
+                  className="bg-surface-container-high"
+                >
+                  Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : ''}
+                </option>
+                <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+                <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
+                <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
+              </>
             )}
-            <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
-            <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
-            <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
           </select>
           {selectedCustomer?.classification === 'A_VISTA' && (
             <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl mt-1 animate-pulse">
@@ -1479,116 +1588,120 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </>
         )}
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cor do Aparelho</label>
-          <input 
-            type="text" 
-            placeholder={saleType === 'cellphone' ? "Ex: Titânio Natural" : "Ex: Preto, Cinza, N/A"}
-            value={formData.device_color}
-            onChange={(e) => setFormData(prev => ({ ...prev, device_color: e.target.value }))}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-          />
-        </div>
-
-        <div className="md:col-span-2 space-y-3">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>
-
-          {/* Selected accessories list */}
-          {selectedAccessories.length > 0 && (
+        {saleType !== 'general' && (
+          <>
             <div className="space-y-2">
-              {selectedAccessories.map(acc => (
-                <div key={acc.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-white truncate">{acc.model}</p>
-                    <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
-                  {/* Brinde / Venda toggle */}
-                  <button
-                    type="button"
-                    onClick={() => toggleAccessoryType(acc.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                      acc.type === 'brinde'
-                        ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
-                        : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
-                    }`}
-                  >
-                    {acc.type === 'brinde' ? <Gift size={11} /> : <ShoppingBag size={11} />}
-                    {acc.type === 'brinde' ? 'Brinde' : 'Venda'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeAccessory(acc.id)}
-                    className="p-1.5 text-on-surface-variant hover:text-error transition-colors"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cor do Aparelho</label>
+              <input 
+                type="text" 
+                placeholder={saleType === 'cellphone' ? "Ex: Titânio Natural" : "Ex: Preto, Cinza, N/A"}
+                value={formData.device_color}
+                onChange={(e) => setFormData(prev => ({ ...prev, device_color: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
             </div>
-          )}
 
-          {/* Add accessory dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setAccessoryDropdownOpen(prev => !prev)}
-              className="w-full flex items-center gap-3 px-5 py-3.5 bg-white/5 border border-dashed border-white/20 rounded-2xl text-[10px] font-black text-on-surface-variant hover:text-white hover:border-white/40 transition-all"
-            >
-              <Plus size={14} />
-              Buscar acessório do estoque
-              {availableAccessories.length > 0 && (
-                <span className="ml-auto text-[8px] bg-white/10 px-2 py-0.5 rounded-full">{availableAccessories.length} disponíveis</span>
-              )}
-            </button>
+            <div className="md:col-span-2 space-y-3">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>
 
-            {accessoryDropdownOpen && (
-              <div className="absolute z-20 top-full mt-2 w-full bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                <div className="p-3 border-b border-white/5">
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome ou marca..."
-                    value={accessorySearch}
-                    onChange={e => setAccessorySearch(e.target.value)}
-                    autoFocus
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary"
-                  />
-                </div>
-                <div className="max-h-48 overflow-y-auto">
-                  {filteredAccessories.length === 0 ? (
-                    <p className="text-[10px] text-on-surface-variant text-center p-4">Nenhum item encontrado no estoque</p>
-                  ) : (
-                    filteredAccessories.map(item => (
+              {/* Selected accessories list */}
+              {selectedAccessories.length > 0 && (
+                <div className="space-y-2">
+                  {selectedAccessories.map(acc => (
+                    <div key={acc.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-white truncate">{acc.model}</p>
+                        <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      {/* Brinde / Venda toggle */}
                       <button
-                        key={item.id}
                         type="button"
-                        onClick={() => addAccessory(item)}
-                        disabled={!!selectedAccessories.find(a => a.id === item.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 text-left transition-all disabled:opacity-40"
+                        onClick={() => toggleAccessoryType(acc.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                          acc.type === 'brinde'
+                            ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
+                            : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
+                        }`}
                       >
-                        <div>
-                          <p className="text-xs font-black text-white">{item.model}</p>
-                          <p className="text-[9px] text-on-surface-variant">{item.brand} · Estoque: {item.stock_quantity}</p>
-                        </div>
-                        <span className="text-xs font-black text-primary font-mono">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        {acc.type === 'brinde' ? <Gift size={11} /> : <ShoppingBag size={11} />}
+                        {acc.type === 'brinde' ? 'Brinde' : 'Venda'}
                       </button>
-                    ))
+                      <button
+                        type="button"
+                        onClick={() => removeAccessory(acc.id)}
+                        className="p-1.5 text-on-surface-variant hover:text-error transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add accessory dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAccessoryDropdownOpen(prev => !prev)}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 bg-white/5 border border-dashed border-white/20 rounded-2xl text-[10px] font-black text-on-surface-variant hover:text-white hover:border-white/40 transition-all"
+                >
+                  <Plus size={14} />
+                  Buscar acessório do estoque
+                  {availableAccessories.length > 0 && (
+                    <span className="ml-auto text-[8px] bg-white/10 px-2 py-0.5 rounded-full">{availableAccessories.length} disponíveis</span>
+                  )}
+                </button>
+
+                {accessoryDropdownOpen && (
+                  <div className="absolute z-20 top-full mt-2 w-full bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="p-3 border-b border-white/5">
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome ou marca..."
+                        value={accessorySearch}
+                        onChange={e => setAccessorySearch(e.target.value)}
+                        autoFocus
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredAccessories.length === 0 ? (
+                        <p className="text-[10px] text-on-surface-variant text-center p-4">Nenhum item encontrado no estoque</p>
+                      ) : (
+                        filteredAccessories.map(item => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => addAccessory(item)}
+                            disabled={!!selectedAccessories.find(a => a.id === item.id)}
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 text-left transition-all disabled:opacity-40"
+                          >
+                            <div>
+                              <p className="text-xs font-black text-white">{item.model}</p>
+                              <p className="text-[9px] text-on-surface-variant">{item.brand} · Estoque: {item.stock_quantity}</p>
+                            </div>
+                            <span className="text-xs font-black text-primary font-mono">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedAccessories.length > 0 && (
+                <div className="flex items-center justify-between text-[10px] px-1">
+                  <span className="text-on-surface-variant">
+                    {selectedAccessories.filter(a => a.type === 'brinde').length} brinde(s) · {selectedAccessories.filter(a => a.type === 'venda').length} venda(s)
+                  </span>
+                  {accessoriesTotal > 0 && (
+                    <span className="text-green-400 font-black">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adicionado ao total</span>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {selectedAccessories.length > 0 && (
-            <div className="flex items-center justify-between text-[10px] px-1">
-              <span className="text-on-surface-variant">
-                {selectedAccessories.filter(a => a.type === 'brinde').length} brinde(s) · {selectedAccessories.filter(a => a.type === 'venda').length} venda(s)
-              </span>
-              {accessoriesTotal > 0 && (
-                <span className="text-green-400 font-black">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adicionado ao total</span>
               )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Preview Section */}
@@ -2160,6 +2273,89 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 className="flex-1 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {authLoading ? <Loader2 size={16} className="animate-spin" /> : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Autorização do Administrador para Desconto / Alteração de Valor */}
+      {isAdminAuthModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-white/10 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
+            <div className="flex items-center gap-3 text-primary">
+              <UserCheck size={28} />
+              <h3 className="text-md font-black uppercase tracking-wider">Autorização do Administrador</h3>
+            </div>
+            
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Esta ação requer autorização de um administrador. Selecione um usuário admin e digite a senha.
+            </p>
+
+            {adminAuthError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold">{adminAuthError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Administrador</label>
+                <select
+                  value={adminAuthEmployeeId}
+                  onChange={(e) => {
+                    setAdminAuthEmployeeId(e.target.value);
+                    setAdminAuthError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                >
+                  <option value="" className="bg-[#121214]">Selecione um administrador...</option>
+                  {employees
+                    .filter(emp => emp.role === 'admin' && !emp.full_name.toLowerCase().includes('terminal'))
+                    .map(emp => (
+                      <option key={emp.id} value={emp.id} className="bg-[#121214]">
+                        {emp.full_name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={adminAuthPassword}
+                  onChange={(e) => {
+                    setAdminAuthPassword(e.target.value);
+                    setAdminAuthError('');
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAdminAuthModalOpen(false);
+                  setAdminAuthPassword('');
+                  setAdminAuthError('');
+                }}
+                disabled={adminAuthLoading}
+                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface hover:text-white transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminAuth}
+                disabled={adminAuthLoading || !adminAuthEmployeeId || !adminAuthPassword}
+                className="flex-1 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {adminAuthLoading ? <Loader2 size={16} className="animate-spin" /> : 'Autorizar'}
               </button>
             </div>
           </div>
