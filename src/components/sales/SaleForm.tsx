@@ -48,7 +48,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const { suppliers, addSupplier, fetchSuppliers } = useSupplierStore();
   const { showNotification, hideModal } = useUI();
   const { profile, user } = useAuthStore();
-  const { unit } = useUnitStore();
+  const { unit, units, fetchAllUnits } = useUnitStore();
+
+  useEffect(() => {
+    fetchAllUnits();
+  }, [fetchAllUnits]);
+
+  // Resolve unit ID based on terminal email or profile unit_id without generic fallback for terminals
+  const resolvedUnitId = useMemo(() => {
+    if (user?.email) {
+      const email = user.email.toLowerCase().trim();
+      if (email === 'lojaarroio@mdrinformaticaecelulares.com.br') {
+        const match = units.find(u => u.name.toUpperCase().includes('ARROIO'));
+        if (match) return match.id;
+      }
+      if (email === 'lojagaivota@mdrinformaticaecelulares.com.br') {
+        const match = units.find(u => u.name.toUpperCase().includes('GAIVOTA'));
+        if (match) return match.id;
+      }
+    }
+    return profile?.unit_id || undefined;
+  }, [user, units, profile]);
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
@@ -171,7 +191,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         cost_price: costPriceNum,
         imei: quickProduct.imei.trim(),
         category: quickProduct.category as any,
-        unit_id: profile?.unit_id || unit?.id || undefined,
+        unit_id: resolvedUnitId,
         barcode: quickProduct.barcode.trim() || undefined,
         supplier: quickProduct.supplier || undefined,
         purchase_date: new Date().toISOString().split('T')[0]
@@ -218,7 +238,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     try {
       const newSupplier = await addSupplier({
         name: quickSupplierName.trim(),
-        unit_id: profile?.unit_id || unit?.id || undefined
+        unit_id: resolvedUnitId
       });
       if (newSupplier) {
         setQuickProduct(prev => ({ ...prev, supplier: newSupplier.name }));
@@ -708,7 +728,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         onSuccess();
       } else {
         const newSale: any = await addSale({
-          unit_id: profile?.unit_id || unit?.id || undefined,
+          unit_id: resolvedUnitId,
           customer_id: formData.customer_id,
           customer_name: selectedCustomer?.name,
           device_id: primaryDeviceId,
@@ -753,7 +773,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         // Create installments
         if (newSale?.id && formData.installments > 0) {
           const installmentsToCreate = generatedInstallments.map(inst => ({
-            unit_id: profile?.unit_id || unit?.id || undefined,
+            unit_id: resolvedUnitId,
             sale_id: newSale.id,
             customer_id: formData.customer_id,
             number: inst.number,
@@ -1307,7 +1327,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             <button
               type="button"
               onClick={() => {
-                fetchSuppliers(profile?.unit_id || undefined, true);
+                fetchSuppliers(resolvedUnitId, true);
                 setQuickProduct(prev => ({
                   ...prev,
                   category: saleType === 'cellphone' ? 'smartphone' : 'other',
