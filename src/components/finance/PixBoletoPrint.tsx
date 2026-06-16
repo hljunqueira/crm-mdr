@@ -221,7 +221,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
         .pix-corpo-details {
           display: grid;
-          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
           gap: 6px;
           margin-top: 4px;
         }
@@ -415,18 +415,10 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                           <span className="pix-corpo-label">CNPJ / CPF</span>
                           <div className="pix-corpo-value">{resolvedUnit.cnpj || '—'}</div>
                         </div>
-                        <div className="pix-corpo-field">
-                          <span className="pix-corpo-label">WhatsApp</span>
-                          <div className="pix-corpo-value">{resolvedUnit.phone ? formatPhone(resolvedUnit.phone) : '—'}</div>
-                        </div>
 
                         <div className="pix-corpo-field" style={{ gridColumn: 'span 2' }}>
                           <span className="pix-corpo-label">Pagador</span>
                           <div className="pix-corpo-value">{customer.name} - CPF: {formatCPF(customer.cpf)}</div>
-                        </div>
-                        <div className="pix-corpo-field">
-                          <span className="pix-corpo-label">WhatsApp</span>
-                          <div className="pix-corpo-value">{formatPhone(customer.phone)}</div>
                         </div>
                       </div>
 
