@@ -87,6 +87,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdSale, setCreatedSale] = useState<any | null>(null);
   const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [isInitialLoad, setIsInitialLoad] = useState(!!initialData);
 
   const [saleType, setSaleType] = useState<'cellphone' | 'general'>('general');
   const [manualCategory, setManualCategory] = useState<string>('smartphone');
@@ -332,8 +333,71 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     fetchEmps();
   }, []);
 
+  // Edit Mode Initializer: Load past sale items and settings when editing
+  useEffect(() => {
+    if (initialData && inventory.length > 0) {
+      const isCellphone = initialData.payment_type === 'crediario' || 
+                          (initialData.device_model && 
+                           ['iphone', 'samsung', 'xiaomi', 'motorola', 'redmi', 'poco', 'celular', 'smartphone'].some(brand => 
+                             initialData.device_model.toLowerCase().includes(brand)
+                           ));
+      setSaleType(isCellphone ? 'cellphone' : 'general');
+      
+      if (initialData.is_trade_in) {
+        setFormData(prev => ({
+          ...prev,
+          is_trade_in: true,
+          trade_in_device_brand: initialData.trade_in_device_brand || '',
+          trade_in_device_model: initialData.trade_in_device_model || '',
+          trade_in_device_imei: initialData.trade_in_device_imei || '',
+          trade_in_valuation: initialData.trade_in_valuation || 0,
+          trade_in_sale_price_estimate: initialData.trade_in_sale_price_estimate || 0
+        }));
+      }
+
+      if (initialData.device_id) {
+        const item = inventory.find(i => i.id === initialData.device_id);
+        if (item) {
+          setSelectedDevices([{
+            id: item.id,
+            model: item.model,
+            brand: item.brand,
+            price: initialData.original_price || item.price,
+            quantity: 1,
+            imei: initialData.imei || item.imei || '',
+            category: item.category
+          }]);
+        } else {
+          setSelectedDevices([{
+            id: initialData.device_id,
+            model: initialData.device_model || 'Aparelho Vendido',
+            brand: '',
+            price: initialData.original_price || initialData.total_value,
+            quantity: 1,
+            imei: initialData.imei || '',
+            category: isCellphone ? 'smartphone' : 'other'
+          }]);
+        }
+      } else if (initialData.device_model) {
+        setSelectedDevices([{
+          id: 'temp-edit-device',
+          model: initialData.device_model,
+          brand: '',
+          price: initialData.original_price || initialData.total_value,
+          quantity: 1,
+          imei: initialData.imei || '',
+          category: isCellphone ? 'smartphone' : 'other'
+        }]);
+      }
+    }
+  }, [initialData, inventory]);
+
   // Automatically calculate total value, concatenated model names and IMEIs when selectedDevices changes
   React.useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+      return;
+    }
     if (selectedDevices.length > 0) {
       const total = selectedDevices.reduce((sum, d) => {
         const stockItem = inventory.find(i => i.id === d.id);
@@ -360,7 +424,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         imei: ''
       }));
     }
-  }, [selectedDevices, applyAutoDiscount, formData.price_type, inventory]);
+  }, [selectedDevices, applyAutoDiscount, formData.price_type, inventory, isInitialLoad]);
 
   // Prevent crediario/card/debit on general/IT sales
   React.useEffect(() => {
@@ -815,8 +879,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           payment_type: formData.payment_type as any,
           seller_id: sellerId,
           is_trade_in: formData.is_trade_in,
-          trade_in_device_brand: formData.trade_in_device_brand,
-          trade_in_device_model: formData.trade_in_device_model,
+          trade_in_device_brand: formData.is_trade_in ? (formData.trade_in_device_brand.trim() || 'TROCA') : '',
+          trade_in_device_model: formData.is_trade_in ? (formData.trade_in_device_model.trim() || 'Aparelho Recebido na Troca') : '',
           trade_in_device_imei: formData.trade_in_device_imei,
           trade_in_valuation: formData.trade_in_valuation,
           trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
@@ -844,8 +908,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           payment_type: formData.payment_type as any,
           seller_id: sellerId,
           is_trade_in: formData.is_trade_in,
-          trade_in_device_brand: formData.trade_in_device_brand,
-          trade_in_device_model: formData.trade_in_device_model,
+          trade_in_device_brand: formData.is_trade_in ? (formData.trade_in_device_brand.trim() || 'TROCA') : '',
+          trade_in_device_model: formData.is_trade_in ? (formData.trade_in_device_model.trim() || 'Aparelho Recebido na Troca') : '',
           trade_in_device_imei: formData.trade_in_device_imei,
           trade_in_valuation: formData.trade_in_valuation,
           trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
@@ -1656,10 +1720,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição *</label>
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição (Opcional)</label>
                   <input 
                     type="text" 
-                    required
                     placeholder="Ex: Apple iPhone 11 64GB Preto Usado"
                     value={formData.trade_in_device_brand}
                     onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
@@ -1668,10 +1731,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto *</label>
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto (Opcional)</label>
                   <input 
                     type="text" 
-                    required
                     placeholder="Ex: iPhone 11 64GB"
                     value={formData.trade_in_device_model}
                     onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_model: e.target.value }))}
