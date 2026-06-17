@@ -9,7 +9,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useSaleStore, Sale } from '../store/useSaleStore';
 import { useCustomerStore } from '../store/useCustomerStore';
-import { useFinanceStore } from '../store/useFinanceStore';
+import { useFinanceStore, Installment } from '../store/useFinanceStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
@@ -43,6 +43,164 @@ function SyncButton({ instId }: { instId: string }) {
     >
       {loading ? "Gerando..." : "Gerar"}
     </button>
+  );
+}
+
+const InstallmentRow: React.FC<{ inst: any }> = ({ inst }) => {
+  const [loading, setLoading] = useState(false);
+  const [details, setDetails] = useState<{
+    barcode: string | null;
+    pixPayload: string | null;
+    pixImage: string | null;
+    invoiceUrl: string | null;
+  } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'pix' | 'boleto'>('pix');
+  const [copiedType, setCopiedType] = useState<'pix' | 'barcode' | null>(null);
+  const { fetchAsaasDetails } = useFinanceStore();
+
+  const handleToggle = async () => {
+    if (!expanded && !details && inst.asaas_invoice_url) {
+      setLoading(true);
+      try {
+        const res = await fetchAsaasDetails(inst.id);
+        setDetails(res);
+      } catch (err) {
+        console.error("Error fetching details:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setExpanded(!expanded);
+  };
+
+  const handleCopy = (text: string, type: 'pix' | 'barcode') => {
+    navigator.clipboard.writeText(text);
+    setCopiedType(type);
+    setTimeout(() => setCopiedType(null), 2000);
+  };
+
+  return (
+    <div className="border-b border-gray-100 last:border-0 py-3">
+      <div className="flex justify-between items-center">
+        <div className="text-left">
+          <p className="text-xs font-black text-gray-800">Parcela {inst.number} de {inst.total}</p>
+          <p className="text-[10px] text-gray-500 font-mono">Vencimento: {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {inst.asaas_invoice_url ? (
+            <button
+              type="button"
+              onClick={handleToggle}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+            >
+              {expanded ? "Recolher" : "Visualizar ↗"}
+            </button>
+          ) : (
+            <SyncButton instId={inst.id} />
+          )}
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 bg-gray-50 border border-gray-100 rounded-xl p-3 space-y-3">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-4">
+              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Carregando...</span>
+            </div>
+          ) : details ? (
+            <div className="space-y-3 text-left">
+              {/* Mini Tabs */}
+              <div className="flex bg-gray-200/60 p-0.5 rounded-lg border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('pix')}
+                  className={`flex-1 py-1 rounded-md font-bold uppercase tracking-wider text-[8px] transition-all ${activeTab === 'pix' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  PIX
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('boleto')}
+                  className={`flex-1 py-1 rounded-md font-bold uppercase tracking-wider text-[8px] transition-all ${activeTab === 'boleto' ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  Boleto
+                </button>
+              </div>
+
+              {activeTab === 'pix' ? (
+                <div className="text-center space-y-3">
+                  {details.pixImage ? (
+                    <div className="bg-white p-2 rounded-xl inline-block border border-gray-100">
+                      <img
+                        src={`data:image/png;base64,${details.pixImage}`}
+                        className="w-32 h-32 mx-auto"
+                        alt="Pix QR Code"
+                      />
+                    </div>
+                  ) : (
+                    <div className="py-4 text-[9px] text-gray-400">QR Code indisponível neste ambiente</div>
+                  )}
+                  {details.pixPayload && (
+                    <div className="space-y-1">
+                      <p className="text-[8px] text-gray-500 uppercase tracking-wider font-bold text-left">Pix Copia e Cola</p>
+                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-2">
+                        <span className="text-[9px] text-gray-700 font-mono break-all line-clamp-1 text-left flex-1 select-all">
+                          {details.pixPayload}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(details.pixPayload || '', 'pix')}
+                          className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded text-gray-600 transition-all shrink-0"
+                        >
+                          {copiedType === 'pix' ? <span className="text-green-600 font-bold text-[8px]">Copiado!</span> : <span className="text-[8px] uppercase font-bold">Copiar</span>}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {details.barcode ? (
+                    <div className="space-y-1">
+                      <p className="text-[8px] text-gray-500 uppercase tracking-wider font-bold text-left">Código de Barras</p>
+                      <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg p-2">
+                        <span className="text-[9px] text-gray-700 font-mono break-all line-clamp-1 text-left flex-1 select-all">
+                          {details.barcode}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(details.barcode || '', 'barcode')}
+                          className="p-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded text-gray-600 transition-all shrink-0"
+                        >
+                          {copiedType === 'barcode' ? <span className="text-green-600 font-bold text-[8px]">Copiado!</span> : <span className="text-[8px] uppercase font-bold">Copiar</span>}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center text-[9px] text-gray-400">Código de barras indisponível</div>
+                  )}
+                </div>
+              )}
+
+              <div className="text-center">
+                <a
+                  href={inst.asaas_invoice_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-[8px] font-black uppercase tracking-wider text-blue-600 hover:underline"
+                >
+                  Abrir fatura completa no navegador ↗
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center text-[9px] text-gray-400">Não foi possível carregar os detalhes do pagamento.</div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -342,24 +500,7 @@ function SaleDocumentViewer({
                 {installments
                   .sort((a, b) => a.number - b.number)
                   .map((inst) => (
-                    <div key={inst.id} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
-                      <div>
-                        <p className="text-xs font-black text-gray-800">Parcela {inst.number} de {inst.total}</p>
-                        <p className="text-[10px] text-gray-500 font-mono">Vencimento: {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                      </div>
-                      {inst.asaas_invoice_url ? (
-                        <a
-                          href={inst.asaas_invoice_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
-                        >
-                          Visualizar ↗
-                        </a>
-                      ) : (
-                        <SyncButton instId={inst.id} />
-                      )}
-                    </div>
+                    <InstallmentRow key={inst.id} inst={inst} />
                   ))}
               </div>
               <p className="text-[9px] text-gray-400 text-center uppercase tracking-wider font-bold">
