@@ -171,7 +171,7 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
           <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
         </div>
 
-        {sale.down_payment > 0 && (
+        {sale.down_payment > 0 && sale.payment_type !== 'vista' && sale.payment_type !== 'debit' && (
           <>
             <div className="row">
               <span>Entrada:</span>

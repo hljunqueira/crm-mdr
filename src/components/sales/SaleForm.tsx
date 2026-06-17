@@ -132,30 +132,32 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   const handleQuickCustomerSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickCustomer.name.trim() || !quickCustomer.cpf.trim() || !quickCustomer.phone.trim() || !quickCustomer.address.trim()) {
-      showNotification('error', 'Campos Obrigatórios', 'Por favor, preencha todos os campos do cliente.');
+    if (!quickCustomer.name.trim()) {
+      showNotification('error', 'Nome Obrigatório', 'Por favor, preencha o nome do cliente.');
       return;
     }
     
-    // Validate CPF/CNPJ
+    // Validate CPF/CNPJ if filled
     const cleanCpf = quickCustomer.cpf.replace(/\D/g, '');
-    if (cleanCpf.length <= 11) {
-      if (!validateCPF(cleanCpf)) {
-        showNotification('error', 'CPF Inválido', 'O CPF informado é inválido.');
-        return;
-      }
-    } else {
-      if (!validateCNPJ(cleanCpf)) {
-        showNotification('error', 'CNPJ Inválido', 'O CNPJ informado é inválido.');
-        return;
+    if (cleanCpf) {
+      if (cleanCpf.length <= 11) {
+        if (!validateCPF(cleanCpf)) {
+          showNotification('error', 'CPF Inválido', 'O CPF informado é inválido.');
+          return;
+        }
+      } else {
+        if (!validateCNPJ(cleanCpf)) {
+          showNotification('error', 'CNPJ Inválido', 'O CNPJ informado é inválido.');
+          return;
+        }
       }
     }
 
     try {
       const newCustomer = await addCustomer({
         name: quickCustomer.name.trim(),
-        cpf: formatCPF(cleanCpf),
-        phone: formatPhone(quickCustomer.phone),
+        cpf: cleanCpf ? formatCPF(cleanCpf) : '',
+        phone: quickCustomer.phone ? formatPhone(quickCustomer.phone) : '',
         address: quickCustomer.address.trim(),
         registration_status: 'APROVADO',
         credit_status: 'APROVADO',
@@ -1039,6 +1041,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       date: formData.first_due_date,
       total_value: finalValue,
       original_price: formData.total_value,
+      down_payment: isCashLike ? finalValue : formData.down_payment,
       service_fee: feeValue,
       accessories: finalAccessoriesStr,
       amount_paid: amountPaid,
@@ -1700,19 +1703,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   />
                 </div>
 
-                {profile?.role === 'admin' && (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Revenda Estimado *</label>
-                    <input 
-                      type="number" 
-                      required
-                      placeholder="R$ 0.00"
-                      value={formData.trade_in_sale_price_estimate === 0 ? '' : formData.trade_in_sale_price_estimate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, trade_in_sale_price_estimate: Number(e.target.value) || 0 }))}
-                      className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                    />
-                  </div>
-                )}
+
               </div>
             )}
           </>
@@ -1737,16 +1728,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
           <select 
-            value={formData.payment_type}
             onChange={(e) => {
               const val = e.target.value;
               setFormData(prev => {
-                const isVista = val === 'vista';
+                const isCashLike = val === 'vista' || val === 'debit';
                 return {
                   ...prev,
                   payment_type: val as any,
-                  installments: isVista ? 0 : 12,
-                  down_payment: isVista ? 0 : prev.down_payment
+                  installments: isCashLike ? 0 : 12,
+                  down_payment: isCashLike ? 0 : prev.down_payment
                 };
               });
             }}
@@ -2177,10 +2167,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF ou CNPJ</label>
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">CPF ou CNPJ (Opcional)</label>
                   <input
                     type="text"
-                    required
                     placeholder="000.000.000-00"
                     value={quickCustomer.cpf}
                     onChange={e => setQuickCustomer(prev => ({ ...prev, cpf: formatCPF(e.target.value) }))}
@@ -2188,10 +2177,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">WhatsApp / Celular</label>
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">WhatsApp / Celular (Opcional)</label>
                   <input
                     type="text"
-                    required
                     placeholder="(00) 00000-0000"
                     value={quickCustomer.phone}
                     onChange={e => setQuickCustomer(prev => ({ ...prev, phone: formatPhone(e.target.value) }))}
@@ -2201,10 +2189,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Endereço Completo</label>
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Endereço Completo (Opcional)</label>
                 <input
                   type="text"
-                  required
                   placeholder="Ex: Av. Brasil, 1500 - Centro"
                   value={quickCustomer.address}
                   onChange={e => setQuickCustomer(prev => ({ ...prev, address: e.target.value }))}
@@ -2300,18 +2287,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="0.00"
-                    value={quickProduct.price}
-                    onChange={e => setQuickProduct(prev => ({ ...prev, price: e.target.value }))}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
                   <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Custo (R$)</label>
                   <input
                     type="number"
@@ -2320,6 +2295,18 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                     placeholder="0.00"
                     value={quickProduct.cost_price}
                     onChange={e => setQuickProduct(prev => ({ ...prev, cost_price: e.target.value }))}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Venda (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    value={quickProduct.price}
+                    onChange={e => setQuickProduct(prev => ({ ...prev, price: e.target.value }))}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary outline-none transition-all font-mono"
                   />
                 </div>

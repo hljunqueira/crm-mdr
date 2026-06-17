@@ -5,7 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const formatCPF = (value: string) => {
+export const formatCPF = (value?: string) => {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '');
   if (digits.length > 11) {
     return digits
@@ -22,7 +23,8 @@ export const formatCPF = (value: string) => {
     .replace(/(-\d{2})\d+?$/, '$1');
 };
 
-export const formatPhone = (value: string) => {
+export const formatPhone = (value?: string) => {
+  if (!value) return '';
   const digits = value.replace(/\D/g, '');
   if (digits.length <= 10) {
     return digits

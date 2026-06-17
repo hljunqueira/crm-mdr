@@ -275,14 +275,14 @@ export default function ServiceOrders() {
 
   const handleQuickCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickCustomer.name || !quickCustomer.phone) {
-      showNotification('error', 'Erro', 'Nome e celular são obrigatórios.');
+    if (!quickCustomer.name) {
+      showNotification('error', 'Erro', 'O nome do cliente é obrigatório.');
       return;
     }
     
     setIsLoadingQuickCustomer(true);
     try {
-      const cleanCpf = quickCustomer.cpf.replace(/\D/g, '');
+      const cleanCpf = quickCustomer.cpf ? quickCustomer.cpf.replace(/\D/g, '') : '';
       
       if (cleanCpf) {
         if (quickCustomer.type === 'PF' && !validateCPF(cleanCpf)) {
@@ -304,7 +304,7 @@ export default function ServiceOrders() {
         }
       }
 
-      const cleanPhone = quickCustomer.phone.replace(/\D/g, '');
+      const cleanPhone = quickCustomer.phone ? quickCustomer.phone.replace(/\D/g, '') : '';
 
       await addCustomer({
         name: quickCustomer.name,
@@ -3220,10 +3220,9 @@ export default function ServiceOrders() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Celular / WhatsApp</label>
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Celular / WhatsApp (Opcional)</label>
                   <input
                     type="text"
-                    required
                     placeholder="(00) 00000-0000"
                     value={quickCustomer.phone}
                     onChange={(e) => setQuickCustomer(prev => ({ ...prev, phone: formatPhone(e.target.value) }))}
