@@ -227,10 +227,46 @@ function SaleDocumentViewer({
 
   const installments = storeInstallments.filter(inst => inst.sale_id === sale.id);
 
+  const [allAsaasDetails, setAllAsaasDetails] = useState<Record<string, { barcode: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>>({});
+  const [loadingAllDetails, setLoadingAllDetails] = useState(false);
+  const { fetchAsaasDetails } = useFinanceStore();
+
   const resolvedUnit = resolveUnitInfo(unit);
   const [activeTab, setActiveTab] = useState<'contract' | 'receipt' | 'pix_carne'>(
     sale.payment_type === 'vista' ? 'receipt' : 'contract'
   );
+
+  useEffect(() => {
+    if (activeTab === 'pix_carne' && installments.length > 0) {
+      const installmentsToFetch = installments.filter(inst => inst.asaas_invoice_url && !allAsaasDetails[inst.id]);
+      if (installmentsToFetch.length > 0) {
+        setLoadingAllDetails(true);
+        Promise.all(
+          installmentsToFetch.map(inst =>
+            fetchAsaasDetails(inst.id)
+              .then(data => ({ id: inst.id, data }))
+              .catch(err => {
+                console.error(`Failed to fetch for ${inst.id}`, err);
+                return { id: inst.id, data: null };
+              })
+          )
+        ).then(results => {
+          setAllAsaasDetails(prev => {
+            const next = { ...prev };
+            results.forEach(res => {
+              if (res.data) {
+                next[res.id] = res.data;
+              }
+            });
+            return next;
+          });
+          setLoadingAllDetails(false);
+        }).catch(() => {
+          setLoadingAllDetails(false);
+        });
+      }
+    }
+  }, [activeTab, installments, fetchAsaasDetails]);
   const today = new Date().toLocaleDateString('pt-BR');
 
   const basePrice = sale.original_price ?? sale.total_value;
@@ -491,21 +527,122 @@ function SaleDocumentViewer({
               isPreview={true}
             />
           ) : activeTab === 'pix_carne' ? (
-            <div className="p-8 w-full max-w-md bg-white text-black font-display space-y-6 text-left">
-              <div className="text-center space-y-1">
-                <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">Cobranças da Venda</h3>
-                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Boleto ou Pix da MDR</p>
+            <div className="p-4 w-full bg-white text-black font-sans space-y-6 text-left" id="print-carne-container">
+              <div className="text-center space-y-1 no-print">
+                <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">Carnê de Pagamento (Boleto/Pix)</h3>
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Este documento contém as faturas integradas prontas para impressão e pagamento.</p>
               </div>
-              <div className="border-t border-b border-gray-100 py-4 space-y-3">
-                {installments
-                  .sort((a, b) => a.number - b.number)
-                  .map((inst) => (
-                    <InstallmentRow key={inst.id} inst={inst} />
-                  ))}
-              </div>
-              <p className="text-[9px] text-gray-400 text-center uppercase tracking-wider font-bold">
-                Gerado via Gateway Integrado MDR
-              </p>
+              {loadingAllDetails ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 no-print">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                  <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Carregando detalhes das parcelas...</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {installments
+                    .sort((a, b) => a.number - b.number)
+                    .map((inst) => {
+                      const details = allAsaasDetails[inst.id];
+                      return (
+                        <div key={inst.id} className="pix-slip-page border border-gray-300 rounded-2xl p-6 bg-white text-black font-sans space-y-4 shadow-sm relative" style={{ pageBreakInside: 'avoid', borderStyle: 'dashed', borderWidth: '1px' }}>
+                          {/* Header */}
+                          <div className="flex justify-between items-start border-b border-gray-200 pb-3">
+                            <div>
+                              <p className="font-bold text-sm tracking-wider uppercase text-gray-900">MDR Informática & Celulares</p>
+                              <p className="text-[9px] text-gray-500">Emitente: {resolvedUnit.name || 'MDR'} | CNPJ: {resolvedUnit.cnpj || '___'}</p>
+                              <p className="text-[9px] text-gray-500">Endereço: {resolvedUnit.address || '___'} | Telefone: {resolvedUnit.phone || '___'}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="bg-blue-100 text-blue-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full">
+                                Parcela {inst.number} de {inst.total}
+                              </span>
+                              <p className="text-[9px] text-gray-400 mt-1">Ref. Contrato: {contractNumber}</p>
+                            </div>
+                          </div>
+
+                          {/* Customer Info */}
+                          <div className="text-[10px] text-gray-700 bg-gray-50/60 p-3 rounded-xl border border-gray-100">
+                            <p><strong>Cliente / Pagador:</strong> {customer.name}</p>
+                            <p><strong>CPF/CNPJ:</strong> {formatCPF(customer.cpf)}</p>
+                            {customer.address && <p><strong>Endereço:</strong> {customer.address}</p>}
+                          </div>
+
+                          {/* Box grid for Due date and Value */}
+                          <div className="grid grid-cols-2 gap-4 col-gap-4">
+                            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/20 text-center">
+                              <p className="text-[9px] text-gray-500 uppercase font-black tracking-wider mb-0.5">Vencimento</p>
+                              <p className="text-sm font-bold text-gray-900">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                            </div>
+                            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/20 text-center">
+                              <p className="text-[9px] text-gray-500 uppercase font-black tracking-wider mb-0.5">Valor da Parcela</p>
+                              <p className="text-sm font-bold text-blue-700">R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                          </div>
+
+                          {/* Payment Instructions */}
+                          <div className="border-t border-gray-100 pt-3 flex flex-col md:flex-row gap-6 items-center">
+                            {/* QR Code */}
+                            {inst.asaas_invoice_url ? (
+                              details?.pixImage ? (
+                                <div className="flex flex-col items-center shrink-0 bg-white border border-gray-200 p-2 rounded-xl">
+                                  <img
+                                    src={`data:image/png;base64,${details.pixImage}`}
+                                    className="w-24 h-24"
+                                    alt="Pix QR Code"
+                                  />
+                                  <span className="text-[7.5px] font-black uppercase text-gray-500 tracking-wider mt-1 font-sans">Pague com Pix</span>
+                                </div>
+                              ) : (
+                                <div className="w-24 h-24 flex items-center justify-center border border-gray-200 bg-gray-50 rounded-xl shrink-0 text-[9px] text-gray-400">Carregando...</div>
+                              )
+                            ) : (
+                              <div className="w-24 h-24 flex items-center justify-center border border-dashed border-gray-200 bg-gray-50 rounded-xl shrink-0 text-[9px] text-gray-400">Não Gerado</div>
+                            )}
+
+                            {/* Payment lines */}
+                            <div className="flex-1 space-y-2.5 w-full">
+                              <div>
+                                <p className="text-[9px] font-bold text-gray-700 uppercase">Linha Digitável do Boleto:</p>
+                                {inst.asaas_invoice_url ? (
+                                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 font-mono text-[9px] break-all leading-tight text-gray-800 font-bold select-all">
+                                    {details?.barcode || "Carregando linha digitável..."}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-between bg-yellow-50 border border-yellow-100 rounded-lg p-2">
+                                    <span className="text-[8px] text-yellow-800">Esta parcela não está integrada com o Asaas.</span>
+                                    <SyncButton instId={inst.id} />
+                                  </div>
+                                )}
+                              </div>
+
+                              {details?.pixPayload && (
+                                <div>
+                                  <p className="text-[9px] font-bold text-gray-700 uppercase">Código Pix Copia e Cola:</p>
+                                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 font-mono text-[9px] break-all leading-tight text-gray-800 select-all line-clamp-1">
+                                    {details.pixPayload}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Decorative Barcode Pattern for Print */}
+                          {inst.asaas_invoice_url && details?.barcode && (
+                            <div className="pt-2 flex flex-col items-center justify-center">
+                              <div className="w-full max-w-md h-8 bg-black flex overflow-hidden opacity-95" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
+                              <span className="text-[8px] font-mono text-gray-500 mt-1">{details.barcode}</span>
+                            </div>
+                          )}
+
+                          {/* Cut line helper */}
+                          <div className="absolute -bottom-4 left-0 right-0 border-t border-dashed border-gray-300 no-print flex justify-center">
+                            <span className="bg-white px-3 text-[8px] text-gray-400 uppercase font-black tracking-widest mt-[-6px]">Recortar Parcela</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
           ) : (
             /* Nota de Venda / Recibo de 80mm */
