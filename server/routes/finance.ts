@@ -642,4 +642,79 @@ router.post("/installments/:id/notify", async (req, res) => {
   }
 });
 
+// Sync an existing installment to Asaas manually
+router.post("/installments/:id/sync-asaas", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Fetch installment details
+    const { data: inst, error: instErr } = await supabase
+      .from('installments')
+      .select('*, sales(*, customers(*))')
+      .eq('id', id)
+      .single();
+
+    if (instErr || !inst) {
+      return res.status(404).json({ error: "Parcela não encontrada." });
+    }
+
+    if (inst.asaas_invoice_url) {
+      return res.json(inst);
+    }
+
+    // 2. Resolve Asaas customer id
+    const customer = inst.sales?.customers;
+    if (!customer) {
+      return res.status(400).json({ error: "Cliente não associado a esta venda." });
+    }
+
+    let asaasCustomerId = customer.asaas_customer_id;
+    if (!asaasCustomerId) {
+      asaasCustomerId = await getOrCreateAsaasCustomer({
+        name: customer.name,
+        cpfCnpj: customer.cpf,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address
+      });
+      // Save it locally
+      await supabase
+        .from('customers')
+        .update({ asaas_customer_id: asaasCustomerId })
+        .eq('id', customer.id);
+    }
+
+    // 3. Register payment on Asaas
+    const paymentResult = await createAsaasPayment({
+      customer: asaasCustomerId,
+      billingType: 'UNDEFINED',
+      value: Number(inst.value),
+      dueDate: inst.due_date,
+      externalReference: inst.id,
+      description: `Crediário MDR - Parcela ${inst.installment_number || inst.number}/${inst.total_installments || inst.total} - ${inst.sales?.device_model_manual || 'Dispositivo'}`
+    });
+
+    // 4. Update installment details
+    const { data: updatedInst, error: updateErr } = await supabase
+      .from('installments')
+      .update({
+        asaas_payment_id: paymentResult.id,
+        asaas_invoice_url: paymentResult.invoiceUrl,
+        asaas_sync_status: 'synced'
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateErr) {
+      return res.status(500).json({ error: updateErr.message });
+    }
+
+    res.json(updatedInst);
+  } catch (err: any) {
+    console.error("Erro ao sincronizar parcela com Asaas:", err);
+    res.status(500).json({ error: err.message || "Erro ao gerar cobrança no Asaas." });
+  }
+});
+
 export default router;

@@ -20,6 +20,33 @@ import SaleForm from '../components/sales/SaleForm';
 import ContractPrint from '../components/sales/ContractPrint';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 
+function SyncButton({ instId }: { instId: string }) {
+  const [loading, setLoading] = useState(false);
+  const { syncAsaas } = useFinanceStore();
+
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          await syncAsaas(instId);
+        } catch (err) {
+          // handled
+        } finally {
+          setLoading(false);
+        }
+      }}
+      className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+    >
+      {loading ? "Gerando..." : "Gerar"}
+    </button>
+  );
+}
+
+
 // Componente para Visualização Interativa e Edição Livre de Contrato / Nota de Venda
 function SaleDocumentViewer({
   sale,
@@ -330,7 +357,7 @@ function SaleDocumentViewer({
                           Visualizar ↗
                         </a>
                       ) : (
-                        <span className="text-[10px] text-gray-400 font-bold uppercase">Pendente Sync</span>
+                        <SyncButton instId={inst.id} />
                       )}
                     </div>
                   ))}

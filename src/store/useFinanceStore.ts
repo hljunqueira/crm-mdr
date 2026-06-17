@@ -31,6 +31,7 @@ interface FinanceState {
   markAsBlocked: (id: string) => Promise<void>;
   revertPayment: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<any>;
+  syncAsaas: (id: string) => Promise<void>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set) => ({
@@ -188,6 +189,32 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       return data;
     } catch (error) {
       console.error('Error adding installments:', error);
+      throw error;
+    }
+  },
+  syncAsaas: async (id) => {
+    try {
+      const data = await api.post(`/finance/installments/${id}/sync-asaas`, {});
+      const mapped = {
+        id: data.id,
+        sale_id: data.sale_id,
+        number: data.installment_number,
+        total: data.total_installments,
+        value: Number(data.value),
+        due_date: data.due_date,
+        paid_at: data.payment_date,
+        status: data.status,
+        payment_method: data.payment_method,
+        asaas_payment_id: data.asaas_payment_id,
+        asaas_invoice_url: data.asaas_invoice_url,
+        asaas_sync_status: data.asaas_sync_status
+      };
+
+      set((state) => ({
+        installments: state.installments.map((i) => i.id === id ? { ...i, ...mapped } : i)
+      }));
+    } catch (error) {
+      console.error('Error syncing with Asaas:', error);
       throw error;
     }
   },

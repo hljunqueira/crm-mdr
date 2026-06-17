@@ -31,15 +31,8 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
   pixName: string;
   pixPhone: string;
 }) {
-  const [copiedPix, setCopiedPix] = useState(false);
-
-  const copyPix = async () => {
-    try {
-      await navigator.clipboard.writeText(pixKey);
-      setCopiedPix(true);
-      setTimeout(() => setCopiedPix(false), 3000);
-    } catch { }
-  };
+  const [isSyncing, setIsSyncing] = useState(false);
+  const { syncAsaas } = useFinanceStore();
 
   const handlePrint = () => {
     printElement('print-mount-point');
@@ -107,46 +100,46 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
               </div>
             </div>
           ) : (
-            /* PIX Section (Legacy Static) */
-            <div className="p-6 space-y-4">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
-                    <QrCode size={16} className="text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black">PIX Instantâneo</p>
-                    <p className="text-xs text-white font-black">Chave CNPJ</p>
-                  </div>
+            /* No Asaas invoice link (legacy or unsynced installment) */
+            <div className="p-6 space-y-4 text-left">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center space-y-4">
+                <div className="w-12 h-12 bg-warning/10 border border-warning/20 rounded-2xl flex items-center justify-center text-warning mx-auto">
+                  <AlertCircle size={24} />
                 </div>
-
-                {/* QR Code — visual representation */}
-                <div className="flex justify-center">
-                  <div className="bg-white p-4 rounded-2xl flex items-center justify-center" style={{ width: 160, height: 160 }}>
-                    <img src="/Pix.png" alt="PIX QR Code" className="w-full h-full object-contain" />
-                  </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-black text-white uppercase tracking-wider">Sem Fatura Integrada</p>
+                  <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                    Esta parcela foi gerada de forma legada ou não foi integrada. Clique abaixo para gerar a cobrança no gateway da MDR.
+                  </p>
                 </div>
-
-                {/* PIX Key */}
-                <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                  <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Chave PIX Copia-e-Cola ({pixKey ? 'Configurada' : 'não configurada'})</p>
-                  <div className="flex flex-col gap-2">
-                    <code className="text-xs text-white font-mono break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5 leading-relaxed">{pixKey || 'Configure nas Configurações da loja'}</code>
-                    {pixKey && (
-                      <button
-                        onClick={copyPix}
-                        className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
-                      >
-                        {copiedPix ? <Check size={12} /> : <Copy size={12} />}
-                        {copiedPix ? 'Código Copiado!' : 'Copiar Pix Copia-e-Cola'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-[9px] text-on-surface-variant text-center">
-                  Beneficiário: <strong className="text-white">{pixName}</strong>
-                </p>
+                <button
+                  type="button"
+                  disabled={isSyncing || !item}
+                  onClick={async () => {
+                    if (!item) return;
+                    setIsSyncing(true);
+                    try {
+                      await syncAsaas(item.id);
+                    } catch (err) {
+                      // error logged in store
+                    } finally {
+                      setIsSyncing(false);
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Gerando Cobrança...
+                    </>
+                  ) : (
+                    <>
+                      <QrCode size={14} />
+                      Gerar Boleto / Pix da MDR
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
