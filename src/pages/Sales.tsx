@@ -535,112 +535,161 @@ function SaleDocumentViewer({
               {loadingAllDetails ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3 no-print">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                  <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Carregando detalhes das parcelas...</p>
+                  <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Carregando detalhes das faturas...</p>
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {installments
-                    .sort((a, b) => a.number - b.number)
-                    .map((inst) => {
-                      const details = allAsaasDetails[inst.id];
-                      return (
-                        <div key={inst.id} className="pix-slip-page border border-gray-300 rounded-2xl p-6 bg-white text-black font-sans space-y-4 shadow-sm relative" style={{ pageBreakInside: 'avoid', borderStyle: 'dashed', borderWidth: '1px' }}>
-                          {/* Header */}
-                          <div className="flex justify-between items-start border-b border-gray-200 pb-3">
-                            <div>
-                              <p className="font-bold text-sm tracking-wider uppercase text-gray-900">MDR Informática & Celulares</p>
-                              <p className="text-[9px] text-gray-500">Emitente: {resolvedUnit.name || 'MDR'} | CNPJ: {resolvedUnit.cnpj || '___'}</p>
-                              <p className="text-[9px] text-gray-500">Endereço: {resolvedUnit.address || '___'} | Telefone: {resolvedUnit.phone || '___'}</p>
-                            </div>
-                            <div className="text-right">
-                              <span className="bg-blue-100 text-blue-800 text-[9px] font-black uppercase px-2.5 py-1 rounded-full">
-                                Parcela {inst.number} de {inst.total}
-                              </span>
-                              <p className="text-[9px] text-gray-400 mt-1">Ref. Contrato: {contractNumber}</p>
-                            </div>
-                          </div>
+                  {(() => {
+                    const sortedInsts = [...installments].sort((a, b) => a.number - b.number);
+                    // Chunk into groups of 2
+                    const chunks = [];
+                    for (let i = 0; i < sortedInsts.length; i += 2) {
+                      chunks.push(sortedInsts.slice(i, i + 2));
+                    }
 
-                          {/* Customer Info */}
-                          <div className="text-[10px] text-gray-700 bg-gray-50/60 p-3 rounded-xl border border-gray-100">
-                            <p><strong>Cliente / Pagador:</strong> {customer.name}</p>
-                            <p><strong>CPF/CNPJ:</strong> {formatCPF(customer.cpf)}</p>
-                            {customer.address && <p><strong>Endereço:</strong> {customer.address}</p>}
-                          </div>
-
-                          {/* Box grid for Due date and Value */}
-                          <div className="grid grid-cols-2 gap-4 col-gap-4">
-                            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/20 text-center">
-                              <p className="text-[9px] text-gray-500 uppercase font-black tracking-wider mb-0.5">Vencimento</p>
-                              <p className="text-sm font-bold text-gray-900">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                            </div>
-                            <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/20 text-center">
-                              <p className="text-[9px] text-gray-500 uppercase font-black tracking-wider mb-0.5">Valor da Parcela</p>
-                              <p className="text-sm font-bold text-blue-700">R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                            </div>
-                          </div>
-
-                          {/* Payment Instructions */}
-                          <div className="border-t border-gray-100 pt-3 flex flex-col md:flex-row gap-6 items-center">
-                            {/* QR Code */}
-                            {inst.asaas_invoice_url ? (
-                              details?.pixImage ? (
-                                <div className="flex flex-col items-center shrink-0 bg-white border border-gray-200 p-2 rounded-xl">
-                                  <img
-                                    src={`data:image/png;base64,${details.pixImage}`}
-                                    className="w-24 h-24"
-                                    alt="Pix QR Code"
-                                  />
-                                  <span className="text-[7.5px] font-black uppercase text-gray-500 tracking-wider mt-1 font-sans">Pague com Pix</span>
-                                </div>
-                              ) : (
-                                <div className="w-24 h-24 flex items-center justify-center border border-gray-200 bg-gray-50 rounded-xl shrink-0 text-[9px] text-gray-400">Carregando...</div>
-                              )
-                            ) : (
-                              <div className="w-24 h-24 flex items-center justify-center border border-dashed border-gray-200 bg-gray-50 rounded-xl shrink-0 text-[9px] text-gray-400">Não Gerado</div>
-                            )}
-
-                            {/* Payment lines */}
-                            <div className="flex-1 space-y-2.5 w-full">
-                              <div>
-                                <p className="text-[9px] font-bold text-gray-700 uppercase">Linha Digitável do Boleto:</p>
-                                {inst.asaas_invoice_url ? (
-                                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 font-mono text-[9px] break-all leading-tight text-gray-800 font-bold select-all">
-                                    {details?.barcode || "Carregando linha digitável..."}
+                    return chunks.map((chunk, chunkIdx) => (
+                      <div key={chunkIdx} className="pix-slip-page" style={{ boxSizing: 'border-box' }}>
+                        {chunk.map((inst) => {
+                          const details = allAsaasDetails[inst.id];
+                          return (
+                            <div
+                              key={inst.id}
+                              style={{
+                                display: 'flex',
+                                flexDirection: 'row',
+                                border: '1px dashed #9ca3af',
+                                borderRadius: '16px',
+                                padding: '20px',
+                                marginBottom: '24px',
+                                backgroundColor: '#ffffff',
+                                color: '#000000',
+                                minHeight: '115mm',
+                                boxSizing: 'border-box',
+                                position: 'relative'
+                              }}
+                            >
+                              {/* Canhoto (Stub) */}
+                              <div
+                                style={{
+                                  width: '180px',
+                                  borderRight: '1px dashed #d1d5db',
+                                  paddingRight: '20px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'space-between',
+                                  fontSize: '11px',
+                                  color: '#1f2937',
+                                  textAlign: 'left'
+                                }}
+                              >
+                                <div>
+                                  <p style={{ fontWeight: '900', textTransform: 'uppercase', tracking: '0.05em', fontSize: '12px', color: '#000000', margin: '0 0 8px 0', textAlign: 'left' }}>MDR Celulares</p>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>PARCELA:</strong> {inst.number} de {inst.total}</p>
+                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>VENCIMENTO:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>VALOR:</strong> R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                   </div>
-                                ) : (
-                                  <div className="flex items-center justify-between bg-yellow-50 border border-yellow-100 rounded-lg p-2">
-                                    <span className="text-[8px] text-yellow-800">Esta parcela não está integrada com o Asaas.</span>
-                                    <SyncButton instId={inst.id} />
+                                </div>
+                                <div style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #f3f4f6', fontSize: '10px', lineHeight: '1.25', textAlign: 'left' }}>
+                                  <p style={{ fontWeight: '600', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>Cli: {customer.name}</p>
+                                  <p style={{ color: '#6b7280', margin: 0, textAlign: 'left' }}>Contrato: {contractNumber}</p>
+                                </div>
+                              </div>
+
+                              {/* Corpo principal (Main slip) */}
+                              <div style={{ flex: 1, paddingLeft: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#1f2937', textAlign: 'left' }}>
+                                <div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px', marginBottom: '10px' }}>
+                                    <div style={{ textAlign: 'left' }}>
+                                      <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '13px', color: '#000000', margin: '0 0 2px 0', textAlign: 'left' }}>MDR Informática & Celulares</p>
+                                      <p style={{ fontSize: '9px', color: '#6b7280', margin: 0, textAlign: 'left' }}>Emitente: {resolvedUnit.name || 'MDR'} | CNPJ: {resolvedUnit.cnpj || '___'}</p>
+                                    </div>
+                                    <div style={{ textAlign: 'right', fontSize: '10px', lineHeight: '1.2' }}>
+                                      <p style={{ margin: 0 }}><strong>PARCELA:</strong> {inst.number}/{inst.total}</p>
+                                      <p style={{ margin: 0 }}><strong>VENCIMENTO:</strong> <span style={{ fontWeight: '900', fontSize: '11px', color: '#000000' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span></p>
+                                    </div>
+                                  </div>
+
+                                  {/* Customer Info Card */}
+                                  <div style={{ fontSize: '10px', color: '#374151', backgroundColor: '#f9fafb', padding: '10px', borderRadius: '8px', border: '1px solid #f3f4f6', marginBottom: '12px', textAlign: 'left' }}>
+                                    <p style={{ margin: '0 0 2px 0', textAlign: 'left' }}><strong>Pagador:</strong> {customer.name} | CPF/CNPJ: {formatCPF(customer.cpf)}</p>
+                                    {customer.address && <p style={{ margin: 0, textAlign: 'left' }}><strong>Endereço:</strong> {customer.address}</p>}
+                                  </div>
+
+                                  {/* Grid for Vencimento / Valor */}
+                                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                                    <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', backgroundColor: '#f9fafb', textAlign: 'center' }}>
+                                      <p style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '900', margin: '0 0 2px 0' }}>Vencimento</p>
+                                      <p style={{ fontSize: '12px', fontWeight: '700', color: '#111827', margin: 0 }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                                    </div>
+                                    <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', backgroundColor: '#f9fafb', textAlign: 'center' }}>
+                                      <p style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '900', margin: '0 0 2px 0' }}>Valor da Parcela</p>
+                                      <p style={{ fontSize: '12px', fontWeight: '700', color: '#1d4ed8', margin: 0 }}>R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Payment Details */}
+                                  <div style={{ display: 'flex', flexDirection: 'row', gap: '20px', alignItems: 'center', textAlign: 'left' }}>
+                                    {/* QR Code */}
+                                    {inst.asaas_invoice_url ? (
+                                      details?.pixImage ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, backgroundColor: '#ffffff', border: '1px solid #e5e7eb', padding: '6px', borderRadius: '8px' }}>
+                                          <img
+                                            src={`data:image/png;base64,${details.pixImage}`}
+                                            style={{ width: '76px', height: '76px', display: 'block' }}
+                                            alt="Pix QR Code"
+                                          />
+                                          <span style={{ fontSize: '7px', fontWeight: '900', textTransform: 'uppercase', color: '#6b7280', marginTop: '4px', fontFamily: 'sans-serif' }}>Pague com Pix</span>
+                                        </div>
+                                      ) : (
+                                        <div style={{ width: '88px', height: '88px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '8px', flexShrink: 0, fontSize: '9px', color: '#9ca3af' }}>Carregando...</div>
+                                      )
+                                    ) : (
+                                      <div style={{ width: '88px', height: '88px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px dashed #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '8px', flexShrink: 0, fontSize: '9px', color: '#9ca3af' }}>Não Gerado</div>
+                                    )}
+
+                                    {/* Lines */}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', textAlign: 'left' }}>
+                                      <div style={{ textAlign: 'left' }}>
+                                        <p style={{ fontSize: '8px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 2px 0', textAlign: 'left' }}>Linha Digitável do Boleto:</p>
+                                        {inst.asaas_invoice_url ? (
+                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px', fontFamily: 'monospace', fontSize: '9px', wordBreak: 'break-all', lineHeight: '1.2', color: '#111827', fontWeight: '700', textAlign: 'left' }}>
+                                            {details?.barcode || "Carregando..."}
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px' }}>
+                                            <span style={{ fontSize: '8px', color: '#92400e' }}>Não integrado com Asaas.</span>
+                                            <SyncButton instId={inst.id} />
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {details?.pixPayload && (
+                                        <div style={{ textAlign: 'left' }}>
+                                          <p style={{ fontSize: '8px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 2px 0', textAlign: 'left' }}>Pix Copia e Cola:</p>
+                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px', fontFamily: 'monospace', fontSize: '8.5px', wordBreak: 'break-all', lineHeight: '1.1', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', textAlign: 'left' }}>
+                                            {details.pixPayload}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Barcode Pattern */}
+                                {inst.asaas_invoice_url && details?.barcode && (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '12px' }}>
+                                    <div style={{ width: '100%', maxWidth: '380px', height: '28px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
+                                    <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#6b7280', marginTop: '2px' }}>{details.barcode}</span>
                                   </div>
                                 )}
                               </div>
-
-                              {details?.pixPayload && (
-                                <div>
-                                  <p className="text-[9px] font-bold text-gray-700 uppercase">Código Pix Copia e Cola:</p>
-                                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 font-mono text-[9px] break-all leading-tight text-gray-800 select-all line-clamp-1">
-                                    {details.pixPayload}
-                                  </div>
-                                </div>
-                              )}
                             </div>
-                          </div>
-
-                          {/* Decorative Barcode Pattern for Print */}
-                          {inst.asaas_invoice_url && details?.barcode && (
-                            <div className="pt-2 flex flex-col items-center justify-center">
-                              <div className="w-full max-w-md h-8 bg-black flex overflow-hidden opacity-95" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
-                              <span className="text-[8px] font-mono text-gray-500 mt-1">{details.barcode}</span>
-                            </div>
-                          )}
-
-                          {/* Cut line helper */}
-                          <div className="absolute -bottom-4 left-0 right-0 border-t border-dashed border-gray-300 no-print flex justify-center">
-                            <span className="bg-white px-3 text-[8px] text-gray-400 uppercase font-black tracking-widest mt-[-6px]">Recortar Parcela</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
             </div>
