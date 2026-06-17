@@ -769,6 +769,7 @@ function ConfirmPickupModal({ sale, onConfirm }: { sale: Sale; onConfirm: (metho
 
 export default function Sales() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'waiting_pickup' | 'completed' | 'overdue'>('all');
   const { sales, fetchSales, deleteSale, isLoading } = useSaleStore();
   const { customers, fetchCustomers } = useCustomerStore();
   const { installments, fetchInstallments } = useFinanceStore();
@@ -793,11 +794,15 @@ export default function Sales() {
     }
   }, [profile?.unit_id, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits, fetchActiveShift]);
 
-  const filteredSales = sales.filter(s =>
-    (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    s.device_model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.imei.includes(searchTerm)
-  );
+  const filteredSales = sales.filter(s => {
+    const matchesSearch = (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      s.device_model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.imei.includes(searchTerm);
+
+    if (!matchesSearch) return false;
+    if (statusFilter === 'all') return true;
+    return s.status === statusFilter;
+  });
 
   const handlePrintContract = (sale: Sale) => {
     const customer = customers.find(c => c.id === sale.customer_id);
@@ -960,30 +965,31 @@ export default function Sales() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden group">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-primary mb-4 border border-white/10">
-            <ShoppingBag size={24} />
-          </div>
-          <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Volume de Vendas</p>
-          <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">R$ {sales.reduce((acc, s) => acc + s.total_value, 0).toLocaleString('pt-BR')}</h3>
-        </div>
-
-        <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white mb-4 border border-white/10">
-            <Smartphone size={24} />
-          </div>
-          <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Aparelhos Vendidos</p>
-          <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{sales.length}</h3>
-        </div>
-
-        <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-error mb-4 border border-white/10">
-            <ShieldCheck size={24} />
-          </div>
-          <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Contratos Atrasados</p>
-          <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{sales.filter(s => s.status === 'overdue').length}</h3>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+        {[
+          { id: 'all', label: 'Volume de Vendas', value: `R$ ${sales.reduce((acc, s) => acc + s.total_value, 0).toLocaleString('pt-BR')}`, icon: ShoppingBag, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
+          { id: 'waiting_pickup', label: 'Aguardando Retirada', value: sales.filter(s => s.status === 'waiting_pickup').length.toString(), icon: Clock, color: 'text-warning', activeBorder: 'border-warning/50 shadow-warning/5', activeBar: 'bg-warning' },
+          { id: 'completed', label: 'Entregues / Em Dia', value: sales.filter(s => s.status === 'completed').length.toString(), icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
+          { id: 'overdue', label: 'Contratos Atrasados', value: sales.filter(s => s.status === 'overdue').length.toString(), icon: ShieldCheck, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
+        ].map((stat, idx) => {
+          const isActive = statusFilter === stat.id;
+          return (
+            <div
+              key={idx}
+              onClick={() => setStatusFilter(stat.id as any)}
+              className={`bg-white/[0.02] p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.04] ${isActive ? stat.activeBorder : 'border-white/5'}`}
+            >
+              {isActive && (
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
+              )}
+              <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${stat.color} mb-4 border border-white/10`}>
+                <stat.icon size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
+              <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{stat.value}</h3>
+            </div>
+          );
+        })}
       </div>
 
       <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 overflow-hidden">
