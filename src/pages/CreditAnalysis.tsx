@@ -12,6 +12,17 @@ import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import { useInventoryStore } from '../store/useInventoryStore';
 
+const parseDesiredDevices = (desired_device: string | undefined | null): any[] | null => {
+  if (!desired_device) return null;
+  try {
+    const parsed = JSON.parse(desired_device);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) {
+    // ignore
+  }
+  return null;
+};
+
 export default function CreditAnalysis() {
   const { customers, fetchCustomers, updateCustomer } = useCustomerStore();
   const { showNotification } = useUI();
@@ -464,16 +475,7 @@ export default function CreditAnalysis() {
     }
   };
 
-  const parseDesiredDevices = (desired_device: string | undefined | null): any[] | null => {
-    if (!desired_device) return null;
-    try {
-      const parsed = JSON.parse(desired_device);
-      if (Array.isArray(parsed)) return parsed;
-    } catch (e) {
-      // ignore
-    }
-    return null;
-  };
+
 
   // Helper renderers for active query tabs
   const renderTabContent = () => {
