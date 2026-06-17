@@ -45,6 +45,8 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
     printElement('print-mount-point');
   };
 
+  const hasAsaas = !!item?.asaas_invoice_url;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
@@ -81,59 +83,94 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
             </div>
           )}
 
-          {/* PIX Section */}
-          <div className="p-6 space-y-4">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
-                  <QrCode size={16} className="text-green-400" />
+          {hasAsaas && item?.asaas_invoice_url ? (
+            /* Asaas Webhook / Dynamic view */
+            <div className="p-6 space-y-4">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center space-y-4">
+                <div className="w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary mx-auto">
+                  <FileText size={24} />
                 </div>
-                <div>
-                  <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black">PIX Instantâneo</p>
-                  <p className="text-xs text-white font-black">Chave CNPJ</p>
+                <div className="space-y-1">
+                  <p className="text-xs font-black text-white uppercase tracking-wider">Cobrança Registrada</p>
+                  <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                    Esta parcela está vinculada ao gateway. Clique abaixo para visualizar o Boleto Bancário ou o Pix dinâmico atualizado.
+                  </p>
                 </div>
+                <a
+                  href={item.asaas_invoice_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
+                >
+                  Visualizar Boleto / Pix da MDR ↗
+                </a>
               </div>
-
-              {/* QR Code — visual representation */}
-              <div className="flex justify-center">
-                <div className="bg-white p-4 rounded-2xl flex items-center justify-center" style={{ width: 160, height: 160 }}>
-                  <img src="/Pix.png" alt="PIX QR Code" className="w-full h-full object-contain" />
-                </div>
-              </div>
-
-              {/* PIX Key */}
-              <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Chave PIX Copia-e-Cola ({pixKey ? 'Configurada' : 'não configurada'})</p>
-                <div className="flex flex-col gap-2">
-                  <code className="text-xs text-white font-mono break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5 leading-relaxed">{pixKey || 'Configure nas Configurações da loja'}</code>
-                  {pixKey && (
-                    <button
-                      onClick={copyPix}
-                      className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
-                    >
-                      {copiedPix ? <Check size={12} /> : <Copy size={12} />}
-                      {copiedPix ? 'Código Copiado!' : 'Copiar Pix Copia-e-Cola'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <p className="text-[9px] text-on-surface-variant text-center">
-                Beneficiário: <strong className="text-white">{pixName}</strong>
-              </p>
             </div>
-          </div>
+          ) : (
+            /* PIX Section (Legacy Static) */
+            <div className="p-6 space-y-4">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
+                    <QrCode size={16} className="text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black">PIX Instantâneo</p>
+                    <p className="text-xs text-white font-black">Chave CNPJ</p>
+                  </div>
+                </div>
+
+                {/* QR Code — visual representation */}
+                <div className="flex justify-center">
+                  <div className="bg-white p-4 rounded-2xl flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                    <img src="/Pix.png" alt="PIX QR Code" className="w-full h-full object-contain" />
+                  </div>
+                </div>
+
+                {/* PIX Key */}
+                <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+                  <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Chave PIX Copia-e-Cola ({pixKey ? 'Configurada' : 'não configurada'})</p>
+                  <div className="flex flex-col gap-2">
+                    <code className="text-xs text-white font-mono break-all select-all bg-black/40 p-2.5 rounded-xl border border-white/5 leading-relaxed">{pixKey || 'Configure nas Configurações da loja'}</code>
+                    {pixKey && (
+                      <button
+                        onClick={copyPix}
+                        className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-xl text-[9px] font-black text-primary uppercase tracking-widest transition-all"
+                      >
+                        {copiedPix ? <Check size={12} /> : <Copy size={12} />}
+                        {copiedPix ? 'Código Copiado!' : 'Copiar Pix Copia-e-Cola'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[9px] text-on-surface-variant text-center">
+                  Beneficiário: <strong className="text-white">{pixName}</strong>
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions (Sticky at bottom) */}
         <div className="p-6 border-t border-white/10 bg-[#0f0f1a] shrink-0">
-          <button
-            onClick={handlePrint}
-            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-          >
-            <Printer size={16} />
-            Imprimir / Salvar PDF
-          </button>
+          {hasAsaas && item?.asaas_invoice_url ? (
+            <button
+              onClick={() => window.open(item.asaas_invoice_url, '_blank')}
+              className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+            >
+              <FileText size={16} />
+              Abrir no Navegador ↗
+            </button>
+          ) : (
+            <button
+              onClick={handlePrint}
+              className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+            >
+              <Printer size={16} />
+              Imprimir / Salvar PDF
+            </button>
+          )}
         </div>
       </motion.div>
     </div>
@@ -565,41 +602,84 @@ export default function Finance() {
       showNotification('error', 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.');
       return;
     }
-    const fees = calculateOverdueFees(item);
-    const isOverdue = fees.isLate;
-    let selectedMethod: 'pix' | 'money' | 'card' = 'money';
-    let finalValueToPay = isOverdue ? fees.total : item.value;
 
-    showModal({
-      title: isOverdue ? 'Recebimento com Mora' : 'Confirmar Pagamento',
-      children: (
-        <PaymentConfirmationContent
-          item={item}
-          fees={fees}
-          isOverdue={isOverdue}
-          onMethodChange={(method) => {
-            selectedMethod = method;
-          }}
-          onValueChange={(val) => {
-            finalValueToPay = val;
-          }}
-        />
-      ),
-      confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
-      onConfirm: async () => {
-        try {
-          await markAsPaid(item.id, finalValueToPay, selectedMethod);
-          showNotification('success', 'Pagamento Confirmado');
-          if (selectedUnitId) {
-            await fetchActiveShift(selectedUnitId);
-            await fetchTransactions(selectedUnitId);
+    const showManualPayment = () => {
+      const fees = calculateOverdueFees(item);
+      const isOverdue = fees.isLate;
+      let selectedMethod: 'pix' | 'money' | 'card' = 'money';
+      let finalValueToPay = isOverdue ? fees.total : item.value;
+
+      showModal({
+        title: isOverdue ? 'Recebimento com Mora' : 'Confirmar Pagamento',
+        children: (
+          <PaymentConfirmationContent
+            item={item}
+            fees={fees}
+            isOverdue={isOverdue}
+            onMethodChange={(method) => {
+              selectedMethod = method;
+            }}
+            onValueChange={(val) => {
+              finalValueToPay = val;
+            }}
+          />
+        ),
+        confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
+        onConfirm: async () => {
+          try {
+            await markAsPaid(item.id, finalValueToPay, selectedMethod);
+            showNotification('success', 'Pagamento Confirmado');
+            if (selectedUnitId) {
+              await fetchActiveShift(selectedUnitId);
+              await fetchTransactions(selectedUnitId);
+            }
+            hideModal();
+          } catch (error: any) {
+            showNotification('error', error?.response?.data?.error || 'Erro no Servidor');
           }
-          hideModal();
-        } catch (error: any) {
-          showNotification('error', error?.response?.data?.error || 'Erro no Servidor');
         }
-      }
-    });
+      });
+    };
+
+    if (item.asaas_invoice_url) {
+      showModal({
+        title: 'Recebimento de Parcela',
+        children: (
+          <div className="space-y-4 text-xs text-left">
+            <p className="text-on-surface-variant leading-relaxed">
+              Esta parcela possui uma cobrança registrada no gateway. Como você deseja proceder com o recebimento?
+            </p>
+            <div className="grid grid-cols-1 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(item.asaas_invoice_url, '_blank');
+                  hideModal();
+                }}
+                className="w-full py-3 bg-primary text-on-primary rounded-xl font-black uppercase tracking-widest text-[9px] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              >
+                <QrCode size={14} />
+                Visualizar Boleto / Pix da MDR ↗
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  showManualPayment();
+                }}
+                className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl font-black uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-2"
+              >
+                <DollarSign size={14} />
+                Registrar Recebimento Manual no Caixa
+              </button>
+            </div>
+          </div>
+        ),
+        confirmText: '', // Hide default confirm button
+        onConfirm: () => {}
+      });
+    } else {
+      showManualPayment();
+    }
   };
 
   const handleRevertPayment = (item: Installment) => {
@@ -903,13 +983,7 @@ export default function Finance() {
                                                 </button>
                                                 <button
                                                   type="button"
-                                                  onClick={() => {
-                                                    if (inst.asaas_invoice_url) {
-                                                      window.open(inst.asaas_invoice_url, '_blank');
-                                                    } else {
-                                                      setPixModalItem(inst);
-                                                    }
-                                                  }}
+                                                  onClick={() => setPixModalItem(inst)}
                                                   title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Gerar Cobrança QR Code"}
                                                   className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
                                                 >
@@ -939,13 +1013,7 @@ export default function Finance() {
                                                 )}
                                                 <button
                                                   type="button"
-                                                  onClick={() => {
-                                                    if (inst.asaas_invoice_url) {
-                                                      window.open(inst.asaas_invoice_url, '_blank');
-                                                    } else {
-                                                      setPixModalItem(inst);
-                                                    }
-                                                  }}
+                                                  onClick={() => setPixModalItem(inst)}
                                                   title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Reimprimir Recibo"}
                                                   className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
                                                 >

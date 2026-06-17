@@ -239,7 +239,7 @@ function SaleDocumentViewer({
               >
                 Nota de Venda
               </button>
-              {sale.payment_type === 'crediario' && installments.some(inst => inst.asaas_invoice_url) && (
+              {sale.payment_type === 'crediario' && (
                 <button
                   type="button"
                   onClick={() => setActiveTab('pix_carne')}
@@ -822,15 +822,13 @@ export default function Sales() {
     showModal({
       title: 'Visualizar & Imprimir Documentos',
       children: (
-        <div className="max-h-[75vh] overflow-y-auto pr-2 custom-scrollbar">
-          <SaleDocumentViewer
-            sale={sale}
-            customer={customer}
-            unit={saleUnit}
-            hideModal={hideModal}
-            showNotification={showNotification}
-          />
-        </div>
+        <SaleDocumentViewer
+          sale={sale}
+          customer={customer}
+          unit={saleUnit}
+          hideModal={hideModal}
+          showNotification={showNotification}
+        />
       )
     });
   };
