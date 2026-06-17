@@ -197,7 +197,12 @@ export default function Reports() {
   }, [sales, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
 
   const filteredServiceOrders = useMemo(() => {
-    return serviceOrders.filter(o => o.status !== 'canceled' && filterByUnit(o.unit_id) && filterByDateRange(o.delivered_at || o.created_at) && filterByBrand(o.device_model));
+    return serviceOrders.filter(o => 
+      (o.status === 'delivered' || o.status === 'ready') && 
+      filterByUnit(o.unit_id) && 
+      filterByDateRange(o.delivered_at || o.created_at) && 
+      filterByBrand(o.device_model)
+    );
   }, [serviceOrders, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
 
   // Overview metrics calculations
