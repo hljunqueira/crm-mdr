@@ -94,7 +94,7 @@ router.patch("/:id", async (req, res) => {
     // 1. Get the current status and fields of the OS before update
     const { data: currentOs } = await supabase
       .from('service_orders')
-      .select('status, finalized_by_id, delivered_by_id')
+      .select('status, finalized_by_id, delivered_by_id, unit_id, os_number, labor_value, parts_value, device_brand, device_model')
       .eq('id', req.params.id)
       .single();
 
@@ -105,9 +105,34 @@ router.patch("/:id", async (req, res) => {
       }
     }
 
+    let activeShift: any = null;
     if (status === 'delivered') {
       if (!delivered_by_id && !currentOs?.delivered_by_id) {
         return res.status(400).json({ error: "Identificação obrigatória: Por favor, selecione e valide o operador que realizou a entrega." });
+      }
+
+      if (currentOs?.status !== 'delivered') {
+        const unitId = req.body.unit_id || currentOs?.unit_id;
+        if (!unitId) {
+          return res.status(400).json({ error: "O campo unit_id (unidade) é obrigatório." });
+        }
+
+        // Check if cashier shift is open
+        const { data: activeShiftData, error: shiftError } = await supabase
+          .from('cash_shifts')
+          .select('*')
+          .eq('unit_id', unitId)
+          .eq('status', 'open')
+          .maybeSingle();
+
+        if (shiftError) {
+          return res.status(500).json({ error: shiftError.message });
+        }
+
+        activeShift = activeShiftData;
+        if (!activeShift) {
+          return res.status(400).json({ error: "Não existe um caixa aberto para esta unidade. Abra o caixa antes de entregar a OS." });
+        }
       }
     }
 
@@ -120,6 +145,117 @@ router.patch("/:id", async (req, res) => {
       .single();
 
     if (error) return res.status(404).json({ error: error.message });
+
+    // 2.5 Integrate OS with Cash Flow
+    if (updatedOs) {
+      const amount = Number(updatedOs.labor_value || 0) + Number(updatedOs.parts_value || 0);
+
+      // A. Transition TO delivered -> Register inflow
+      if (status === 'delivered' && currentOs?.status !== 'delivered' && activeShift) {
+        const paymentMethod = req.body.payment_method || 'money';
+        const desc = `Entrega OS #${String(updatedOs.os_number).padStart(4, '0')}: ${updatedOs.device_brand} ${updatedOs.device_model}`;
+
+        await supabase.from('cash_transactions').insert({
+          unit_id: updatedOs.unit_id,
+          shift_id: activeShift.id,
+          type: 'inflow',
+          category: 'os',
+          amount: amount,
+          payment_method: paymentMethod,
+          description: desc,
+          service_order_id: updatedOs.id,
+          created_by: delivered_by_id || activeShift.opened_by
+        });
+
+        // Update shift balances
+        const isCash = paymentMethod === 'money';
+        const isDigital = paymentMethod === 'pix' || paymentMethod === 'card' || paymentMethod === 'bank';
+        const updatePayload: any = {};
+        if (isCash) {
+          updatePayload.expected_cash = Number(activeShift.expected_cash || 0) + amount;
+        } else if (isDigital) {
+          updatePayload.expected_digital = Number(activeShift.expected_digital || 0) + amount;
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+        }
+      }
+
+      // B. Reversal FROM delivered -> Estorno/Register outflow
+      if (currentOs?.status === 'delivered' && status && status !== 'delivered') {
+        // Find original transaction
+        const { data: originalTx } = await supabase
+          .from('cash_transactions')
+          .select('*, cash_shifts(*)')
+          .eq('service_order_id', req.params.id)
+          .eq('type', 'inflow')
+          .maybeSingle();
+
+        if (originalTx) {
+          const txShift = originalTx.cash_shifts as any;
+          if (txShift && txShift.status === 'open') {
+            // Revert open shift balances
+            const paymentMethod = originalTx.payment_method;
+            const txAmount = Number(originalTx.amount);
+            const isCash = paymentMethod === 'money';
+            const isDigital = paymentMethod === 'pix' || paymentMethod === 'card' || paymentMethod === 'bank';
+            
+            const updatePayload: any = {};
+            if (isCash) {
+              updatePayload.expected_cash = Math.max(0, Number(txShift.expected_cash || 0) - txAmount);
+            } else if (isDigital) {
+              updatePayload.expected_digital = Math.max(0, Number(txShift.expected_digital || 0) - txAmount);
+            }
+            if (Object.keys(updatePayload).length > 0) {
+              await supabase.from('cash_shifts').update(updatePayload).eq('id', txShift.id);
+            }
+
+            // Delete transaction
+            await supabase.from('cash_transactions').delete().eq('id', originalTx.id);
+          } else {
+            // Shift is closed! Create compensating outflow transaction in current active shift
+            const { data: currentActiveShift } = await supabase
+              .from('cash_shifts')
+              .select('*')
+              .eq('unit_id', updatedOs.unit_id)
+              .eq('status', 'open')
+              .maybeSingle();
+
+            if (currentActiveShift) {
+              const activeShiftCurr = currentActiveShift as any;
+              const paymentMethod = originalTx.payment_method;
+              const txAmount = Number(originalTx.amount);
+              const desc = `Estorno de entrega - Reversão OS #${String(updatedOs.os_number).padStart(4, '0')}`;
+
+              await supabase.from('cash_transactions').insert({
+                unit_id: updatedOs.unit_id,
+                shift_id: activeShiftCurr.id,
+                type: 'outflow',
+                category: 'os',
+                amount: txAmount,
+                payment_method: paymentMethod,
+                description: desc,
+                service_order_id: updatedOs.id,
+                created_by: req.body.updated_by || activeShiftCurr.opened_by
+              });
+
+              // Update active shift balances
+              const isCash = paymentMethod === 'money';
+              const isDigital = paymentMethod === 'pix' || paymentMethod === 'card' || paymentMethod === 'bank';
+              const updatePayload: any = {};
+              if (isCash) {
+                updatePayload.expected_cash = Math.max(0, Number(activeShiftCurr.expected_cash || 0) - txAmount);
+              } else if (isDigital) {
+                updatePayload.expected_digital = Math.max(0, Number(activeShiftCurr.expected_digital || 0) - txAmount);
+              }
+              if (Object.keys(updatePayload).length > 0) {
+                await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShiftCurr.id);
+              }
+            }
+          }
+        }
+      }
+    }
 
     // 3. Handle stock deduction on transition to 'in_progress'
     if (status === 'in_progress' && currentOs?.status !== 'in_progress') {

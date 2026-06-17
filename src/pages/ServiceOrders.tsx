@@ -14,6 +14,7 @@ import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUnitStore } from '../store/useUnitStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useCashStore } from '../store/useCashStore';
 import { formatCPF, formatPhone, printElement, validateCPF, validateCNPJ } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
@@ -98,6 +99,63 @@ const parseAddress = (addressStr?: string) => {
   return { street, neighborhood, cityState, cep };
 };
 
+function OsPaymentModal({ os, onConfirm }: { os: ServiceOrder; onConfirm: (paymentMethod: string) => Promise<void> }) {
+  const [paymentMethod, setPaymentMethod] = useState('pix');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await onConfirm(paymentMethod);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const total = Number(os.labor_value || 0) + Number(os.parts_value || 0);
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 text-left">
+      <p className="text-xs text-on-surface-variant leading-relaxed">
+        Selecione o método de pagamento para a entrega da OS <strong className="text-white">#{String(os.os_number).padStart(4, '0')}</strong> no valor de <strong className="text-white">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>:
+      </p>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Recebimento</label>
+        <select
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+        >
+          <option value="pix" className="bg-[#121214]">PIX (Digital)</option>
+          <option value="money" className="bg-[#121214]">Dinheiro (Físico)</option>
+          <option value="card" className="bg-[#121214]">Cartão de Crédito</option>
+          <option value="bank" className="bg-[#121214]">Cartão de Débito</option>
+        </select>
+      </div>
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full py-4 rounded-2xl bg-success text-on-success text-xs font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="animate-spin" size={16} />
+            Finalizando...
+          </>
+        ) : (
+          <>
+            <CheckCircle2 size={16} />
+            Confirmar Entrega e Recebimento
+          </>
+        )}
+      </button>
+    </form>
+  );
+}
+
 export default function ServiceOrders() {
   const { 
     serviceOrders, fetchServiceOrders, currentServiceOrder, fetchServiceOrderById,
@@ -107,7 +165,8 @@ export default function ServiceOrders() {
   
   const { customers, fetchCustomers, addCustomer } = useCustomerStore();
   const { inventory, fetchInventory } = useInventoryStore();
-  const { showNotification } = useUI();
+  const { showNotification, showModal, hideModal } = useUI();
+  const { activeShift, fetchActiveShift } = useCashStore();
   const { profile, user } = useAuthStore();
   const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
                      user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
@@ -159,6 +218,7 @@ export default function ServiceOrders() {
     type: 'create' | 'status_change';
     osId?: string;
     targetStatus?: 'ready' | 'returned_no_fix' | 'delivered';
+    payment_method?: string;
   } | null>(null);
 
   // Parts Addition State
@@ -200,6 +260,9 @@ export default function ServiceOrders() {
     fetchAllUnits();
     fetchUserPermissions();
     fetchPartners(undefined, false);
+    if (profile?.unit_id) {
+      fetchActiveShift(profile.unit_id);
+    }
 
     const fetchAdmins = async () => {
       const { data } = await supabase
@@ -209,7 +272,7 @@ export default function ServiceOrders() {
       if (data) setAdmins(data);
     };
     fetchAdmins();
-  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions, fetchPartners]);
+  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions, fetchPartners, profile?.unit_id, fetchActiveShift]);
 
   useEffect(() => {
     const searchParam = new URLSearchParams(window.location.search).get('search');
@@ -579,6 +642,7 @@ export default function ServiceOrders() {
           updates.finalized_by_id = authEmployeeId;
         } else if (authAction.targetStatus === 'delivered') {
           updates.delivered_by_id = authEmployeeId;
+          updates.payment_method = authAction.payment_method || 'money';
         }
 
         await updateServiceOrder(authAction.osId, updates);
@@ -599,7 +663,66 @@ export default function ServiceOrders() {
 
   const handleUpdateServiceOrderStatus = async (osId: string, updates: Partial<ServiceOrder>) => {
     const targetStatus = updates.status;
-    if (targetStatus && ['ready', 'returned_no_fix', 'delivered'].includes(targetStatus)) {
+
+    if (targetStatus === 'delivered') {
+      const os = serviceOrders.find(o => o.id === osId);
+      if (!os) {
+        showNotification('error', 'OS não encontrada.');
+        return;
+      }
+
+      // Verify active shift first
+      const currentShift = await fetchActiveShift(os.unit_id);
+      if (!currentShift) {
+        showNotification('error', 'Caixa Fechado', 'Não existe um caixa aberto para esta unidade. Abra o caixa antes de entregar a OS.');
+        return;
+      }
+
+      showModal({
+        title: 'Confirmar Entrega da OS',
+        children: (
+          <OsPaymentModal
+            os={os}
+            onConfirm={async (paymentMethod) => {
+              const isNotAdmin = profile?.role !== 'admin';
+              if (isNotAdmin) {
+                setAuthEmployeeId('');
+                setAuthPassword('');
+                setAuthError('');
+                setAuthAction({
+                  type: 'status_change',
+                  osId,
+                  targetStatus: 'delivered',
+                  payment_method: paymentMethod
+                });
+                hideModal();
+                setIsConfirmAuthOpen(true);
+              } else {
+                try {
+                  const finalUpdates = {
+                    ...updates,
+                    delivered_by_id: profile?.id,
+                    payment_method: paymentMethod
+                  };
+                  await updateServiceOrder(osId, finalUpdates);
+                  showNotification('success', 'OS entregue e registrada no caixa com sucesso!');
+                  hideModal();
+                  fetchServiceOrders();
+                  if (selectedOsId === osId) {
+                    fetchServiceOrderById(osId);
+                  }
+                } catch (err: any) {
+                  showNotification('error', err.message || 'Falha ao atualizar OS.');
+                }
+              }
+            }}
+          />
+        )
+      });
+      return;
+    }
+
+    if (targetStatus && ['ready', 'returned_no_fix'].includes(targetStatus)) {
       const isNotAdmin = profile?.role !== 'admin';
       if (isNotAdmin) {
         setAuthEmployeeId('');
@@ -608,17 +731,13 @@ export default function ServiceOrders() {
         setAuthAction({
           type: 'status_change',
           osId,
-          targetStatus: targetStatus as 'ready' | 'returned_no_fix' | 'delivered'
+          targetStatus: targetStatus as 'ready' | 'returned_no_fix'
         });
         setIsConfirmAuthOpen(true);
         return;
       } else {
-        // Admin user transitions status: set finalized_by_id or delivered_by_id automatically
-        if (targetStatus === 'ready' || targetStatus === 'returned_no_fix') {
-          updates.finalized_by_id = profile?.id;
-        } else if (targetStatus === 'delivered') {
-          updates.delivered_by_id = profile?.id;
-        }
+        // Admin user transitions status: set finalized_by_id automatically
+        updates.finalized_by_id = profile?.id;
       }
     }
 

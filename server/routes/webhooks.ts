@@ -259,4 +259,142 @@ router.post(['/evolution', '/evolution/*'], async (req, res) => {
   }
 });
 
+// Webhook para receber eventos do Asaas
+router.post('/asaas', async (req, res) => {
+  const token = req.headers['asaas-access-token'];
+  const expectedToken = process.env.ASAAS_WEBHOOK_TOKEN;
+
+  if (expectedToken && token !== expectedToken) {
+    console.warn('[Asaas Webhook] Token de autenticação inválido ou ausente.');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { event, payment } = req.body;
+  if (!event || !payment) {
+    return res.status(400).json({ error: 'Payload inválido' });
+  }
+
+  console.log(`[Asaas Webhook] Evento recebido: ${event} | Payment ID: ${payment.id} | Ref: ${payment.externalReference}`);
+
+  try {
+    let installmentId = payment.externalReference;
+    let installment: any = null;
+
+    // 1. Localizar parcela pelo ID (externalReference) ou asaas_payment_id
+    if (installmentId) {
+      const { data } = await supabase
+        .from('installments')
+        .select('*, sales(*, customers(*))')
+        .eq('id', installmentId)
+        .maybeSingle();
+      installment = data;
+    }
+
+    if (!installment && payment.id) {
+      const { data } = await supabase
+        .from('installments')
+        .select('*, sales(*, customers(*))')
+        .eq('asaas_payment_id', payment.id)
+        .maybeSingle();
+      installment = data;
+    }
+
+    if (!installment) {
+      console.warn(`[Asaas Webhook] Parcela não encontrada para o pagamento ${payment.id}`);
+      return res.status(404).json({ error: 'Installment not found' });
+    }
+
+    // 2. Processar eventos de recebimento
+    if (event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED') {
+      if (installment.status === 'paid') {
+        console.log(`[Asaas Webhook] Parcela #${installment.installment_number} já está marcada como paga.`);
+        return res.status(200).send('Already processed');
+      }
+
+      // Dar baixa na parcela no BD
+      const { data: updatedInst, error: updateErr } = await supabase
+        .from('installments')
+        .update({
+          status: 'paid',
+          payment_date: new Date().toISOString(),
+          payment_method: 'pix', // Recebimento digital Asaas entra como pix/digital
+          value: Number(payment.value)
+        })
+        .eq('id', installment.id)
+        .select('*, sales(*, customers(*))')
+        .single();
+
+      if (updateErr) {
+        throw updateErr;
+      }
+
+      // Registrar no fluxo de caixa (caixa)
+      const unitId = updatedInst.sales?.store_id || updatedInst.unit_id;
+      const { data: activeShift } = await supabase
+        .from('cash_shifts')
+        .select('*')
+        .eq('unit_id', unitId)
+        .eq('status', 'open')
+        .maybeSingle();
+
+      // Evitar transações duplicadas
+      const { data: existingTx } = await supabase
+        .from('cash_transactions')
+        .select('id')
+        .eq('installment_id', installment.id)
+        .maybeSingle();
+
+      if (!existingTx) {
+        let customerName = 'Cliente';
+        if (updatedInst.sales?.customers?.name) {
+          customerName = updatedInst.sales.customers.name;
+        }
+
+        await supabase
+          .from('cash_transactions')
+          .insert({
+            unit_id: unitId,
+            shift_id: activeShift?.id || null, // null se o caixa estiver fechado
+            type: 'inflow',
+            category: 'installment',
+            amount: Number(payment.value),
+            payment_method: 'pix',
+            description: `Recebimento Asaas (Webhook): Parcela #${updatedInst.installment_number} de ${customerName}`,
+            installment_id: updatedInst.id,
+            created_by: activeShift?.opened_by || updatedInst.sales?.created_by || '00000000-0000-0000-0000-000000000000'
+          });
+
+        // Se o caixa estiver aberto, atualizar saldo esperado digital
+        if (activeShift) {
+          const updatePayload = {
+            expected_digital: Number(activeShift.expected_digital || 0) + Number(payment.value)
+          };
+          await supabase
+            .from('cash_shifts')
+            .update(updatePayload)
+            .eq('id', activeShift.id);
+        }
+      }
+
+      console.log(`[Asaas Webhook] Parcela #${installment.installment_number} de ${installment.sales?.customers?.name || 'Cliente'} baixada com sucesso.`);
+    }
+
+    // 3. Processar eventos de atraso
+    if (event === 'PAYMENT_OVERDUE') {
+      if (installment.status === 'pending') {
+        await supabase
+          .from('installments')
+          .update({ status: 'overdue' })
+          .eq('id', installment.id);
+        console.log(`[Asaas Webhook] Parcela #${installment.installment_number} marcada como vencida/overdue.`);
+      }
+    }
+
+    res.status(200).send('OK');
+  } catch (err: any) {
+    console.error('[Asaas Webhook] Erro ao processar webhook do Asaas:', err);
+    res.status(500).json({ error: err.message || 'Erro interno no servidor' });
+  }
+});
+
 export default router;

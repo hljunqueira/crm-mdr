@@ -157,21 +157,38 @@ function PaymentConfirmationContent({
   item,
   fees,
   isOverdue,
-  onMethodChange
+  onMethodChange,
+  onValueChange
 }: {
   item: Installment;
   fees: any;
   isOverdue: boolean;
   onMethodChange: (method: 'pix' | 'money' | 'card') => void;
+  onValueChange: (value: number) => void;
 }) {
   const [method, setMethod] = useState<'pix' | 'money' | 'card'>('money'); // Default to cash for retail shifts
   const [amountPaid, setAmountPaid] = useState<string>('');
+
+  const dueDate = new Date(item.due_date + 'T12:00:00');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isEarly = dueDate > today;
+  const daysEarly = isEarly ? Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+
+  // Suggested discount: 8% per month (approx. 0.266% per day) pro-rata early payment discount
+  const suggestedDiscount = isEarly ? Number((item.value * 0.08 / 30 * daysEarly).toFixed(2)) : 0;
+  const [discount, setDiscount] = useState(suggestedDiscount);
 
   useEffect(() => {
     onMethodChange(method);
   }, [method]);
 
-  const totalToReceive = isOverdue ? fees.total : item.value;
+  const totalToReceive = isOverdue ? fees.total : Math.max(0, item.value - discount);
+
+  useEffect(() => {
+    onValueChange(totalToReceive);
+  }, [discount, totalToReceive]);
+
   const change = Math.max(0, Number(amountPaid) - totalToReceive);
 
   return (
@@ -199,16 +216,53 @@ function PaymentConfirmationContent({
           </>
         )}
         {!isOverdue && (
-          <div className="flex justify-between text-xs pt-1">
-            <span className="text-on-surface-variant uppercase tracking-widest font-black">Total a Receber</span>
-            <span className="text-white font-mono font-black">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-          </div>
+          <>
+            {discount > 0 && (
+              <div className="flex justify-between text-xs text-green-400">
+                <span className="uppercase tracking-widest font-black">Desconto de Antecipação</span>
+                <span className="font-mono font-black">- R$ {discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs pt-1 border-t border-white/5 mt-1">
+              <span className="text-on-surface-variant uppercase tracking-widest font-black">Total a Receber</span>
+              <span className="text-white font-mono font-black">R$ {totalToReceive.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
         )}
       </div>
       {isOverdue && (
         <p className="text-[10px] text-error font-black uppercase tracking-widest bg-error/10 p-3 rounded-xl border border-error/20">
           ⚠️ Multa e juros conforme contrato. Vencida há {fees.daysLate} dia(s).
         </p>
+      )}
+
+      {isEarly && !isOverdue && (
+        <div className="space-y-2 bg-white/5 p-4 rounded-2xl border border-white/10 mt-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">
+              Desconto por Antecipação (R$) — {daysEarly} dia(s) antes
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max={item.value}
+              value={discount === 0 ? '' : discount}
+              onChange={(e) => {
+                const val = e.target.value;
+                const numVal = val === '' ? 0 : Number(val);
+                if (numVal >= 0 && numVal <= item.value) {
+                  setDiscount(numVal);
+                }
+              }}
+              placeholder={`Sugerido: R$ ${suggestedDiscount.toLocaleString('pt-BR')}`}
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+            />
+            <p className="text-[9px] text-on-surface-variant/80">
+              O valor original da parcela é R$ {item.value.toFixed(2)}. Digite o valor do desconto concedido ao cliente.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Payment Method Selector */}
@@ -514,6 +568,7 @@ export default function Finance() {
     const fees = calculateOverdueFees(item);
     const isOverdue = fees.isLate;
     let selectedMethod: 'pix' | 'money' | 'card' = 'money';
+    let finalValueToPay = isOverdue ? fees.total : item.value;
 
     showModal({
       title: isOverdue ? 'Recebimento com Mora' : 'Confirmar Pagamento',
@@ -525,12 +580,15 @@ export default function Finance() {
           onMethodChange={(method) => {
             selectedMethod = method;
           }}
+          onValueChange={(val) => {
+            finalValueToPay = val;
+          }}
         />
       ),
       confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
       onConfirm: async () => {
         try {
-          await markAsPaid(item.id, isOverdue ? fees.total : undefined, selectedMethod);
+          await markAsPaid(item.id, finalValueToPay, selectedMethod);
           showNotification('success', 'Pagamento Confirmado');
           if (selectedUnitId) {
             await fetchActiveShift(selectedUnitId);
@@ -845,8 +903,14 @@ export default function Finance() {
                                                 </button>
                                                 <button
                                                   type="button"
-                                                  onClick={() => setPixModalItem(inst)}
-                                                  title="Gerar Cobrança QR Code"
+                                                  onClick={() => {
+                                                    if (inst.asaas_invoice_url) {
+                                                      window.open(inst.asaas_invoice_url, '_blank');
+                                                    } else {
+                                                      setPixModalItem(inst);
+                                                    }
+                                                  }}
+                                                  title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Gerar Cobrança QR Code"}
                                                   className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
                                                 >
                                                   <QrCode size={13} />
@@ -875,8 +939,14 @@ export default function Finance() {
                                                 )}
                                                 <button
                                                   type="button"
-                                                  onClick={() => setPixModalItem(inst)}
-                                                  title="Reimprimir Recibo"
+                                                  onClick={() => {
+                                                    if (inst.asaas_invoice_url) {
+                                                      window.open(inst.asaas_invoice_url, '_blank');
+                                                    } else {
+                                                      setPixModalItem(inst);
+                                                    }
+                                                  }}
+                                                  title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Reimprimir Recibo"}
                                                   className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
                                                 >
                                                   <Printer size={13} />

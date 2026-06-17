@@ -43,7 +43,7 @@ router.post("/", async (req, res) => {
   }
 
   const activeShift = activeShiftData as any;
-  if (!activeShift) {
+  if (!activeShift && req.body.status !== 'waiting_pickup') {
     return res.status(400).json({ error: "Não existe um caixa aberto para esta unidade. Abra o caixa antes de realizar vendas." });
   }
 
@@ -83,7 +83,7 @@ router.post("/", async (req, res) => {
     if (saleError) return res.status(500).json({ error: saleError.message });
 
     // 2.5 Integrate with Cash Flow
-    if (activeShift) {
+    if (activeShift && saleData.status !== 'waiting_pickup') {
       const isCashLike = saleData.payment_type === 'vista' || saleData.payment_type === 'debit';
       const paymentMethod = saleData.payment_type === 'debit' ? 'card' : (req.body.payment_method || 'money');
       const isCash = paymentMethod === 'money';
@@ -538,6 +538,92 @@ router.delete("/:id", async (req, res) => {
     res.status(204).send();
   } catch (err: any) {
     console.error('Error deleting sale and restoring inventory:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Confirm pickup of a sale
+router.patch("/:id/confirm-pickup", async (req, res) => {
+  const { payment_method, payment_type } = req.body;
+  
+  try {
+    // 1. Fetch sale
+    const { data: saleData, error: fetchError } = await supabase
+      .from('sales')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !saleData) {
+      return res.status(404).json({ error: "Venda não encontrada." });
+    }
+
+    if (saleData.status !== 'waiting_pickup') {
+      return res.status(400).json({ error: "Esta venda não está aguardando retirada." });
+    }
+
+    // 2. Check cashier shift
+    const { data: activeShiftData, error: shiftError } = await supabase
+      .from('cash_shifts')
+      .select('*')
+      .eq('unit_id', saleData.store_id)
+      .eq('status', 'open')
+      .maybeSingle();
+
+    if (shiftError) return res.status(500).json({ error: shiftError.message });
+    const activeShift = activeShiftData as any;
+    if (!activeShift) {
+      return res.status(400).json({ error: "Não existe um caixa aberto para esta unidade. Abra o caixa antes de confirmar a retirada." });
+    }
+
+    // 3. Update sale status and payment details
+    const updatedPaymentMethod = payment_method || saleData.payment_method || 'money';
+    const updatedPaymentType = payment_type || saleData.payment_type || 'vista';
+
+    const { data: updatedSale, error: updateError } = await supabase
+      .from('sales')
+      .update({
+        status: 'completed',
+        payment_method: updatedPaymentMethod,
+        payment_type: updatedPaymentType,
+        sale_date: new Date().toISOString().split('T')[0] // Set current date as actual sale date upon pickup
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (updateError) return res.status(500).json({ error: updateError.message });
+
+    // 4. Record Cash Transaction
+    const isCash = updatedPaymentMethod === 'money';
+    const isDigital = updatedPaymentMethod === 'pix' || updatedPaymentMethod === 'card' || updatedPaymentMethod === 'bank';
+    const desc = `Retirada de aparelho: ${updatedSale.device_model_manual || 'Aparelho'}`;
+
+    await supabase.from('cash_transactions').insert({
+      unit_id: updatedSale.store_id,
+      shift_id: activeShift.id,
+      type: 'inflow',
+      category: 'sale',
+      amount: Number(updatedSale.total_value),
+      payment_method: updatedPaymentMethod,
+      description: desc,
+      sale_id: updatedSale.id,
+      created_by: updatedSale.seller_id || activeShift.opened_by
+    });
+
+    // 5. Update shift expected balances
+    const updatePayload: any = {};
+    if (isCash) {
+      updatePayload.expected_cash = Number(activeShift.expected_cash || 0) + Number(updatedSale.total_value);
+    } else if (isDigital) {
+      updatePayload.expected_digital = Number(activeShift.expected_digital || 0) + Number(updatedSale.total_value);
+    }
+    if (Object.keys(updatePayload).length > 0) {
+      await supabase.from('cash_shifts').update(updatePayload).eq('id', activeShift.id);
+    }
+
+    res.json(updatedSale);
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });

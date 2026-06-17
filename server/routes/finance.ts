@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import crypto from "crypto";
+import { getOrCreateAsaasCustomer, createAsaasPayment } from "../services/asaasService.js";
 
 const router = Router();
 
@@ -17,18 +19,123 @@ router.get("/installments", async (req, res) => {
 // Create installments
 router.post("/installments", async (req, res) => {
   const installments = Array.isArray(req.body) ? req.body : [req.body];
-  const { data, error } = await supabase
-    .from('installments')
-    .insert(installments)
-    .select();
+  if (installments.length === 0) {
+    return res.status(400).json({ error: "Nenhuma parcela enviada." });
+  }
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(201).json(data);
+  try {
+    // 1. Verificar se a venda é do tipo crediario
+    const firstInst = installments[0];
+    const { data: sale, error: saleErr } = await supabase
+      .from('sales')
+      .select('payment_type, customer_id, store_id, device_model_manual')
+      .eq('id', firstInst.sale_id)
+      .maybeSingle();
+
+    if (saleErr) {
+      console.error("Erro ao buscar dados da venda para Asaas:", saleErr);
+    }
+
+    let asaasCustomerId: string | null = null;
+    let syncErrorOccurred = false;
+
+    if (sale && sale.payment_type === 'crediario') {
+      // Buscar dados do cliente
+      const { data: customer, error: custErr } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', sale.customer_id)
+        .maybeSingle();
+
+      if (custErr || !customer) {
+        console.error("Erro ao buscar dados do cliente para Asaas:", custErr);
+      } else {
+        // Se o cliente já tiver asaas_customer_id, usa ele. Se não, cria um novo no Asaas
+        try {
+          if (customer.asaas_customer_id) {
+            asaasCustomerId = customer.asaas_customer_id;
+          } else {
+            asaasCustomerId = await getOrCreateAsaasCustomer({
+              name: customer.name,
+              cpfCnpj: customer.cpf,
+              phone: customer.phone,
+              email: customer.email,
+              address: customer.address
+            });
+            // Salvar no BD local
+            await supabase
+              .from('customers')
+              .update({ asaas_customer_id: asaasCustomerId })
+              .eq('id', customer.id);
+          }
+        } catch (err) {
+          console.error("Erro ao cadastrar cliente no Asaas:", err);
+          syncErrorOccurred = true;
+        }
+      }
+    }
+
+    // 2. Mapear e preparar a inserção das parcelas
+    const preparedInstallments = [];
+
+    for (const inst of installments) {
+      const instId = crypto.randomUUID();
+      let asaasPaymentId: string | null = null;
+      let asaasInvoiceUrl: string | null = null;
+      let asaasSyncStatus = 'synced';
+
+      // Se temos o asaasCustomerId, tentar registrar cobrança no Asaas
+      if (asaasCustomerId && !syncErrorOccurred) {
+        try {
+          const paymentResult = await createAsaasPayment({
+            customer: asaasCustomerId,
+            billingType: 'UNDEFINED',
+            value: Number(inst.value),
+            dueDate: inst.due_date,
+            externalReference: instId,
+            description: `Crediário MDR - Parcela ${inst.installment_number || inst.number}/${inst.total_installments || inst.total} - ${sale?.device_model_manual || 'Dispositivo'}`
+          });
+          asaasPaymentId = paymentResult.id;
+          asaasInvoiceUrl = paymentResult.invoiceUrl;
+        } catch (err) {
+          console.error("Erro ao registrar cobrança no Asaas:", err);
+          asaasSyncStatus = 'pending_sync';
+        }
+      } else if (sale && sale.payment_type === 'crediario') {
+        // Se a venda é crediário mas deu erro de cadastro de cliente, marca como pendente
+        asaasSyncStatus = 'pending_sync';
+      }
+
+      preparedInstallments.push({
+        id: instId,
+        sale_id: inst.sale_id,
+        installment_number: inst.installment_number || inst.number,
+        total_installments: inst.total_installments || inst.total,
+        value: Number(inst.value),
+        due_date: inst.due_date,
+        status: inst.status || 'pending',
+        asaas_payment_id: asaasPaymentId,
+        asaas_invoice_url: asaasInvoiceUrl,
+        asaas_sync_status: asaasSyncStatus
+      });
+    }
+
+    const { data, error } = await supabase
+      .from('installments')
+      .insert(preparedInstallments)
+      .select();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(201).json(data);
+  } catch (err: any) {
+    console.error("Erro no fluxo do Asaas em POST /installments:", err);
+    return res.status(500).json({ error: err.message || "Erro interno ao processar parcelas." });
+  }
 });
 
 // Update installment & Integrate with cash transactions and active cashier shifts
 router.patch("/installments/:id", async (req, res) => {
-  const { status, payment_date, payment_method, value, created_by } = req.body;
+  const { status, payment_date, payment_method, value, created_by, bypassShiftValidation } = req.body;
 
   // 1. Fetch current installment to get current values
   const { data: current, error: getErr } = await supabase
@@ -55,16 +162,19 @@ router.patch("/installments/:id", async (req, res) => {
       .maybeSingle();
     activeShift = shift;
 
-    // Payment receipt requires cashier shift to be open
-    if (!activeShift) {
+    // Payment receipt requires cashier shift to be open, unless bypassed
+    if (!activeShift && !bypassShiftValidation) {
       return res.status(400).json({ error: 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.' });
     }
   }
 
-  // 2. Perform the update
+  // 2. Perform the update (exclude bypassShiftValidation from the payload)
+  const updatePayload = { ...req.body };
+  delete updatePayload.bypassShiftValidation;
+
   const { data, error } = await supabase
     .from('installments')
-    .update(req.body)
+    .update(updatePayload)
     .eq('id', req.params.id)
     .select('*, sales(*, customers(*))')
     .single();

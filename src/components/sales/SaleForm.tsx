@@ -86,7 +86,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [createdSale, setCreatedSale] = useState<any | null>(null);
+  const [createdInstallments, setCreatedInstallments] = useState<any[]>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [isWaitingPickup, setIsWaitingPickup] = useState(false);
+
   const [isInitialLoad, setIsInitialLoad] = useState(!!initialData);
 
   const [saleType, setSaleType] = useState<'cellphone' | 'general'>('general');
@@ -295,6 +298,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     trade_in_valuation: 0,
     trade_in_sale_price_estimate: 0
   });
+
+  useEffect(() => {
+    if (formData.payment_type !== 'vista') {
+      setIsWaitingPickup(false);
+    }
+  }, [formData.payment_type]);
 
   // Colaborador authentication states
   const [isConfirmAuthOpen, setIsConfirmAuthOpen] = useState(false);
@@ -785,13 +794,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     const financed = formData.total_value - formData.down_payment - tradeInVal;
     if (financed <= 0) return 0;
     const finalCoeff = baseCoefficient * riskMultiplier;
-    return financed * finalCoeff;
+    return Number((financed * finalCoeff).toFixed(2));
   }, [isCashLike, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier, formData.is_trade_in, formData.trade_in_valuation]);
 
   // First installment value includes grace period interest (if any) distributed evenly
   const firstInstallmentValue = useMemo(() => {
     const portion = installmentCount > 0 ? (gracePeriodInterest / installmentCount) : 0;
-    return installmentValue + portion;
+    return Number((installmentValue + portion).toFixed(2));
   }, [installmentValue, gracePeriodInterest, installmentCount]);
 
   const totalInstallmentsValue = useMemo(() => {
@@ -904,7 +913,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           date: formData.first_due_date,
           device_color: formData.device_color,
           accessories: accessoriesStr,
-          status: 'completed',
+          status: isWaitingPickup ? 'waiting_pickup' : 'completed',
           payment_type: formData.payment_type as any,
           seller_id: sellerId,
           is_trade_in: formData.is_trade_in,
@@ -953,7 +962,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             due_date: inst.dueDate,
             status: 'pending' as const
           }));
-          await addInstallments(installmentsToCreate);
+          const createdInsts = await addInstallments(installmentsToCreate);
+          if (createdInsts) {
+            setCreatedInstallments(createdInsts);
+          }
         }
 
         showNotification('success', 'Venda Registrada');
@@ -1058,9 +1070,21 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
       return;
     }
 
-    if (!isCashLike && formData.down_payment < minDownPayment) {
+    if (formData.payment_type === 'crediario') {
+      const hasCpf = selectedCustomer?.cpf && selectedCustomer.cpf.replace(/\D/g, '').length >= 11;
+      if (!hasCpf) {
+        showNotification('error', 'CPF/CNPJ Obrigatório', 'Para vendas no Crediário da Loja, é obrigatório que o cliente possua CPF ou CNPJ cadastrado. Por favor, atualize o cadastro do cliente antes de prosseguir.');
+        return;
+      }
+    }
+
+    if (!isCashLike && formData.down_payment < minDownPayment && !isAdminUnlocked) {
       const pct = selectedCustomer?.classification === 'RUIM' ? '50%' : '20%';
-      showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).`);
+      showNotification('error', 'Entrada Insuficiente', `Para clientes com classificação ${selectedCustomer?.classification || 'MEDIO'}, a entrada mínima exigida é de ${pct} (R$ ${minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Por favor, digite a senha do administrador para liberar a entrada reduzida.`);
+      setAdminAuthError('');
+      setAdminAuthPassword('');
+      setAdminAuthEmployeeId('');
+      setIsAdminAuthModalOpen(true);
       return;
     }
 
@@ -1140,6 +1164,29 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           </p>
         </div>
 
+        {createdInstallments.some(inst => inst.asaas_invoice_url) && (
+          <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl max-w-sm mx-auto text-left space-y-2">
+            <p className="text-[9px] text-primary uppercase tracking-widest font-black">Faturas (Boleto ou Pix da MDR)</p>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar">
+              {createdInstallments
+                .filter(inst => inst.asaas_invoice_url)
+                .map((inst, idx) => (
+                  <a 
+                    key={idx}
+                    href={inst.asaas_invoice_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex justify-between items-center text-[10px] text-white hover:text-primary hover:underline font-display"
+                  >
+                    <span>Parcela #{inst.installment_number || inst.number}</span>
+                    <span className="font-mono text-primary font-bold">Visualizar Boleto / Pix ↗</span>
+                  </a>
+                ))
+              }
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
           {!isCashLike && (
             <button 
@@ -1148,16 +1195,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             >
               <FileText size={18} />
               Imprimir Contrato
-            </button>
-          )}
-
-          {formData.payment_type === 'crediario' && (
-            <button 
-              onClick={() => printElement('sale-pix-carne')}
-              className="w-full py-4 bg-warning/15 border border-warning/30 text-warning rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-warning/20 transition-all flex items-center justify-center gap-3"
-            >
-              <Printer size={18} />
-              Imprimir Carnê PIX
             </button>
           )}
 
@@ -1835,7 +1872,22 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           )}
         </div>
 
-        {(formData.payment_type === 'vista' || (formData.payment_type !== 'debit' && formData.payment_type !== 'card' && formData.down_payment > 0)) && (
+        {formData.payment_type === 'vista' && (
+          <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl animate-in fade-in duration-300">
+            <input
+              type="checkbox"
+              id="isWaitingPickup"
+              checked={isWaitingPickup}
+              onChange={(e) => setIsWaitingPickup(e.target.checked)}
+              className="w-5 h-5 rounded border-white/10 accent-primary text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer"
+            />
+            <label htmlFor="isWaitingPickup" className="text-xs text-on-surface font-medium cursor-pointer select-none">
+              Apenas reservar e aguardar retirada (Pagamento na retirada)
+            </label>
+          </div>
+        )}
+
+        {((formData.payment_type === 'vista' && !isWaitingPickup) || (formData.payment_type !== 'debit' && formData.payment_type !== 'card' && formData.down_payment > 0)) && (
           <div className="space-y-2 animate-in fade-in duration-300">
             <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
               Forma de Recebimento ({formData.payment_type === 'vista' ? 'Valor Integral' : 'Valor da Entrada'})
@@ -1895,16 +1947,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
         {saleType !== 'general' && (
           <>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cor do Aparelho</label>
-              <input 
-                type="text" 
-                placeholder={saleType === 'cellphone' ? "Ex: Titânio Natural" : "Ex: Preto, Cinza, N/A"}
-                value={formData.device_color}
-                onChange={(e) => setFormData(prev => ({ ...prev, device_color: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-              />
-            </div>
 
             <div className="md:col-span-2 space-y-3">
               <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>

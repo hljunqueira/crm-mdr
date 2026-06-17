@@ -36,6 +36,7 @@ interface ContractPrintProps {
   };
   installmentValue?: number;
   firstInstallmentValue?: number;
+  isPreview?: boolean;
 }
 
 // Clean helper to format dates safely without shifting
@@ -49,7 +50,7 @@ const formatPaymentDate = (dateStr?: string) => {
   }
 };
 
-export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue }: ContractPrintProps) {
+export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, isPreview }: ContractPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
@@ -121,7 +122,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   );
 
   return (
-    <div id="sale-contract" className="hidden">
+    <div id="sale-contract" className={isPreview ? "" : "hidden"}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
         @media print {

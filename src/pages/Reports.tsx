@@ -206,7 +206,10 @@ export default function Reports() {
   }, [serviceOrders, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
 
   // Overview metrics calculations
-  const totalSalesValue = useMemo(() => filteredSales.reduce((acc, s) => acc + (s.original_price ?? s.total_value), 0), [filteredSales]);
+  const totalSalesValue = useMemo(() => filteredSales.reduce((acc, s) => {
+    const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
+    return acc + (s.original_price ?? s.total_value) - tradeInVal;
+  }, 0), [filteredSales]);
   const totalServiceValue = useMemo(() => filteredServiceOrders.reduce((acc, o) => acc + o.total_value, 0), [filteredServiceOrders]);
   const totalRevenue = totalSalesValue + totalServiceValue;
 
@@ -344,14 +347,15 @@ export default function Reports() {
       
       const mainDevice = inventory.find(inv => inv.id === s.device_id);
       const mainCost = mainDevice ? mainDevice.cost_price : 0;
-      const mainSale = s.original_price ?? s.total_value;
+      const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
+      const mainSale = (s.original_price ?? s.total_value) - tradeInVal;
       const mainProfit = mainSale - mainCost;
       const mainMargin = mainCost > 0 ? (mainProfit / mainCost) * 100 : 0;
 
       items.push({
         saleNumber: saleNum,
         code: s.imei || (mainDevice?.barcode || mainDevice?.imei || 'N/A'),
-        product: s.device_model,
+        product: s.is_trade_in ? `${s.device_model} (Com Troca - Abatimento R$ ${tradeInVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})` : s.device_model,
         qtd: 1,
         cost: mainCost,
         sale: mainSale,

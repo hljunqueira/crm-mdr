@@ -17,7 +17,7 @@ export interface Sale {
   date: string;
   device_color?: string;
   accessories?: string;
-  status: 'completed' | 'processing' | 'overdue' | 'cancelled';
+  status: 'completed' | 'processing' | 'overdue' | 'cancelled' | 'waiting_pickup';
   payment_type?: 'crediario' | 'card' | 'vista' | 'debit';
   seller_id?: string;
   device_id?: string;
@@ -37,6 +37,7 @@ interface SaleState {
   addSale: (sale: Omit<Sale, 'id'>) => Promise<any>;
   updateSale: (id: string, sale: Partial<Sale>) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
+  confirmPickup: (id: string, paymentMethod: string, paymentType: string) => Promise<void>;
 }
 
 export const useSaleStore = create<SaleState>()((set) => ({
@@ -175,6 +176,25 @@ export const useSaleStore = create<SaleState>()((set) => ({
       useInventoryStore.getState().fetchInventory().catch(() => {});
     } catch (error) {
       console.error('Error deleting sale:', error);
+      throw error;
+    }
+  },
+  confirmPickup: async (id, paymentMethod, paymentType) => {
+    try {
+      const data = await api.patch(`/sales/${id}/confirm-pickup`, {
+        payment_method: paymentMethod,
+        payment_type: paymentType
+      });
+      set((state) => ({
+        sales: state.sales.map((s) => (s.id === id ? {
+          ...s,
+          status: 'completed',
+          payment_method: paymentMethod,
+          payment_type: paymentType as any
+        } : s)),
+      }));
+    } catch (error) {
+      console.error('Error confirming pickup:', error);
       throw error;
     }
   },

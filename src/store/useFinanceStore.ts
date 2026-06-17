@@ -18,6 +18,9 @@ export interface Installment {
   paid_at?: string;
   status: 'paid' | 'pending' | 'overdue' | 'blocked';
   payment_method?: 'pix' | 'money' | 'card' | 'transfer';
+  asaas_payment_id?: string;
+  asaas_invoice_url?: string;
+  asaas_sync_status?: string;
 }
 
 interface FinanceState {
@@ -27,7 +30,7 @@ interface FinanceState {
   markAsPaid: (id: string, finalValue?: number, paymentMethod?: 'pix' | 'money' | 'card') => Promise<void>;
   markAsBlocked: (id: string) => Promise<void>;
   revertPayment: (id: string) => Promise<void>;
-  addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<void>;
+  addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<any>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set) => ({
@@ -52,7 +55,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         due_date: i.due_date,
         paid_at: i.payment_date,
         status: i.status,
-        payment_method: i.payment_method
+        payment_method: i.payment_method,
+        asaas_payment_id: i.asaas_payment_id,
+        asaas_invoice_url: i.asaas_invoice_url,
+        asaas_sync_status: i.asaas_sync_status
       }));
 
       // Filter by unitId on the frontend if provided and user is not an admin
@@ -92,7 +98,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         due_date: data.due_date,
         paid_at: data.payment_date,
         status: data.status,
-        payment_method: data.payment_method
+        payment_method: data.payment_method,
+        asaas_payment_id: data.asaas_payment_id,
+        asaas_invoice_url: data.asaas_invoice_url,
+        asaas_sync_status: data.asaas_sync_status
       };
 
       set((state) => ({
@@ -120,7 +129,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         due_date: data.due_date,
         paid_at: undefined,
         status: data.status,
-        payment_method: undefined
+        payment_method: undefined,
+        asaas_payment_id: data.asaas_payment_id,
+        asaas_invoice_url: data.asaas_invoice_url,
+        asaas_sync_status: data.asaas_sync_status
       };
 
       set((state) => ({
@@ -143,7 +155,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         value: Number(data.value),
         due_date: data.due_date,
         paid_at: data.payment_date,
-        status: data.status
+        status: data.status,
+        asaas_payment_id: data.asaas_payment_id,
+        asaas_invoice_url: data.asaas_invoice_url,
+        asaas_sync_status: data.asaas_sync_status
       };
 
       set((state) => ({
@@ -165,11 +180,12 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         status: i.status || 'pending'
       }));
       
-      await api.post('/finance/installments', dbInstallments);
+      const data = await api.post('/finance/installments', dbInstallments);
       
       // Fetch latest to resolve the joins (like customers)
       const currentUnitId = useAuthStore.getState().profile?.unit_id;
       await useFinanceStore.getState().fetchInstallments(currentUnitId || undefined);
+      return data;
     } catch (error) {
       console.error('Error adding installments:', error);
       throw error;
