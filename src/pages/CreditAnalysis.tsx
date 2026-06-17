@@ -10,11 +10,13 @@ import { useAuthStore } from '../store/useAuthStore';
 import { formatCPF, formatPhone } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
+import { useInventoryStore } from '../store/useInventoryStore';
 
 export default function CreditAnalysis() {
   const { customers, fetchCustomers, updateCustomer } = useCustomerStore();
   const { showNotification } = useUI();
   const { profile } = useAuthStore();
+  const { inventory, fetchInventory } = useInventoryStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export default function CreditAnalysis() {
 
   useEffect(() => {
     fetchCustomers();
+    fetchInventory();
     
     const fetchAdmins = async () => {
       try {
@@ -77,7 +80,7 @@ export default function CreditAnalysis() {
       }
     };
     fetchAdmins();
-  }, [fetchCustomers]);
+  }, [fetchCustomers, fetchInventory]);
 
   const [listFilter, setListFilter] = useState<'pending' | 'history'>('pending');
 
@@ -117,6 +120,22 @@ export default function CreditAnalysis() {
   }, [displayCustomers, searchTerm]);
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+
+  const dynamicNeededCredit = useMemo(() => {
+    if (!selectedCustomer) return 0;
+    const devices = parseDesiredDevices(selectedCustomer.desired_device);
+    if (!devices || devices.length === 0) {
+      return selectedCustomer.needed_credit || 0;
+    }
+    
+    return devices.reduce((sum, dev) => {
+      const stockItem = inventory.find(i => i.id === dev.id);
+      const priceToUse = stockItem
+        ? (stockItem.trade_in_price || stockItem.price)
+        : (dev.price || 0);
+      return sum + (priceToUse * (dev.quantity || 1));
+    }, 0);
+  }, [selectedCustomer, inventory]);
 
   // Load customer data into form state when selected
   useEffect(() => {
@@ -392,6 +411,23 @@ export default function CreditAnalysis() {
         autoRegistrationStatus = 'REPROVADO';
       }
 
+      // Update desired_device array to have the resolved trade-in prices
+      const devices = parseDesiredDevices(selectedCustomer.desired_device);
+      let updatedDesiredDevice = selectedCustomer.desired_device;
+      if (devices && devices.length > 0) {
+        const updatedDevices = devices.map(dev => {
+          const stockItem = inventory.find(i => i.id === dev.id);
+          const priceToUse = stockItem
+            ? (stockItem.trade_in_price || stockItem.price)
+            : (dev.price || 0);
+          return {
+            ...dev,
+            price: priceToUse
+          };
+        });
+        updatedDesiredDevice = JSON.stringify(updatedDevices);
+      }
+
       const submitData = {
         classification: formData.classification,
         credit_limit: formData.credit_limit,
@@ -400,7 +436,9 @@ export default function CreditAnalysis() {
         approved_for_purchase: formData.approved_for_purchase,
         registration_status: autoRegistrationStatus,
         responsible_analyst_id: formData.responsible_analyst_id || null,
-        notes: formData.notes
+        notes: formData.notes,
+        needed_credit: dynamicNeededCredit,
+        desired_device: updatedDesiredDevice
       };
 
       await updateCustomer(selectedCustomerId, submitData);
@@ -869,12 +907,53 @@ export default function CreditAnalysis() {
                 {!!(selectedCustomer.desired_device || selectedCustomer.needed_credit || selectedCustomer.desired_installment_value) && (
                   <div className="pt-2 border-t border-white/5 space-y-4">
                     <p className="text-[9px] font-black uppercase text-on-surface-variant tracking-widest">Simulação de Venda (Pré-venda)</p>
+                    
+                    {/* List of Simulated Devices */}
+                    {(() => {
+                      const devices = parseDesiredDevices(selectedCustomer.desired_device);
+                      if (!devices || devices.length === 0) return null;
+                      return (
+                        <div className="space-y-2 mb-4">
+                          <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest block pl-1">Aparelhos na Simulação (Preço de Troca/Crediário)</span>
+                          <div className="space-y-2">
+                            {devices.map((dev: any, idx: number) => {
+                              const stockItem = inventory.find(i => i.id === dev.id);
+                              const currentTradePrice = stockItem?.trade_in_price || stockItem?.price || dev.price;
+                              return (
+                                <div key={idx} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-2xl text-xs">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary shrink-0">
+                                      <Smartphone size={14} />
+                                    </div>
+                                    <div>
+                                      <p className="font-bold text-white leading-tight uppercase">{dev.model}</p>
+                                      {dev.brand && <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">{dev.brand}</p>}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="font-mono font-bold text-white block">
+                                      {(currentTradePrice * (dev.quantity || 1)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </span>
+                                    {dev.quantity > 1 && (
+                                      <span className="text-[9px] text-on-surface-variant font-mono">
+                                        {currentTradePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} cada
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
                         <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Crédito Necessário</span>
                         <h4 className="text-sm font-black text-primary font-mono leading-tight mt-1.5">
-                          {selectedCustomer.needed_credit
-                            ? Number(selectedCustomer.needed_credit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                          {dynamicNeededCredit
+                            ? Number(dynamicNeededCredit).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                             : 'R$ 0,00'}
                         </h4>
                       </div>
