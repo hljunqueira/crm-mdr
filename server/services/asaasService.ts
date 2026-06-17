@@ -111,3 +111,56 @@ export async function createAsaasPayment(data: AsaasPaymentData) {
     invoiceUrl: result.invoiceUrl || result.bankSlipUrl
   };
 }
+
+export async function getAsaasPaymentBarcode(paymentId: string) {
+  if (!ASAAS_API_KEY) {
+    throw new Error('ASAAS_API_KEY não está configurada no ambiente.');
+  }
+
+  const res = await fetch(`${ASAAS_URL}/payments/${paymentId}/identificationField`, {
+    method: 'GET',
+    headers: {
+      'access_token': ASAAS_API_KEY,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!res.ok) {
+    const errorData: any = await res.json().catch(() => ({}));
+    throw new Error(errorData.errors?.[0]?.description || 'Erro ao obter código de barras do Asaas.');
+  }
+
+  const result: any = await res.json();
+  return {
+    identificationField: result.identificationField,
+    barCode: result.barCode
+  };
+}
+
+export async function getAsaasPaymentPix(paymentId: string) {
+  if (!ASAAS_API_KEY) {
+    throw new Error('ASAAS_API_KEY não está configurada no ambiente.');
+  }
+
+  const res = await fetch(`${ASAAS_URL}/payments/${paymentId}/pixQrCode`, {
+    method: 'GET',
+    headers: {
+      'access_token': ASAAS_API_KEY,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!res.ok) {
+    const errorData: any = await res.json().catch(() => ({}));
+    throw new Error(errorData.errors?.[0]?.description || 'Erro ao obter Pix QR Code do Asaas.');
+  }
+
+  const result: any = await res.json();
+  return {
+    success: result.success,
+    encodedImage: result.encodedImage,
+    payload: result.payload,
+    expirationDate: result.expirationDate
+  };
+}
+

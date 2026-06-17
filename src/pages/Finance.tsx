@@ -32,13 +32,44 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
   pixPhone: string;
 }) {
   const [isSyncing, setIsSyncing] = useState(false);
-  const { syncAsaas } = useFinanceStore();
+  const { syncAsaas, fetchAsaasDetails } = useFinanceStore();
+  const [asaasDetails, setAsaasDetails] = useState<{
+    barcode: string | null;
+    pixPayload: string | null;
+    pixImage: string | null;
+    invoiceUrl: string | null;
+  } | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [activeAsaasTab, setActiveAsaasTab] = useState<'pix' | 'boleto'>('pix');
+  const [copiedType, setCopiedType] = useState<'pix' | 'barcode' | null>(null);
 
   const handlePrint = () => {
     printElement('print-mount-point');
   };
 
   const hasAsaas = !!item?.asaas_invoice_url;
+
+  useEffect(() => {
+    if (item && hasAsaas) {
+      setIsLoadingDetails(true);
+      fetchAsaasDetails(item.id)
+        .then((data) => {
+          setAsaasDetails(data);
+        })
+        .catch((err) => {
+          console.error('Error fetching details:', err);
+        })
+        .finally(() => {
+          setIsLoadingDetails(false);
+        });
+    }
+  }, [item, hasAsaas, fetchAsaasDetails]);
+
+  const handleCopy = (text: string, type: 'pix' | 'barcode') => {
+    navigator.clipboard.writeText(text);
+    setCopiedType(type);
+    setTimeout(() => setCopiedType(null), 2000);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -79,25 +110,118 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
           {hasAsaas && item?.asaas_invoice_url ? (
             /* Asaas Webhook / Dynamic view */
             <div className="p-6 space-y-4">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center space-y-4">
-                <div className="w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary mx-auto">
-                  <FileText size={24} />
+              {isLoadingDetails ? (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center flex flex-col items-center justify-center space-y-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-xs text-on-surface-variant">Carregando detalhes do pagamento...</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-white uppercase tracking-wider">Cobrança Registrada</p>
-                  <p className="text-[10px] text-on-surface-variant leading-relaxed">
-                    Esta parcela está vinculada ao gateway. Clique abaixo para visualizar o Boleto Bancário ou o Pix dinâmico atualizado.
-                  </p>
+              ) : asaasDetails ? (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+                  {/* Tabs: Pix vs Boleto */}
+                  <div className="flex bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveAsaasTab('pix')}
+                      className={`flex-1 py-2 rounded-lg font-black uppercase tracking-widest text-[9px] transition-all ${activeAsaasTab === 'pix' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'}`}
+                    >
+                      Pagar via PIX
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveAsaasTab('boleto')}
+                      className={`flex-1 py-2 rounded-lg font-black uppercase tracking-widest text-[9px] transition-all ${activeAsaasTab === 'boleto' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'}`}
+                    >
+                      Boleto Bancário
+                    </button>
+                  </div>
+
+                  {activeAsaasTab === 'pix' ? (
+                    <div className="text-center space-y-4">
+                      {asaasDetails.pixImage ? (
+                        <div className="bg-white p-3 rounded-2xl inline-block">
+                          <img
+                            src={`data:image/png;base64,${asaasDetails.pixImage}`}
+                            className="w-44 h-44 mx-auto"
+                            alt="Pix QR Code"
+                          />
+                        </div>
+                      ) : (
+                        <div className="py-8 text-xs text-on-surface-variant">QR Code não disponível para este ambiente</div>
+                      )}
+                      {asaasDetails.pixPayload && (
+                        <div className="space-y-2">
+                          <p className="text-[9px] text-on-surface-variant uppercase tracking-wider font-bold">Código Pix Copia e Cola</p>
+                          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
+                            <span className="text-[10px] text-white font-mono break-all line-clamp-2 text-left flex-1 select-all">
+                              {asaasDetails.pixPayload}
+                            </span>
+                            <button
+                              onClick={() => handleCopy(asaasDetails.pixPayload || '', 'pix')}
+                              className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition-all shrink-0"
+                              title="Copiar Pix"
+                            >
+                              {copiedType === 'pix' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {asaasDetails.barcode ? (
+                        <div className="space-y-2">
+                          <p className="text-[9px] text-on-surface-variant uppercase tracking-wider font-bold text-center">Linha Digitável do Boleto</p>
+                          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-3">
+                            <span className="text-[10px] text-white font-mono break-all text-left flex-1 select-all">
+                              {asaasDetails.barcode}
+                            </span>
+                            <button
+                              onClick={() => handleCopy(asaasDetails.barcode || '', 'barcode')}
+                              className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition-all shrink-0"
+                              title="Copiar Código de Barras"
+                            >
+                              {copiedType === 'barcode' ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center text-xs text-on-surface-variant">Código de barras não disponível para este boleto</div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="pt-2 text-center">
+                    <a
+                      href={item.asaas_invoice_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-primary hover:underline"
+                    >
+                      Página da Fatura (Web) <ArrowUpRight size={12} />
+                    </a>
+                  </div>
                 </div>
-                <a
-                  href={item.asaas_invoice_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
-                >
-                  Visualizar Boleto / Pix da MDR ↗
-                </a>
-              </div>
+              ) : (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center space-y-4">
+                  <div className="w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary mx-auto">
+                    <FileText size={24} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-white uppercase tracking-wider">Cobrança Registrada</p>
+                    <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                      Esta parcela está vinculada ao gateway. Clique abaixo para abrir o Boleto Bancário ou o Pix dinâmico no seu navegador.
+                    </p>
+                  </div>
+                  <a
+                    href={item.asaas_invoice_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
+                  >
+                    Visualizar Boleto / Pix da MDR ↗
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             /* No Asaas invoice link (legacy or unsynced installment) */

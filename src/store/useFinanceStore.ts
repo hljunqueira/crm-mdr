@@ -32,6 +32,7 @@ interface FinanceState {
   revertPayment: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<any>;
   syncAsaas: (id: string) => Promise<void>;
+  fetchAsaasDetails: (id: string) => Promise<{ barcode: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set) => ({
@@ -215,6 +216,15 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error syncing with Asaas:', error);
+      throw error;
+    }
+  },
+  fetchAsaasDetails: async (id) => {
+    try {
+      const response = await api.get(`/finance/installments/${id}/asaas-details`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching Asaas details:', error);
       throw error;
     }
   },

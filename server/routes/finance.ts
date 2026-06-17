@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import crypto from "crypto";
-import { getOrCreateAsaasCustomer, createAsaasPayment } from "../services/asaasService.js";
+import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix } from "../services/asaasService.js";
 
 const router = Router();
 
@@ -714,6 +714,56 @@ router.post("/installments/:id/sync-asaas", async (req, res) => {
   } catch (err: any) {
     console.error("Erro ao sincronizar parcela com Asaas:", err);
     res.status(500).json({ error: err.message || "Erro ao gerar cobrança no Asaas." });
+  }
+});
+
+// Fetch Asaas details (barcode & Pix QR code)
+router.get("/installments/:id/asaas-details", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: inst, error: instErr } = await supabase
+      .from('installments')
+      .select('asaas_payment_id, asaas_invoice_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (instErr || !inst) {
+      return res.status(404).json({ error: "Parcela não encontrada." });
+    }
+
+    if (!inst.asaas_payment_id) {
+      return res.status(400).json({ error: "Esta parcela não possui cobrança registrada no Asaas." });
+    }
+
+    let barcode: string | null = null;
+    let pixPayload: string | null = null;
+    let pixImage: string | null = null;
+
+    try {
+      const barcodeRes = await getAsaasPaymentBarcode(inst.asaas_payment_id);
+      barcode = barcodeRes.identificationField || barcodeRes.barCode || null;
+    } catch (e) {
+      console.warn("Erro ao obter código de barras do Asaas:", e);
+    }
+
+    try {
+      const pixRes = await getAsaasPaymentPix(inst.asaas_payment_id);
+      pixPayload = pixRes.payload;
+      pixImage = pixRes.encodedImage;
+    } catch (e) {
+      console.warn("Erro ao obter Pix do Asaas:", e);
+    }
+
+    res.json({
+      barcode,
+      pixPayload,
+      pixImage,
+      invoiceUrl: inst.asaas_invoice_url
+    });
+  } catch (err: any) {
+    console.error("Erro ao obter detalhes do Asaas:", err);
+    res.status(500).json({ error: err.message || "Erro interno ao buscar dados do Asaas." });
   }
 });
 
