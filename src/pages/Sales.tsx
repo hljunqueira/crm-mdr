@@ -527,7 +527,7 @@ function SaleDocumentViewer({
               isPreview={true}
             />
           ) : activeTab === 'pix_carne' ? (
-            <div className="p-4 w-full bg-white text-black font-sans space-y-6 text-left" id="print-carne-container">
+            <div className="p-2 w-full bg-white text-black font-sans space-y-4 text-left" id="print-carne-container">
               <div className="text-center space-y-1 no-print">
                 <h3 className="text-lg font-black uppercase tracking-tight text-gray-900">Carnê de Pagamento (Boleto/Pix)</h3>
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Este documento contém as faturas integradas prontas para impressão e pagamento.</p>
@@ -538,13 +538,13 @@ function SaleDocumentViewer({
                   <p className="text-xs text-gray-500 uppercase font-black tracking-widest">Carregando detalhes das faturas...</p>
                 </div>
               ) : (
-                <div className="space-y-8">
+                <div className="space-y-4">
                   {(() => {
                     const sortedInsts = [...installments].sort((a, b) => a.number - b.number);
-                    // Chunk into groups of 2
+                    // Chunk into groups of 4
                     const chunks = [];
-                    for (let i = 0; i < sortedInsts.length; i += 2) {
-                      chunks.push(sortedInsts.slice(i, i + 2));
+                    for (let i = 0; i < sortedInsts.length; i += 4) {
+                      chunks.push(sortedInsts.slice(i, i + 4));
                     }
 
                     return chunks.map((chunk, chunkIdx) => (
@@ -558,12 +558,12 @@ function SaleDocumentViewer({
                                 display: 'flex',
                                 flexDirection: 'row',
                                 border: '1px dashed #9ca3af',
-                                borderRadius: '16px',
-                                padding: '20px',
-                                marginBottom: '24px',
+                                borderRadius: '12px',
+                                padding: '10px 14px',
+                                marginBottom: '12px',
                                 backgroundColor: '#ffffff',
                                 color: '#000000',
-                                minHeight: '115mm',
+                                minHeight: '58mm',
                                 boxSizing: 'border-box',
                                 position: 'relative'
                               }}
@@ -571,103 +571,91 @@ function SaleDocumentViewer({
                               {/* Canhoto (Stub) */}
                               <div
                                 style={{
-                                  width: '180px',
+                                  width: '130px',
                                   borderRight: '1px dashed #d1d5db',
-                                  paddingRight: '20px',
+                                  paddingRight: '12px',
                                   display: 'flex',
                                   flexDirection: 'column',
                                   justifyContent: 'space-between',
-                                  fontSize: '11px',
+                                  fontSize: '10px',
                                   color: '#1f2937',
                                   textAlign: 'left'
                                 }}
                               >
                                 <div>
-                                  <p style={{ fontWeight: '900', textTransform: 'uppercase', tracking: '0.05em', fontSize: '12px', color: '#000000', margin: '0 0 8px 0', textAlign: 'left' }}>MDR Celulares</p>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
-                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>PARCELA:</strong> {inst.number} de {inst.total}</p>
-                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>VENCIMENTO:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                                  <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '10px', color: '#000000', margin: '0 0 4px 0', textAlign: 'left' }}>MDR Celulares</p>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>PARC:</strong> {inst.number} de {inst.total}</p>
+                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>VENC:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
                                     <p style={{ margin: 0, textAlign: 'left' }}><strong>VALOR:</strong> R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                                   </div>
                                 </div>
-                                <div style={{ marginTop: '16px', paddingTop: '8px', borderTop: '1px solid #f3f4f6', fontSize: '10px', lineHeight: '1.25', textAlign: 'left' }}>
-                                  <p style={{ fontWeight: '600', margin: '0 0 2px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>Cli: {customer.name}</p>
+                                <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px solid #f3f4f6', fontSize: '8.5px', lineHeight: '1.2', textAlign: 'left' }}>
+                                  <p style={{ fontWeight: '600', margin: '0 0 2px 0', wordBreak: 'break-all', textAlign: 'left' }}>Cli: {customer.name}</p>
                                   <p style={{ color: '#6b7280', margin: 0, textAlign: 'left' }}>Contrato: {contractNumber}</p>
                                 </div>
                               </div>
 
                               {/* Corpo principal (Main slip) */}
-                              <div style={{ flex: 1, paddingLeft: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#1f2937', textAlign: 'left' }}>
-                                <div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px', marginBottom: '10px' }}>
+                              <div style={{ flex: 1, paddingLeft: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#1f2937', textAlign: 'left', minWidth: 0 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e5e7eb', paddingBottom: '3px', marginBottom: '4px' }}>
                                     <div style={{ textAlign: 'left' }}>
-                                      <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '13px', color: '#000000', margin: '0 0 2px 0', textAlign: 'left' }}>MDR Informática & Celulares</p>
-                                      <p style={{ fontSize: '9px', color: '#6b7280', margin: 0, textAlign: 'left' }}>Emitente: {resolvedUnit.name || 'MDR'} | CNPJ: {resolvedUnit.cnpj || '___'}</p>
+                                      <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '11px', color: '#000000', margin: 0, textAlign: 'left' }}>MDR Informática & Celulares</p>
+                                      <p style={{ fontSize: '7.5px', color: '#6b7280', margin: 0, textAlign: 'left' }}>Emitente: {resolvedUnit.name || 'MDR'} | CNPJ: {resolvedUnit.cnpj || '___'}</p>
                                     </div>
-                                    <div style={{ textAlign: 'right', fontSize: '10px', lineHeight: '1.2' }}>
+                                    <div style={{ textAlign: 'right', fontSize: '9px', lineHeight: '1.1' }}>
                                       <p style={{ margin: 0 }}><strong>PARCELA:</strong> {inst.number}/{inst.total}</p>
-                                      <p style={{ margin: 0 }}><strong>VENCIMENTO:</strong> <span style={{ fontWeight: '900', fontSize: '11px', color: '#000000' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span></p>
+                                      <p style={{ margin: 0 }}><strong>VENCIMENTO:</strong> <span style={{ fontWeight: '900', fontSize: '10px', color: '#000000' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span></p>
                                     </div>
                                   </div>
 
-                                  {/* Customer Info Card */}
-                                  <div style={{ fontSize: '10px', color: '#374151', backgroundColor: '#f9fafb', padding: '10px', borderRadius: '8px', border: '1px solid #f3f4f6', marginBottom: '12px', textAlign: 'left' }}>
-                                    <p style={{ margin: '0 0 2px 0', textAlign: 'left' }}><strong>Pagador:</strong> {customer.name} | CPF/CNPJ: {formatCPF(customer.cpf)}</p>
-                                    {customer.address && <p style={{ margin: 0, textAlign: 'left' }}><strong>Endereço:</strong> {customer.address}</p>}
+                                  {/* Info row */}
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8.5px', color: '#374151', backgroundColor: '#f9fafb', padding: '4px 8px', borderRadius: '6px', border: '1px solid #f3f4f6', marginBottom: '4px', textAlign: 'left' }}>
+                                    <span style={{ wordBreak: 'break-all', textAlign: 'left' }}><strong>Pagador:</strong> {customer.name} | CPF/CNPJ: {formatCPF(customer.cpf)}</span>
+                                    <span><strong>Valor:</strong> <span style={{ fontWeight: '900', color: '#1d4ed8' }}>R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
                                   </div>
 
-                                  {/* Grid for Vencimento / Valor */}
-                                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-                                    <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', backgroundColor: '#f9fafb', textAlign: 'center' }}>
-                                      <p style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '900', margin: '0 0 2px 0' }}>Vencimento</p>
-                                      <p style={{ fontSize: '12px', fontWeight: '700', color: '#111827', margin: 0 }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                                    </div>
-                                    <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', backgroundColor: '#f9fafb', textAlign: 'center' }}>
-                                      <p style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', fontWeight: '900', margin: '0 0 2px 0' }}>Valor da Parcela</p>
-                                      <p style={{ fontSize: '12px', fontWeight: '700', color: '#1d4ed8', margin: 0 }}>R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                    </div>
-                                  </div>
-
-                                  {/* Payment Details */}
-                                  <div style={{ display: 'flex', flexDirection: 'row', gap: '20px', alignItems: 'center', textAlign: 'left' }}>
-                                    {/* QR Code */}
+                                  {/* Payment Details (Pix + Barcode details) */}
+                                  <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', alignItems: 'center', textAlign: 'left' }}>
+                                    {/* QR Code Pix */}
                                     {inst.asaas_invoice_url ? (
                                       details?.pixImage ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, backgroundColor: '#ffffff', border: '1px solid #e5e7eb', padding: '6px', borderRadius: '8px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, backgroundColor: '#ffffff', border: '1px solid #e5e7eb', padding: '4px', borderRadius: '6px' }}>
                                           <img
                                             src={`data:image/png;base64,${details.pixImage}`}
-                                            style={{ width: '76px', height: '76px', display: 'block' }}
+                                            style={{ width: '54px', height: '54px', display: 'block' }}
                                             alt="Pix QR Code"
                                           />
-                                          <span style={{ fontSize: '7px', fontWeight: '900', textTransform: 'uppercase', color: '#6b7280', marginTop: '4px', fontFamily: 'sans-serif' }}>Pague com Pix</span>
+                                          <span style={{ fontSize: '6px', fontWeight: '900', textTransform: 'uppercase', color: '#6b7280', marginTop: '2px', fontFamily: 'sans-serif' }}>Pix</span>
                                         </div>
                                       ) : (
-                                        <div style={{ width: '88px', height: '88px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '8px', flexShrink: 0, fontSize: '9px', color: '#9ca3af' }}>Carregando...</div>
+                                        <div style={{ width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '6px', flexShrink: 0, fontSize: '8px', color: '#9ca3af' }}>Carregando...</div>
                                       )
                                     ) : (
-                                      <div style={{ width: '88px', height: '88px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px dashed #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '8px', flexShrink: 0, fontSize: '9px', color: '#9ca3af' }}>Não Gerado</div>
+                                      <div style={{ width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px dashed #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '6px', flexShrink: 0, fontSize: '8px', color: '#9ca3af' }}>Não Gerado</div>
                                     )}
 
                                     {/* Lines */}
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', width: '100%', textAlign: 'left' }}>
-                                      <div style={{ textAlign: 'left' }}>
-                                        <p style={{ fontSize: '8px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 2px 0', textAlign: 'left' }}>Linha Digitável do Boleto:</p>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0, textAlign: 'left' }}>
+                                      <div style={{ minWidth: 0, textAlign: 'left' }}>
+                                        <p style={{ fontSize: '7.5px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 1px 0', textAlign: 'left' }}>Linha Digitável do Boleto:</p>
                                         {inst.asaas_invoice_url ? (
-                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px', fontFamily: 'monospace', fontSize: '9px', wordBreak: 'break-all', lineHeight: '1.2', color: '#111827', fontWeight: '700', textAlign: 'left' }}>
+                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '3px 6px', fontFamily: 'monospace', fontSize: '8.5px', wordBreak: 'break-all', lineHeight: '1.1', color: '#111827', fontWeight: '700', textAlign: 'left' }}>
                                             {details?.barcode || "Carregando..."}
                                           </div>
                                         ) : (
-                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px' }}>
-                                            <span style={{ fontSize: '8px', color: '#92400e' }}>Não integrado com Asaas.</span>
+                                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', padding: '3px' }}>
+                                            <span style={{ fontSize: '7.5px', color: '#92400e' }}>Não integrado.</span>
                                             <SyncButton instId={inst.id} />
                                           </div>
                                         )}
                                       </div>
 
                                       {details?.pixPayload && (
-                                        <div style={{ textAlign: 'left' }}>
-                                          <p style={{ fontSize: '8px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 2px 0', textAlign: 'left' }}>Pix Copia e Cola:</p>
-                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '6px', fontFamily: 'monospace', fontSize: '8.5px', wordBreak: 'break-all', lineHeight: '1.1', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', textAlign: 'left' }}>
+                                        <div style={{ minWidth: 0, textAlign: 'left' }}>
+                                          <p style={{ fontSize: '7.5px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 1px 0', textAlign: 'left' }}>Pix Copia e Cola:</p>
+                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '3px 6px', fontFamily: 'monospace', fontSize: '7.5px', wordBreak: 'break-all', lineHeight: '1.1', color: '#111827', textAlign: 'left' }}>
                                             {details.pixPayload}
                                           </div>
                                         </div>
@@ -678,9 +666,9 @@ function SaleDocumentViewer({
 
                                 {/* Barcode Pattern */}
                                 {inst.asaas_invoice_url && details?.barcode && (
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '12px' }}>
-                                    <div style={{ width: '100%', maxWidth: '380px', height: '28px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
-                                    <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#6b7280', marginTop: '2px' }}>{details.barcode}</span>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
+                                    <div style={{ width: '100%', maxWidth: '380px', height: '16px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
+                                    <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{details.barcode}</span>
                                   </div>
                                 )}
                               </div>
