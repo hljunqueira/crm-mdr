@@ -66,10 +66,15 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const contractNumber = sale.id ? sale.id.split('-')[0].toUpperCase() : '85429496';
 
   // Interest calculations
-  const interestTable = sale.interest_table || 'standard';
-  const interestRate = sale.payment_type === 'card'
-    ? 4.00
-    : (interestTable === 'premium' ? 5.00 : interestTable === 'flex' ? 12.00 : 8.00);
+  const getInterestRate = () => {
+    if (sale.payment_type === 'card') return 4.00;
+    const accStr = sale.accessories || '';
+    if (accStr.includes('PREMIUM (5%)') || sale.interest_table === 'premium') return 5.00;
+    if (accStr.includes('FLEX (12%)') || sale.interest_table === 'flex') return 12.00;
+    return 8.00; // Default Standard (8%)
+  };
+
+  const interestRate = getInterestRate();
   const interestRateYear = (Math.pow(1 + interestRate / 100, 12) - 1) * 100;
 
   const cetMonth = interestRate + 1.25;

@@ -309,15 +309,17 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-cut-line {
-          height: 10px;
+          height: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 8px;
-          color: #94a3b8;
+          color: #475569;
           user-select: none;
-          margin-top: 1mm;
-          margin-bottom: 1mm;
+          margin-top: 2.5mm;
+          margin-bottom: 2.5mm;
+          border-top: 1px dashed #000000;
+          position: relative;
         }
 
         @media print {
@@ -451,7 +453,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                 </div>
                 {idx < group.length - 1 && (
                   <div className="pix-cut-line">
-                    <span>✂️ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</span>
+                    <span style={{ background: '#ffffff', padding: '0 12px', position: 'absolute', top: '-6px', fontWeight: 'bold' }}>✂️ DOBRAR / CORTAR AQUI</span>
                   </div>
                 )}
               </React.Fragment>
