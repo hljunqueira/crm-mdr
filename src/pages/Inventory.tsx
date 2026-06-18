@@ -103,11 +103,18 @@ export default function Inventory() {
       const aStock = a.category === 'service' ? 999 : (a.stock_quantity || 0);
       const bStock = b.category === 'service' ? 999 : (b.stock_quantity || 0);
       
-      if (aStock > 0 && bStock === 0) return -1;
-      if (aStock === 0 && bStock > 0) return 1;
+      if (showOutOfStock) {
+        // Sort out-of-stock items to the top when the toggle is active
+        if (aStock === 0 && bStock > 0) return -1;
+        if (aStock > 0 && bStock === 0) return 1;
+      } else {
+        // Sort in-stock items to the top
+        if (aStock > 0 && bStock === 0) return -1;
+        if (aStock === 0 && bStock > 0) return 1;
+      }
       return 0;
     });
-  }, [filteredInventory]);
+  }, [filteredInventory, showOutOfStock]);
 
   const statsInventory = useMemo(() => {
     const isFiltered = searchTerm.trim() !== '' || selectedCategory !== 'all';
@@ -409,6 +416,20 @@ export default function Inventory() {
           />
         </div>
         <div className="flex gap-2">
+          {isListingActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowAll(false);
+                setSelectedCategory('all');
+                setSearchTerm('');
+                setShowOutOfStock(false);
+              }}
+              className="px-5 py-4 bg-white/5 border border-white/10 text-on-surface-variant hover:text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shrink-0"
+            >
+              <span>Recolher Lista</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowOutOfStock(prev => !prev)}
