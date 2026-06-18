@@ -102,7 +102,8 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
         <img
           src="/logo-mdr.png"
           alt="MDR"
-          className="h-8 w-auto filter grayscale contrast-150 object-contain print:block"
+          className="filter grayscale contrast-150 print:block"
+          style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
         <span className="font-bold text-[9px] text-black">MDR INFORMÁTICA &amp; CELULARES</span>
@@ -259,7 +260,8 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             <img
               src="/logo-mdr.png"
               alt="MDR"
-              className="h-10 w-auto filter grayscale contrast-150 object-contain"
+              className="filter grayscale contrast-150"
+              style={{ height: '40px', width: 'auto', objectFit: 'contain' }}
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
             <div className="text-left font-black tracking-tighter text-lg leading-none">
