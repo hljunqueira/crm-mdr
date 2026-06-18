@@ -1338,6 +1338,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           unit={resolvedUnit}
           installmentValue={installmentValue}
           firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
+          installments={createdInstallments.length > 0 ? createdInstallments : generatedInstallments}
         />
         <SaleReceiptPrint
           sale={saleDataForPrint}
@@ -1346,6 +1347,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           installmentValue={installmentValue}
           firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
           sellerName={activeSeller?.full_name}
+          installments={createdInstallments.length > 0 ? createdInstallments : generatedInstallments}
         />
       </div>
     );

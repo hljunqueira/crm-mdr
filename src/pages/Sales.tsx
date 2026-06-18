@@ -525,6 +525,7 @@ function SaleDocumentViewer({
               installmentValue={instValue}
               firstInstallmentValue={firstInstValue}
               isPreview={true}
+              installments={installments}
             />
           ) : activeTab === 'pix_carne' ? (
             <div className="p-2 w-full bg-white text-black font-sans space-y-4 text-left" id="print-carne-container">
@@ -945,10 +946,55 @@ function SaleDocumentViewer({
                     <span>Saldo Financiado:</span>
                     <span className="align-right font-mono">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="row">
-                    <span>Parcelas:</span>
-                    <span className="align-right font-mono">{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+                  {(() => {
+                    if (installments && installments.length > 0) {
+                      const firstVal = installments[0].value;
+                      const allSame = installments.every(inst => inst.value === firstVal);
+                      if (allSame) {
+                        return (
+                          <div className="row">
+                            <span>Parcelas:</span>
+                            <span className="align-right font-mono">{sale.installments}x de R$ {firstVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        );
+                      }
+                      const rest = installments.slice(1);
+                      const restVal = rest[0]?.value;
+                      const restAllSame = rest.every(inst => inst.value === restVal);
+                      if (restAllSame && restVal !== undefined) {
+                        return (
+                          <>
+                            <div className="row">
+                              <span>1ª Parcela:</span>
+                              <span className="align-right font-mono">R$ {firstVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            {sale.installments > 1 && (
+                              <div className="row">
+                                <span>Parcelas 2-{sale.installments}:</span>
+                                <span className="align-right font-mono">{sale.installments - 1}x de R$ {restVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      }
+                      return (
+                        <div className="space-y-0.5">
+                          {installments.map((inst, idx) => (
+                            <div className="row text-small" key={idx}>
+                              <span>Parcela {inst.number || idx + 1}:</span>
+                              <span className="align-right font-mono">R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="row">
+                        <span>Parcelas:</span>
+                        <span className="align-right font-mono">{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    );
+                  })()}
                   <div className="row">
                     <span>1º Vencimento:</span>
                     <span className="align-right font-mono">{installmentDates[0] || today}</span>

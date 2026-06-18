@@ -37,6 +37,7 @@ interface ContractPrintProps {
   installmentValue?: number;
   firstInstallmentValue?: number;
   isPreview?: boolean;
+  installments?: any[];
 }
 
 // Clean helper to format dates safely without shifting
@@ -50,7 +51,7 @@ const formatPaymentDate = (dateStr?: string) => {
   }
 };
 
-export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, isPreview }: ContractPrintProps) {
+export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, isPreview, installments }: ContractPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
@@ -413,7 +414,28 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
               </td>
               <td>
                 <span className="label">Valor das Parcelas</span>
-                <span className="value">R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="value">
+                  {(() => {
+                    if (installments && installments.length > 0) {
+                      const firstVal = installments[0].value;
+                      const allSame = installments.every(inst => inst.value === firstVal);
+                      if (allSame) {
+                        return `R$ ${firstVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                      }
+                      const rest = installments.slice(1);
+                      const restVal = rest[0]?.value;
+                      const restAllSame = rest.every(inst => inst.value === restVal);
+                      if (restAllSame && restVal !== undefined) {
+                        return `1ª de R$ ${firstVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + ${sale.installments - 1}x de R$ ${restVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                      }
+                      return `Variadas (vide item VII)`;
+                    }
+                    if (firstInstValue !== instValue) {
+                      return `1ª de R$ ${firstInstValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} + ${sale.installments - 1}x de R$ ${instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                    }
+                    return `R$ ${instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  })()}
+                </span>
               </td>
             </tr>
             <tr>
@@ -502,13 +524,18 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             </tr>
           </thead>
           <tbody>
-            {installmentDates.map((date, idx) => (
-              <tr key={idx}>
-                <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
-                <td style={{ padding: '2px' }}>{date}</td>
-                <td style={{ padding: '2px' }}>R$ {(idx === 0 ? firstInstValue : instValue).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            ))}
+            {installmentDates.map((date, idx) => {
+              const currentVal = installments && installments[idx] 
+                ? installments[idx].value 
+                : (idx === 0 ? firstInstValue : instValue);
+              return (
+                <tr key={idx}>
+                  <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
+                  <td style={{ padding: '2px' }}>{date}</td>
+                  <td style={{ padding: '2px' }}>R$ {currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
