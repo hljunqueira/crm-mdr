@@ -251,6 +251,7 @@ export default function ServiceOrders() {
   });
 
   const [justCreatedOs, setJustCreatedOs] = useState<ServiceOrder | null>(null);
+  const [sendWhatsAppEntry, setSendWhatsAppEntry] = useState(true);
 
   // Load and fetch initial states
   useEffect(() => {
@@ -561,15 +562,20 @@ export default function ServiceOrders() {
       await fetchServiceOrderById(created.id);
       setJustCreatedOs(created);
 
-      // Auto-trigger WhatsApp notification
-      try {
-        await notifyOsStatus(created.id, 'entry');
-      } catch (waErr) {
-        console.warn('Silent WA notification fail:', waErr);
+      // Auto-trigger WhatsApp notification based on checkbox and phone availability
+      const selectedC = customers.find(c => c.id === newOs.customer_id);
+      const clientPhone = selectedC?.phone;
+      if (sendWhatsAppEntry && clientPhone && clientPhone.replace(/\D/g, '').length > 0) {
+        try {
+          await notifyOsStatus(created.id, 'entry');
+        } catch (waErr) {
+          console.warn('Silent WA notification fail:', waErr);
+        }
       }
 
       setIsCreateOpen(false);
       setCustomerSearchTerm('');
+      setSendWhatsAppEntry(true);
       setNewOs({
         customer_id: '',
         unit_id: profile?.unit_id || (units[0]?.id ?? ''),
@@ -651,6 +657,7 @@ export default function ServiceOrders() {
         if (selectedOsId === authAction.osId) {
           fetchServiceOrderById(authAction.osId);
         }
+        triggerWhatsAppConfirmationIfNeeded(authAction.osId, authAction.targetStatus);
       }
 
       setAuthAction(null);
@@ -744,6 +751,9 @@ export default function ServiceOrders() {
     try {
       await updateServiceOrder(osId, updates);
       showNotification('success', 'OS atualizada com sucesso!');
+      if (targetStatus) {
+        triggerWhatsAppConfirmationIfNeeded(osId, targetStatus);
+      }
     } catch (err: any) {
       showNotification('error', err.message || 'Falha ao atualizar OS.');
     }
@@ -845,6 +855,64 @@ export default function ServiceOrders() {
       showNotification('success', 'Peça removida com sucesso!');
     } catch (err) {
       showNotification('error', 'Erro ao remover peça');
+    }
+  };
+
+  const triggerWhatsAppConfirmationIfNeeded = async (osId: string, newStatus: string) => {
+    try {
+      const { data: osData, error } = await supabase
+        .from('service_orders')
+        .select('*, customers(*)')
+        .eq('id', osId)
+        .single();
+      
+      if (error || !osData) return;
+      const phone = osData.customers?.phone;
+      if (!phone || phone.replace(/\D/g, '').length === 0) {
+        return;
+      }
+
+      if (newStatus === 'awaiting_approval') {
+        showModal({
+          title: 'Notificar Orçamento?',
+          children: 'Deseja enviar o orçamento formatado via WhatsApp para o cliente?',
+          confirmText: 'Sim, Enviar',
+          cancelText: 'Não, Apenas Salvar',
+          onConfirm: async () => {
+            hideModal();
+            setNotifyingWhatsApp('budget');
+            try {
+              await notifyOsStatus(osId, 'budget');
+              showNotification('success', 'Orçamento enviado no WhatsApp!');
+            } catch (err: any) {
+              showNotification('error', `Erro ao notificar: ${err.message || 'Sem canal ativo'}`);
+            } finally {
+              setNotifyingWhatsApp(null);
+            }
+          }
+        });
+      } else if (newStatus === 'ready') {
+        showModal({
+          title: 'Notificar Aparelho Pronto?',
+          children: 'Deseja notificar o cliente via WhatsApp que o aparelho está pronto?',
+          confirmText: 'Sim, Enviar',
+          cancelText: 'Não, Apenas Salvar',
+          onConfirm: async () => {
+            hideModal();
+            setNotifyingWhatsApp('ready');
+            try {
+              await notifyOsStatus(osId, 'ready');
+              showNotification('success', 'Aparelho Pronto enviado no WhatsApp!');
+            } catch (err: any) {
+              showNotification('error', `Erro ao notificar: ${err.message || 'Sem canal ativo'}`);
+            } finally {
+              setNotifyingWhatsApp(null);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Error in triggerWhatsAppConfirmationIfNeeded:', e);
     }
   };
 
@@ -2461,40 +2529,7 @@ export default function ServiceOrders() {
                     </div>
                   </div>
 
-                  {/* WhatsApp Alerts Trigger Panel */}
-                  <div className="md:col-span-2 border border-outline-variant/30 rounded-3xl p-4 bg-primary/5 flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <Send size={14} className="text-primary" />
-                      <span className="text-[10px] font-black uppercase text-on-surface tracking-wider">Disparador de Alertas do WhatsApp</span>
-                    </div>
-                    <p className="text-[9px] text-on-surface-variant opacity-75">Notifique instantaneamente o cliente via Evolution API:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSendWhatsAppNotification('entry')}
-                        disabled={notifyingWhatsApp !== null}
-                        className="py-3 px-4 bg-white/5 border border-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        {notifyingWhatsApp === 'entry' ? <Loader2 size={12} className="animate-spin" /> : '1. Entrada da OS'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSendWhatsAppNotification('budget')}
-                        disabled={notifyingWhatsApp !== null}
-                        className="py-3 px-4 bg-white/5 border border-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        {notifyingWhatsApp === 'budget' ? <Loader2 size={12} className="animate-spin" /> : '2. Enviar Orçamento'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSendWhatsAppNotification('ready')}
-                        disabled={notifyingWhatsApp !== null}
-                        className="py-3 px-4 bg-primary text-on-primary rounded-xl text-[9px] font-black uppercase tracking-wider hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
-                      >
-                        {notifyingWhatsApp === 'ready' ? <Loader2 size={12} className="animate-spin" /> : '3. Aparelho Pronto'}
-                      </button>
-                    </div>
-                  </div>
+
 
                   {/* Laudo Técnico */}
                   <div className="md:col-span-2 space-y-2">
@@ -2928,6 +2963,28 @@ export default function ServiceOrders() {
                     />
                   </div>
                 </div>
+
+                {(() => {
+                  const selectedC = customers.find(c => c.id === newOs.customer_id);
+                  const hasPhone = selectedC?.phone && selectedC.phone.replace(/\D/g, '').length > 0;
+                  return (
+                    <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl md:col-span-3 mt-2 animate-in fade-in duration-200">
+                      <input
+                        type="checkbox"
+                        id="sendWhatsAppEntry"
+                        checked={sendWhatsAppEntry && !!hasPhone}
+                        disabled={!hasPhone}
+                        onChange={(e) => setSendWhatsAppEntry(e.target.checked)}
+                        className="w-5 h-5 rounded border-white/10 accent-primary text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      />
+                      <label htmlFor="sendWhatsAppEntry" className="text-xs text-on-surface font-medium cursor-pointer select-none disabled:opacity-40 disabled:cursor-not-allowed">
+                        {hasPhone 
+                          ? 'Enviar notificação de entrada via WhatsApp' 
+                          : 'Enviar notificação de entrada via WhatsApp (Cliente sem WhatsApp cadastrado)'}
+                      </label>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Botões de Ação */}
