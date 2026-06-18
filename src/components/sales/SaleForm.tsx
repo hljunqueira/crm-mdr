@@ -861,9 +861,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
   const feeValue = useMemo(() => {
     if (isCashLike) return 0;
-    // Interest = final value minus base device price (accessories 'venda' are transparent cost)
-    return Math.max(0, finalValue - formData.total_value - accessoriesTotal);
-  }, [isCashLike, finalValue, formData.total_value, accessoriesTotal]);
+    const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
+    // Interest = final value + trade-in valuation minus base device price and accessories
+    return Math.max(0, finalValue + tradeInVal - formData.total_value - accessoriesTotal);
+  }, [isCashLike, finalValue, formData.total_value, accessoriesTotal, formData.is_trade_in, formData.trade_in_valuation]);
 
   const changeValue = useMemo(() => {
     if (amountPaid <= 0) return 0;
@@ -2173,11 +2174,20 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className={cn(
+                "grid gap-6",
+                formData.is_trade_in ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"
+              )}>
                 <div>
                   <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
                   <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
+                {formData.is_trade_in && (
+                  <div>
+                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Abatimento Troca</p>
+                    <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Índice ({formData.installments}x)</p>
                   <p className="text-sm font-black text-primary font-mono">{(baseCoefficient * riskMultiplier).toFixed(6)}</p>
@@ -2216,9 +2226,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </p>
               )}
             </div>
-            <div className="text-right">
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada</p>
-              <p className="text-sm font-black text-on-surface-variant font-mono">R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <div className="text-right flex gap-6">
+              {formData.is_trade_in && (
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Abatimento Troca</p>
+                  <p className="text-sm font-black text-red-400 font-mono">R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada (Dinheiro/Pix)</p>
+                <p className="text-sm font-black text-on-surface-variant font-mono">R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
             </div>
           </div>
 
