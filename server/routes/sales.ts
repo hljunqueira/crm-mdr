@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { deleteAsaasPayment } from "../services/asaasService.js";
 
 const router = Router();
 
@@ -297,7 +298,93 @@ router.patch("/:id", async (req, res) => {
         await supabase.from('cash_transactions').delete().eq('id', oldTx.id);
       }
     }
-     
+    // 3.5 Check and update inventory stock if devices or accessories changed
+    const oldImeis = oldSale.imei_manual ? oldSale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean) : [];
+    const newImeis = req.body.imei_manual ? req.body.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean) : [];
+    const oldDeviceId = oldSale.device_id;
+    const newDeviceId = req.body.device_id;
+    
+    const devicesChanged = 
+      (req.body.imei_manual !== undefined && JSON.stringify(oldImeis) !== JSON.stringify(newImeis)) ||
+      (req.body.device_id !== undefined && oldDeviceId !== newDeviceId);
+
+    if (devicesChanged) {
+      // Restore old devices stock
+      if (oldSale.imei_manual && oldSale.imei_manual !== 'N/A') {
+        const imeis = oldSale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
+        for (const imei of imeis) {
+          if (imei !== 'N/A') {
+            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).single();
+            if (dev) {
+              const newQty = (dev.stock_quantity || 0) + 1;
+              await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
+            }
+          }
+        }
+      } else if (oldSale.device_id) {
+        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', oldSale.device_id).single();
+        if (dev) {
+          const newQty = (dev.stock_quantity || 0) + 1;
+          await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
+        }
+      }
+
+      // Decrement new devices stock
+      if (req.body.imei_manual && req.body.imei_manual !== 'N/A') {
+        const imeis = req.body.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
+        for (const imei of imeis) {
+          if (imei !== 'N/A') {
+            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).single();
+            if (dev) {
+              const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+              await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
+            }
+          }
+        }
+      } else if (req.body.device_id) {
+        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', req.body.device_id).single();
+        if (dev) {
+          const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+          await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
+        }
+      }
+    }
+
+    // Adjust accessories stock if changed
+    const oldAccStr = oldSale.accessories || '';
+    const newAccStr = req.body.accessories || '';
+    if (req.body.accessories !== undefined && oldAccStr !== newAccStr) {
+      // 1. Restore old accessories
+      const oldParts = oldAccStr.split('|')[0] || '';
+      const oldAccList = oldParts.split(',').map((a: string) => a.trim()).filter(Boolean);
+      for (const acc of oldAccList) {
+        const cleanName = acc.replace(/\s*\([^)]*\)\s*/g, '').trim();
+        if (cleanName) {
+          const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).limit(1);
+          if (dev && dev.length > 0) {
+            const target = dev[0];
+            const newQty = (target.stock_quantity || 0) + 1;
+            await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', target.id);
+          }
+        }
+      }
+
+      // 2. Decrement new accessories
+      const newParts = newAccStr.split('|')[0] || '';
+      const newAccList = newParts.split(',').map((a: string) => a.trim()).filter(Boolean);
+      for (const acc of newAccList) {
+        const cleanName = acc.replace(/\s*\([^)]*\)\s*/g, '').trim();
+        if (cleanName) {
+          const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).limit(1);
+          if (dev && dev.length > 0) {
+            const target = dev[0];
+            const newQty = Math.max(0, (target.stock_quantity || 0) - 1);
+            await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', target.id);
+          }
+        }
+      }
+    }
+
     // 4. Update the sale
     const cleanSaleBody: any = {};
     validSalesColumns.forEach(col => {
@@ -399,21 +486,7 @@ router.delete("/:id", async (req, res) => {
     }
 
     // 2. Restore stock for main devices
-    if (sale.device_id) {
-      const { data: device } = await supabase
-        .from('devices')
-        .select('stock_quantity')
-        .eq('id', sale.device_id)
-        .single();
-
-      if (device) {
-        const newQty = (device.stock_quantity || 0) + 1;
-        await supabase
-          .from('devices')
-          .update({ stock_quantity: newQty, status: 'available' })
-          .eq('id', sale.device_id);
-      }
-    } else if (sale.imei_manual && sale.imei_manual !== 'N/A') {
+    if (sale.imei_manual && sale.imei_manual !== 'N/A') {
       const imeis = sale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
       for (const imei of imeis) {
         if (imei !== 'N/A') {
@@ -432,6 +505,20 @@ router.delete("/:id", async (req, res) => {
               .eq('id', device.id);
           }
         }
+      }
+    } else if (sale.device_id) {
+      const { data: device } = await supabase
+        .from('devices')
+        .select('stock_quantity')
+        .eq('id', sale.device_id)
+        .single();
+
+      if (device) {
+        const newQty = (device.stock_quantity || 0) + 1;
+        await supabase
+          .from('devices')
+          .update({ stock_quantity: newQty, status: 'available' })
+          .eq('id', sale.device_id);
       }
     } else if (sale.device_model_manual) {
       const { data: devices } = await supabase
@@ -482,13 +569,29 @@ router.delete("/:id", async (req, res) => {
       }
     }
 
-    // 4. If it was a trade-in, clean up the received device in stock precisely
-    if (sale.is_trade_in) {
-      await supabase
-        .from('devices')
-        .delete()
-        .eq('notes', `Aparelho recebido como troca na venda ID: ${sale.id}`);
+    // 4. Cancel/Delete Asaas payments associated with the installments of this sale
+    const { data: saleInstallments } = await supabase
+      .from('installments')
+      .select('asaas_payment_id')
+      .eq('sale_id', req.params.id);
+
+    if (saleInstallments && saleInstallments.length > 0) {
+      for (const inst of saleInstallments) {
+        if (inst.asaas_payment_id) {
+          try {
+            await deleteAsaasPayment(inst.asaas_payment_id);
+          } catch (e) {
+            console.error(`Erro ao remover cobrança ${inst.asaas_payment_id} do Asaas:`, e);
+          }
+        }
+      }
     }
+
+    // 4.1 Clean up the received device in stock precisely
+    await supabase
+      .from('devices')
+      .delete()
+      .ilike('notes', `%${sale.id}%`);
 
     // 4.5 Revert cash transactions associated with this sale
     const { data: transactions } = await supabase

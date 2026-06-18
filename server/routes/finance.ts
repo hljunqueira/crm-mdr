@@ -93,7 +93,10 @@ router.post("/installments", async (req, res) => {
             value: Number(inst.value),
             dueDate: inst.due_date,
             externalReference: instId,
-            description: `Crediário MDR - Parcela ${inst.installment_number || inst.number}/${inst.total_installments || inst.total} - ${sale?.device_model_manual || 'Dispositivo'}`
+            description: `Crediário MDR - Parcela ${inst.installment_number || inst.number}/${inst.total_installments || inst.total} - ${sale?.device_model_manual || 'Dispositivo'}`,
+            fine: { value: 2.0, type: 'PERCENTAGE' },
+            interest: { value: 1.0, type: 'PERCENTAGE' },
+            discount: { value: 1.0, dueDateLimitDays: 30, type: 'PERCENTAGE' }
           });
           asaasPaymentId = paymentResult.id;
           asaasInvoiceUrl = paymentResult.invoiceUrl;
@@ -684,17 +687,34 @@ router.post("/installments/:id/sync-asaas", async (req, res) => {
         .eq('id', customer.id);
     }
 
-    // 3. Register payment on Asaas
+    // 3. Check for legacy installment and add fee if needed
+    let finalValue = Number(inst.value);
+    if (inst.sales?.payment_type === 'crediario') {
+      const createdAtDate = inst.created_at ? new Date(inst.created_at) : new Date();
+      const isLegacy = createdAtDate < new Date('2026-06-18T00:00:00Z');
+      if (isLegacy) {
+        finalValue = Number(inst.value) + 1.99;
+        await supabase
+          .from('installments')
+          .update({ value: finalValue })
+          .eq('id', id);
+      }
+    }
+
+    // 4. Register payment on Asaas
     const paymentResult = await createAsaasPayment({
       customer: asaasCustomerId,
       billingType: 'UNDEFINED',
-      value: Number(inst.value),
+      value: finalValue,
       dueDate: inst.due_date,
       externalReference: inst.id,
-      description: `Crediário MDR - Parcela ${inst.installment_number || inst.number}/${inst.total_installments || inst.total} - ${inst.sales?.device_model_manual || 'Dispositivo'}`
+      description: `Crediário MDR - Parcela ${inst.installment_number || inst.number}/${inst.total_installments || inst.total} - ${inst.sales?.device_model_manual || 'Dispositivo'}`,
+      fine: { value: 2.0, type: 'PERCENTAGE' },
+      interest: { value: 1.0, type: 'PERCENTAGE' },
+      discount: { value: 1.0, dueDateLimitDays: 30, type: 'PERCENTAGE' }
     });
 
-    // 4. Update installment details
+    // 5. Update installment details
     const { data: updatedInst, error: updateErr } = await supabase
       .from('installments')
       .update({

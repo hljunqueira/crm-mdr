@@ -364,7 +364,32 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         }));
       }
 
-      if (initialData.device_id) {
+      // Reconstruct selectedDevices from imei_manual
+      const imeis = initialData.imei ? initialData.imei.split(',').map(i => i.trim()).filter(Boolean) : [];
+      const foundDevices = [];
+
+      if (imeis.length > 0) {
+        for (const imei of imeis) {
+          if (imei !== 'N/A') {
+            const item = inventory.find(i => i.imei === imei);
+            if (item) {
+              foundDevices.push({
+                id: item.id,
+                model: item.model,
+                brand: item.brand,
+                price: item.price,
+                quantity: 1,
+                imei: item.imei,
+                category: item.category
+              });
+            }
+          }
+        }
+      }
+
+      if (foundDevices.length > 0) {
+        setSelectedDevices(foundDevices);
+      } else if (initialData.device_id) {
         const item = inventory.find(i => i.id === initialData.device_id);
         if (item) {
           setSelectedDevices([{
@@ -388,15 +413,22 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
           }]);
         }
       } else if (initialData.device_model) {
-        setSelectedDevices([{
-          id: 'temp-edit-device',
-          model: initialData.device_model,
-          brand: '',
-          price: initialData.original_price || initialData.total_value,
-          quantity: 1,
-          imei: initialData.imei || '',
-          category: isCellphone ? 'smartphone' : 'other'
-        }]);
+        // Fallback case: Parse models and zip with IMEIs if it was a manual entry sale with multiple items
+        const models = initialData.device_model.split('+').map(m => m.trim());
+        const manualDevices = models.map((modelStr, idx) => {
+          const cleanModel = modelStr.replace(/\s*\(x\d+\)\s*/g, '').trim();
+          const imeiVal = imeis[idx] || '';
+          return {
+            id: `temp-edit-device-${idx}`,
+            model: cleanModel,
+            brand: '',
+            price: initialData.original_price || initialData.total_value,
+            quantity: 1,
+            imei: imeiVal,
+            category: isCellphone ? 'smartphone' : 'other'
+          };
+        });
+        setSelectedDevices(manualDevices);
       }
     }
   }, [initialData, inventory]);
@@ -800,8 +832,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   // First installment value includes grace period interest (if any) distributed evenly
   const firstInstallmentValue = useMemo(() => {
     const portion = installmentCount > 0 ? (gracePeriodInterest / installmentCount) : 0;
-    return Number((installmentValue + portion).toFixed(2));
-  }, [installmentValue, gracePeriodInterest, installmentCount]);
+    const baseValue = Number((installmentValue + portion).toFixed(2));
+    if (paymentType === 'crediario') {
+      return Number((baseValue + 1.99).toFixed(2));
+    }
+    return baseValue;
+  }, [installmentValue, gracePeriodInterest, installmentCount, paymentType]);
 
   const totalInstallmentsValue = useMemo(() => {
     return firstInstallmentValue * installmentCount;

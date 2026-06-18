@@ -13,6 +13,9 @@ export interface AsaasPaymentData {
   dueDate: string;
   externalReference: string;
   description: string;
+  fine?: { value: number; type?: 'PERCENTAGE' | 'FIXED' };
+  interest?: { value: number; type?: 'PERCENTAGE' | 'FIXED' };
+  discount?: { value: number; dueDateLimitDays: number; type: 'PERCENTAGE' | 'FIXED' };
 }
 
 const ASAAS_API_KEY = process.env.ASAAS_API_KEY || '';
@@ -88,7 +91,10 @@ export async function createAsaasPayment(data: AsaasPaymentData) {
     value: data.value,
     dueDate: data.dueDate,
     externalReference: data.externalReference,
-    description: data.description
+    description: data.description,
+    fine: data.fine,
+    interest: data.interest,
+    discount: data.discount
   };
 
   const res = await fetch(`${ASAAS_URL}/payments`, {
@@ -162,5 +168,24 @@ export async function getAsaasPaymentPix(paymentId: string) {
     payload: result.payload,
     expirationDate: result.expirationDate
   };
+}
+
+export async function deleteAsaasPayment(paymentId: string): Promise<void> {
+  if (!ASAAS_API_KEY) {
+    throw new Error('ASAAS_API_KEY não está configurada no ambiente.');
+  }
+
+  const res = await fetch(`${ASAAS_URL}/payments/${paymentId}`, {
+    method: 'DELETE',
+    headers: {
+      'access_token': ASAAS_API_KEY,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!res.ok) {
+    const errorData: any = await res.json().catch(() => ({}));
+    console.warn(`Erro ao excluir cobrança ${paymentId} no Asaas:`, errorData.errors?.[0]?.description || 'Erro desconhecido');
+  }
 }
 
