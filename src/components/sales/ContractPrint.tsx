@@ -19,6 +19,8 @@ interface ContractPrintProps {
     trade_device_model?: string;
     trade_device_imei?: string;
     interest_table?: string;
+    is_trade_in?: boolean;
+    trade_in_valuation?: number;
   };
   customer: {
     name: string;
@@ -54,7 +56,8 @@ const formatPaymentDate = (dateStr?: string) => {
 export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, isPreview, installments }: ContractPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
   const basePrice = sale.original_price ?? sale.total_value;
-  const financed = basePrice - sale.down_payment;
+  const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
+  const financed = basePrice - sale.down_payment - tradeInVal;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
   const firstInstValue = firstInstallmentValue ?? instValue;
   const totalWithFee = sale.total_value;

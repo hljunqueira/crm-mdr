@@ -270,7 +270,8 @@ function SaleDocumentViewer({
   const today = new Date().toLocaleDateString('pt-BR');
 
   const basePrice = sale.original_price ?? sale.total_value;
-  const financed = basePrice - sale.down_payment;
+  const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
+  const financed = basePrice - sale.down_payment - tradeInVal;
   const instValue = installments.length > 0 ? installments[0].value : (sale.installments > 0 ? financed / sale.installments : 0);
   const firstInstValue = installments.length > 0 ? installments[0].value : instValue;
 
