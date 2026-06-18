@@ -174,27 +174,27 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           margin-bottom: 20px;
         }
 
-        #sale-contract h1, #sale-contract h2, #sale-contract h3, #sale-contract h4 {
+        .contract-page h1, .contract-page h2, .contract-page h3, .contract-page h4 {
           color: #000000 !important;
         }
 
-        #sale-contract table.ccb-table {
+        .contract-page table.ccb-table {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 10px;
           font-family: 'Inter', Arial, sans-serif;
         }
-        #sale-contract table.ccb-table td {
+        .contract-page table.ccb-table td {
           border: 1.5px solid #000000;
           padding: 6px 10px;
           vertical-align: top;
           font-size: 11.5px;
           color: #000000;
         }
-        #sale-contract table.ccb-table tr:nth-child(even) td {
+        .contract-page table.ccb-table tr:nth-child(even) td {
           background-color: #f8fafc;
         }
-        #sale-contract table.ccb-table td.header-cell {
+        .contract-page table.ccb-table td.header-cell {
           background-color: #000000;
           color: #ffffff;
           font-weight: 800;
@@ -204,7 +204,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           padding: 6px 10px;
           letter-spacing: 0.5px;
         }
-        #sale-contract table.ccb-table .label {
+        .contract-page table.ccb-table .label {
           font-size: 8px;
           color: #475569;
           text-transform: uppercase;
@@ -213,12 +213,12 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           font-weight: 800;
           letter-spacing: 0.5px;
         }
-        #sale-contract table.ccb-table .value {
+        .contract-page table.ccb-table .value {
           font-weight: 700;
           font-size: 11px;
           color: #000000;
         }
-        #sale-contract .clause-title {
+        .contract-page .clause-title {
           font-size: 11.5px;
           font-weight: 800;
           text-transform: uppercase;
@@ -229,20 +229,20 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           padding-bottom: 2px;
           letter-spacing: 0.5px;
         }
-        #sale-contract .clause-text {
+        .contract-page .clause-text {
           font-size: 10.5px;
           text-align: justify;
           margin-bottom: 6px;
           color: #000000;
           line-height: 1.25;
         }
-        #sale-contract .signature-box-grid {
+        .contract-page .signature-box-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 25px;
           margin-top: 50px;
         }
-        #sale-contract .signature-line-block {
+        .contract-page .signature-line-block {
           border-top: 1.5px solid #000000;
           padding-top: 6px;
           font-size: 10px;
