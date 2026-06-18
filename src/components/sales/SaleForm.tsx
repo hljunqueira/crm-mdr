@@ -1932,6 +1932,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
           <select 
+            value={formData.payment_type}
             onChange={(e) => {
               const val = e.target.value;
               setFormData(prev => {
@@ -2174,10 +2175,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                 </div>
               </div>
 
-              <div className={cn(
-                "grid gap-6",
-                formData.is_trade_in ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"
-              )}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
                 <div>
                   <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
                   <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
@@ -2188,9 +2186,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                     <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                 )}
+                {formData.down_payment > 0 && (
+                  <div>
+                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada Financeira</p>
+                    <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                )}
                 <div>
-                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Índice ({formData.installments}x)</p>
-                  <p className="text-sm font-black text-primary font-mono">{(baseCoefficient * riskMultiplier).toFixed(6)}</p>
+                  <p className="text-[8px] text-primary font-black uppercase tracking-widest mb-1">Saldo Financiado</p>
+                  <p className="text-sm font-black text-primary font-mono">R$ {newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Juros/Serviço (R$)</p>
