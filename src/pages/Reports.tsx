@@ -2634,7 +2634,7 @@ export default function Reports() {
             <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6">
               <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total OS Finalizadas (Colaboradores)</p>
               <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
-                {collaboratorData.reduce((acc, c) => acc + c.osCount, 0)} OSs
+                {collaboratorData.reduce((acc, c) => acc + c.osCount, 0)} OS
               </h3>
               <p className="text-[9px] text-on-surface-variant opacity-70 mt-1">
                 Soma de ordens de serviço executadas por técnicos ativos no mês selecionado
@@ -2702,8 +2702,8 @@ export default function Reports() {
                         labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
                         itemStyle={{ fontSize: '11px' }}
                         formatter={(value: any, name: string) => {
-                          if (name === 'osCount') return [`${value} OSs`, 'Concluído'];
-                          if (name === 'osTarget') return [`${value} OSs`, 'Meta OS'];
+                          if (name === 'osCount') return [`${value} OS`, 'Concluído'];
+                          if (name === 'osTarget') return [`${value} OS`, 'Meta OS'];
                           return [value, name];
                         }}
                       />
