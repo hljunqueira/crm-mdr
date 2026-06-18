@@ -1568,6 +1568,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                   setDeviceDropdownOpen(true);
                 }}
                 onFocus={() => setDeviceDropdownOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                  }
+                }}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
               />
               
@@ -2107,6 +2112,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
                         value={accessorySearch}
                         onChange={e => setAccessorySearch(e.target.value)}
                         autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                          }
+                        }}
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary"
                       />
                     </div>

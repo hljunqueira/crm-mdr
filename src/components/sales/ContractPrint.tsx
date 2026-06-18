@@ -86,6 +86,16 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const issueDateFormatted = formatPaymentDate(sale.date) || today;
 
   const getInstallmentDates = () => {
+    if (installments && installments.length > 0) {
+      const sorted = [...installments].sort((a, b) => a.number - b.number);
+      return sorted.map((inst: any) => {
+        const dateVal = inst.due_date || inst.dueDate || inst.date;
+        if (!dateVal) return '';
+        const cleanStr = dateVal.includes('T') ? dateVal : `${dateVal}T12:00:00`;
+        return new Date(cleanStr).toLocaleDateString('pt-BR');
+      });
+    }
+
     const dates: string[] = [];
     const baseDate = new Date((sale.date || new Date().toISOString()) + 'T12:00:00');
     for (let i = 0; i < sale.installments; i++) {

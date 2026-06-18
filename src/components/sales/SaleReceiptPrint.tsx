@@ -272,7 +272,19 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
             })()}
             <div className="row">
               <span>1º Vencimento:</span>
-              <span className="align-right font-mono">{new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              <span className="align-right font-mono">
+                {(() => {
+                  if (installments && installments.length > 0) {
+                    const sorted = [...installments].sort((a, b) => a.number - b.number);
+                    const firstDate = (sorted[0] as any).due_date || (sorted[0] as any).dueDate;
+                    if (firstDate) {
+                      const cleanStr = firstDate.includes('T') ? firstDate : `${firstDate}T12:00:00`;
+                      return new Date(cleanStr).toLocaleDateString('pt-BR');
+                    }
+                  }
+                  return new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR');
+                })()}
+              </span>
             </div>
           </>
         )}
