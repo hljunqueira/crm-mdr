@@ -364,7 +364,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         }));
       }
 
-      // Reconstruct selectedDevices from imei_manual
+      // Reconstruct selectedDevices from imei_manual and device_model
       const imeis = initialData.imei ? initialData.imei.split(',').map(i => i.trim()).filter(Boolean) : [];
       const foundDevices = [];
 
@@ -387,7 +387,31 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
         }
       }
 
-      if (foundDevices.length > 0) {
+      if (initialData.device_model) {
+        const models = initialData.device_model.split('+').map(m => m.trim());
+        const reconstructed = models.map((modelStr, idx) => {
+          const cleanModel = modelStr.replace(/\s*\(x\d+\)\s*/i, '').trim();
+          const qtyMatch = modelStr.match(/\(x(\d+)\)/i);
+          const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+          const imeiVal = imeis[idx] || '';
+
+          // Look up in inventory to preserve ID and correct Category/Price if possible
+          const matchedByImei = (imeiVal && imeiVal !== 'N/A') ? inventory.find(i => i.imei === imeiVal) : null;
+          const matchedByName = !matchedByImei ? inventory.find(i => i.model.toLowerCase() === cleanModel.toLowerCase()) : null;
+          const matched = matchedByImei || matchedByName;
+
+          return {
+            id: matched?.id || `temp-edit-device-${idx}`,
+            model: matched?.model || cleanModel,
+            brand: matched?.brand || '',
+            price: matched?.price || (idx === 0 ? (initialData.original_price || initialData.total_value) : 0),
+            quantity: quantity,
+            imei: imeiVal || matched?.imei || '',
+            category: matched?.category || (isCellphone ? 'smartphone' : 'other')
+          };
+        });
+        setSelectedDevices(reconstructed);
+      } else if (foundDevices.length > 0) {
         setSelectedDevices(foundDevices);
       } else if (initialData.device_id) {
         const item = inventory.find(i => i.id === initialData.device_id);
@@ -412,23 +436,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
             category: isCellphone ? 'smartphone' : 'other'
           }]);
         }
-      } else if (initialData.device_model) {
-        // Fallback case: Parse models and zip with IMEIs if it was a manual entry sale with multiple items
-        const models = initialData.device_model.split('+').map(m => m.trim());
-        const manualDevices = models.map((modelStr, idx) => {
-          const cleanModel = modelStr.replace(/\s*\(x\d+\)\s*/g, '').trim();
-          const imeiVal = imeis[idx] || '';
-          return {
-            id: `temp-edit-device-${idx}`,
-            model: cleanModel,
-            brand: '',
-            price: initialData.original_price || initialData.total_value,
-            quantity: 1,
-            imei: imeiVal,
-            category: isCellphone ? 'smartphone' : 'other'
-          };
-        });
-        setSelectedDevices(manualDevices);
       }
     }
   }, [initialData, inventory]);
