@@ -282,7 +282,8 @@ Agradecemos a preferência!
     billing_reminder_template: '',
     billing_cron_hour: 9,
     billing_reminder_days_before: 3,
-    billing_reminder_days_after: 5
+    billing_reminder_days_after: 5,
+    grace_period_days: 30
   });
 
   const [focusedField, setFocusedField] = useState<'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template' | null>(null);
@@ -363,7 +364,8 @@ Agradecemos a preferência!
         billing_reminder_template: currentUnit.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE,
         billing_cron_hour: currentUnit.billing_cron_hour ?? 9,
         billing_reminder_days_before: currentUnit.billing_reminder_days_before ?? 3,
-        billing_reminder_days_after: currentUnit.billing_reminder_days_after ?? 5
+        billing_reminder_days_after: currentUnit.billing_reminder_days_after ?? 5,
+        grace_period_days: currentUnit.grace_period_days ?? 30
       });
     }
   }, [selectedUnitId, units, unit]);
@@ -738,7 +740,7 @@ Agradecemos a preferência!
                         <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60 mt-0.5">Defina as regras de disparo automático para cobrança no crediário</p>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Horário do Disparo (Cron)</label>
                           <select
@@ -774,6 +776,18 @@ Agradecemos a preferência!
                             max={30}
                             value={formData.billing_reminder_days_after}
                             onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_days_after: Number(e.target.value) }))}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Dias de Carência (1ª Parcela)</label>
+                          <input 
+                            type="number" 
+                            min={0}
+                            max={90}
+                            value={formData.grace_period_days}
+                            onChange={(e) => setFormData(prev => ({ ...prev, grace_period_days: Number(e.target.value) }))}
                             className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all"
                           />
                         </div>

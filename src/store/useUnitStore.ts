@@ -25,6 +25,7 @@ export interface Unit {
   billing_cron_hour?: number;
   billing_reminder_days_before?: number;
   billing_reminder_days_after?: number;
+  grace_period_days?: number;
 }
 
 interface UnitState {

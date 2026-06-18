@@ -732,7 +732,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return 0.08; // standard
   }, [paymentType, formData.interest_table]);
 
-  // Grace period extra interest: extra days beyond 30 days from today incur pro-rata interest
+  // Grace period extra interest: extra days beyond configured grace_period_days from today incur pro-rata interest
   // charged exclusively on the 1st installment
   const gracePeriodInterest = useMemo(() => {
     if (!formData.first_due_date || paymentType === 'card' || isCashLike) return 0;
@@ -741,14 +741,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     const firstDue = new Date(formData.first_due_date + 'T12:00:00');
     const diffMs = firstDue.getTime() - today.getTime();
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    const extraDays = Math.max(0, diffDays - 30);
+    const graceDays = resolvedUnit?.grace_period_days ?? 30;
+    const extraDays = Math.max(0, diffDays - graceDays);
     if (extraDays === 0) return 0;
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
     const financed = formData.total_value - formData.down_payment - tradeInVal;
     if (financed <= 0) return 0;
     const dailyRate = monthlyRate / 30;
     return financed * dailyRate * extraDays;
-  }, [formData.first_due_date, formData.total_value, formData.down_payment, paymentType, monthlyRate, formData.is_trade_in, formData.trade_in_valuation]);
+  }, [formData.first_due_date, formData.total_value, formData.down_payment, paymentType, monthlyRate, formData.is_trade_in, formData.trade_in_valuation, resolvedUnit]);
 
   // Customer Debt & Limit Calculations
   const customerDebts = useMemo(() => {
@@ -2250,7 +2251,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
               <div>
                 <p className="text-amber-400 font-black uppercase tracking-wider">Juro de Carência Aplicado</p>
                 <p className="text-on-surface-variant mt-0.5">
-                  Vencimento estendido além de 30 dias — juro pro-rata de{' '}
+                  Vencimento estendido além de {resolvedUnit?.grace_period_days ?? 30} dias — juro pro-rata de{' '}
                   <strong className="text-amber-400">
                     R$ {gracePeriodInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </strong>{' '}
