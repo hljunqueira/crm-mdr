@@ -42,6 +42,8 @@ export default function Inventory() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStore, setSelectedStore] = useState('all');
   const [showPendingOnly, setShowPendingOnly] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const isAdmin = profile?.role === 'admin';
 
@@ -58,22 +60,67 @@ export default function Inventory() {
     fetchAllUnits().catch(() => { });
   }, [fetchAllUnits]);
 
+  // Reset showAll when filters or search change
+  useEffect(() => {
+    if (searchTerm.trim() !== '' || selectedCategory !== 'all') {
+      setShowAll(true);
+    }
+  }, [searchTerm, selectedCategory]);
+
   // Use all configured stores for filter tabs
   const availableStores = allStores;
 
-  const filteredInventory = inventory.filter(item => {
-    const matchesSearch =
-      item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.imei || '').includes(searchTerm) ||
-      (item.barcode || '').includes(searchTerm) ||
-      item.brand.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    const matchesStore = !isAdmin || selectedStore === 'all' || item.unit_id === selectedStore;
-    const matchesStatus = showPendingOnly
-      ? item.status === 'pending_valuation'
-      : item.status !== 'pending_valuation';
-    return matchesSearch && matchesCategory && matchesStore && matchesStatus;
-  });
+  // Base inventory matches store and status filters
+  const baseInventory = useMemo(() => {
+    return inventory.filter(item => {
+      const matchesStore = !isAdmin || selectedStore === 'all' || item.unit_id === selectedStore;
+      const matchesStatus = showPendingOnly
+        ? item.status === 'pending_valuation'
+        : item.status !== 'pending_valuation';
+      return matchesStore && matchesStatus;
+    });
+  }, [inventory, isAdmin, selectedStore, showPendingOnly]);
+
+  const filteredInventory = useMemo(() => {
+    return baseInventory.filter(item => {
+      const matchesSearch =
+        item.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.imei || '').includes(searchTerm) ||
+        (item.barcode || '').includes(searchTerm) ||
+        item.brand.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+      
+      // Exclude out of stock items by default (except services)
+      const hasStock = item.category === 'service' || (item.stock_quantity || 0) > 0;
+      const matchesStock = showOutOfStock || hasStock;
+
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+  }, [baseInventory, searchTerm, selectedCategory, showOutOfStock]);
+
+  const sortedInventory = useMemo(() => {
+    return [...filteredInventory].sort((a, b) => {
+      const aStock = a.category === 'service' ? 999 : (a.stock_quantity || 0);
+      const bStock = b.category === 'service' ? 999 : (b.stock_quantity || 0);
+      
+      if (aStock > 0 && bStock === 0) return -1;
+      if (aStock === 0 && bStock > 0) return 1;
+      return 0;
+    });
+  }, [filteredInventory]);
+
+  const statsInventory = useMemo(() => {
+    const isFiltered = searchTerm.trim() !== '' || selectedCategory !== 'all';
+    if (isFiltered) {
+      return filteredInventory;
+    }
+    return baseInventory.filter(item => {
+      const hasStock = item.category === 'service' || (item.stock_quantity || 0) > 0;
+      return showOutOfStock || hasStock;
+    });
+  }, [baseInventory, filteredInventory, searchTerm, selectedCategory, showOutOfStock]);
+
+  const isListingActive = showAll || searchTerm.trim() !== '' || selectedCategory !== 'all' || showOutOfStock || showPendingOnly || selectedStore !== 'all';
 
   const getCategoryBadge = (cat?: string) => {
     switch (cat) {
@@ -236,9 +283,9 @@ export default function Inventory() {
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
-          { label: 'Modelos Diferentes', value: filteredInventory.length.toString(), icon: Smartphone, color: 'text-primary' },
-          { label: 'Quantidade em Estoque', value: filteredInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
-          { label: 'Valor do Estoque (Venda)', value: `R$ ${filteredInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
+          { label: 'Modelos Diferentes', value: statsInventory.length.toString(), icon: Smartphone, color: 'text-primary' },
+          { label: 'Quantidade em Estoque', value: statsInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
+          { label: 'Valor do Estoque (Venda)', value: `R$ ${statsInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
         ].map((stat, i) => (
           <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/[0.02]">
             <div className="flex items-center gap-4">
@@ -361,21 +408,35 @@ export default function Inventory() {
             className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-white transition-all font-display"
           />
         </div>
-        <button
-          onClick={() => {
-            const input = document.getElementById('inventory-search-input');
-            if (input) {
-              input.focus();
-              setSearchTerm('');
-              showNotification('info', 'Leitor de Código Ativo', 'Bipe o código de barras ou IMEI para buscar.');
-            }
-          }}
-          className="px-6 py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shrink-0"
-          title="Bipar Código de Barras"
-        >
-          <Barcode size={18} className="text-primary animate-pulse" />
-          <span>Bipar Código</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowOutOfStock(prev => !prev)}
+            className={cn(
+              "px-5 py-4 border rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shrink-0",
+              showOutOfStock 
+                ? "bg-primary border-primary text-on-primary shadow-primary/10" 
+                : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+            )}
+          >
+            <span>Mostrar sem estoque</span>
+          </button>
+          <button
+            onClick={() => {
+              const input = document.getElementById('inventory-search-input');
+              if (input) {
+                input.focus();
+                setSearchTerm('');
+                showNotification('info', 'Leitor de Código Ativo', 'Bipe o código de barras ou IMEI para buscar.');
+              }
+            }}
+            className="px-6 py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shrink-0"
+            title="Bipar Código de Barras"
+          >
+            <Barcode size={18} className="text-primary animate-pulse" />
+            <span>Bipar Código</span>
+          </button>
+        </div>
       </div>
 
       {/* Grid */}
@@ -385,15 +446,71 @@ export default function Inventory() {
             <div key={i} className="glass-card h-64 rounded-[32px] border border-white/5 animate-pulse bg-white/5"></div>
           ))}
         </div>
-      ) : filteredInventory.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50 bg-white/[0.02] border border-outline-variant/30 rounded-[40px]">
+      ) : !isListingActive ? (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="text-center max-w-xl mx-auto py-4">
+            <h3 className="text-lg font-black text-white uppercase tracking-wider font-display">Painel de Acesso Rápido</h3>
+            <p className="text-[10px] text-on-surface-variant/70 mt-1 uppercase tracking-widest font-black opacity-60">
+              Escolha uma categoria abaixo ou use a barra de busca acima para ver os produtos.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            {[
+              { id: 'smartphone', label: 'Celulares', icon: Smartphone, color: 'text-blue-400 bg-blue-500/5 hover:bg-blue-500/10 border-blue-500/10 hover:border-blue-500/30' },
+              { id: 'accessory_mobile', label: 'Acessórios Celular', icon: Smartphone, color: 'text-purple-400 bg-purple-500/5 hover:bg-purple-500/10 border-purple-500/10 hover:border-purple-500/30' },
+              { id: 'accessory_it', label: 'Acessórios TI', icon: Monitor, color: 'text-teal-400 bg-teal-500/5 hover:bg-teal-500/10 border-teal-500/10 hover:border-teal-500/30' },
+              { id: 'part', label: 'Peças de Reposição', icon: Wrench, color: 'text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10 hover:border-amber-500/30' },
+              { id: 'service', label: 'Serviços / Mão de Obra', icon: Wrench, color: 'text-green-400 bg-green-500/5 hover:bg-green-500/10 border-green-500/10 hover:border-green-500/30' },
+              { id: 'other', label: 'Outros', icon: Package, color: 'text-white/60 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20' }
+            ].map(cat => {
+              const CatIcon = cat.icon;
+              const count = baseInventory.filter(item => 
+                item.category === cat.id && 
+                (item.category === 'service' || (item.stock_quantity || 0) > 0)
+              ).length;
+              
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={cn(
+                    "p-6 rounded-[32px] border text-left flex flex-col justify-between h-40 transition-all hover:scale-[1.02] active:scale-98 shadow-xl bg-white/[0.01]",
+                    cat.color
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
+                    <CatIcon size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-wider text-white font-display">{cat.label}</p>
+                    <p className="text-[10px] uppercase font-black tracking-widest text-on-surface-variant/60 mt-1">
+                      {count} {count === 1 ? 'item ativo' : 'itens ativos'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-center pt-6">
+            <button
+              onClick={() => setShowAll(true)}
+              className="px-8 py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-xl font-display"
+            >
+              Exibir Todo o Estoque
+            </button>
+          </div>
+        </div>
+      ) : sortedInventory.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50 bg-white/[0.02] border border-outline-variant/30 rounded-[40px] w-full">
           <Smartphone size={48} className="text-on-surface-variant mb-2 opacity-20" />
           <p className="text-sm font-display font-bold text-on-surface-variant uppercase tracking-widest">Estoque vazio</p>
           <p className="text-[10px] font-display text-on-surface-variant opacity-70">Nenhum aparelho encontrado no estoque atual.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredInventory.map((item) => (
+          {sortedInventory.map((item) => (
             <motion.div
               layout
               key={item.id}
