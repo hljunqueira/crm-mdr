@@ -561,52 +561,55 @@ function SaleDocumentViewer({
 
                     return chunks.map((chunk, chunkIdx) => (
                       <div key={chunkIdx} className="pix-slip-page" style={{ boxSizing: 'border-box' }}>
-                        {chunk.map((inst) => {
+                        {chunk.map((inst, instIdx) => {
                           const details = allAsaasDetails[inst.id];
                           return (
-                            <div
-                              key={inst.id}
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'row',
-                                border: '1px dashed #9ca3af',
-                                borderRadius: '12px',
-                                padding: '10px 14px',
-                                marginBottom: '12px',
-                                backgroundColor: '#ffffff',
-                                color: '#000000',
-                                minHeight: '58mm',
-                                boxSizing: 'border-box',
-                                position: 'relative'
-                              }}
-                            >
-                              {/* Canhoto (Stub) */}
+                            <React.Fragment key={inst.id}>
                               <div
                                 style={{
-                                  width: '130px',
-                                  borderRight: '1px dashed #d1d5db',
-                                  paddingRight: '12px',
                                   display: 'flex',
-                                  flexDirection: 'column',
-                                  justifyContent: 'space-between',
-                                  fontSize: '10px',
-                                  color: '#1f2937',
-                                  textAlign: 'left'
+                                  flexDirection: 'row',
+                                  border: '1px dashed #9ca3af',
+                                  borderRadius: '12px',
+                                  padding: '10px 14px',
+                                  marginBottom: '12px',
+                                  backgroundColor: '#ffffff',
+                                  color: '#000000',
+                                  minHeight: '58mm',
+                                  boxSizing: 'border-box',
+                                  position: 'relative'
                                 }}
                               >
-                                <div>
-                                  <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '10px', color: '#000000', margin: '0 0 4px 0', textAlign: 'left' }}>MDR Celulares</p>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>PARC:</strong> {inst.number} de {inst.total}</p>
-                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>VENC:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                                    <p style={{ margin: 0, textAlign: 'left' }}><strong>VALOR:</strong> R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                {/* Canhoto (Stub) */}
+                                <div
+                                  style={{
+                                    width: '130px',
+                                    borderRight: '1px dashed #d1d5db',
+                                    paddingRight: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between',
+                                    fontSize: '10px',
+                                    color: '#1f2937',
+                                    textAlign: 'left'
+                                  }}
+                                  >
+                                  <div>
+                                    <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '10px', color: '#000000', margin: '0 0 4px 0', textAlign: 'left' }}>MDR Celulares</p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                                      <p style={{ margin: 0, textAlign: 'left' }}><strong>PARC:</strong> {inst.number} de {inst.total}</p>
+                                      <p style={{ margin: 0, textAlign: 'left' }}><strong>VENC:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                                      <p style={{ margin: 0, textAlign: 'left' }}><strong>VALOR:</strong> R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                    </div>
+                                  </div>
+                                  <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px solid #f3f4f6', fontSize: '8.5px', lineHeight: '1.2', textAlign: 'left' }}>
+                                    <p style={{ fontWeight: '600', margin: '0 0 2px 0', wordBreak: 'break-all', textAlign: 'left', lineHeight: '1.2' }}>
+                                      <strong style={{ fontSize: '7.5px', color: '#4b5563', textTransform: 'uppercase' }}>Cliente:</strong><br />
+                                      <span style={{ fontSize: '9.5px', fontWeight: '900' }}>{customer.name}</span>
+                                    </p>
+                                    <p style={{ color: '#6b7280', margin: 0, textAlign: 'left' }}>Contrato: {contractNumber}</p>
                                   </div>
                                 </div>
-                                <div style={{ marginTop: '8px', paddingTop: '4px', borderTop: '1px solid #f3f4f6', fontSize: '8.5px', lineHeight: '1.2', textAlign: 'left' }}>
-                                  <p style={{ fontWeight: '600', margin: '0 0 2px 0', wordBreak: 'break-all', textAlign: 'left' }}>Cli: {customer.name}</p>
-                                  <p style={{ color: '#6b7280', margin: 0, textAlign: 'left' }}>Contrato: {contractNumber}</p>
-                                </div>
-                              </div>
 
                               {/* Corpo principal (Main slip) */}
                               <div style={{ flex: 1, paddingLeft: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: '#1f2937', textAlign: 'left', minWidth: 0 }}>
@@ -685,6 +688,25 @@ function SaleDocumentViewer({
                                 )}
                               </div>
                             </div>
+                              {instIdx < chunk.length - 1 && (
+                                <div className="pix-cut-line-preview" style={{
+                                  height: '14px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '8px',
+                                  color: '#000000',
+                                  marginTop: '25px',
+                                  marginBottom: '25px',
+                                  borderTop: '1px dashed #000000',
+                                  position: 'relative',
+                                  width: '100%',
+                                  userSelect: 'none'
+                                }}>
+                                  <span style={{ background: '#ffffff', padding: '0 12px', position: 'absolute', top: '-7px', fontWeight: 'bold', fontSize: '9px' }}>✂️ DOBRAR / CORTAR AQUI</span>
+                                </div>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </div>
@@ -948,6 +970,18 @@ function SaleDocumentViewer({
                       Recebido: {tradeDeviceModel} (IMEI: {tradeDeviceImei || 'N/A'})
                     </div>
                   )}
+                </>
+              )}
+
+              {sale.is_trade_in && (
+                <>
+                  <div className="row" style={{ color: '#dc2626', fontWeight: 'bold' }}>
+                    <span>Valor da Troca (Dedução):</span>
+                    <span className="align-right font-mono">- R$ {Number(sale.trade_in_valuation).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="trade-box">
+                    Troca: {sale.trade_in_device_brand} {sale.trade_in_device_model} {sale.trade_in_device_imei ? `(IMEI: ${sale.trade_in_device_imei})` : ''}
+                  </div>
                 </>
               )}
 
