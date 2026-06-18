@@ -324,12 +324,15 @@ export default function SaleReceiptPrint({ sale, customer, unit, installmentValu
         {/* Signatures */}
         {sale.payment_type === 'crediario' && (
           <>
-            <div className="sig-line-box" style={{ marginTop: '50px' }}>
+            <div style={{ height: '40px' }}></div>
+            <div className="sig-line-box">
               <div className="sig-line"></div>
               <span className="sig-label">{resolvedUnit.name}<br />Vendedor / Responsável</span>
             </div>
 
-            <div className="sig-line-box" style={{ marginTop: '50px' }}>
+            <div style={{ height: '55px' }}></div>
+
+            <div className="sig-line-box">
               <div className="sig-line"></div>
               <span className="sig-label">{customer.name}<br />Comprador</span>
             </div>
