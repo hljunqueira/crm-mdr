@@ -138,8 +138,8 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             margin: 0 !important;
             padding: 0 !important;
           }
-          body > *:not(#sale-contract):not(#print-mount-point) { display: none !important; }
-          #sale-contract, #print-mount-point { display: block !important; }
+          body > *:not(#sale-contract):not(#print-mount-point):not(#sale-document-preview-area) { display: none !important; }
+          #sale-contract, #print-mount-point, #sale-document-preview-area { display: block !important; }
           .contract-page {
             page-break-after: always !important;
             break-after: page !important;
