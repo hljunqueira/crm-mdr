@@ -547,6 +547,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
   };
 
   const [customDueDates, setCustomDueDates] = useState<string[]>([]);
+  const [customInstallmentValues, setCustomInstallmentValues] = useState<number[]>([]);
 
   const handleDueDateChange = (idx: number, val: string) => {
     setCustomDueDates(prev => {
@@ -873,17 +874,70 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   }, []);
 
+  // Synchronize custom installment values when total installments or default value changes
+  React.useEffect(() => {
+    if (formData.installments > 0) {
+      const vals: number[] = [];
+      for (let i = 0; i < formData.installments; i++) {
+        vals.push(firstInstallmentValue);
+      }
+      setCustomInstallmentValues(vals);
+    } else {
+      setCustomInstallmentValues([]);
+    }
+  }, [formData.installments, firstInstallmentValue]);
+
+  const handleInstallmentValueChange = (idx: number, newVal: number) => {
+    setCustomInstallmentValues(prev => {
+      const copy = [...prev];
+      copy[idx] = newVal;
+      
+      const totalToDistribute = totalInstallmentsValue;
+      const remainingCount = copy.length - 1 - idx;
+      
+      if (remainingCount > 0) {
+        // Soma das parcelas até a editada
+        let sumEdited = 0;
+        for (let j = 0; j <= idx; j++) {
+          sumEdited += copy[j];
+        }
+        
+        const remainingVal = Math.max(0, totalToDistribute - sumEdited);
+        const eachRemaining = Number((remainingVal / remainingCount).toFixed(2));
+        for (let j = idx + 1; j < copy.length; j++) {
+          copy[j] = eachRemaining;
+        }
+      } else if (copy.length > 1) {
+        // Se for a última parcela, absorve a diferença na primeira
+        const sumOthers = copy.slice(0, -1).reduce((sum, v) => sum + v, 0);
+        copy[0] = Math.max(0, Number((totalToDistribute - sumOthers - newVal).toFixed(2)));
+      }
+      
+      // Ajuste fino de centavos na última parcela para soma exata
+      let currentSum = 0;
+      for (let j = 0; j < copy.length; j++) {
+        currentSum += copy[j];
+      }
+      const diff = Number((totalToDistribute - currentSum).toFixed(2));
+      if (diff !== 0) {
+        copy[copy.length - 1] = Number((copy[copy.length - 1] + diff).toFixed(2));
+      }
+      
+      return copy;
+    });
+  };
+
   const generatedInstallments = useMemo(() => {
     if (!formData.customer_id || formData.total_value <= 0 || isCashLike) return [];
 
     return customDueDates.map((dueDate, idx) => ({
       number: idx + 1,
       total: formData.installments,
-      value: firstInstallmentValue,
+      value: customInstallmentValues[idx] ?? firstInstallmentValue,
       dueDate: dueDate,
       status: 'pending'
     }));
-  }, [formData.customer_id, formData.total_value, formData.installments, firstInstallmentValue, customDueDates, isCashLike]);
+  }, [formData.customer_id, formData.total_value, formData.installments, firstInstallmentValue, customDueDates, isCashLike, customInstallmentValues]);
 
   const executeSubmit = async (sellerId: string) => {
     try {
@@ -2174,19 +2228,30 @@ export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormP
 
           {formData.payment_type !== 'card' && (
             <div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas individualmente:</p>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas e valores individualmente:</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {generatedInstallments.map((inst, i) => (
-                  <div key={i} className={`p-3 rounded-2xl border ${gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'}`}>
-                    <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest mb-1">Parcela {inst.number}/{formData.installments}</p>
-                    <p className="text-[9px] text-amber-400 font-black mb-1.5">
-                      R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {gracePeriodInterest > 0 ? '(c/ carência)' : ''}
-                    </p>
+                  <div key={i} className={`p-3 rounded-2xl border ${gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'} flex flex-col gap-2`}>
+                    <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Parcela {inst.number}/{formData.installments}</p>
+                    
+                    {/* Campo interativo para o Valor da Parcela */}
+                    <div className="relative flex items-center">
+                      <span className="absolute left-2.5 text-[10px] text-primary font-bold">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={customInstallmentValues[i] !== undefined ? customInstallmentValues[i] : inst.value}
+                        onChange={(e) => handleInstallmentValueChange(i, Number(e.target.value) || 0)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-7 pr-2.5 py-1.5 text-xs font-mono font-bold text-white focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+
                     <input
                       type="date"
                       value={customDueDates[i] || ''}
                       onChange={(e) => handleDueDateChange(i, e.target.value)}
-                      className="w-full bg-transparent border border-white/10 rounded-xl px-2 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
+                      className="w-full bg-transparent border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
                     />
                   </div>
                 ))}
