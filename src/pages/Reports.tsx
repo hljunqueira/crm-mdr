@@ -532,7 +532,13 @@ export default function Reports() {
   }, [filteredServiceOrders]);
 
   const collaboratorData = useMemo(() => {
-    const cols = usersList.filter(u => u.role !== 'admin');
+    let cols = usersList.filter(u => u.role !== 'admin' && !u.full_name.toLowerCase().includes('terminal'));
+    
+    // Filter by store if not "all"
+    if (selectedUnitId !== 'all') {
+      cols = cols.filter(u => u.store_id === selectedUnitId);
+    }
+
     return cols.map(usr => {
       // Sales for this collaborator in the selected month/year
       const usrSales = sales.filter(s => 
@@ -572,6 +578,37 @@ export default function Reports() {
       };
     });
   }, [usersList, sales, serviceOrders, goalsList, selectedMonth, selectedYear, selectedUnitId]);
+
+  const terminalOrphanStats = useMemo(() => {
+    const terminalUsers = usersList.filter(u => u.full_name.toLowerCase().includes('terminal'));
+    let orphanSalesVal = 0;
+    let orphanOSCount = 0;
+
+    terminalUsers.forEach(term => {
+      // Filter sales by selected month/year and unit
+      const termSales = sales.filter(s => 
+        s.status !== 'cancelled' && 
+        s.seller_id === term.id && 
+        isDateInMonth(s.date) &&
+        filterByUnit(s.unit_id)
+      );
+      orphanSalesVal += termSales.reduce((acc, s) => {
+        const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
+        return acc + (s.original_price ?? s.total_value) - tradeInVal;
+      }, 0);
+
+      // Filter OSs by selected month/year and unit
+      const termOSs = serviceOrders.filter(o => 
+        (o.status === 'delivered' || o.status === 'ready') && 
+        o.responsible_technician_id === term.id && 
+        isDateInMonth(o.delivered_at || o.created_at) &&
+        filterByUnit(o.unit_id)
+      );
+      orphanOSCount += termOSs.length;
+    });
+
+    return { sales: orphanSalesVal, osCount: orphanOSCount };
+  }, [usersList, sales, serviceOrders, selectedMonth, selectedYear, selectedUnitId]);
 
   const handleUpdateTarget = () => {
     const parsed = parseFloat(targetInput);
@@ -2618,6 +2655,20 @@ export default function Reports() {
               </div>
             </div>
           </div>
+
+          {/* Warning for orphan transactions registered under Terminal accounts */}
+          {(terminalOrphanStats.sales > 0 || terminalOrphanStats.osCount > 0) && (
+            <div className="bg-warning/10 border border-warning/20 rounded-3xl p-5 flex items-start gap-3 text-warning animate-in fade-in slide-in-from-top-4 duration-300">
+              <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider">Lançamentos não identificados nos Terminais</h4>
+                <p className="text-[10px] opacity-85 mt-1 leading-relaxed">
+                  Detectamos <strong>R$ {terminalOrphanStats.sales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em vendas e/ou <strong>{terminalOrphanStats.osCount} OS</strong> registrados diretamente nas contas de terminal genéricas no período selecionado. 
+                  Certifique-se de que os colaboradores se identificam com suas senhas individuais ao realizar lançamentos, para que suas metas individuais sejam devidamente creditadas.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Goals KPIs Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
