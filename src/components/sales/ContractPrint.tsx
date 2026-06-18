@@ -102,7 +102,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
         <img
           src="/logo-mdr.png"
           alt="MDR"
-          className="filter grayscale contrast-150 print:block"
+          className="print:block"
           style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
@@ -260,7 +260,6 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
             <img
               src="/logo-mdr.png"
               alt="MDR"
-              className="filter grayscale contrast-150"
               style={{ height: '40px', width: 'auto', objectFit: 'contain' }}
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
