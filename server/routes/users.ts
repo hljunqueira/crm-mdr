@@ -265,4 +265,61 @@ router.post('/verify-admin-password', async (req, res) => {
   }
 });
 
+// GET /api/users/goals/:month/:year — Obter metas dos colaboradores para o período
+router.get('/goals/:month/:year', async (req, res) => {
+  try {
+    const { month, year } = req.params;
+    const { data: goals, error } = await supabase
+      .from('collaborator_goals')
+      .select('*')
+      .eq('month', parseInt(month))
+      .eq('year', parseInt(year));
+
+    if (error) {
+      console.error('[Users Goals GET] Erro:', error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(goals || []);
+  } catch (error: any) {
+    console.error('[Users Goals GET] Erro Geral:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/goals — Inserir ou atualizar meta de colaborador
+router.post('/goals', async (req, res) => {
+  try {
+    const { profile_id, month, year, sales_target, os_target } = req.body;
+    if (!profile_id || !month || !year) {
+      return res.status(400).json({ error: 'profile_id, month e year são obrigatórios.' });
+    }
+
+    const { data: goal, error } = await supabase
+      .from('collaborator_goals')
+      .upsert({
+        profile_id,
+        month: parseInt(month),
+        year: parseInt(year),
+        sales_target: parseFloat(sales_target || 0),
+        os_target: parseInt(os_target || 0),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'profile_id,month,year'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Users Goals POST] Erro:', error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(goal);
+  } catch (error: any) {
+    console.error('[Users Goals POST] Erro Geral:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

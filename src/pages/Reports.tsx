@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
-  CartesianGrid, Tooltip, Legend 
+  CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell 
 } from 'recharts';
 import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
@@ -33,7 +33,7 @@ export default function Reports() {
   const { profile } = useAuthStore();
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas'>('overview');
 
   // Global filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
@@ -48,6 +48,13 @@ export default function Reports() {
   const [salesTarget, setSalesTarget] = useState<number>(50000);
   const [editingTarget, setEditingTarget] = useState<boolean>(false);
   const [targetInput, setTargetInput] = useState<string>('50000');
+
+  // Collaborator Goals States
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [goalsList, setGoalsList] = useState<any[]>([]);
+  const [editingGoalUserId, setEditingGoalUserId] = useState<string | null>(null);
+  const [goalSalesInput, setGoalSalesInput] = useState<string>('0');
+  const [goalOSInput, setGoalOSInput] = useState<string>('0');
 
   // Lucro Presumido filters
   const [selectedMonth, setSelectedMonth] = useState<number>(
@@ -118,6 +125,42 @@ export default function Reports() {
     fetchServiceOrders();
     fetchAllUnits();
   }, [fetchSales, fetchInstallments, fetchServiceOrders, fetchAllUnits]);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) {
+      console.error('[Reports] Erro ao buscar usuários:', e);
+    }
+  };
+
+  const fetchGoals = async () => {
+    try {
+      const res = await fetch(`/api/users/goals/${selectedMonth}/${selectedYear}`);
+      if (res.ok) {
+        const data = await res.json();
+        setGoalsList(data);
+      }
+    } catch (e) {
+      console.error('[Reports] Erro ao buscar metas:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (profile?.role === 'admin') {
+      fetchUsers();
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (profile?.role === 'admin') {
+      fetchGoals();
+    }
+  }, [profile, selectedMonth, selectedYear]);
 
   useEffect(() => {
     fetchTransactions(selectedUnitId);
@@ -204,6 +247,44 @@ export default function Reports() {
       filterByBrand(o.device_model)
     );
   }, [serviceOrders, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
+
+  const revenueChartData = useMemo(() => {
+    const dayMap: Record<string, { date: string; formattedDate: string; total: number }> = {};
+    
+    filteredSales.forEach(s => {
+      if (!s.date) return;
+      const dayStr = s.date.split('T')[0];
+      const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
+      const value = (s.original_price ?? s.total_value) - tradeInVal;
+      
+      if (!dayMap[dayStr]) {
+        dayMap[dayStr] = { 
+          date: dayStr, 
+          formattedDate: new Date(dayStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), 
+          total: 0 
+        };
+      }
+      dayMap[dayStr].total += value;
+    });
+
+    filteredServiceOrders.forEach(o => {
+      const dateStr = o.delivered_at || o.created_at;
+      if (!dateStr) return;
+      const dayStr = dateStr.split('T')[0];
+      const value = o.total_value || 0;
+      
+      if (!dayMap[dayStr]) {
+        dayMap[dayStr] = { 
+          date: dayStr, 
+          formattedDate: new Date(dayStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), 
+          total: 0 
+        };
+      }
+      dayMap[dayStr].total += value;
+    });
+
+    return Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date));
+  }, [filteredSales, filteredServiceOrders]);
 
   // Overview metrics calculations
   const totalSalesValue = useMemo(() => filteredSales.reduce((acc, s) => {
@@ -450,6 +531,48 @@ export default function Reports() {
     };
   }, [filteredServiceOrders]);
 
+  const collaboratorData = useMemo(() => {
+    const cols = usersList.filter(u => u.role !== 'admin');
+    return cols.map(usr => {
+      // Sales for this collaborator in the selected month/year
+      const usrSales = sales.filter(s => 
+        s.status !== 'cancelled' &&
+        s.seller_id === usr.id &&
+        isDateInMonth(s.date) &&
+        filterByUnit(s.unit_id)
+      );
+      const totalSales = usrSales.reduce((acc, s) => {
+        const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
+        return acc + (s.original_price ?? s.total_value) - tradeInVal;
+      }, 0);
+
+      // Completed/delivered OSs for this collaborator in the selected month/year
+      const usrOSs = serviceOrders.filter(o => 
+        (o.status === 'delivered' || o.status === 'ready') &&
+        o.responsible_technician_id === usr.id &&
+        isDateInMonth(o.delivered_at || o.created_at) &&
+        filterByUnit(o.unit_id)
+      );
+      const totalOSCount = usrOSs.length;
+
+      const goal = goalsList.find(g => g.profile_id === usr.id);
+      const salesTargetVal = goal ? Number(goal.sales_target || 0) : 0;
+      const osTargetVal = goal ? Number(goal.os_target || 0) : 0;
+
+      return {
+        id: usr.id,
+        name: usr.full_name || 'Desconhecido',
+        role: usr.role,
+        sales: totalSales,
+        salesTarget: salesTargetVal,
+        salesProgress: salesTargetVal > 0 ? (totalSales / salesTargetVal) * 100 : 0,
+        osCount: totalOSCount,
+        osTarget: osTargetVal,
+        osProgress: osTargetVal > 0 ? (totalOSCount / osTargetVal) * 100 : 0
+      };
+    });
+  }, [usersList, sales, serviceOrders, goalsList, selectedMonth, selectedYear, selectedUnitId]);
+
   const handleUpdateTarget = () => {
     const parsed = parseFloat(targetInput);
     if (!isNaN(parsed) && parsed >= 0) {
@@ -458,6 +581,50 @@ export default function Reports() {
       showNotification('success', 'Meta Atualizada!', `Nova meta de faturamento definida para R$ ${parsed.toLocaleString('pt-BR')}`);
     } else {
       showNotification('error', 'Valor inválido', 'Digite um número válido para a meta.');
+    }
+  };
+
+  const handleSaveCollaboratorGoal = async (profileId: string) => {
+    try {
+      const salesVal = parseFloat(goalSalesInput);
+      const osVal = parseInt(goalOSInput);
+      if (isNaN(salesVal) || salesVal < 0 || isNaN(osVal) || osVal < 0) {
+        showNotification('error', 'Valores inválidos', 'Por favor, insira números válidos maiores ou iguais a zero.');
+        return;
+      }
+
+      const res = await fetch('/api/users/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile_id: profileId,
+          month: selectedMonth,
+          year: selectedYear,
+          sales_target: salesVal,
+          os_target: osVal
+        })
+      });
+
+      if (res.ok) {
+        const updatedGoal = await res.json();
+        setGoalsList(prev => {
+          const index = prev.findIndex(g => g.profile_id === profileId);
+          if (index >= 0) {
+            const next = [...prev];
+            next[index] = updatedGoal;
+            return next;
+          } else {
+            return [...prev, updatedGoal];
+          }
+        });
+        setEditingGoalUserId(null);
+        showNotification('success', 'Metas salvas com sucesso!');
+      } else {
+        const errData = await res.json();
+        showNotification('error', 'Erro ao salvar metas', errData.error || 'Falha na requisição.');
+      }
+    } catch (e: any) {
+      showNotification('error', 'Erro de rede', e.message);
     }
   };
 
@@ -857,13 +1024,14 @@ export default function Reports() {
       </div>
 
       {/* TABS SELECTOR (HIDDEN ON PRINT) */}
-      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-2xl print:hidden">
+      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-4xl print:hidden overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Visão Geral', icon: BarChart2 },
           { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
           { id: 'lucro_presumido', label: 'Lucro Presumido', icon: Calculator },
           { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench },
-          { id: 'auditoria', label: 'Auditoria de Estoque', icon: CheckCircle2 }
+          { id: 'auditoria', label: 'Auditoria de Estoque', icon: CheckCircle2 },
+          ...(profile?.role === 'admin' ? [{ id: 'metas', label: 'Desempenho & Metas', icon: Award }] : [])
         ].map(tab => (
           <button
             key={tab.id}
@@ -982,72 +1150,112 @@ export default function Reports() {
             ))}
           </div>
 
+          {/* Revenue Evolution Chart */}
+          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:p-8 space-y-6">
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider font-display">Evolução do Faturamento no Período</h3>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Entradas diárias combinadas de vendas e assistência</p>
+            </div>
+            
+            {revenueChartData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 opacity-40">
+                <BarChart2 size={32} className="text-on-surface-variant mb-2" />
+                <p className="text-xs uppercase font-black tracking-widest text-on-surface-variant">Sem faturamento registrado para o período</p>
+              </div>
+            ) : (
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={revenueChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6C63FF" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#6C63FF" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="formattedDate" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
+                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }} 
+                      labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                      itemStyle={{ fontSize: '11px', color: '#6C63FF' }}
+                      formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Faturamento']}
+                    />
+                    <Area type="monotone" dataKey="total" stroke="#6C63FF" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
           {/* Goal Tracker & Payment Methods Distribution */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 ${profile?.role === 'admin' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-6`}>
             
             {/* Sales Goal Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 space-y-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Meta Mensal da Loja</h3>
-                  <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Acompanhamento do Faturamento</p>
+            {profile?.role === 'admin' && (
+              <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Meta Mensal da Loja</h3>
+                    <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Acompanhamento do Faturamento</p>
+                  </div>
+                  
+                  <div className="text-right">
+                    {editingTarget ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={targetInput}
+                          onChange={(e) => setTargetInput(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white w-28 font-mono"
+                        />
+                        <button 
+                          onClick={handleUpdateTarget}
+                          className="px-3 py-1.5 bg-primary text-black rounded-xl text-[9px] font-black uppercase tracking-widest"
+                        >
+                          Salvar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-white font-mono">Meta: R$ {salesTarget.toLocaleString()}</span>
+                        <button 
+                          onClick={() => { setTargetInput(salesTarget.toString()); setEditingTarget(true); }}
+                          className="p-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] text-on-surface-variant hover:text-white uppercase transition-all"
+                        >
+                          Ajustar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="text-right">
-                  {editingTarget ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={targetInput}
-                        onChange={(e) => setTargetInput(e.target.value)}
-                        className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white w-28 font-mono"
-                      />
-                      <button 
-                        onClick={handleUpdateTarget}
-                        className="px-3 py-1.5 bg-primary text-black rounded-xl text-[9px] font-black uppercase tracking-widest"
-                      >
-                        Salvar
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-white font-mono">Meta: R$ {salesTarget.toLocaleString()}</span>
-                      <button 
-                        onClick={() => { setTargetInput(salesTarget.toString()); setEditingTarget(true); }}
-                        className="p-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] text-on-surface-variant hover:text-white uppercase transition-all"
-                      >
-                        Ajustar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              {/* Progress bar container */}
-              <div className="space-y-2.5">
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                  <span className="text-on-surface-variant">Progresso</span>
-                  <span className="text-primary">{metaPercentage.toFixed(1)}%</span>
+                {/* Progress bar container */}
+                <div className="space-y-2.5">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                    <span className="text-on-surface-variant">Progresso</span>
+                    <span className="text-primary">{metaPercentage.toFixed(1)}%</span>
+                  </div>
+                  <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, metaPercentage)}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                      className={`h-full rounded-full ${
+                        metaPercentage >= 100 
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
+                          : 'bg-gradient-to-r from-primary to-indigo-500'
+                      }`}
+                    />
+                  </div>
+                  <p className="text-[9px] text-on-surface-variant text-center mt-1">
+                    {metaPercentage >= 100 
+                      ? '🎉 Meta de faturamento batida com sucesso! Parabéns!' 
+                      : `Falta R$ ${Math.max(0, salesTarget - totalRevenue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para atingir o objetivo.`}
+                  </p>
                 </div>
-                <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, metaPercentage)}%` }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                    className={`h-full rounded-full ${
-                      metaPercentage >= 100 
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
-                        : 'bg-gradient-to-r from-primary to-indigo-500'
-                    }`}
-                  />
-                </div>
-                <p className="text-[9px] text-on-surface-variant text-center mt-1">
-                  {metaPercentage >= 100 
-                    ? '🎉 Meta de faturamento batida com sucesso! Parabéns!' 
-                    : `Falta R$ ${Math.max(0, salesTarget - totalRevenue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para atingir o objetivo.`}
-                </p>
               </div>
-            </div>
+            )}
 
             {/* Payment Type Distribution Bar */}
             <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 space-y-6">
@@ -2349,6 +2557,279 @@ export default function Reports() {
             )}
           </AnimatePresence>
 
+        </div>
+      )}
+
+      {/* ─── TAB: DESEMPENHO & METAS (ADMIN EXCLUSIVE) ────────────────────── */}
+      {activeTab === 'metas' && profile?.role === 'admin' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          {/* Controls Bar for Goals */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">Metas por Colaboradores</h3>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Acompanhamento e definição de objetivos</p>
+            </div>
+            
+            {/* Period selector */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[150px]">
+                <span className="text-[10px] font-black uppercase text-on-surface-variant">Mês:</span>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                  }}
+                >
+                  <option value={1} className="bg-[#0f0f1a]">Janeiro</option>
+                  <option value={2} className="bg-[#0f0f1a]">Fevereiro</option>
+                  <option value={3} className="bg-[#0f0f1a]">Março</option>
+                  <option value={4} className="bg-[#0f0f1a]">Abril</option>
+                  <option value={5} className="bg-[#0f0f1a]">Maio</option>
+                  <option value={6} className="bg-[#0f0f1a]">Junho</option>
+                  <option value={7} className="bg-[#0f0f1a]">Julho</option>
+                  <option value={8} className="bg-[#0f0f1a]">Agosto</option>
+                  <option value={9} className="bg-[#0f0f1a]">Setembro</option>
+                  <option value={10} className="bg-[#0f0f1a]">Outubro</option>
+                  <option value={11} className="bg-[#0f0f1a]">Novembro</option>
+                  <option value={12} className="bg-[#0f0f1a]">Dezembro</option>
+                </select>
+              </div>
+
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[120px]">
+                <span className="text-[10px] font-black uppercase text-on-surface-variant">Ano:</span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                  }}
+                >
+                  {lucroPresumidoYears.map(y => (
+                    <option key={y} value={y} className="bg-[#0f0f1a]">{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Goals KPIs Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6">
+              <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total Vendas (Colaboradores)</p>
+              <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
+                R$ {collaboratorData.reduce((acc, c) => acc + c.sales, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[9px] text-on-surface-variant opacity-70 mt-1">
+                Soma de vendas de todos os colaboradores ativos no mês selecionado
+              </p>
+            </div>
+
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6">
+              <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total OS Finalizadas (Colaboradores)</p>
+              <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
+                {collaboratorData.reduce((acc, c) => acc + c.osCount, 0)} OSs
+              </h3>
+              <p className="text-[9px] text-on-surface-variant opacity-70 mt-1">
+                Soma de ordens de serviço executadas por técnicos ativos no mês selecionado
+              </p>
+            </div>
+          </div>
+
+          {/* Graphics Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sales Chart */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 space-y-4">
+              <div>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">Vendas por Colaborador (Faturamento)</h3>
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Comparação em R$ contra metas individuais</p>
+              </div>
+              <div className="h-64 w-full">
+                {collaboratorData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full opacity-40">
+                    <p className="text-xs uppercase font-black tracking-widest">Nenhum colaborador cadastrado</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={collaboratorData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
+                      <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
+                        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                        itemStyle={{ fontSize: '11px' }}
+                        formatter={(value: any, name: string) => {
+                          if (name === 'sales') return [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Vendas'];
+                          if (name === 'salesTarget') return [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Meta Vendas'];
+                          return [value, name];
+                        }}
+                      />
+                      <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }} />
+                      <Bar dataKey="sales" name="Vendido" fill="#6C63FF" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="salesTarget" name="Meta" fill="#3b3b4f" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* OS Chart */}
+            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 space-y-4">
+              <div>
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">OS Concluídas por Técnico</h3>
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Comparação em quantidade contra metas individuais</p>
+              </div>
+              <div className="h-64 w-full">
+                {collaboratorData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full opacity-40">
+                    <p className="text-xs uppercase font-black tracking-widest">Nenhum colaborador cadastrado</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={collaboratorData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
+                      <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
+                        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
+                        itemStyle={{ fontSize: '11px' }}
+                        formatter={(value: any, name: string) => {
+                          if (name === 'osCount') return [`${value} OSs`, 'Concluído'];
+                          if (name === 'osTarget') return [`${value} OSs`, 'Meta OS'];
+                          return [value, name];
+                        }}
+                      />
+                      <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }} />
+                      <Bar dataKey="osCount" name="Entregue/Concluído" fill="#10B981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="osTarget" name="Meta OS" fill="#3b3b4f" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Collaborators Targets Management list */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+            <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
+              <Users size={16} /> Configurações de Metas Individuais
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {collaboratorData.map(col => {
+                const isEditing = editingGoalUserId === col.id;
+                
+                return (
+                  <div key={col.id} className="bg-white/[0.01] border border-white/5 rounded-[28px] p-5 space-y-4 flex flex-col justify-between hover:bg-white/[0.02] transition-all">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="text-sm font-black text-white uppercase">{col.name}</h4>
+                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 ${
+                          col.role === 'technician' 
+                            ? 'bg-primary/20 text-primary border border-primary/20' 
+                            : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/25'
+                        }`}>
+                          {col.role === 'technician' ? 'Técnico' : 'Atendente'}
+                        </span>
+                      </div>
+                      
+                      {!isEditing && (
+                        <button
+                          onClick={() => {
+                            setEditingGoalUserId(col.id);
+                            setGoalSalesInput(col.salesTarget.toString());
+                            setGoalOSInput(col.osTarget.toString());
+                          }}
+                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[9px] font-black uppercase text-on-surface-variant hover:text-white transition-all cursor-pointer"
+                        >
+                          Ajustar
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black uppercase text-on-surface-variant pl-1">Meta Vendas (R$)</label>
+                            <input
+                              type="number"
+                              value={goalSalesInput}
+                              onChange={(e) => setGoalSalesInput(e.target.value)}
+                              className="w-full bg-[#121214] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <label className="text-[8px] font-black uppercase text-on-surface-variant pl-1">Meta OS (Qtd)</label>
+                            <input
+                              type="number"
+                              value={goalOSInput}
+                              onChange={(e) => setGoalOSInput(e.target.value)}
+                              className="w-full bg-[#121214] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingGoalUserId(null)}
+                            className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-widest text-[9px] rounded-xl border border-white/10 cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => handleSaveCollaboratorGoal(col.id)}
+                            className="flex-1 py-2 bg-primary text-black font-black uppercase tracking-widest text-[9px] rounded-xl hover:scale-[1.02] transition-all cursor-pointer"
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 pt-2">
+                        {/* Sales target progression */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] font-black uppercase text-on-surface-variant">
+                            <span>Vendas</span>
+                            <span className="text-white">R$ {col.sales.toLocaleString('pt-BR')} / R$ {col.salesTarget.toLocaleString('pt-BR')}</span>
+                          </div>
+                          <div className="h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
+                            <div 
+                              className={`h-full rounded-full ${col.salesProgress >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-primary to-indigo-500'}`} 
+                              style={{ width: `${Math.min(100, col.salesProgress)}%` }} 
+                            />
+                          </div>
+                        </div>
+
+                        {/* OS target progression */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] font-black uppercase text-on-surface-variant">
+                            <span>OS Concluídas</span>
+                            <span className="text-white">{col.osCount} / {col.osTarget} OS</span>
+                          </div>
+                          <div className="h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
+                            <div 
+                              className={`h-full rounded-full ${col.osProgress >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-emerald-500 to-teal-500'}`} 
+                              style={{ width: `${Math.min(100, col.osProgress)}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
