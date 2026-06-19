@@ -310,42 +310,89 @@ router.patch("/:id", async (req, res) => {
 
     if (devicesChanged) {
       // Restore old devices stock
-      if (oldSale.imei_manual && oldSale.imei_manual !== 'N/A') {
-        const imeis = oldSale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
-        for (const imei of imeis) {
-          if (imei !== 'N/A') {
-            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).single();
-            if (dev) {
-              const newQty = (dev.stock_quantity || 0) + 1;
-              await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
-            }
-          }
-        }
-      } else if (oldSale.device_id) {
-        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', oldSale.device_id).single();
+      const restoredDeviceIds = new Set<string>();
+      if (oldSale.device_id) {
+        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', oldSale.device_id).maybeSingle();
         if (dev) {
           const newQty = (dev.stock_quantity || 0) + 1;
           await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
+          restoredDeviceIds.add(dev.id);
+        }
+      }
+      if (oldSale.imei_manual && oldSale.imei_manual !== 'N/A') {
+        const imeis = oldSale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
+        for (const imei of imeis) {
+          if (imei !== 'N/A' && imei !== '0000000') {
+            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).maybeSingle();
+            if (dev && !restoredDeviceIds.has(dev.id)) {
+              const newQty = (dev.stock_quantity || 0) + 1;
+              await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
+              restoredDeviceIds.add(dev.id);
+            }
+          }
+        }
+      }
+      if (oldSale.device_model_manual) {
+        const parts = oldSale.device_model_manual.split('+').map(p => p.trim()).filter(Boolean);
+        for (const part of parts) {
+          const cleanName = part.replace(/\s*\(x\d+\)\s*/i, '').trim();
+          const qtyMatch = part.match(/\(x(\d+)\)/i);
+          const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+          if (cleanName) {
+            const { data: devs } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).eq('store_id', oldSale.store_id);
+            if (devs && devs.length > 0) {
+              const dev = devs[0];
+              if (!restoredDeviceIds.has(dev.id)) {
+                const newQty = (dev.stock_quantity || 0) + quantity;
+                await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
+                restoredDeviceIds.add(dev.id);
+              }
+            }
+          }
         }
       }
 
       // Decrement new devices stock
-      if (req.body.imei_manual && req.body.imei_manual !== 'N/A') {
-        const imeis = req.body.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
-        for (const imei of imeis) {
-          if (imei !== 'N/A') {
-            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).single();
-            if (dev) {
-              const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
-              await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
-            }
-          }
-        }
-      } else if (req.body.device_id) {
-        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', req.body.device_id).single();
+      const decrementedDeviceIds = new Set<string>();
+      if (req.body.device_id) {
+        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', req.body.device_id).maybeSingle();
         if (dev) {
           const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
           await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
+          decrementedDeviceIds.add(dev.id);
+        }
+      }
+      if (req.body.imei_manual && req.body.imei_manual !== 'N/A') {
+        const imeis = req.body.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
+        for (const imei of imeis) {
+          if (imei !== 'N/A' && imei !== '0000000') {
+            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).maybeSingle();
+            if (dev && !decrementedDeviceIds.has(dev.id)) {
+              const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+              await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
+              decrementedDeviceIds.add(dev.id);
+            }
+          }
+        }
+      }
+      if (req.body.device_model_manual) {
+        const parts = req.body.device_model_manual.split('+').map(p => p.trim()).filter(Boolean);
+        for (const part of parts) {
+          const cleanName = part.replace(/\s*\(x\d+\)\s*/i, '').trim();
+          const qtyMatch = part.match(/\(x(\d+)\)/i);
+          const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+          if (cleanName) {
+            const storeId = req.body.store_id || oldSale.store_id;
+            const { data: devs } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).eq('store_id', storeId);
+            if (devs && devs.length > 0) {
+              const dev = devs[0];
+              if (!decrementedDeviceIds.has(dev.id)) {
+                const newQty = Math.max(0, (dev.stock_quantity || 0) - quantity);
+                await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
+                decrementedDeviceIds.add(dev.id);
+              }
+            }
+          }
         }
       }
     }
@@ -486,6 +533,7 @@ router.delete("/:id", async (req, res) => {
     }
 
     // 2. Restore stock for main devices
+    const restoredDeviceIds = new Set<string>();
     if (sale.device_id) {
       const { data: device } = await supabase
         .from('devices')
@@ -499,42 +547,55 @@ router.delete("/:id", async (req, res) => {
           .from('devices')
           .update({ stock_quantity: newQty, status: 'available' })
           .eq('id', sale.device_id);
+        restoredDeviceIds.add(device.id);
       }
-    } else if (sale.imei_manual && sale.imei_manual !== 'N/A') {
+    }
+    if (sale.imei_manual && sale.imei_manual !== 'N/A') {
       const imeis = sale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
       for (const imei of imeis) {
-        if (imei !== 'N/A') {
-          // Fetch current stock to calculate new value
+        if (imei !== 'N/A' && imei !== '0000000') {
           const { data: device } = await supabase
             .from('devices')
             .select('id, stock_quantity')
             .eq('imei', imei)
             .maybeSingle();
 
-          if (device) {
+          if (device && !restoredDeviceIds.has(device.id)) {
             const newQty = (device.stock_quantity || 0) + 1;
             await supabase
               .from('devices')
               .update({ stock_quantity: newQty, status: 'available' })
               .eq('id', device.id);
+            restoredDeviceIds.add(device.id);
           }
         }
       }
-    } else if (sale.device_model_manual) {
-      const { data: devices } = await supabase
-        .from('devices')
-        .select('id, stock_quantity')
-        .eq('model', sale.device_model_manual)
-        .eq('store_id', sale.store_id)
-        .limit(1);
+    }
+    if (sale.device_model_manual) {
+      const parts = sale.device_model_manual.split('+').map(p => p.trim()).filter(Boolean);
+      for (const part of parts) {
+        const cleanName = part.replace(/\s*\(x\d+\)\s*/i, '').trim();
+        const qtyMatch = part.match(/\(x(\d+)\)/i);
+        const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+        if (cleanName) {
+          const { data: devices } = await supabase
+            .from('devices')
+            .select('id, stock_quantity')
+            .eq('model', cleanName)
+            .eq('store_id', sale.store_id);
 
-      if (devices && devices.length > 0) {
-        const device = devices[0];
-        const newQty = (device.stock_quantity || 0) + 1;
-        await supabase
-          .from('devices')
-          .update({ stock_quantity: newQty, status: 'available' })
-          .eq('id', device.id);
+          if (devices && devices.length > 0) {
+            const target = devices[0];
+            if (!restoredDeviceIds.has(target.id)) {
+              const newQty = (target.stock_quantity || 0) + quantity;
+              await supabase
+                .from('devices')
+                .update({ stock_quantity: newQty, status: 'available' })
+                .eq('id', target.id);
+              restoredDeviceIds.add(target.id);
+            }
+          }
+        }
       }
     }
 
