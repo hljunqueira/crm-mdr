@@ -32,7 +32,7 @@ interface FinanceState {
   revertPayment: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<any>;
   syncAsaas: (id: string) => Promise<void>;
-  fetchAsaasDetails: (id: string) => Promise<{ barcode: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>;
+  fetchAsaasDetails: (id: string) => Promise<{ barcode: string | null; barCodeNumber: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set) => ({

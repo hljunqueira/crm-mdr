@@ -21,6 +21,9 @@ interface ContractPrintProps {
     interest_table?: string;
     is_trade_in?: boolean;
     trade_in_valuation?: number;
+    trade_in_device_brand?: string;
+    trade_in_device_model?: string;
+    trade_in_device_imei?: string;
   };
   customer: {
     name: string;
@@ -74,7 +77,59 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
     return 8.00; // Default Standard (8%)
   };
 
-  const interestRate = getInterestRate();
+  const getRealInterestRate = () => {
+    const nominal = getInterestRate();
+    if (!installments || installments.length === 0 || financed <= 0) return nominal;
+
+    // Calcular TIR (Taxa Interna de Retorno / IRR) real das parcelas
+    // Fluxo de caixa: [-financed, p1, p2, p3, ...]
+    const cashFlow = [-financed];
+    const dates = [new Date((sale.date || new Date().toISOString()) + 'T12:00:00')];
+
+    const sortedInsts = [...installments].sort((a, b) => a.number - b.number);
+    sortedInsts.forEach((inst) => {
+      cashFlow.push(inst.value);
+      const dateVal = inst.due_date || inst.dueDate || inst.date;
+      dates.push(dateVal ? new Date(dateVal.includes('T') ? dateVal : `${dateVal}T12:00:00`) : new Date());
+    });
+
+    // Solver numérico IRR usando método de Newton-Raphson
+    const irrMonthly = () => {
+      let r = nominal / 100; // chute inicial
+      const maxIteration = 100;
+      const precision = 1e-6;
+
+      for (let i = 0; i < maxIteration; i++) {
+        let f = cashFlow[0];
+        let df = 0;
+
+        for (let j = 1; j < cashFlow.length; j++) {
+          // Diferença de dias dividida por 30 para obter a taxa mensal equivalente
+          const diffDays = Math.max(1, (dates[j].getTime() - dates[0].getTime()) / (1000 * 60 * 60 * 24));
+          const months = diffDays / 30;
+          f += cashFlow[j] / Math.pow(1 + r, months);
+          df -= months * cashFlow[j] / Math.pow(1 + r, months + 1);
+        }
+
+        if (Math.abs(df) < 1e-12) break;
+        const nextR = r - f / df;
+        if (Math.abs(nextR - r) < precision) return nextR * 100;
+        r = nextR;
+      }
+      return nominal; // fallback
+    };
+
+    try {
+      const rate = irrMonthly();
+      // Garantir que a taxa não fique inconsistente (ex: negativa ou excessivamente alta)
+      if (rate > 0 && rate < 100) return Number(rate.toFixed(2));
+    } catch (e) {
+      console.warn("Erro ao calcular TIR:", e);
+    }
+    return nominal;
+  };
+
+  const interestRate = getRealInterestRate();
   const interestRateYear = (Math.pow(1 + interestRate / 100, 12) - 1) * 100;
 
   const cetMonth = interestRate + 1.25;

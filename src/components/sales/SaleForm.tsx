@@ -887,28 +887,43 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     return 1.00;
   }, [selectedCustomer, paymentType]);
 
-  const installmentValue = useMemo(() => {
+  // PMT Compound Interest Formula: PMT = P * [i * (1 + i)^n] / [(1 + i)^n - 1]
+  const calculatePMT = (financedAmount: number, rate: number, n: number) => {
+    if (financedAmount <= 0) return 0;
+    if (n <= 0) return 0;
+    if (rate <= 0) return financedAmount / n;
+    return financedAmount * (rate * Math.pow(1 + rate, n)) / (Math.pow(1 + rate, n) - 1);
+  };
+
+  const calculatedBaseInstallment = useMemo(() => {
     if (isCashLike) return 0;
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
     const financed = formData.total_value - formData.down_payment - tradeInVal;
     if (financed <= 0) return 0;
-    const finalCoeff = baseCoefficient * riskMultiplier;
-    return Number((financed * finalCoeff).toFixed(2));
-  }, [isCashLike, formData.total_value, formData.down_payment, baseCoefficient, riskMultiplier, formData.is_trade_in, formData.trade_in_valuation]);
 
-  // First installment value includes grace period interest (if any) distributed evenly
+    const rate = monthlyRate * riskMultiplier;
+    return Number(calculatePMT(financed, rate, installmentCount).toFixed(2));
+  }, [isCashLike, formData.total_value, formData.down_payment, monthlyRate, riskMultiplier, installmentCount, formData.is_trade_in, formData.trade_in_valuation]);
+
+  const installmentValue = useMemo(() => {
+    return calculatedBaseInstallment;
+  }, [calculatedBaseInstallment]);
+
+  // First installment value includes grace period interest (if any)
   const firstInstallmentValue = useMemo(() => {
-    const portion = installmentCount > 0 ? (gracePeriodInterest / installmentCount) : 0;
-    const baseValue = Number((installmentValue + portion).toFixed(2));
+    const baseValue = installmentValue;
     if (paymentType === 'crediario') {
       return Number((baseValue + 1.99).toFixed(2));
     }
     return baseValue;
-  }, [installmentValue, gracePeriodInterest, installmentCount, paymentType]);
+  }, [installmentValue, paymentType]);
 
   const totalInstallmentsValue = useMemo(() => {
+    if (customInstallmentValues.length > 0) {
+      return Number(customInstallmentValues.reduce((sum, v) => sum + v, 0).toFixed(2));
+    }
     return firstInstallmentValue * installmentCount;
-  }, [firstInstallmentValue, installmentCount]);
+  }, [firstInstallmentValue, installmentCount, customInstallmentValues]);
 
   const finalValue = useMemo(() => {
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
@@ -921,7 +936,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   const feeValue = useMemo(() => {
     if (isCashLike) return 0;
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
-    // Interest = final value + trade-in valuation minus base device price and accessories
     return Math.max(0, finalValue + tradeInVal - formData.total_value - accessoriesTotal);
   }, [isCashLike, finalValue, formData.total_value, accessoriesTotal, formData.is_trade_in, formData.trade_in_valuation]);
 
@@ -952,35 +966,66 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       const copy = [...prev];
       copy[idx] = newVal;
       
-      const totalToDistribute = totalInstallmentsValue;
-      const remainingCount = copy.length - 1 - idx;
-      
-      if (remainingCount > 0) {
-        // Soma das parcelas até a editada
-        let sumEdited = 0;
-        for (let j = 0; j <= idx; j++) {
-          sumEdited += copy[j];
+      const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
+      const initialFinanced = formData.total_value - formData.down_payment - tradeInVal;
+      const rate = monthlyRate * riskMultiplier;
+
+      // Se editou a primeira parcela e tem parcelas restantes
+      if (idx === 0 && copy.length > 1) {
+        // Passo 2: Calcular juros proporcionais (pro-rata diário) do primeiro período
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const firstDue = new Date(formData.first_due_date + 'T12:00:00');
+        const diffMs = firstDue.getTime() - today.getTime();
+        const diffDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+        
+        const dailyRate = rate / 30;
+        const interestAccumulated = initialFinanced * dailyRate * diffDays;
+
+        // Passo 3: Amortização da primeira parcela
+        const payment = newVal - (paymentType === 'crediario' ? 1.99 : 0);
+        const amortization = payment - interestAccumulated;
+        const newBalance = Math.max(0, initialFinanced - amortization);
+
+        // Passo 4: Recalcular as parcelas restantes usando o novo saldo devedor e PMT
+        const remainingCount = copy.length - 1;
+        const newRemainingPMT = Number(calculatePMT(newBalance, rate, remainingCount).toFixed(2));
+
+        for (let j = 1; j < copy.length; j++) {
+          copy[j] = newRemainingPMT;
+        }
+
+        // Ajuste de centavos na última parcela para zerar o saldo devedor recalculado
+        let currentSum = copy.reduce((sum, val) => sum + val, 0);
+        // O total esperado original com taxas nominalmente divididas
+        const expectedOriginalTotal = firstInstallmentValue + calculatedBaseInstallment * (copy.length - 1);
+        const diff = Number((expectedOriginalTotal - currentSum).toFixed(2));
+        if (diff !== 0 && copy.length > 1) {
+          copy[copy.length - 1] = Number((copy[copy.length - 1] + diff).toFixed(2));
+        }
+      } else {
+        // Se editou outra parcela, redistribui linearmente o restante para simplificar
+        const totalToDistribute = firstInstallmentValue + calculatedBaseInstallment * (copy.length - 1);
+        const remainingCount = copy.length - 1 - idx;
+        
+        if (remainingCount > 0) {
+          let sumEdited = 0;
+          for (let j = 0; j <= idx; j++) {
+            sumEdited += copy[j];
+          }
+          
+          const remainingVal = Math.max(0, totalToDistribute - sumEdited);
+          const eachRemaining = Number((remainingVal / remainingCount).toFixed(2));
+          for (let j = idx + 1; j < copy.length; j++) {
+            copy[j] = eachRemaining;
+          }
         }
         
-        const remainingVal = Math.max(0, totalToDistribute - sumEdited);
-        const eachRemaining = Number((remainingVal / remainingCount).toFixed(2));
-        for (let j = idx + 1; j < copy.length; j++) {
-          copy[j] = eachRemaining;
+        let currentSum = copy.reduce((sum, val) => sum + val, 0);
+        const diff = Number((totalToDistribute - currentSum).toFixed(2));
+        if (diff !== 0) {
+          copy[copy.length - 1] = Number((copy[copy.length - 1] + diff).toFixed(2));
         }
-      } else if (copy.length > 1) {
-        // Se for a última parcela, absorve a diferença na primeira
-        const sumOthers = copy.slice(0, -1).reduce((sum, v) => sum + v, 0);
-        copy[0] = Math.max(0, Number((totalToDistribute - sumOthers - newVal).toFixed(2)));
-      }
-      
-      // Ajuste fino de centavos na última parcela para soma exata
-      let currentSum = 0;
-      for (let j = 0; j < copy.length; j++) {
-        currentSum += copy[j];
-      }
-      const diff = Number((totalToDistribute - currentSum).toFixed(2));
-      if (diff !== 0) {
-        copy[copy.length - 1] = Number((copy[copy.length - 1] + diff).toFixed(2));
       }
       
       return copy;

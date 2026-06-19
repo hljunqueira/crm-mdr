@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCPF, formatPhone, resolveUnitInfo, generatePixPayload, formatPixKey } from '../../lib/utils';
+import { useFinanceStore } from '../../store/useFinanceStore';
 
 export interface PixInstallment {
   id: string;
@@ -11,6 +12,7 @@ export interface PixInstallment {
   customer_name?: string;
   paid_at?: string;
   payment_method?: string;
+  asaas_invoice_url?: string;
 }
 
 interface PixBoletoPrintProps {
@@ -30,10 +32,116 @@ interface PixBoletoPrintProps {
   };
 }
 
+// Componente para renderizar o código de barras Intercalado 2 de 5 (I25) em SVG
+function BarcodeI25({ code }: { code: string }) {
+  const cleanCode = code.replace(/\D/g, '');
+  if (cleanCode.length !== 44) return null;
+
+  const PATTERNS = [
+    "00110", // 0
+    "10001", // 1
+    "01001", // 2
+    "11000", // 3
+    "00101", // 4
+    "10100", // 5
+    "01100", // 6
+    "00011", // 7
+    "10010", // 8
+    "01010"  // 9
+  ];
+
+  const elements: { type: 'bar' | 'space'; wide: boolean }[] = [];
+  
+  // Start pattern: NnNn
+  elements.push({ type: 'bar', wide: false });
+  elements.push({ type: 'space', wide: false });
+  elements.push({ type: 'bar', wide: false });
+  elements.push({ type: 'space', wide: false });
+
+  for (let i = 0; i < cleanCode.length; i += 2) {
+    const d1 = parseInt(cleanCode[i], 10);
+    const d2 = parseInt(cleanCode[i + 1], 10);
+    const p1 = PATTERNS[d1];
+    const p2 = PATTERNS[d2];
+
+    for (let j = 0; j < 5; j++) {
+      elements.push({ type: 'bar', wide: p1[j] === '1' });
+      elements.push({ type: 'space', wide: p2[j] === '1' });
+    }
+  }
+
+  // Stop pattern: WnN
+  elements.push({ type: 'bar', wide: true });
+  elements.push({ type: 'space', wide: false });
+  elements.push({ type: 'bar', wide: false });
+
+  const narrowWidth = 1.5;
+  const wideWidth = 3.5;
+  let currentX = 0;
+  const rects: React.ReactNode[] = [];
+
+  elements.forEach((el, idx) => {
+    const width = el.wide ? wideWidth : narrowWidth;
+    if (el.type === 'bar') {
+      rects.push(
+        React.createElement('rect', {
+          key: idx,
+          x: currentX,
+          y: 0,
+          width: width,
+          height: 40,
+          fill: '#000000'
+        })
+      );
+    }
+    currentX += width;
+  });
+
+  return React.createElement(
+    'svg',
+    {
+      width: '100%',
+      height: '100%',
+      viewBox: `0 0 ${currentX} 40`,
+      preserveAspectRatio: 'none',
+      style: { display: 'block', width: '100%', height: '100%' }
+    },
+    rects
+  );
+}
+
 export default function PixBoletoPrint({ installments, customer, unit }: PixBoletoPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
   const today = new Date().toLocaleDateString('pt-BR');
-  const PIX_PAYLOAD = '00020126360014BR.GOV.BCB.PIX0114+55489990358545204000053039865802BR5901N6001C62160512MaykondaRosa6304AC2B';
+  
+  const { fetchAsaasDetails } = useFinanceStore();
+  const [detailsMap, setDetailsMap] = useState<Record<string, { barcode: string | null; barCodeNumber: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>>({});
+
+  useEffect(() => {
+    const installmentsToFetch = installments.filter(inst => inst.asaas_invoice_url && !detailsMap[inst.id]);
+    if (installmentsToFetch.length > 0) {
+      Promise.all(
+        installmentsToFetch.map(inst =>
+          fetchAsaasDetails(inst.id)
+            .then(data => ({ id: inst.id, data }))
+            .catch(err => {
+              console.error(`Failed to fetch details for ${inst.id}`, err);
+              return { id: inst.id, data: null };
+            })
+        )
+      ).then(results => {
+        setDetailsMap(prev => {
+          const next = { ...prev };
+          results.forEach(res => {
+            if (res.data) {
+              next[res.id] = res.data;
+            }
+          });
+          return next;
+        });
+      });
+    }
+  }, [installments, fetchAsaasDetails]);
 
   const calculateOverdueFees = (value: number, dueDateStr: string, status: string) => {
     if (status === 'paid') {
@@ -94,7 +202,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-installment-slot {
-          height: 74.25mm;
+          height: 68mm;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
@@ -105,7 +213,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         .pix-carne-row {
           display: flex;
           width: 100%;
-          height: 62mm;
+          height: 60mm;
           border: 1.5px solid #000000;
           border-radius: 6px;
           box-sizing: border-box;
@@ -441,27 +549,64 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                       {/* Instruções */}
                       <div className="pix-instructions-box">
                         <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado ou utilize o Pix Copia-e-Cola abaixo:
-                        <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
-                          {PIX_PAYLOAD}
-                        </div>
+                        {detailsMap[inst.id]?.pixPayload ? (
+                          <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
+                            {detailsMap[inst.id].pixPayload}
+                          </div>
+                        ) : (
+                          <div className="pix-copia-cola-box text-gray-400" style={{ fontSize: '7px' }}>
+                            {inst.asaas_invoice_url ? "Carregando Pix..." : `CHAVE PIX LOJA: ${unit.pix_key || 'Financeiro MDR'}`}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Barcode Pattern / SVG */}
+                      {inst.asaas_invoice_url && detailsMap[inst.id]?.barCodeNumber ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '4px' }}>
+                          <div style={{ width: '100%', maxWidth: '380px', height: '18px', display: 'flex', overflow: 'hidden' }}>
+                            <BarcodeI25 code={detailsMap[inst.id].barCodeNumber} />
+                          </div>
+                          <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{detailsMap[inst.id].barcode}</span>
+                        </div>
+                      ) : inst.asaas_invoice_url && detailsMap[inst.id]?.barcode ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '4px' }}>
+                          <div style={{ width: '100%', maxWidth: '380px', height: '16px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
+                          <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{detailsMap[inst.id].barcode}</span>
+                        </div>
+                      ) : inst.asaas_invoice_url ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '30px', fontSize: '8px', color: '#6b7280' }}>
+                          Carregando código de barras...
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="pix-corpo-right">
-                      <div className="pix-qr-box">
-                        <img src="/Pix.png" alt="PIX QR Code" className="pix-qr-img" />
+                      <div className="pix-qr-box" style={{ width: '28mm', height: '28mm', padding: '2px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        {inst.asaas_invoice_url ? (
+                          detailsMap[inst.id]?.pixImage ? (
+                            <img
+                              src={`data:image/png;base64,${detailsMap[inst.id].pixImage}`}
+                              alt="PIX QR Code"
+                              style={{ width: '26mm', height: '26mm', objectFit: 'contain', display: 'block' }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: '7px', color: '#6b7280' }}>Carregando...</span>
+                          )
+                        ) : (
+                          <span style={{ fontSize: '7px', color: '#6b7280', textAlign: 'center' }}>Pix Manual<br />(Use chave ao lado)</span>
+                        )}
                       </div>
-                      <div className="pix-payment-info">
+                      <div className="pix-payment-info" style={{ marginTop: '2px' }}>
                         <span className="pix-corpo-label">PARCELA</span>
-                        <strong style={{ fontSize: '10px' }}>{inst.number} / {inst.total}</strong>
+                        <strong style={{ fontSize: '9px' }}>{inst.number} / {inst.total}</strong>
                       </div>
                       <div className="pix-payment-info">
                         <span className="pix-corpo-label">VENCIMENTO</span>
-                        <strong style={{ fontSize: '9px' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>
+                        <strong style={{ fontSize: '8px' }}>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>
                       </div>
                       <div className="pix-payment-info">
                         <span className="pix-corpo-label">VALOR A PAGAR</span>
-                        <strong style={{ fontSize: '11px', color: fees.isLate ? '#ef4444' : '#15803d' }}>
+                        <strong style={{ fontSize: '10px', color: fees.isLate ? '#ef4444' : '#15803d' }}>
                           R$ {formatValue(fees.total)}
                         </strong>
                       </div>

@@ -48,6 +48,84 @@ function SyncButton({ instId }: { instId: string }) {
   );
 }
 
+// Componente para renderizar o código de barras Intercalado 2 de 5 (I25) em SVG
+function BarcodeI25({ code }: { code: string }) {
+  const cleanCode = code.replace(/\D/g, '');
+  if (cleanCode.length !== 44) return null;
+
+  const PATTERNS = [
+    "00110", // 0
+    "10001", // 1
+    "01001", // 2
+    "11000", // 3
+    "00101", // 4
+    "10100", // 5
+    "01100", // 6
+    "00011", // 7
+    "10010", // 8
+    "01010"  // 9
+  ];
+
+  const elements: { type: 'bar' | 'space'; wide: boolean }[] = [];
+  
+  // Start pattern: NnNn
+  elements.push({ type: 'bar', wide: false });
+  elements.push({ type: 'space', wide: false });
+  elements.push({ type: 'bar', wide: false });
+  elements.push({ type: 'space', wide: false });
+
+  for (let i = 0; i < cleanCode.length; i += 2) {
+    const d1 = parseInt(cleanCode[i], 10);
+    const d2 = parseInt(cleanCode[i + 1], 10);
+    const p1 = PATTERNS[d1];
+    const p2 = PATTERNS[d2];
+
+    for (let j = 0; j < 5; j++) {
+      elements.push({ type: 'bar', wide: p1[j] === '1' });
+      elements.push({ type: 'space', wide: p2[j] === '1' });
+    }
+  }
+
+  // Stop pattern: WnN
+  elements.push({ type: 'bar', wide: true });
+  elements.push({ type: 'space', wide: false });
+  elements.push({ type: 'bar', wide: false });
+
+  const narrowWidth = 1.5;
+  const wideWidth = 3.5;
+  let currentX = 0;
+  const rects: React.ReactNode[] = [];
+
+  elements.forEach((el, idx) => {
+    const width = el.wide ? wideWidth : narrowWidth;
+    if (el.type === 'bar') {
+      rects.push(
+        React.createElement('rect', {
+          key: idx,
+          x: currentX,
+          y: 0,
+          width: width,
+          height: 40,
+          fill: '#000000'
+        })
+      );
+    }
+    currentX += width;
+  });
+
+  return React.createElement(
+    'svg',
+    {
+      width: '100%',
+      height: '100%',
+      viewBox: `0 0 ${currentX} 40`,
+      preserveAspectRatio: 'none',
+      style: { display: 'block', width: '100%', height: '100%' }
+    },
+    rects
+  );
+}
+
 const InstallmentRow: React.FC<{ inst: any }> = ({ inst }) => {
   const [loading, setLoading] = useState(false);
   const [details, setDetails] = useState<{
@@ -229,7 +307,7 @@ function SaleDocumentViewer({
 
   const installments = storeInstallments.filter(inst => inst.sale_id === sale.id);
 
-  const [allAsaasDetails, setAllAsaasDetails] = useState<Record<string, { barcode: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>>({});
+  const [allAsaasDetails, setAllAsaasDetails] = useState<Record<string, { barcode: string | null; barCodeNumber: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>>({});
   const [loadingAllDetails, setLoadingAllDetails] = useState(false);
   const { fetchAsaasDetails } = useFinanceStore();
 
@@ -531,7 +609,12 @@ function SaleDocumentViewer({
                 down_payment_method: downPaymentMethod,
                 trade_device_model: tradeDeviceModel,
                 trade_device_imei: tradeDeviceImei,
-                interest_table: interestTable
+                interest_table: interestTable,
+                is_trade_in: sale.is_trade_in,
+                trade_in_valuation: sale.trade_in_valuation,
+                trade_in_device_brand: (sale as any).trade_in_device_brand,
+                trade_in_device_model: (sale as any).trade_in_device_model,
+                trade_in_device_imei: (sale as any).trade_in_device_imei
               }}
               customer={customer}
               unit={unit}
@@ -574,10 +657,10 @@ function SaleDocumentViewer({
                                   border: '1px dashed #9ca3af',
                                   borderRadius: '12px',
                                   padding: '10px 14px',
-                                  marginBottom: '12px',
+                                  marginBottom: '0px',
                                   backgroundColor: '#ffffff',
                                   color: '#000000',
-                                  minHeight: '58mm',
+                                  height: '60mm',
                                   boxSizing: 'border-box',
                                   position: 'relative'
                                 }}
@@ -682,24 +765,31 @@ function SaleDocumentViewer({
                                 </div>
 
                                 {/* Barcode Pattern */}
-                                {inst.asaas_invoice_url && details?.barcode && (
+                                {inst.asaas_invoice_url && details?.barCodeNumber ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
+                                    <div style={{ width: '100%', maxWidth: '380px', height: '18px', display: 'flex', overflow: 'hidden' }}>
+                                      <BarcodeI25 code={details.barCodeNumber} />
+                                    </div>
+                                    <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{details.barcode}</span>
+                                  </div>
+                                ) : inst.asaas_invoice_url && details?.barcode ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
                                     <div style={{ width: '100%', maxWidth: '380px', height: '16px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
                                     <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{details.barcode}</span>
                                   </div>
-                                )}
+                                ) : null}
                               </div>
                             </div>
                               {instIdx < chunk.length - 1 && (
                                 <div className="pix-cut-line-preview" style={{
-                                  height: '14px',
+                                  height: '12px',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   fontSize: '8px',
                                   color: '#000000',
-                                  marginTop: '25px',
-                                  marginBottom: '25px',
+                                  marginTop: '6px',
+                                  marginBottom: '6px',
                                   borderTop: '1px dashed #000000',
                                   position: 'relative',
                                   width: '100%',

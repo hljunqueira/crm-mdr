@@ -757,12 +757,14 @@ router.get("/installments/:id/asaas-details", async (req, res) => {
     }
 
     let barcode: string | null = null;
+    let barCodeNumber: string | null = null;
     let pixPayload: string | null = null;
     let pixImage: string | null = null;
 
     try {
       const barcodeRes = await getAsaasPaymentBarcode(inst.asaas_payment_id);
-      barcode = barcodeRes.identificationField || barcodeRes.barCode || null;
+      barcode = barcodeRes.identificationField || null;
+      barCodeNumber = barcodeRes.barCode || null;
     } catch (e) {
       console.warn("Erro ao obter código de barras do Asaas:", e);
     }
@@ -777,6 +779,7 @@ router.get("/installments/:id/asaas-details", async (req, res) => {
 
     res.json({
       barcode,
+      barCodeNumber,
       pixPayload,
       pixImage,
       invoiceUrl: inst.asaas_invoice_url
