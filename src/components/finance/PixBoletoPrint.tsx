@@ -548,29 +548,20 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
 
                       {/* Instruções */}
                       <div className="pix-instructions-box">
-                        <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado ou utilize o Pix Copia-e-Cola abaixo:
-                        {detailsMap[inst.id]?.pixPayload ? (
-                          <div className="pix-copia-cola-box" title="Clique para selecionar e copiar">
-                            {detailsMap[inst.id].pixPayload}
-                          </div>
-                        ) : (
-                          <div className="pix-copia-cola-box text-gray-400" style={{ fontSize: '7px' }}>
-                            {inst.asaas_invoice_url ? "Carregando Pix..." : `CHAVE PIX LOJA: ${unit.pix_key || 'Financeiro MDR'}`}
-                          </div>
-                        )}
+                        <strong>Instruções de Pagamento:</strong> Acesse seu banco, vá em PIX e aponte a câmera para o QR Code ao lado.
                       </div>
 
                       {/* Barcode Pattern / SVG */}
                       {inst.asaas_invoice_url && detailsMap[inst.id]?.barCodeNumber ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '4px' }}>
-                          <div style={{ width: '100%', maxWidth: '380px', height: '18px', display: 'flex', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
+                          <div style={{ width: '100%', maxWidth: '380px', height: '24px', display: 'flex', overflow: 'hidden' }}>
                             <BarcodeI25 code={detailsMap[inst.id].barCodeNumber} />
                           </div>
                           <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{detailsMap[inst.id].barcode}</span>
                         </div>
                       ) : inst.asaas_invoice_url && detailsMap[inst.id]?.barcode ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '4px' }}>
-                          <div style={{ width: '100%', maxWidth: '380px', height: '16px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
+                          <div style={{ width: '100%', maxWidth: '380px', height: '20px', backgroundColor: '#000000', display: 'flex', overflow: 'hidden', opacity: 0.95, backgroundImage: 'repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px, #000 4px, #000 7px, #fff 7px, #fff 8px)' }} />
                           <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{detailsMap[inst.id].barcode}</span>
                         </div>
                       ) : inst.asaas_invoice_url ? (
@@ -581,19 +572,19 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                     </div>
 
                     <div className="pix-corpo-right">
-                      <div className="pix-qr-box" style={{ width: '28mm', height: '28mm', padding: '2px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      <div className="pix-qr-box" style={{ width: '32mm', height: '32mm', padding: '2px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         {inst.asaas_invoice_url ? (
                           detailsMap[inst.id]?.pixImage ? (
                             <img
                               src={`data:image/png;base64,${detailsMap[inst.id].pixImage}`}
                               alt="PIX QR Code"
-                              style={{ width: '26mm', height: '26mm', objectFit: 'contain', display: 'block' }}
+                              style={{ width: '30mm', height: '30mm', objectFit: 'contain', display: 'block' }}
                             />
                           ) : (
                             <span style={{ fontSize: '7px', color: '#6b7280' }}>Carregando...</span>
                           )
                         ) : (
-                          <span style={{ fontSize: '7px', color: '#6b7280', textAlign: 'center' }}>Pix Manual<br />(Use chave ao lado)</span>
+                          <span style={{ fontSize: '7px', color: '#6b7280', textAlign: 'center' }}>Pix Manual<br />(Use chave Pix da loja)</span>
                         )}
                       </div>
                       <div className="pix-payment-info" style={{ marginTop: '2px' }}>

@@ -724,16 +724,16 @@ function SaleDocumentViewer({
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, backgroundColor: '#ffffff', border: '1px solid #e5e7eb', padding: '4px', borderRadius: '6px' }}>
                                           <img
                                             src={`data:image/png;base64,${details.pixImage}`}
-                                            style={{ width: '54px', height: '54px', display: 'block' }}
+                                            style={{ width: '70px', height: '70px', display: 'block' }}
                                             alt="Pix QR Code"
                                           />
-                                          <span style={{ fontSize: '6px', fontWeight: '900', textTransform: 'uppercase', color: '#6b7280', marginTop: '2px', fontFamily: 'sans-serif' }}>Pix</span>
+                                          <span style={{ fontSize: '6px', fontWeight: '900', textTransform: 'uppercase', color: '#6b7280', marginTop: '1px', fontFamily: 'sans-serif' }}>Pix</span>
                                         </div>
                                       ) : (
-                                        <div style={{ width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '6px', flexShrink: 0, fontSize: '8px', color: '#9ca3af' }}>Carregando...</div>
+                                        <div style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '6px', flexShrink: 0, fontSize: '8px', color: '#9ca3af' }}>Carregando...</div>
                                       )
                                     ) : (
-                                      <div style={{ width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px dashed #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '6px', flexShrink: 0, fontSize: '8px', color: '#9ca3af' }}>Não Gerado</div>
+                                      <div style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyItems: 'center', justifyContent: 'center', border: '1px dashed #e5e7eb', backgroundColor: '#f9fafb', borderRadius: '6px', flexShrink: 0, fontSize: '8px', color: '#9ca3af' }}>Não Gerado</div>
                                     )}
 
                                     {/* Lines */}
@@ -751,15 +751,6 @@ function SaleDocumentViewer({
                                           </div>
                                         )}
                                       </div>
-
-                                      {details?.pixPayload && (
-                                        <div style={{ minWidth: 0, textAlign: 'left' }}>
-                                          <p style={{ fontSize: '7.5px', fontWeight: '700', color: '#4b5563', textTransform: 'uppercase', margin: '0 0 1px 0', textAlign: 'left' }}>Pix Copia e Cola:</p>
-                                          <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '4px', padding: '3px 6px', fontFamily: 'monospace', fontSize: '7.5px', wordBreak: 'break-all', lineHeight: '1.1', color: '#111827', textAlign: 'left' }}>
-                                            {details.pixPayload}
-                                          </div>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -767,7 +758,7 @@ function SaleDocumentViewer({
                                 {/* Barcode Pattern */}
                                 {inst.asaas_invoice_url && details?.barCodeNumber ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
-                                    <div style={{ width: '100%', maxWidth: '380px', height: '18px', display: 'flex', overflow: 'hidden' }}>
+                                    <div style={{ width: '100%', maxWidth: '380px', height: '24px', display: 'flex', overflow: 'hidden' }}>
                                       <BarcodeI25 code={details.barCodeNumber} />
                                     </div>
                                     <span style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#6b7280', marginTop: '1px' }}>{details.barcode}</span>
