@@ -773,20 +773,35 @@ function SaleDocumentViewer({
                             </div>
                               {instIdx < chunk.length - 1 && (
                                 <div className="pix-cut-line-preview" style={{
-                                  height: '12px',
+                                  height: '14px',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  fontSize: '8px',
-                                  color: '#000000',
-                                  marginTop: '6px',
-                                  marginBottom: '6px',
-                                  borderTop: '1px dashed #000000',
                                   position: 'relative',
                                   width: '100%',
+                                  marginTop: '6px',
+                                  marginBottom: '6px',
                                   userSelect: 'none'
                                 }}>
-                                  <span style={{ background: '#ffffff', padding: '0 12px', position: 'absolute', top: '-7px', fontWeight: 'bold', fontSize: '9px' }}>✂️ DOBRAR / CORTAR AQUI</span>
+                                  <div style={{
+                                    position: 'absolute',
+                                    left: 0,
+                                    right: 0,
+                                    top: '50%',
+                                    borderTop: '1px dashed #000000',
+                                    zIndex: 1
+                                  }} />
+                                  <span style={{
+                                    position: 'relative',
+                                    background: '#ffffff',
+                                    padding: '0 12px',
+                                    fontWeight: 'bold',
+                                    fontSize: '9px',
+                                    color: '#000000',
+                                    zIndex: 2
+                                  }}>
+                                    ✂️ DOBRAR / CORTAR AQUI
+                                  </span>
                                 </div>
                               )}
                             </React.Fragment>

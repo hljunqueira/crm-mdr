@@ -605,8 +605,36 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                   </div>
                 </div>
                 {idx < group.length - 1 && (
-                  <div className="pix-cut-line">
-                    <span>✂️ DOBRAR / CORTAR AQUI</span>
+                  <div className="pix-cut-line" style={{
+                    height: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    width: '100%',
+                    marginTop: '6px',
+                    marginBottom: '6px',
+                    userSelect: 'none'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      top: '50%',
+                      borderTop: '1px dashed #000000',
+                      zIndex: 1
+                    }} />
+                    <span style={{
+                      position: 'relative',
+                      background: '#ffffff',
+                      padding: '0 12px',
+                      fontWeight: 'bold',
+                      fontSize: '9px',
+                      color: '#000000',
+                      zIndex: 2
+                    }}>
+                      ✂️ DOBRAR / CORTAR AQUI
+                    </span>
                   </div>
                 )}
               </div>
