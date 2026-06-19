@@ -78,7 +78,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           width: 100%;
           max-width: 210mm;
           height: 297mm;
-          padding: 10mm 15mm;
+          padding: 0 15mm;
           box-sizing: border-box;
           background: #ffffff;
           position: relative;
@@ -86,12 +86,20 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           break-after: page;
           display: flex;
           flex-direction: column;
-          gap: 3mm;
         }
 
         .pix-carne-page:last-child {
           page-break-after: avoid;
           break-after: avoid;
+        }
+
+        .pix-installment-slot {
+          height: 74.25mm;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          position: relative;
         }
 
         .pix-carne-row {
@@ -309,17 +317,26 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
         }
 
         .pix-cut-line {
-          height: 12px;
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 0;
+          border-top: 1px dashed #000000;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 8px;
           color: #475569;
           user-select: none;
-          margin-top: 2.5mm;
-          margin-bottom: 2.5mm;
-          border-top: 1px dashed #000000;
-          position: relative;
+        }
+
+        .pix-cut-line span {
+          background: #ffffff;
+          padding: 0 12px;
+          position: absolute;
+          top: -6px;
+          font-weight: bold;
         }
 
         @media print {
@@ -331,7 +348,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
           .pix-carne-page {
             border: none !important;
             margin: 0 !important;
-            padding: 10mm 15mm !important;
+            padding: 0 15mm !important;
             height: 297mm !important;
             width: 210mm !important;
             box-sizing: border-box !important;
@@ -355,7 +372,7 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
             const formatValue = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
             return (
-              <React.Fragment key={inst.id}>
+              <div key={inst.id} className="pix-installment-slot">
                 <div className="pix-carne-row">
                   {/* CANHOTO (STUB) */}
                   <div className="pix-canhoto">
@@ -453,10 +470,10 @@ export default function PixBoletoPrint({ installments, customer, unit }: PixBole
                 </div>
                 {idx < group.length - 1 && (
                   <div className="pix-cut-line">
-                    <span style={{ background: '#ffffff', padding: '0 12px', position: 'absolute', top: '-6px', fontWeight: 'bold' }}>✂️ DOBRAR / CORTAR AQUI</span>
+                    <span>✂️ DOBRAR / CORTAR AQUI</span>
                   </div>
                 )}
-              </React.Fragment>
+              </div>
             );
           })}
         </div>

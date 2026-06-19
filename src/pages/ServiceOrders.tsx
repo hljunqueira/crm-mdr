@@ -18,6 +18,7 @@ import { useCashStore } from '../store/useCashStore';
 import { formatCPF, formatPhone, printElement, validateCPF, validateCNPJ } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 // Import subcomponentes isolados
 import OsSidebar from '../components/layout/OsSidebar';
@@ -168,6 +169,65 @@ export default function ServiceOrders() {
   const { showNotification, showModal, hideModal } = useUI();
   const { activeShift, fetchActiveShift } = useCashStore();
   const { profile, user } = useAuthStore();
+  const navigate = useNavigate();
+
+  const offerRedirectToSales = async (osId: string) => {
+    try {
+      const { data: os, error } = await supabase
+        .from('service_orders')
+        .select('*, customers(*), service_order_parts(*)')
+        .eq('id', osId)
+        .single();
+        
+      if (error || !os) {
+        console.error('Error fetching OS for sales prefill:', error);
+        return;
+      }
+
+      showModal({
+        title: 'Lançar Venda?',
+        children: (
+          <div className="space-y-3 text-left">
+            <p className="text-sm text-on-surface-variant">
+              A Ordem de Serviço **OS #{String(os.os_number).padStart(4, '0')}** foi entregue/concluída com sucesso!
+            </p>
+            <p className="text-sm text-on-surface-variant">
+              Deseja ir para a tela de vendas agora para emitir o recibo/nota e registrar as formas de pagamento?
+            </p>
+          </div>
+        ),
+        confirmText: 'Sim, Lançar Venda',
+        cancelText: 'Não, Apenas Concluir',
+        onConfirm: () => {
+          hideModal();
+          navigate('/sales', {
+            state: {
+              prefillFromOs: {
+                os_id: os.id,
+                os_number: os.os_number,
+                customer_id: os.customer_id,
+                device_brand: os.device_brand,
+                device_model: os.device_model,
+                device_serial_number: os.device_serial_number,
+                labor_value: Number(os.labor_value || 0),
+                parts_value: Number(os.parts_value || 0),
+                total_value: Number(os.labor_value || 0) + Number(os.parts_value || 0),
+                parts: (os.service_order_parts || []).map((p: any) => ({
+                  id: p.id,
+                  part_name: p.part_name,
+                  quantity: Number(p.quantity || 1),
+                  unit_price: Number(p.unit_price || 0),
+                  inventory_item_id: p.inventory_item_id
+                }))
+              }
+            }
+          });
+        }
+      });
+    } catch (err) {
+      console.error('Failed to offer redirect to sales:', err);
+    }
+  };
   const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
                      user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
   const { units, fetchAllUnits } = useUnitStore();
@@ -648,7 +708,6 @@ export default function ServiceOrders() {
           updates.finalized_by_id = authEmployeeId;
         } else if (authAction.targetStatus === 'delivered') {
           updates.delivered_by_id = authEmployeeId;
-          updates.payment_method = authAction.payment_method || 'money';
         }
 
         await updateServiceOrder(authAction.osId, updates);
@@ -658,6 +717,9 @@ export default function ServiceOrders() {
           fetchServiceOrderById(authAction.osId);
         }
         triggerWhatsAppConfirmationIfNeeded(authAction.osId, authAction.targetStatus);
+        if (authAction.targetStatus === 'delivered') {
+          offerRedirectToSales(authAction.osId);
+        }
       }
 
       setAuthAction(null);
@@ -678,54 +740,34 @@ export default function ServiceOrders() {
         return;
       }
 
-      // Verify active shift first
-      const currentShift = await fetchActiveShift(os.unit_id);
-      if (!currentShift) {
-        showNotification('error', 'Caixa Fechado', 'Não existe um caixa aberto para esta unidade. Abra o caixa antes de entregar a OS.');
-        return;
+      const isNotAdmin = profile?.role !== 'admin';
+      if (isNotAdmin) {
+        setAuthEmployeeId('');
+        setAuthPassword('');
+        setAuthError('');
+        setAuthAction({
+          type: 'status_change',
+          osId,
+          targetStatus: 'delivered'
+        });
+        setIsConfirmAuthOpen(true);
+      } else {
+        try {
+          const finalUpdates = {
+            ...updates,
+            delivered_by_id: profile?.id
+          };
+          await updateServiceOrder(osId, finalUpdates);
+          showNotification('success', 'OS entregue com sucesso!');
+          fetchServiceOrders();
+          if (selectedOsId === osId) {
+            fetchServiceOrderById(osId);
+          }
+          offerRedirectToSales(osId);
+        } catch (err: any) {
+          showNotification('error', err.message || 'Falha ao atualizar OS.');
+        }
       }
-
-      showModal({
-        title: 'Confirmar Entrega da OS',
-        children: (
-          <OsPaymentModal
-            os={os}
-            onConfirm={async (paymentMethod) => {
-              const isNotAdmin = profile?.role !== 'admin';
-              if (isNotAdmin) {
-                setAuthEmployeeId('');
-                setAuthPassword('');
-                setAuthError('');
-                setAuthAction({
-                  type: 'status_change',
-                  osId,
-                  targetStatus: 'delivered',
-                  payment_method: paymentMethod
-                });
-                hideModal();
-                setIsConfirmAuthOpen(true);
-              } else {
-                try {
-                  const finalUpdates = {
-                    ...updates,
-                    delivered_by_id: profile?.id,
-                    payment_method: paymentMethod
-                  };
-                  await updateServiceOrder(osId, finalUpdates);
-                  showNotification('success', 'OS entregue e registrada no caixa com sucesso!');
-                  hideModal();
-                  fetchServiceOrders();
-                  if (selectedOsId === osId) {
-                    fetchServiceOrderById(osId);
-                  }
-                } catch (err: any) {
-                  showNotification('error', err.message || 'Falha ao atualizar OS.');
-                }
-              }
-            }}
-          />
-        )
-      });
       return;
     }
 

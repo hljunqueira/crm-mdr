@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+
 import {
   Plus, Search, Smartphone, ShoppingBag, Clock,
   CheckCircle2, AlertCircle, MoreVertical, Filter,
@@ -1211,6 +1213,32 @@ export default function Sales() {
   const { showNotification, showModal, hideModal } = useUI();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
   const { activeShift, fetchActiveShift } = useCashStore();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.state?.prefillFromOs) {
+      const prefill = location.state.prefillFromOs;
+      showModal({
+        title: 'Registrar Nova Venda',
+        children: (
+          <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+            <SaleForm
+              prefillFromOs={prefill}
+              onSuccess={() => {
+                hideModal();
+                fetchSales(profile?.unit_id || undefined);
+                fetchInstallments(profile?.unit_id || undefined);
+              }}
+              onCancel={() => hideModal()}
+            />
+          </div>
+        ),
+      });
+      navigate('/sales', { replace: true, state: {} });
+    }
+  }, [location.state, showModal, hideModal, fetchSales, fetchInstallments, profile?.unit_id, navigate]);
+
 
   useEffect(() => {
     fetchUserPermissions();

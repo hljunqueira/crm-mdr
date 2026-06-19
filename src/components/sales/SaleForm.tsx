@@ -38,11 +38,69 @@ interface SaleFormProps {
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: Sale;
+  prefillFromOs?: {
+    os_id: string;
+    os_number: number;
+    customer_id: string;
+    device_brand: string;
+    device_model: string;
+    device_serial_number?: string;
+    labor_value: number;
+    parts_value: number;
+    total_value: number;
+    parts: {
+      id: string;
+      part_name: string;
+      quantity: number;
+      unit_price: number;
+      inventory_item_id: string;
+    }[];
+  };
 }
 
-export default function SaleForm({ onSuccess, onCancel, initialData }: SaleFormProps) {
+export default function SaleForm({ onSuccess, onCancel, initialData, prefillFromOs }: SaleFormProps) {
   const { customers, addCustomer, fetchCustomers } = useCustomerStore();
   const { addSale, updateSale } = useSaleStore();
+
+  useEffect(() => {
+    if (prefillFromOs) {
+      setFormData(prev => ({
+        ...prev,
+        customer_id: prefillFromOs.customer_id,
+        payment_type: 'vista',
+        first_due_date: new Date().toISOString().split('T')[0]
+      }));
+      setSaleType('general');
+
+      const initialDevices = [];
+      
+      if (prefillFromOs.labor_value > 0) {
+        initialDevices.push({
+          id: `os-labor-${prefillFromOs.os_id}`,
+          brand: 'SERVIÇO',
+          model: `Mão de Obra (OS #${prefillFromOs.os_number})`,
+          price: prefillFromOs.labor_value,
+          quantity: 1,
+          imei: prefillFromOs.device_serial_number || '',
+          category: 'service'
+        });
+      }
+
+      prefillFromOs.parts.forEach((p, idx) => {
+        initialDevices.push({
+          id: p.inventory_item_id || `os-part-${p.id || idx}`,
+          brand: 'PEÇA',
+          model: p.part_name,
+          price: p.unit_price,
+          quantity: p.quantity,
+          imei: '',
+          category: 'accessory_mobile'
+        });
+      });
+
+      setSelectedDevices(initialDevices);
+    }
+  }, [prefillFromOs]);
   const { installments, fetchInstallments, addInstallments } = useFinanceStore();
   const { inventory, updateItem, addItem, fetchInventory } = useInventoryStore();
   const { suppliers, addSupplier, fetchSuppliers } = useSupplierStore();
