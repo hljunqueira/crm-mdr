@@ -79,14 +79,14 @@ export default function Sidebar() {
       subtitle: 'OS e Controle Físico',
       icon: Wrench,
       items: [
+        { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
+        { name: 'OS Terceirizadas', icon: ExternalLink, path: '/outsourcing' },
         { name: 'Estoque', icon: Smartphone, path: '/inventory' },
         ...(profile?.role === 'admin' ? [
           { name: 'Avaliação de Celulares', displayName: 'Avaliação de Celulares', icon: ShieldCheck, path: '/device-valuations' }
         ] : []),
         { name: 'Fornecedores', icon: Truck, path: '/suppliers' },
         { name: 'Parceiros', icon: Building, path: '/partners' },
-        { name: 'Assistência Técnica (OS)', icon: Wrench, path: '/service-orders' },
-        { name: 'OS Terceirizadas', icon: ExternalLink, path: '/outsourcing' },
       ]
     },
 
