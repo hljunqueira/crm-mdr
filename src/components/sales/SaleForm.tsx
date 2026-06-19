@@ -994,15 +994,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         for (let j = 1; j < copy.length; j++) {
           copy[j] = newRemainingPMT;
         }
-
-        // Ajuste de centavos na última parcela para zerar o saldo devedor recalculado
-        let currentSum = copy.reduce((sum, val) => sum + val, 0);
-        // O total esperado original com taxas nominalmente divididas
-        const expectedOriginalTotal = firstInstallmentValue + calculatedBaseInstallment * (copy.length - 1);
-        const diff = Number((expectedOriginalTotal - currentSum).toFixed(2));
-        if (diff !== 0 && copy.length > 1) {
-          copy[copy.length - 1] = Number((copy[copy.length - 1] + diff).toFixed(2));
-        }
       } else {
         // Se editou outra parcela, redistribui linearmente o restante para simplificar
         const totalToDistribute = firstInstallmentValue + calculatedBaseInstallment * (copy.length - 1);
