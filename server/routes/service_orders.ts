@@ -268,7 +268,7 @@ router.post("/:id/notify", async (req, res) => {
     const fillTemplate = (template: string, vars: Record<string, string | number>) => {
       let text = template;
       for (const [key, value] of Object.entries(vars)) {
-        text = text.replace(new RegExp(`{${key}}`, 'g'), String(value));
+        text = text.replace(new RegExp(`{${key}}`, 'gi'), String(value));
       }
       return text;
     };

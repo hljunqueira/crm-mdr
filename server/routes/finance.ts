@@ -592,13 +592,14 @@ router.post("/installments/:id/notify", async (req, res) => {
     const remoteJid = `${cleanPhone}@s.whatsapp.net`;
 
     const valueStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const formattedDueDate = new Date(inst.due_date).toLocaleDateString('pt-BR');
+    const formattedDueDate = new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
 
     // Create the message text
     const messageText = `⚠️ *Lembrete de Pagamento - MDR Informática & Celulares* ⚠️\n\n` +
-      `Olá *${inst.sales.customers.name}*!\n\n` +
+      `Olá, ${(inst.sales.customers.name || "").trim().toUpperCase()}!\n\n` +
       `Lembramos que a sua parcela de número *${inst.number}/${inst.total}* no valor de *${valueStr}* possui o vencimento agendado para o dia *${formattedDueDate}*.\n\n` +
-      `Para sua comodidade, você pode realizar o pagamento via PIX ou diretamente em uma de nossas lojas.\n\n` +
+      (inst.asaas_invoice_url ? `🔗 *Link para Pagamento (Boleto/PIX):*\n${inst.asaas_invoice_url}\n\n` : '') +
+      `Para sua comodidade, você pode realizar o pagamento pelo link acima, via PIX ou diretamente em uma de nossas lojas.\n\n` +
       `Caso já tenha efetuado o pagamento, por favor desconsidere este aviso.`;
 
     // 3. Dispatch to n8n Webhook

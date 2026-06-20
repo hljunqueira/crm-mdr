@@ -18,8 +18,8 @@ router.post("/send-warning", async (req, res) => {
       .select(`
         *,
         sales (
-          device_model,
-          imei,
+          device_model_manual,
+          imei_manual,
           customer:customers (
             name,
             phone
@@ -47,31 +47,36 @@ router.post("/send-warning", async (req, res) => {
     }
 
     // 1.5. Compile the customized billing message template if available
-    const DEFAULT_BILLING_REMINDER_TEMPLATE = `Olá *{nome_cliente}*!\n\nLembramos que a sua parcela *{parcela_atual}/{total_parcelas}* no valor de *{valor_parcela}*, referente ao aparelho *{aparelho}*, vence no dia *{data_vencimento}*.\n\nEvite bloqueios ou multas efetuando o pagamento via PIX ou em nossa loja. \n\nSe você já realizou o pagamento, por favor desconsidere esta mensagem.\n\nAgradecemos a preferência!\n*{nome_loja}*`;
+    const DEFAULT_BILLING_REMINDER_TEMPLATE = `🔔 *Lembrete de Vencimento - {nome_loja}*\n\nOlá, {nome_cliente}! Tudo bem? 😊\n\nPassando para lembrar que a sua parcela *{parcela_atual}/{total_parcelas}* está próxima do vencimento:\n\n📱 *Aparelho:* {aparelho}\n💵 *Valor:* *{valor_parcela}*\n📅 *Vencimento:* *{data_vencimento}*\n\n🔗 *Link de Pagamento (Boleto/PIX):* {link_pagamento}\n\nPara sua comodidade, você pode realizar o pagamento pelo link acima, via *PIX* ou diretamente em nossa loja física. \n\n⚠️ *Atenção:* O pagamento em dia evita multas adicionais ou bloqueios no dispositivo.\n\nSe você já efetuou o pagamento, por favor desconsidere esta mensagem.\n\nAgradecemos a sua parceria! 🤝\n*{nome_loja}*`;
 
     const fillTemplate = (template: string, vars: Record<string, string | number>) => {
       let text = template;
       for (const [key, value] of Object.entries(vars)) {
-        text = text.replace(new RegExp(`{${key}}`, 'g'), String(value));
+        text = text.replace(new RegExp(`{${key}}`, 'gi'), String(value));
       }
       return text;
     };
 
     const valueStr = Number(installment.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const formattedDueDate = new Date(installment.due_date).toLocaleDateString('pt-BR');
+    const formattedDueDate = new Date(installment.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
 
     const variables = {
-      nome_cliente: customer.name,
+      nome_cliente: (customer.name || "").trim().toUpperCase(),
       parcela_atual: installment.number,
       total_parcelas: installment.total,
       valor_parcela: valueStr,
-      aparelho: sale.device_model || "Aparelho Celular",
+      aparelho: (sale?.device_model_manual || "Aparelho Celular").replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase(),
       data_vencimento: formattedDueDate,
-      nome_loja: store?.name || "MDR Celulares",
-      telefone_loja: store?.phone || ""
+      nome_loja: (store?.name || "MDR Celulares").trim(),
+      telefone_loja: store?.phone || "",
+      link_pagamento: installment.asaas_invoice_url || ""
     };
 
-    const templateText = store?.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE;
+    let templateText = store?.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE;
+    if (!installment.asaas_invoice_url) {
+      templateText = templateText.replace(/.*\{link_pagamento\}.*\n?/gi, '');
+      templateText = templateText.replace(/\n{3,}/g, '\n\n');
+    }
     const messageText = fillTemplate(templateText, variables);
 
     // 2. n8n webhook payload
@@ -82,11 +87,11 @@ router.post("/send-warning", async (req, res) => {
       value: installment.value,
       due_date: installment.due_date,
       status: installment.status,
-      customer_name: customer.name,
+      customer_name: (customer.name || "").trim().toUpperCase(),
       customer_phone: customer.phone,
-      device_model: sale.device_model || "Aparelho Celular",
-      device_imei: sale.imei || "Não Informado",
-      store_name: store?.name || "MDR Celulares",
+      device_model: (sale?.device_model_manual || "Aparelho Celular").replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase(),
+      device_imei: sale?.imei_manual || "Não Informado",
+      store_name: (store?.name || "MDR Celulares").trim(),
       store_phone: store?.phone || "",
       text: messageText
     };

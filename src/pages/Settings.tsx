@@ -254,15 +254,25 @@ O aparelho já está pronto para retirada em nossa loja. Agradecemos a preferên
 3. Prazo de Descarte: Aparelhos deixados por mais de 90 dias após conclusão serão abandonados e poderão ser vendidos para cobrir despesas operacionais.
 4. Avarias: A assistência não se responsabiliza por danos decorrentes de defeitos ocultos ou desgaste prévio constatados durante o processo de desmontagem e reparo.`;
 
-  const DEFAULT_BILLING_REMINDER_TEMPLATE = `Olá *{nome_cliente}*!
+  const DEFAULT_BILLING_REMINDER_TEMPLATE = `🔔 *Lembrete de Vencimento - {nome_loja}*
 
-Lembramos que a sua parcela *{parcela_atual}/{total_parcelas}* no valor de *{valor_parcela}*, referente ao aparelho *{aparelho}*, vence no dia *{data_vencimento}*.
+Olá, {nome_cliente}! Tudo bem? 😊
 
-Evite bloqueios ou multas efetuando o pagamento via PIX ou em nossa loja. 
+Passando para lembrar que a sua parcela *{parcela_atual}/{total_parcelas}* está próxima do vencimento:
 
-Se você já realizou o pagamento, por favor desconsidere esta mensagem.
+📱 *Aparelho:* {aparelho}
+💵 *Valor:* *{valor_parcela}*
+📅 *Vencimento:* *{data_vencimento}*
 
-Agradecemos a preferência!
+🔗 *Link de Pagamento (Boleto/PIX):* {link_pagamento}
+
+Para sua comodidade, você pode realizar o pagamento pelo link acima, via *PIX* ou diretamente em nossa loja física. 
+
+⚠️ *Atenção:* O pagamento em dia evita multas adicionais ou bloqueios no dispositivo.
+
+Se você já efetuou o pagamento, por favor desconsidere esta mensagem.
+
+Agradecemos a sua parceria! 🤝
 *{nome_loja}*`;
 
   const [formData, setFormData] = useState({
@@ -729,7 +739,7 @@ Agradecemos a preferência!
                         onSelect={(e) => updateSelection('billing_reminder_template', e)}
                         onKeyUp={(e) => updateSelection('billing_reminder_template', e)}
                         onMouseUp={(e) => updateSelection('billing_reminder_template', e)}
-                        placeholder="Olá *{nome_cliente}*!&#10;&#10;Lembramos que a sua parcela *{parcela_atual}/{total_parcelas}* no valor de *{valor_parcela}*, referente ao aparelho *{aparelho}*, vence no dia *{data_vencimento}*.&#10;&#10;Evite bloqueios ou multas efetuando o pagamento via PIX ou em nossa loja.&#10;&#10;Se você já realizou o pagamento, por favor desconsidere esta mensagem.&#10;&#10;Agradecemos a preferência!&#10;*{nome_loja}*"
+                        placeholder="🔔 *Lembrete de Vencimento - {nome_loja}*&#10;&#10;Olá, {nome_cliente}! Tudo bem? 😊&#10;&#10;Passando para lembrar que a sua parcela *{parcela_atual}/{total_parcelas}* está próxima do vencimento:&#10;&#10;📱 *Aparelho:* {aparelho}&#10;💵 *Valor:* *{valor_parcela}*&#10;📅 *Vencimento:* *{data_vencimento}*&#10;&#10;🔗 *Link de Pagamento (Boleto/PIX):* {link_pagamento}&#10;&#10;Para sua comodidade, você pode realizar o pagamento pelo link acima, via *PIX* ou diretamente em nossa loja física.&#10;&#10;⚠️ *Atenção:* O pagamento em dia evita multas adicionais ou bloqueios no dispositivo.&#10;&#10;Se você já efetuou o pagamento, por favor desconsidere esta mensagem.&#10;&#10;Agradecemos a sua parceria! 🤝&#10;*{nome_loja}*"
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
@@ -847,6 +857,7 @@ Agradecemos a preferência!
                         { label: 'Data Vencimento', tag: '{data_vencimento}' },
                         { label: 'Nome da Loja', tag: '{nome_loja}' },
                         { label: 'Telefone da Loja', tag: '{telefone_loja}' },
+                        { label: 'Link de Pagamento', tag: '{link_pagamento}' },
                       ].map((item) => (
                         <button
                           key={'billing-' + item.tag}
