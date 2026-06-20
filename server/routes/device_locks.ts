@@ -44,6 +44,14 @@ router.post("/enterprise/signup-url", async (req, res) => {
       callbackUrl: callbackUrl
     });
 
+    // Save the signupUrlName to database so callback can retrieve it
+    await supabase
+      .from("automation_settings")
+      .upsert(
+        { key: "google_signup_url_name", value: signup.data.name, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
+
     res.json({
       url: signup.data.url,
       name: signup.data.name // This contains the signup token name (e.g. signupUrls/...)
@@ -57,10 +65,27 @@ router.post("/enterprise/signup-url", async (req, res) => {
 // GET /callback - Google Android Enterprise Callback handler
 router.get("/callback", async (req, res) => {
   try {
-    const { enterpriseToken, signupUrlName } = req.query;
+    let { enterpriseToken, signupUrlName } = req.query;
 
     if (!enterpriseToken) {
       return res.status(400).send("<h1>Erro: Token do Enterprise ausente.</h1>");
+    }
+
+    if (!signupUrlName) {
+      // Fetch the latest generated signup url name from database
+      const { data, error: dbError } = await supabase
+        .from("automation_settings")
+        .select("value")
+        .eq("key", "google_signup_url_name")
+        .maybeSingle();
+      
+      if (!dbError && data?.value) {
+        signupUrlName = data.value;
+      }
+    }
+
+    if (!signupUrlName) {
+      return res.status(400).send("<h1>Erro: Nome da URL de inscrição ausente ou expirado. Inicie o registro novamente pelo painel do CRM.</h1>");
     }
 
     const amapi = getAmapiClient();
@@ -69,6 +94,7 @@ router.get("/callback", async (req, res) => {
     const enterprise = await amapi.enterprises.create({
       enterpriseToken: enterpriseToken as string,
       signupUrlName: signupUrlName as string,
+      projectId: "crm-mdr",
       requestBody: {}
     });
 

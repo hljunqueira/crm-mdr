@@ -11,7 +11,7 @@ async function main() {
     console.log('--- 1. GERANDO URL DE INSCRIÇÃO ---');
     const signup = await amapi.signupUrls.create({
       projectId: 'crm-mdr',
-      callbackUrl: 'https://mdrinformaticaecelulares.com.br/callback'
+      callbackUrl: 'https://mdrinformaticaecelulares.com.br/api/device-locks/callback'
     });
 
     console.log('\nSIGNUP_URL_START');
