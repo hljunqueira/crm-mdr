@@ -673,6 +673,15 @@ export default function DeviceLockPanel() {
                         <p className="text-[11px] text-on-surface-variant leading-relaxed">
                           Para vincular novos celulares, faça o reset de fábrica no celular. Na primeira tela inicial de boas-vindas, toque <strong>6 vezes seguidas</strong> e leia este QR Code com a câmera que abrirá.
                         </p>
+                        <div className="pt-3 border-t border-white/5 space-y-2">
+                          <h5 className="text-[9px] font-black text-white uppercase tracking-widest opacity-80">Como funciona o bloqueio após a instalação?</h5>
+                          <ul className="text-[10px] text-on-surface-variant/80 list-disc pl-4 space-y-1 leading-relaxed">
+                            <li><strong>Vínculo EMM:</strong> O celular baixa os agentes de controle do Google e é associado de forma oculta e segura ao CRM.</li>
+                            <li><strong>Comando de Bloqueio:</strong> Ao clicar em "Confirmar Bloqueio" no painel, a API do Google ativa o <strong>Modo Quiosque</strong> no dispositivo.</li>
+                            <li><strong>Efeito no Celular:</strong> A tela é bloqueada imediatamente, exibindo apenas a mensagem personalizada configurada e o botão de suporte.</li>
+                            <li><strong>Desbloqueio Automático:</strong> Ao realizar o desbloqueio no painel, a restrição é removida via internet em poucos segundos.</li>
+                          </ul>
+                        </div>
                         <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">
                           ⚠️ Este QR Code é confidencial e contém um token de vinculação direta com a MDR.
                         </p>
