@@ -403,7 +403,7 @@ export default function DeviceLockPanel() {
                             ) : (
                               <>
                                 {/* Link externo para console de bloqueio */}
-                                {isIos ? (
+                                {isIos && (
                                   <a
                                     href="https://www.icloud.com/find"
                                     target="_blank"
@@ -411,15 +411,6 @@ export default function DeviceLockPanel() {
                                     className="px-3.5 py-2 bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] text-white rounded-xl transition-all font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                                   >
                                     Abrir Buscar <ExternalLink size={12} />
-                                  </a>
-                                ) : (
-                                  <a
-                                    href="https://play.google.com/console"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-3.5 py-2 bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] text-white rounded-xl transition-all font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    Console Google <ExternalLink size={12} />
                                   </a>
                                 )}
 
