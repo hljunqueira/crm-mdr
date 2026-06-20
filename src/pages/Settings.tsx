@@ -63,6 +63,37 @@ export default function Settings() {
     }
   }, [activeTab]);
 
+  // States para QR Code de Provisionamento Android
+  const [enrollmentQr, setEnrollmentQr] = useState<string | null>(null);
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+
+  const fetchEnrollmentToken = async () => {
+    try {
+      setIsGeneratingQr(true);
+      const res = await fetch('/api/device-locks/enterprise/enrollment-token', {
+        method: 'POST'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.qrCodePayload) {
+          setEnrollmentQr(data.qrCodePayload);
+        }
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      console.error('[Settings] Erro ao obter token de provisionamento:', e);
+    } finally {
+      setIsGeneratingQr(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'android-enterprise' && enterpriseId) {
+      fetchEnrollmentToken();
+    }
+  }, [activeTab, enterpriseId]);
+
   const handleGenerateSignupUrl = async () => {
     try {
       setIsGeneratingLink(true);
@@ -1407,6 +1438,49 @@ Agradecemos a sua parceria! 🤝
                       <p className="text-xs text-on-surface-variant leading-relaxed">
                         Seu CRM MDR já está conectado à Android Management API. O provisionamento via QR Code e os comandos de bloqueio e desbloqueio estão ativos para todos os aparelhos Android vinculados ao sistema.
                       </p>
+
+                      {enrollmentQr ? (
+                        <div className="mt-6 p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col md:flex-row items-center gap-6">
+                          <div className="p-4 bg-white rounded-2xl shrink-0">
+                            <img 
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(enrollmentQr)}`} 
+                              alt="Android Enterprise Provisioning QR Code" 
+                              className="w-[180px] h-[180px]"
+                            />
+                          </div>
+                          <div className="space-y-3 text-left">
+                            <h4 className="text-xs font-black text-white uppercase tracking-tight flex items-center gap-2">
+                              <QrCode size={16} className="text-primary" />
+                              QR Code de Provisionamento
+                            </h4>
+                            <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                              Use este QR Code para configurar os novos aparelhos. No celular recém-formatado, dê 6 toques na tela inicial e leia este QR Code para iniciar o provisionamento automático e instalar o Google Device Lock.
+                            </p>
+                            <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">
+                              ⚠️ Este QR Code é confidencial e contém um token de vinculação direta com a MDR.
+                            </p>
+                            <button
+                              onClick={fetchEnrollmentToken}
+                              disabled={isGeneratingQr}
+                              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider border border-white/10 transition-all disabled:opacity-50"
+                            >
+                              {isGeneratingQr ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                              Gerar Novo QR Code
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-6 p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center">
+                          <button
+                            onClick={fetchEnrollmentToken}
+                            disabled={isGeneratingQr}
+                            className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                          >
+                            {isGeneratingQr ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
+                            Gerar QR Code de Provisionamento
+                          </button>
+                        </div>
+                      )}
 
                       <div className="flex gap-4 pt-2">
                         <button

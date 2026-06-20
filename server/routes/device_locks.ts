@@ -194,6 +194,55 @@ router.delete("/enterprise", async (req, res) => {
   }
 });
 
+// POST /enterprise/enrollment-token - Create a new enrollment token and return QR payload
+router.post("/enterprise/enrollment-token", async (req, res) => {
+  try {
+    const { data: setting, error: dbError } = await supabase
+      .from("automation_settings")
+      .select("value")
+      .eq("key", "google_enterprise_id")
+      .maybeSingle();
+
+    if (dbError || !setting?.value) {
+      return res.status(400).json({ error: "Google Enterprise ID não configurado no sistema." });
+    }
+
+    const enterpriseId = setting.value;
+    const amapi = getAmapiClient();
+
+    // Create the enrollment token (valid for 30 days)
+    const tokenResponse = await amapi.enterprises.enrollmentTokens.create({
+      parent: enterpriseId,
+      requestBody: {
+        duration: "2592000s", // 30 days
+        policyName: "default"
+      }
+    });
+
+    const token = tokenResponse.data.value;
+
+    // Construct the standard DPC provisioning QR Code JSON payload
+    const qrCodePayload = JSON.stringify({
+      "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": "com.google.android.apps.work.clouddpc/.Receiver",
+      "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": "I5YvS0O5hXY46mb01WiRCE2o15935",
+      "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "https://play.google.com/otacg/download/CloudDpcCommandLine_20170425_00.apk",
+      "android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE": {
+        "com.google.android.apps.work.clouddpc.EXTRA_ENROLLMENT_TOKEN": token
+      }
+    });
+
+    res.json({
+      token: token,
+      qrCodePayload: qrCodePayload,
+      expiration: (tokenResponse.data as any).expirationTime || null
+    });
+  } catch (error: any) {
+    console.error("[Device Locks] Error generating enrollment token:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 
 // 1. Get all active locks with relations
 router.get("/", async (req, res) => {
