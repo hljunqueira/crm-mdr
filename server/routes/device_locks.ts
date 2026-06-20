@@ -1,7 +1,172 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { google } from "googleapis";
+import path from "path";
 
 const router = Router();
+
+// Helper to get AMAPI client
+function getAmapiClient() {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: path.join(process.cwd(), "docs", "crm-mdr-7bd29f5d4741.json"),
+    scopes: ["https://www.googleapis.com/auth/androidmanagement"],
+  });
+  return google.androidmanagement({ version: "v1", auth });
+}
+
+// GET /enterprise - Get current Google Enterprise configuration
+router.get("/enterprise", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("automation_settings")
+      .select("value")
+      .eq("key", "google_enterprise_id")
+      .maybeSingle();
+
+    if (error) throw error;
+    res.json({ enterpriseId: data?.value || null });
+  } catch (error: any) {
+    console.error("[Device Locks] Error getting enterprise:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /enterprise/signup-url - Generate Google Enterprise Signup URL
+router.post("/enterprise/signup-url", async (req, res) => {
+  try {
+    const amapi = getAmapiClient();
+    
+    // We redirect to the API callback route
+    const callbackUrl = req.body.callbackUrl || "https://mdrinformaticaecelulares.com.br/api/device-locks/callback";
+    
+    const signup = await amapi.signupUrls.create({
+      projectId: "crm-mdr",
+      callbackUrl: callbackUrl
+    });
+
+    res.json({
+      url: signup.data.url,
+      name: signup.data.name // This contains the signup token name (e.g. signupUrls/...)
+    });
+  } catch (error: any) {
+    console.error("[Device Locks] Error generating signup URL:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /callback - Google Android Enterprise Callback handler
+router.get("/callback", async (req, res) => {
+  try {
+    const { enterpriseToken, signupUrlName } = req.query;
+
+    if (!enterpriseToken) {
+      return res.status(400).send("<h1>Erro: Token do Enterprise ausente.</h1>");
+    }
+
+    const amapi = getAmapiClient();
+
+    // Call enterprises.create to complete the registration and obtain the Enterprise ID
+    const enterprise = await amapi.enterprises.create({
+      enterpriseToken: enterpriseToken as string,
+      signupUrlName: signupUrlName as string,
+      requestBody: {}
+    });
+
+    const enterpriseId = enterprise.data.name; // Format: enterprises/LCxxxxxxx
+
+    // Save/upsert the Enterprise ID to automation_settings
+    const { error } = await supabase
+      .from("automation_settings")
+      .upsert(
+        { key: "google_enterprise_id", value: enterpriseId, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
+
+    if (error) throw error;
+
+    // Redirect or display success message
+    res.send(`
+      <html>
+        <head>
+          <title>Sucesso - Android Enterprise</title>
+          <style>
+            body {
+              background-color: #121215;
+              color: white;
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              margin: 0;
+            }
+            .card {
+              background: rgba(255,255,255,0.02);
+              border: 1px solid rgba(255,255,255,0.05);
+              padding: 40px;
+              border-radius: 24px;
+              text-align: center;
+              max-width: 400px;
+            }
+            h1 { color: #4BE277; margin-bottom: 10px; font-size: 24px; }
+            p { color: #a0a0a5; font-size: 14px; line-height: 1.6; }
+            .badge {
+              background: rgba(75,226,119,0.1);
+              color: #4BE277;
+              padding: 8px 16px;
+              border-radius: 12px;
+              display: inline-block;
+              margin-top: 15px;
+              font-family: monospace;
+              font-weight: bold;
+            }
+            button {
+              background: white;
+              color: black;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 12px;
+              margin-top: 25px;
+              cursor: pointer;
+              font-weight: bold;
+              text-transform: uppercase;
+              font-size: 11px;
+              letter-spacing: 1px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Vinculado com Sucesso!</h1>
+            <p>Sua conta Google Enterprise foi associada com sucesso ao CRM MDR.</p>
+            <div class="badge">${enterpriseId}</div>
+            <br/>
+            <button onclick="window.close()">Fechar Janela</button>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (error: any) {
+    console.error("[Device Locks] Callback error:", error);
+    res.status(500).send(`<h1>Erro ao vincular conta:</h1><p>${error.message}</p>`);
+  }
+});
+
+// DELETE /enterprise - Unlink/Delete Google Enterprise association
+router.delete("/enterprise", async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from("automation_settings")
+      .delete()
+      .eq("key", "google_enterprise_id");
+
+    if (error) throw error;
+    res.json({ success: true, message: "Vínculo com Google Enterprise removido com sucesso." });
+  } catch (error: any) {
+    console.error("[Device Locks] Error deleting enterprise link:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 
 // 1. Get all active locks with relations

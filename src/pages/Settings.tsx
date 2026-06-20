@@ -17,7 +17,8 @@ import {
   Trash2,
   Loader2,
   Edit2,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
@@ -27,7 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { usePermissionStore } from '../store/usePermissionStore';
 
-type TabType = 'unit' | 'notifications' | 'users' | 'rbac';
+type TabType = 'unit' | 'notifications' | 'users' | 'rbac' | 'android-enterprise';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
@@ -36,6 +37,75 @@ export default function Settings() {
   const { showNotification, showModal, hideModal } = useUI();
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   
+  // States para Android Enterprise
+  const [enterpriseId, setEnterpriseId] = useState<string | null>(null);
+  const [isEnterpriseLoading, setIsEnterpriseLoading] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
+  const fetchEnterpriseId = async () => {
+    try {
+      setIsEnterpriseLoading(true);
+      const res = await fetch('/api/device-locks/enterprise');
+      if (res.ok) {
+        const data = await res.json();
+        setEnterpriseId(data.enterpriseId);
+      }
+    } catch (e) {
+      console.error('[Settings] Erro ao buscar Enterprise ID:', e);
+    } finally {
+      setIsEnterpriseLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'android-enterprise') {
+      fetchEnterpriseId();
+    }
+  }, [activeTab]);
+
+  const handleGenerateSignupUrl = async () => {
+    try {
+      setIsGeneratingLink(true);
+      const res = await fetch('/api/device-locks/enterprise/signup-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callbackUrl: window.location.origin + '/api/device-locks/callback'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.open(data.url, '_blank');
+          showNotification('info', 'Inscrição Iniciada', 'Complete o fluxo na janela do Google que foi aberta.');
+        }
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showNotification('error', 'Erro', 'Não foi possível gerar a URL de inscrição.');
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleUnlinkEnterprise = async () => {
+    if (!window.confirm('Tem certeza que deseja desvincular o Google Enterprise ID? Isso removerá as configurações de provisionamento.')) return;
+    try {
+      const res = await fetch('/api/device-locks/enterprise', {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showNotification('success', 'Vínculo Removido', 'A conta Google Enterprise foi desvinculada com sucesso.');
+        setEnterpriseId(null);
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showNotification('error', 'Erro', 'Não foi possível desvincular a conta.');
+    }
+  };
+
   // States e ações para Gestão Matricial de Permissões (RBAC)
   const { userPermissions, fetchUserPermissions, toggleUserPermission } = usePermissionStore();
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<string>('');
@@ -395,7 +465,8 @@ Agradecemos a sua parceria! 🤝
     ...(profile?.role === 'admin' ? [
       { id: 'notifications', label: 'Alertas e Termos de OS', icon: MessageCircle },
       { id: 'users', label: 'Colaboradores', icon: User },
-      { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck }
+      { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck },
+      { id: 'android-enterprise', label: 'Android Enterprise (EMM)', icon: Smartphone }
     ] : [])
   ];
 
@@ -1295,6 +1366,109 @@ Agradecemos a sua parceria! 🤝
                     <p className="text-[9px] text-on-surface-variant max-w-[280px]">Escolha um colaborador no seletor acima para auditar e editar suas permissões de tela reativas.</p>
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {activeTab === 'android-enterprise' && profile?.role === 'admin' && (
+              <motion.div 
+                key="android-enterprise"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <Smartphone size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Android Enterprise (EMM)</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Vincule o Google Device Lock Controller para bloqueio remoto de Androids</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {isEnterpriseLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <Loader2 className="animate-spin text-primary" size={24} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Verificando status do vínculo...</span>
+                    </div>
+                  ) : enterpriseId ? (
+                    <div className="p-8 bg-emerald-500/5 border border-emerald-500/20 rounded-[32px] space-y-6">
+                      <div className="flex items-center gap-4 text-emerald-400">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                          <CheckCircle2 size={20} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest">Conta Vinculada com Sucesso</p>
+                          <h3 className="font-mono text-sm text-white font-black mt-0.5">{enterpriseId}</h3>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        Seu CRM MDR já está conectado à Android Management API. O provisionamento via QR Code e os comandos de bloqueio e desbloqueio estão ativos para todos os aparelhos Android vinculados ao sistema.
+                      </p>
+
+                      <div className="flex gap-4 pt-2">
+                        <button
+                          onClick={fetchEnterpriseId}
+                          className="flex items-center gap-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          <RefreshCw size={14} /> Atualizar Status
+                        </button>
+                        <button
+                          onClick={handleUnlinkEnterprise}
+                          className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          Desvincular Conta
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[32px] space-y-6">
+                      <div className="flex items-center gap-4 text-amber-500">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                          <AlertCircle size={20} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest">Aguardando Vínculo</p>
+                          <h3 className="text-xs text-white font-black mt-0.5">Google Enterprise ID não cadastrado</h3>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        Para habilitar a integração com o Google Device Lock Controller e bloquear celulares Android de clientes inadimplentes, você precisa primeiro registrar sua empresa na Android Management API do Google.
+                      </p>
+
+                      <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Instruções Passo a Passo</h4>
+                        <ol className="text-[11px] text-on-surface-variant/90 space-y-2.5 list-decimal pl-4 leading-relaxed">
+                          <li>Prepare uma conta de e-mail do Google (Gmail comum ou Workspace) que <strong>não seja</strong> a mesma conta que você usa no Google Play Console pessoal e que <strong>não pertença</strong> a nenhuma outra organização Enterprise.</li>
+                          <li>Clique no botão <strong>"Iniciar Registro no Google"</strong> abaixo. Uma nova aba se abrirá com o fluxo de registro oficial do Google Android Enterprise.</li>
+                          <li>Siga as telas do Google, inserindo o nome da sua empresa e aceitando os termos de EMM.</li>
+                          <li>Na última etapa, confirme o vínculo. O Google redirecionará você automaticamente de volta para este CRM e salvará o seu <strong>Enterprise ID</strong>.</li>
+                        </ol>
+                      </div>
+
+                      <button
+                        onClick={handleGenerateSignupUrl}
+                        disabled={isGeneratingLink}
+                        className="w-full md:w-auto flex items-center justify-center gap-3 bg-white text-black px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5 disabled:opacity-50"
+                      >
+                        {isGeneratingLink ? (
+                          <>
+                            <Loader2 className="animate-spin" size={16} />
+                            Gerando Link...
+                          </>
+                        ) : (
+                          <>
+                            <QrCode size={16} />
+                            Iniciar Registro no Google
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
