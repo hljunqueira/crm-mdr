@@ -67,10 +67,10 @@ export default function Sidebar() {
       subtitle: 'Leads, Clientes e Vendas',
       icon: Users,
       items: [
-        { name: 'Leads', icon: UserSearch, path: '/leads' },
-        { name: 'Clientes', icon: Users, path: '/customers' },
         { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
+        { name: 'Clientes', icon: Users, path: '/customers' },
+        { name: 'Leads', icon: UserSearch, path: '/leads' },
       ]
     },
 
