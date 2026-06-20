@@ -28,7 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { usePermissionStore } from '../store/usePermissionStore';
 
-type TabType = 'unit' | 'notifications' | 'users' | 'rbac' | 'android-enterprise';
+type TabType = 'unit' | 'notifications' | 'users' | 'rbac' | 'android-enterprise' | 'auth';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
@@ -36,6 +36,53 @@ export default function Settings() {
   const { unit, units, fetchUnit, fetchAllUnits, updateUnit, isLoading } = useUnitStore();
   const { showNotification, showModal, hideModal } = useUI();
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+
+  // States para Autenticação de Dois Fatores (2FA)
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [is2FALoading, setIs2FALoading] = useState(false);
+
+  const fetch2FASettings = async () => {
+    try {
+      setIs2FALoading(true);
+      const res = await fetch('/api/users/2fa/settings');
+      if (res.ok) {
+        const data = await res.json();
+        setTwoFactorEnabled(data.enabled);
+      }
+    } catch (e) {
+      console.error('[Settings] Erro ao buscar config 2FA:', e);
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  const handleToggle2FA = async () => {
+    try {
+      setIs2FALoading(true);
+      const nextState = !twoFactorEnabled;
+      const res = await fetch('/api/users/2fa/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextState })
+      });
+      if (res.ok) {
+        setTwoFactorEnabled(nextState);
+        showNotification('success', 'Configuração Salva', `Autenticação de Dois Fatores (2FA) ${nextState ? 'habilitada' : 'desabilitada'}.`);
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showNotification('error', 'Erro', 'Não foi possível alterar a configuração do 2FA.');
+    } finally {
+      setIs2FALoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'auth') {
+      fetch2FASettings();
+    }
+  }, [activeTab]);
   
   // States para Android Enterprise
   const [enterpriseId, setEnterpriseId] = useState<string | null>(null);
@@ -497,7 +544,8 @@ Agradecemos a sua parceria! 🤝
       { id: 'notifications', label: 'Alertas e Termos de OS', icon: MessageCircle },
       { id: 'users', label: 'Colaboradores', icon: User },
       { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck },
-      { id: 'android-enterprise', label: 'Android Enterprise (EMM)', icon: Smartphone }
+      { id: 'android-enterprise', label: 'Android Enterprise (EMM)', icon: Smartphone },
+      { id: 'auth', label: 'Autenticação (2FA)', icon: Key }
     ] : [])
   ];
 
@@ -1439,48 +1487,7 @@ Agradecemos a sua parceria! 🤝
                         Seu CRM MDR já está conectado à Android Management API. O provisionamento via QR Code e os comandos de bloqueio e desbloqueio estão ativos para todos os aparelhos Android vinculados ao sistema.
                       </p>
 
-                      {enrollmentQr ? (
-                        <div className="mt-6 p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col md:flex-row items-center gap-6">
-                          <div className="p-4 bg-white rounded-2xl shrink-0">
-                            <img 
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(enrollmentQr)}`} 
-                              alt="Android Enterprise Provisioning QR Code" 
-                              className="w-[180px] h-[180px]"
-                            />
-                          </div>
-                          <div className="space-y-3 text-left">
-                            <h4 className="text-xs font-black text-white uppercase tracking-tight flex items-center gap-2">
-                              <QrCode size={16} className="text-primary" />
-                              QR Code de Provisionamento
-                            </h4>
-                            <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                              Use este QR Code para configurar os novos aparelhos. No celular recém-formatado, dê 6 toques na tela inicial e leia este QR Code para iniciar o provisionamento automático e instalar o Google Device Lock.
-                            </p>
-                            <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">
-                              ⚠️ Este QR Code é confidencial e contém um token de vinculação direta com a MDR.
-                            </p>
-                            <button
-                              onClick={fetchEnrollmentToken}
-                              disabled={isGeneratingQr}
-                              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider border border-white/10 transition-all disabled:opacity-50"
-                            >
-                              {isGeneratingQr ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                              Gerar Novo QR Code
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-6 p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3 text-center">
-                          <button
-                            onClick={fetchEnrollmentToken}
-                            disabled={isGeneratingQr}
-                            className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                          >
-                            {isGeneratingQr ? <Loader2 size={14} className="animate-spin" /> : <QrCode size={14} />}
-                            Gerar QR Code de Provisionamento
-                          </button>
-                        </div>
-                      )}
+                      {/* QR Code de provisionamento foi removido desta tela por já estar no painel de bloqueios de celulares */}
 
                       <div className="flex gap-4 pt-2">
                         <button
@@ -1540,6 +1547,63 @@ Agradecemos a sua parceria! 🤝
                           </>
                         )}
                       </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'auth' && profile?.role === 'admin' && (
+              <motion.div 
+                key="auth"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <Key size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Autenticação (2FA)</h2>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Segurança de login e controle de acesso via WhatsApp</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {is2FALoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <Loader2 className="animate-spin text-primary" size={24} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Carregando configurações de segurança...</span>
+                    </div>
+                  ) : (
+                    <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[32px] space-y-6">
+                      <div className="flex items-center justify-between gap-6">
+                        <div className="space-y-1">
+                          <h3 className="text-sm font-black text-white uppercase tracking-tight">Autenticação de Dois Fatores (2FA) via WhatsApp</h3>
+                          <p className="text-xs text-on-surface-variant leading-relaxed max-w-xl">
+                            Quando ativada, todos os colaboradores com telefone cadastrado no perfil deverão inserir um código de verificação enviado por WhatsApp ao efetuar o login.
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleToggle2FA}
+                          className={cn(
+                            "w-12 h-7 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex items-center border border-white/5 shrink-0",
+                            twoFactorEnabled ? "bg-primary" : "bg-white/10"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-5 h-5 rounded-full bg-white transition-all duration-300 shadow",
+                            twoFactorEnabled ? "translate-x-5" : "translate-x-0"
+                          )} />
+                        </button>
+                      </div>
+
+                      <div className="p-5 bg-primary/5 border border-primary/10 rounded-2xl text-[11px] leading-relaxed text-on-surface-variant/80">
+                        💡 <strong>Nota sobre Prevenção de Bloqueios (Lockout):</strong> Colaboradores que não possuem número de telefone cadastrado em seu perfil (Aba Colaboradores) poderão fazer login diretamente com e-mail e senha, exibindo um alerta informativo no painel. Cadastre sempre o celular dos atendentes/técnicos.
+                      </div>
                     </div>
                   )}
                 </div>

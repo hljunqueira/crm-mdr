@@ -9,26 +9,165 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+
+  // Estados para Recuperação de Senha (Esqueci a senha)
+  const [viewMode, setViewMode] = useState<'login' | 'forgot' | 'reset'>('login');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
   const navigate = useNavigate();
   const signIn = useAuthStore(state => state.signIn);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setWarning('');
     setIsSubmitting(true);
 
     try {
-      const { error: authError } = await signIn(email, password);
-      if (authError) {
-        setError('E-mail ou senha incorretos.');
+      if (!twoFactorRequired) {
+        // Passo 1: Pré-login para verificar credenciais e checar 2FA
+        const res = await fetch('/api/users/pre-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || 'E-mail ou senha incorretos.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (data.twoFactorRequired) {
+          setTwoFactorRequired(true);
+        } else {
+          // 2FA desativado ou usuário sem telefone (login direto)
+          if (data.warning === 'missing_phone') {
+            // Guarda aviso temporário para mostrar depois
+            sessionStorage.setItem('login_warning', 'missing_phone');
+          }
+          const { error: authError } = await signIn(email, password);
+          if (authError) {
+            setError('E-mail ou senha incorretos.');
+          } else {
+            navigate('/dashboard');
+          }
+        }
       } else {
-        navigate('/dashboard');
+        // Passo 2: Verificação do código OTP
+        const res = await fetch('/api/users/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code: otpCode })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setError(data.error || 'Código de verificação inválido.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        // OTP válido, concluir login final
+        const { error: authError } = await signIn(email, password);
+        if (authError) {
+          setError('Erro na sessão de autenticação. Reinicie o login.');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err) {
       setError('Ocorreu um erro ao tentar entrar. Tente novamente.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/users/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Erro ao processar solicitação.');
+      } else {
+        setViewMode('reset');
+        setError('');
+      }
+    } catch (err) {
+      setError('Erro ao enviar código por WhatsApp. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword.length < 6) {
+      setError('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: resetCode, newPassword })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Erro ao redefinir a senha.');
+      } else {
+        // Redefinido com sucesso! Fazer login imediato
+        const { error: authError } = await signIn(email, newPassword);
+        if (authError) {
+          setError('Senha alterada, mas falha ao entrar automaticamente. Volte e faça o login.');
+          setViewMode('login');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    } catch (err) {
+      setError('Erro ao redefinir senha. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    if (viewMode === 'forgot') {
+      handleForgotPassword(e);
+    } else if (viewMode === 'reset') {
+      handleResetPassword(e);
+    } else {
+      handleLogin(e);
     }
   };
 
@@ -49,7 +188,9 @@ export default function Login() {
             <img src="/logo-mdr.png" alt="Logo" className="h-32 w-auto object-contain drop-shadow-2xl" />
           </a>
           <div className="pt-4">
-            <h1 className="text-2xl font-black text-on-surface tracking-tight">Acesso Restrito</h1>
+            <h1 className="text-2xl font-black text-on-surface tracking-tight">
+              {viewMode === 'forgot' ? 'Recuperar Acesso' : viewMode === 'reset' ? 'Definir Nova Senha' : 'Acesso Restrito'}
+            </h1>
             <p className="text-on-surface-variant text-sm font-display tracking-widest mt-1 opacity-60">Painel de Administração</p>
           </div>
         </div>
@@ -57,7 +198,7 @@ export default function Login() {
         <div className="glass-card p-6 sm:p-10 border border-primary/10 rounded-[30px] sm:rounded-[40px] shadow-[0_40px_100px_rgba(0,0,0,0.4)] relative overflow-hidden backdrop-blur-2xl focus-within:border-primary/20 transition-all duration-300">
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/5 blur-3xl -z-10"></div>
           
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleFormSubmit} className="space-y-6">
             {error && (
               <motion.div 
                 initial={{ opacity: 0, x: -10 }}
@@ -69,53 +210,221 @@ export default function Login() {
               </motion.div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">E-mail</label>
-              <div className="relative group">
-                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com" 
-                  className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                  required
-                />
-              </div>
-            </div>
+            {viewMode === 'login' ? (
+              !twoFactorRequired ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">E-mail</label>
+                    <div className="relative group">
+                      <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
+                      <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="seu@email.com" 
+                        className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center pl-1">
-                <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em]">Senha</label>
-                <button type="button" className="text-[9px] font-black text-on-surface/40 hover:text-white tracking-widest transition-colors">Esqueci a senha</button>
-              </div>
-              <div className="relative group">
-                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••" 
-                  className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white transition-colors"
-                  title={showPassword ? "Ocultar senha" : "Exibir senha"}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center pl-1">
+                      <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em]">Senha</label>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setViewMode('forgot');
+                          setError('');
+                        }}
+                        className="text-[9px] font-black text-on-surface/40 hover:text-white tracking-widest transition-colors"
+                      >
+                        Esqueci a senha
+                      </button>
+                    </div>
+                    <div className="relative group">
+                      <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••" 
+                        className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white transition-colors"
+                        title={showPassword ? "Ocultar senha" : "Exibir senha"}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="space-y-4 text-center"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20 text-primary mb-4">
+                    <Shield size={24} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Código de Verificação</h3>
+                    <p className="text-[10px] text-on-surface-variant/80 mt-2 leading-relaxed">
+                      Insira o código de 6 dígitos que enviamos para o seu WhatsApp corporativo.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 text-left pt-4">
+                    <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">Código de Segurança</label>
+                    <input 
+                      type="text" 
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Digite os 6 números" 
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-center text-lg font-bold tracking-[0.5em] focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setTwoFactorRequired(false);
+                      setOtpCode('');
+                      setError('');
+                    }}
+                    className="text-[9px] font-black text-primary hover:text-white tracking-widest transition-colors block mx-auto mt-4 uppercase"
+                  >
+                    ← Voltar para e-mail/senha
+                  </button>
+                </motion.div>
+              )
+            ) : viewMode === 'forgot' ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-4"
+              >
+                <p className="text-xs text-on-surface-variant/80 pl-1 leading-relaxed">
+                  Digite seu e-mail cadastrado. Enviaremos um código de verificação para o WhatsApp registrado no seu perfil.
+                </p>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">E-mail</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
+                    <input 
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="seu@email.com" 
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setViewMode('login');
+                    setError('');
+                  }}
+                  className="text-[9px] font-black text-on-surface/40 hover:text-white tracking-widest transition-colors block mx-auto mt-4 uppercase"
+                >
+                  ← Voltar para o login
                 </button>
-              </div>
-            </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="space-y-4"
+              >
+                <div className="text-center">
+                  <p className="text-xs text-on-surface-variant/80 leading-relaxed">
+                    Código enviado! Digite o código de 6 dígitos que chegou em seu WhatsApp e configure sua nova senha de acesso.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1 font-sans">Código de Verificação</label>
+                  <input 
+                    type="text" 
+                    maxLength={6}
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Digite os 6 números" 
+                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-center text-lg font-bold tracking-[0.5em] focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">Nova Senha</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres" 
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">Confirmar Nova Senha</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Digite a senha novamente" 
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setViewMode('forgot');
+                    setResetCode('');
+                    setError('');
+                  }}
+                  className="text-[9px] font-black text-primary hover:text-white tracking-widest transition-colors block mx-auto mt-4 uppercase"
+                >
+                  ← Reenviar código para o WhatsApp
+                </button>
+              </motion.div>
+            )}
 
             <button 
               type="submit"
               disabled={isSubmitting}
               className="w-full py-5 bg-primary text-white rounded-[24px] font-display font-black tracking-[0.2em] shadow-[0_15px_40px_rgba(59,130,246,0.15)] hover:scale-[1.02] active:scale-95 transition-all text-base flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100"
             >
-              {isSubmitting ? 'Entrando...' : 'Entrar'} <ArrowRight size={18} />
+              {isSubmitting ? 'Processando...' : viewMode === 'forgot' ? 'Enviar Código' : viewMode === 'reset' ? 'Redefinir Senha & Entrar' : twoFactorRequired ? 'Confirmar Código' : 'Entrar'} <ArrowRight size={18} />
             </button>
           </form>
 

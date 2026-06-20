@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auth-2fa",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "webhook-auth-2fa",
+      "name": "Webhook Auth 2FA"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://whatsapp.mdrinformaticaecelulares.com.br/message/sendText/{{$json.body.instanceName}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "MDR_SECRET_TOKEN_2024"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"number\": $json.body.remoteJid, \"text\": $json.body.text } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        250,
+        0
+      ],
+      "id": "http-evolution-send-2fa",
+      "name": "HTTP Evolution Send 2FA"
+    }
+  ],
+  "connections": {
+    "Webhook Auth 2FA": {
+      "main": [
+        [
+          {
+            "node": "HTTP Evolution Send 2FA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "meta": null,
+  "pinData": {}
+}

@@ -529,12 +529,7 @@ export default function Landing() {
 
                   </motion.div>
                 </AnimatePresence>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <Loader2 className="animate-spin text-primary" size={24} />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/60">Carregando Vitrine...</span>
-                </div>
-              )}
+              ) : null}
             </div>
           </motion.div>
         </div>

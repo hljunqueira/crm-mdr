@@ -16,7 +16,8 @@ const dirPath = path.resolve('automacao');
 
 const files = [
   { name: 'OS Status Notifications', file: 'fluxo_os_status.json' },
-  { name: 'Crediario Collections', file: 'fluxo_cobranca_crediario.json' }
+  { name: 'Crediario Collections', file: 'fluxo_cobranca_crediario.json' },
+  { name: 'Auth 2FA WhatsApp', file: 'fluxo_auth_2fa.json' }
 ];
 
 async function deployWorkflows() {
@@ -54,19 +55,11 @@ async function deployWorkflows() {
         console.log(`Success! Workflow "${item.name}" deployed with ID: ${result.id}`);
         
         console.log(`Activating: ${item.name}...`);
-        const actResponse = await fetch(`${n8nUrl}/api/v1/workflows/${result.id}`, {
-          method: 'PUT',
+        const actResponse = await fetch(`${n8nUrl}/api/v1/workflows/${result.id}/activate`, {
+          method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             'X-N8N-API-KEY': n8nKey
-          },
-          body: JSON.stringify({
-            name: item.name,
-            nodes: content.nodes,
-            connections: content.connections,
-            settings: content.settings || {},
-            active: true
-          })
+          }
         });
         
         if (actResponse.ok) {

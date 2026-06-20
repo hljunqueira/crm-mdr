@@ -322,4 +322,450 @@ router.post('/goals', async (req, res) => {
   }
 });
 
+// GET /api/users/2fa/settings — Obter status da autenticação de dois fatores
+router.get('/2fa/settings', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('automation_settings')
+      .select('value')
+      .eq('key', 'two_factor_auth_enabled')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    
+    const enabled = data?.value === 'true';
+    res.json({ enabled });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/2fa/settings — Alterar status da autenticação de dois fatores
+router.post('/2fa/settings', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    const { data, error } = await supabase
+      .from('automation_settings')
+      .upsert({
+        key: 'two_factor_auth_enabled',
+        value: enabled ? 'true' : 'false',
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'key'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ success: true, enabled: data.value === 'true' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/pre-login — Validar credenciais e iniciar fluxo 2FA se ativo
+router.post('/pre-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+    }
+
+    // 1. Validar e-mail e senha usando Supabase Auth com um cliente temporário
+    const tempClient = createClient(
+      process.env.VITE_SUPABASE_URL || '',
+      process.env.VITE_SUPABASE_ANON_KEY || ''
+    );
+
+    const { data: authData, error: authError } = await tempClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (authError) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const userId = authData.user.id;
+
+    // 2. Buscar o perfil do colaborador para obter telefone e nome
+    const { data: profile, error: profError } = await supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profError || !profile) {
+      return res.status(404).json({ error: 'Perfil do colaborador não encontrado.' });
+    }
+
+    // 3. Verificar se 2FA está habilitado globalmente
+    const { data: settings } = await supabase
+      .from('automation_settings')
+      .select('value')
+      .eq('key', 'two_factor_auth_enabled')
+      .maybeSingle();
+
+    const twoFactorEnabled = settings?.value === 'true';
+
+    // 4. Se não estiver ativo, permite o login direto
+    if (!twoFactorEnabled) {
+      return res.json({ twoFactorRequired: false });
+    }
+
+    // 5. Se estiver ativo mas o perfil não tiver telefone cadastrado, permite login com aviso (evita lockout)
+    if (!profile.phone || !profile.phone.trim()) {
+      return res.json({ twoFactorRequired: false, warning: 'missing_phone' });
+    }
+
+    // 6. Rate limiting: verificar se um código foi gerado nos últimos 60 segundos
+    const { data: existingOtp } = await supabase
+      .from('auth_otps')
+      .select('created_at')
+      .eq('email', email)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingOtp) {
+      const diff = Date.now() - new Date(existingOtp.created_at).getTime();
+      if (diff < 60000) {
+        return res.status(429).json({ error: 'Aguarde 60 segundos antes de solicitar um novo código.' });
+      }
+    }
+
+    // 7. Gerar OTP de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutos de expiração
+
+    // Salvar OTP no banco
+    const { error: otpError } = await supabase
+      .from('auth_otps')
+      .insert({
+        email,
+        code,
+        expires_at: expiresAt,
+        attempts: 0
+      });
+
+    if (otpError) {
+      console.error('[2FA Pre-Login] Erro ao salvar OTP:', otpError);
+      return res.status(500).json({ error: 'Falha ao processar código de segurança.' });
+    }
+
+    // 8. Buscar canal do WhatsApp conectado
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('instance_name')
+      .eq('status', 'connected')
+      .limit(1);
+
+    const instanceName = channels && channels.length > 0 ? channels[0].instance_name : 'mdr';
+
+    // 9. Enviar via n8n webhook
+    let cleanPhone = profile.phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `55${cleanPhone}`;
+    }
+    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const messageText = `*MDR Informática & Celulares* 🔐\n\nOlá, ${profile.full_name}!\nSeu código de segurança para acessar o painel é:\n\n*${code}*\n\nEste código é válido por 5 minutos. Não compartilhe com ninguém.`;
+
+    const n8nUrl = process.env.N8N_2FA_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/auth-2fa`;
+    console.log(`[2FA Pre-Login] Enviando código para ${cleanPhone} via n8n: ${n8nUrl}`);
+
+    try {
+      const response = await fetch(n8nUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-N8N-API-KEY': process.env.N8N_API_KEY || ''
+        },
+        body: JSON.stringify({
+          instanceName,
+          remoteJid,
+          text: messageText,
+          phone: cleanPhone,
+          code,
+          name: profile.full_name
+        })
+      });
+
+      if (!response.ok) {
+        const errTxt = await response.text();
+        console.warn('[2FA Pre-Login] Falha no disparo n8n:', errTxt);
+      }
+    } catch (err) {
+      console.error('[2FA Pre-Login] Erro ao chamar webhook n8n:', err);
+    }
+
+    res.json({ twoFactorRequired: true, email });
+  } catch (error: any) {
+    console.error('[Pre-Login] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/verify-otp — Validar o código OTP de 6 dígitos do 2FA
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'E-mail e código de verificação são obrigatórios.' });
+    }
+
+    // 1. Buscar OTP pendente
+    const { data: otp, error: otpError } = await supabase
+      .from('auth_otps')
+      .select('*')
+      .eq('email', email)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (otpError || !otp) {
+      return res.status(400).json({ error: 'Código de segurança expirado ou inválido. Reinicie o login.' });
+    }
+
+    // 2. Verificar expiração
+    if (new Date() > new Date(otp.expires_at)) {
+      await supabase.from('auth_otps').delete().eq('id', otp.id);
+      return res.status(400).json({ error: 'Código de segurança expirado. Solicite outro.' });
+    }
+
+    // 3. Verificar limite de tentativas (max 3 erros, ou seja, exclui no 4º erro)
+    if (otp.attempts >= 3) {
+      await supabase.from('auth_otps').delete().eq('id', otp.id);
+      return res.status(400).json({ error: 'Muitas tentativas malsucedidas. Reinicie o login para enviar novo código.' });
+    }
+
+    // 4. Comparar o código
+    if (otp.code !== code.trim()) {
+      // Incrementar tentativas
+      const nextAttempts = otp.attempts + 1;
+      await supabase
+        .from('auth_otps')
+        .update({ attempts: nextAttempts })
+        .eq('id', otp.id);
+
+      return res.status(400).json({ 
+        error: `Código incorreto. Você tem mais ${4 - nextAttempts} tentativa(s).` 
+      });
+    }
+
+    // 5. Sucesso! Deletar OTP para não reutilizar
+    await supabase.from('auth_otps').delete().eq('id', otp.id);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[Verify-OTP] Erro:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/forgot-password — Solicitar redefinição de senha por WhatsApp
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'E-mail é obrigatório.' });
+    }
+
+    // 1. Localizar o usuário pelo e-mail usando o Admin SDK
+    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      console.error('[Forgot-Password] Erro ao listar usuários:', listError);
+      return res.status(500).json({ error: 'Erro interno ao processar a solicitação.' });
+    }
+
+    const targetUser = users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Nenhuma conta encontrada com este e-mail.' });
+    }
+
+    // 2. Buscar o perfil associado para pegar o telefone
+    const { data: profile, error: profError } = await supabase
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', targetUser.id)
+      .maybeSingle();
+
+    if (profError || !profile) {
+      return res.status(500).json({ error: 'Erro ao buscar o perfil do colaborador.' });
+    }
+
+    if (!profile.phone || !profile.phone.trim()) {
+      return res.status(400).json({ 
+        error: 'Esta conta não possui número de telefone cadastrado no perfil. Por favor, solicite a redefinição diretamente ao administrador.' 
+      });
+    }
+
+    // 3. Rate limiting de 60 segundos
+    const { data: existingOtp } = await supabase
+      .from('auth_otps')
+      .select('created_at')
+      .eq('email', targetUser.email)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingOtp) {
+      const diff = Date.now() - new Date(existingOtp.created_at).getTime();
+      if (diff < 60000) {
+        return res.status(429).json({ error: 'Aguarde 60 segundos antes de solicitar um novo código de recuperação.' });
+      }
+    }
+
+    // 4. Gerar código OTP de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+    const { error: otpError } = await supabase
+      .from('auth_otps')
+      .insert({
+        email: targetUser.email,
+        code,
+        expires_at: expiresAt,
+        attempts: 0
+      });
+
+    if (otpError) {
+      console.error('[Forgot-Password] Erro ao gravar OTP:', otpError);
+      return res.status(500).json({ error: 'Erro ao gerar token de recuperação.' });
+    }
+
+    // 5. Enviar via n8n/Evolution API
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('instance_name')
+      .eq('status', 'connected')
+      .limit(1);
+
+    const instanceName = channels && channels.length > 0 ? channels[0].instance_name : 'mdr';
+
+    let cleanPhone = profile.phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `55${cleanPhone}`;
+    }
+    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const messageText = `*MDR Informática & Celulares* 🔑\n\nOlá, ${profile.full_name}!\nVocê solicitou a recuperação de acesso ao painel administrativo (CRM).\nSeu código de segurança para redefinir sua senha é:\n\n*${code}*\n\nEste código é válido por 5 minutos. Não compartilhe com ninguém.`;
+
+    const n8nUrl = process.env.N8N_2FA_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/auth-2fa`;
+
+    try {
+      const response = await fetch(n8nUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-N8N-API-KEY': process.env.N8N_API_KEY || ''
+        },
+        body: JSON.stringify({
+          instanceName,
+          remoteJid,
+          text: messageText,
+          phone: cleanPhone,
+          code,
+          name: profile.full_name
+        })
+      });
+
+      if (!response.ok) {
+        const errTxt = await response.text();
+        console.warn('[Forgot-Password] Falha no envio n8n:', errTxt);
+      }
+    } catch (err) {
+      console.error('[Forgot-Password] Erro ao acionar webhook n8n:', err);
+    }
+
+    res.json({ success: true, email: targetUser.email });
+  } catch (error: any) {
+    console.error('[Forgot-Password] Erro Geral:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/users/reset-password — Redefinir a senha após validar o código OTP
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: 'E-mail, código e nova senha são obrigatórios.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres.' });
+    }
+
+    // 1. Buscar OTP
+    const { data: otp, error: otpError } = await supabase
+      .from('auth_otps')
+      .select('*')
+      .eq('email', email)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (otpError || !otp) {
+      return res.status(400).json({ error: 'Código de recuperação expirado ou inválido. Reinicie o fluxo.' });
+    }
+
+    // 2. Validar expiração
+    if (new Date() > new Date(otp.expires_at)) {
+      await supabase.from('auth_otps').delete().eq('id', otp.id);
+      return res.status(400).json({ error: 'Código de recuperação expirado. Solicite outro.' });
+    }
+
+    // 3. Validar tentativas
+    if (otp.attempts >= 3) {
+      await supabase.from('auth_otps').delete().eq('id', otp.id);
+      return res.status(400).json({ error: 'Muitas tentativas incorretas. Solicite um novo código.' });
+    }
+
+    // 4. Comparar o código
+    if (otp.code !== code.trim()) {
+      const nextAttempts = otp.attempts + 1;
+      await supabase
+        .from('auth_otps')
+        .update({ attempts: nextAttempts })
+        .eq('id', otp.id);
+
+      return res.status(400).json({ 
+        error: `Código incorreto. Você tem mais ${4 - nextAttempts} tentativa(s).` 
+      });
+    }
+
+    // 5. Obter o UUID do usuário para atualizar a senha
+    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      return res.status(500).json({ error: 'Erro ao processar alteração da senha.' });
+    }
+
+    const targetUser = users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Usuário não encontrado para redefinir senha.' });
+    }
+
+    // 6. Atualizar a senha da conta no Supabase Auth usando o Admin SDK
+    const { error: updateError } = await supabase.auth.admin.updateUserById(targetUser.id, {
+      password: newPassword
+    });
+
+    if (updateError) {
+      console.error('[Reset-Password] Erro ao atualizar no Auth:', updateError);
+      return res.status(400).json({ error: `Erro ao redefinir: ${updateError.message}` });
+    }
+
+    // 7. Limpar o OTP usado
+    await supabase.from('auth_otps').delete().eq('id', otp.id);
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[Reset-Password] Erro Geral:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

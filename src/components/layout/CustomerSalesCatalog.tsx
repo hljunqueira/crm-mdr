@@ -65,6 +65,7 @@ export default function CustomerSalesCatalog({ osNumber, unitId }: CustomerSales
           .from('devices')
           .select('id, brand, model, condition, sale_price, image_url, category')
           .eq('status', 'available')
+          .eq('show_on_landing', true)
           .gt('stock_quantity', 0)
           .order('created_at', { ascending: false });
 

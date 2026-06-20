@@ -16,6 +16,28 @@ router.get("/", async (req, res) => {
 
 // Create customer
 router.post("/", async (req, res) => {
+  const { phone } = req.body;
+  if (phone) {
+    const cleanNewPhone = phone.replace(/\D/g, '');
+    if (cleanNewPhone) {
+      const { data: allCustomers, error: fetchError } = await supabase
+        .from('customers')
+        .select('id, phone');
+
+      if (!fetchError && allCustomers) {
+        const duplicate = allCustomers.find(c => {
+          if (!c.phone) return false;
+          const cleanExisting = c.phone.replace(/\D/g, '');
+          return cleanExisting === cleanNewPhone;
+        });
+
+        if (duplicate) {
+          return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente." });
+        }
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('customers')
     .insert([req.body])
@@ -28,6 +50,29 @@ router.post("/", async (req, res) => {
 
 // Update customer
 router.patch("/:id", async (req, res) => {
+  const { phone } = req.body;
+  if (phone) {
+    const cleanNewPhone = phone.replace(/\D/g, '');
+    if (cleanNewPhone) {
+      const { data: allCustomers, error: fetchError } = await supabase
+        .from('customers')
+        .select('id, phone')
+        .neq('id', req.params.id);
+
+      if (!fetchError && allCustomers) {
+        const duplicate = allCustomers.find(c => {
+          if (!c.phone) return false;
+          const cleanExisting = c.phone.replace(/\D/g, '');
+          return cleanExisting === cleanNewPhone;
+        });
+
+        if (duplicate) {
+          return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente." });
+        }
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('customers')
     .update(req.body)
