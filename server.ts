@@ -25,6 +25,8 @@ import serviceOrderRoutes from "./server/routes/service_orders.js";
 import fiscalRoutes from "./server/routes/fiscal.js";
 import deviceLockRoutes from "./server/routes/device_locks.js";
 import billingRoutes from "./server/routes/billing.js";
+import { checkAndReactivateAsaasWebhook } from "./server/services/asaasService.js";
+
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -91,7 +93,15 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    
+    // Monitoramento do webhook do Asaas para auto-reativação em caso de instabilidades
+    checkAndReactivateAsaasWebhook().catch(err => console.error("Erro na ativação inicial do webhook Asaas:", err));
+    // Checar a cada 4 horas
+    setInterval(() => {
+      checkAndReactivateAsaasWebhook().catch(err => console.error("Erro no intervalo do webhook Asaas:", err));
+    }, 4 * 60 * 60 * 1000);
   });
 }
+
 
 startServer();

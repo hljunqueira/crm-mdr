@@ -189,3 +189,48 @@ export async function deleteAsaasPayment(paymentId: string): Promise<void> {
   }
 }
 
+export async function checkAndReactivateAsaasWebhook(): Promise<void> {
+  if (!ASAAS_API_KEY) return;
+  try {
+    const res = await fetch(`${ASAAS_URL}/webhooks`, {
+      method: 'GET',
+      headers: {
+        'access_token': ASAAS_API_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!res.ok) {
+      console.warn(`[Asaas Webhook Monitor] Erro ao consultar webhooks (${res.status})`);
+      return;
+    }
+    const result: any = await res.json();
+    const webhooks = result.data || [];
+    for (const webhook of webhooks) {
+      if (webhook.interrupted || webhook.penalizedRequestsCount > 0) {
+        console.log(`[Asaas Webhook Monitor] Webhook ${webhook.id} está interrompido ou penalizado (${webhook.penalizedRequestsCount} falhas). Reativando...`);
+        const updateRes = await fetch(`${ASAAS_URL}/webhooks/${webhook.id}`, {
+          method: 'PUT',
+          headers: {
+            'access_token': ASAAS_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            url: webhook.url,
+            enabled: true,
+            interrupted: false,
+            events: webhook.events
+          })
+        });
+        if (updateRes.ok) {
+          console.log(`[Asaas Webhook Monitor] Webhook ${webhook.id} reativado com sucesso.`);
+        } else {
+          console.error(`[Asaas Webhook Monitor] Falha ao reativar webhook ${webhook.id}: ${updateRes.status}`);
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error('[Asaas Webhook Monitor] Erro no monitor de webhooks:', error.message || error);
+  }
+}
+
+
