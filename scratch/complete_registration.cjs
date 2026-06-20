@@ -12,7 +12,7 @@ async function main() {
     });
     const amapi = google.androidmanagement({ version: 'v1', auth });
 
-    const enterpriseToken = 'EABBn3pPkjtShd77lDgwIAPYJqL-5GcIxNM-A3rWjJXY9UDb_dcrtnejhfsezLyvYbxDlr0ipzWMv2hdb8lILt4C5Dg5oLZqSNGU0_MsNINjM6muAPuywfJ0';
+    const enterpriseToken = 'EABBn3pMAtZXK5OCdhHVo0LWNPET1tTfu38DgSDRV7DfUL0XVaW-DigfqUQcOq-TYmE62G0HRw9S4KHDaYLj-4s2USDbz-27U4P1xAiHna3TTWElVGy8idbo';
     const signupUrlName = 'signupUrls/B9B344F50272EF321';
 
     console.log('--- 2. REALIZANDO O VÍNCULO ---');
