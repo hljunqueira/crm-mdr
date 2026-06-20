@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
 // POST /api/users/create — Cadastrar novo funcionário de forma integrada
 router.post('/create', async (req, res) => {
   try {
-    const { email, password, full_name, role, store_id } = req.body;
+    const { email, password, full_name, role, store_id, phone } = req.body;
 
     if (!email || !password || !full_name) {
       return res.status(400).json({ error: 'E-mail, senha e nome completo são obrigatórios.' });
@@ -82,6 +82,7 @@ router.post('/create', async (req, res) => {
         full_name,
         role: role || 'attendant',
         store_id: store_id || null,
+        phone: phone || null,
         active: true,
         updated_at: new Date().toISOString()
       })

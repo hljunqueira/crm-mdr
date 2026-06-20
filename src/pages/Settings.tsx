@@ -226,7 +226,8 @@ export default function Settings() {
     password: '',
     full_name: '',
     role: 'attendant' as 'admin' | 'attendant' | 'technician',
-    store_id: ''
+    store_id: '',
+    phone: ''
   });
 
   const handleOpenCreateModal = () => {
@@ -236,7 +237,8 @@ export default function Settings() {
       password: '',
       full_name: '',
       role: 'attendant',
-      store_id: ''
+      store_id: '',
+      phone: ''
     });
     setShowUserModal(true);
   };
@@ -248,7 +250,8 @@ export default function Settings() {
       password: '', // Deixa vazio para manter a senha
       full_name: usr.full_name || '',
       role: usr.role || 'attendant',
-      store_id: usr.store_id || ''
+      store_id: usr.store_id || '',
+      phone: usr.phone || ''
     });
     setShowUserModal(true);
   };
@@ -287,7 +290,8 @@ export default function Settings() {
           full_name: userFormData.full_name,
           role: userFormData.role,
           store_id: userFormData.store_id || null,
-          email: userFormData.email
+          email: userFormData.email,
+          phone: userFormData.phone || null
         };
         if (userFormData.password) {
           body.password = userFormData.password;
@@ -1069,6 +1073,7 @@ Agradecemos a sua parceria! 🤝
                         <tr className="border-b border-white/5 bg-white/[0.02]">
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Colaborador</th>
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">E-mail</th>
+                          <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Telefone</th>
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Cargo</th>
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Unidade</th>
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant text-right">Ações</th>
@@ -1085,6 +1090,9 @@ Agradecemos a sua parceria! 🤝
                               </td>
                               <td className="px-6 py-4 text-xs text-on-surface-variant font-mono">
                                 {usr.email}
+                              </td>
+                              <td className="px-6 py-4 text-xs text-on-surface-variant font-mono">
+                                {usr.phone || <span className="opacity-40 italic">Nenhum</span>}
                               </td>
                               <td className="px-6 py-4">
                                 <span className={`inline-flex px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
@@ -1223,6 +1231,18 @@ Agradecemos a sua parceria! 🤝
                                   <option key={u.id} value={u.id} className="bg-surface-container-high">{u.name}</option>
                                 ))}
                               </select>
+                            </div>
+
+                            <div className="space-y-1.5 md:col-span-2">
+                              <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Telefone / WhatsApp (Necessário para 2FA)</label>
+                              <input 
+                                type="text"
+                                placeholder="Ex: 48991013293"
+                                value={userFormData.phone}
+                                onChange={(e) => setUserFormData(prev => ({ ...prev, phone: e.target.value }))}
+                                autoComplete="off"
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-on-surface focus:border-white outline-none transition-all font-mono"
+                              />
                             </div>
                           </div>
 
