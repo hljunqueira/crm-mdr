@@ -300,8 +300,8 @@ router.post('/asaas', async (req, res) => {
     }
 
     if (!installment) {
-      console.warn(`[Asaas Webhook] Parcela não encontrada para o pagamento ${payment.id}`);
-      return res.status(404).json({ error: 'Installment not found' });
+      console.warn(`[Asaas Webhook] Parcela não encontrada para o pagamento ${payment.id} (Ref: ${payment.externalReference}). Retornando 200 para evitar penalização.`);
+      return res.status(200).json({ warning: 'Installment not found in database. Ignored.' });
     }
 
     // 2. Processar eventos de recebimento
