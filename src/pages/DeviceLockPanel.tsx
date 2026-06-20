@@ -15,7 +15,8 @@ import {
   UserCheck,
   Building,
   QrCode,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { useDeviceLockStore, DeviceLock } from '../store/useDeviceLockStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -40,6 +41,104 @@ export default function DeviceLockPanel() {
   useEffect(() => {
     fetchDeviceLocks();
   }, [fetchDeviceLocks]);
+
+  // States para Google EMM
+  const [showEmmModal, setShowEmmModal] = useState(false);
+  const [enterpriseId, setEnterpriseId] = useState<string | null>(null);
+  const [isEnterpriseLoading, setIsEnterpriseLoading] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [enrollmentQr, setEnrollmentQr] = useState<string | null>(null);
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+
+  const fetchEnterpriseId = async () => {
+    try {
+      setIsEnterpriseLoading(true);
+      const res = await fetch('/api/device-locks/enterprise');
+      if (res.ok) {
+        const data = await res.json();
+        setEnterpriseId(data.enterpriseId);
+      }
+    } catch (e) {
+      console.error('[DeviceLockPanel] Erro ao buscar Enterprise ID:', e);
+    } finally {
+      setIsEnterpriseLoading(false);
+    }
+  };
+
+  const fetchEnrollmentToken = async () => {
+    try {
+      setIsGeneratingQr(true);
+      const res = await fetch('/api/device-locks/enterprise/enrollment-token', {
+        method: 'POST'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.qrCodePayload) {
+          setEnrollmentQr(data.qrCodePayload);
+        }
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      console.error('[DeviceLockPanel] Erro ao obter token de provisionamento:', e);
+    } finally {
+      setIsGeneratingQr(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEnterpriseId();
+  }, []);
+
+  useEffect(() => {
+    if (enterpriseId && showEmmModal) {
+      fetchEnrollmentToken();
+    }
+  }, [enterpriseId, showEmmModal]);
+
+  const handleGenerateSignupUrl = async () => {
+    try {
+      setIsGeneratingLink(true);
+      const res = await fetch('/api/device-locks/enterprise/signup-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callbackUrl: window.location.origin + '/api/device-locks/callback'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          window.open(data.url, '_blank');
+          showNotification('info', 'Inscrição Iniciada', 'Complete o fluxo na janela do Google que foi aberta.');
+        }
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showNotification('error', 'Erro', 'Não foi possível gerar a URL de inscrição.');
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleUnlinkEnterprise = async () => {
+    if (!window.confirm('Tem certeza que deseja desvincular o Google Enterprise ID? Isso removerá as configurações de provisionamento.')) return;
+    try {
+      const res = await fetch('/api/device-locks/enterprise', {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        showNotification('success', 'Vínculo Removido', 'A conta Google Enterprise foi desvinculada com sucesso.');
+        setEnterpriseId(null);
+        setEnrollmentQr(null);
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showNotification('error', 'Erro', 'Não foi possível desvincular a conta.');
+    }
+  };
 
   // Helper: check if a customer has overdue installments
   const getInstallmentStatus = (lock: DeviceLock) => {
@@ -179,14 +278,24 @@ export default function DeviceLockPanel() {
           </p>
         </div>
         
-        <button
-          onClick={() => { fetchDeviceLocks(); showNotification('info', 'Atualizando', 'Sincronizando status dos aparelhos...'); }}
-          disabled={isLoading}
-          className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.06] text-white transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={cn(isLoading && "animate-spin")} />
-          Atualizar Dados
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowEmmModal(true)}
+            className="p-3 bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary rounded-2xl transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer"
+          >
+            <QrCode size={14} />
+            {enterpriseId ? 'QR Code Android' : 'Conectar Android EMM'}
+          </button>
+
+          <button
+            onClick={() => { fetchDeviceLocks(); showNotification('info', 'Atualizando', 'Sincronizando status dos aparelhos...'); }}
+            disabled={isLoading}
+            className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.06] text-white transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={cn(isLoading && "animate-spin")} />
+            Atualizar Dados
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -495,6 +604,121 @@ export default function DeviceLockPanel() {
               >
                 Confirmar Bloqueio
               </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Google EMM Config / QR Code Modal */}
+      {showEmmModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-2xl bg-surface-container-high border border-white/10 p-8 rounded-[40px] space-y-6 shadow-2xl relative text-left"
+          >
+            <button
+              onClick={() => setShowEmmModal(false)}
+              className="absolute top-6 right-6 p-2 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all z-10"
+              aria-label="Fechar"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-4 border-b border-white/5 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                <Smartphone size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">Android Enterprise (EMM)</h3>
+                <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Provisionamento de novos celulares e controle EMM</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {isEnterpriseLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <Loader2 className="animate-spin text-primary" size={24} />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Carregando status...</span>
+                </div>
+              ) : enterpriseId ? (
+                <div className="space-y-6">
+                  <div className="p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Google EMM Vinculado</p>
+                      <h4 className="font-mono text-xs text-white font-bold mt-0.5">{enterpriseId}</h4>
+                    </div>
+                    <button
+                      onClick={handleUnlinkEnterprise}
+                      className="px-4 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                    >
+                      Desvincular
+                    </button>
+                  </div>
+
+                  {enrollmentQr ? (
+                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
+                      <div className="p-4 bg-white rounded-2xl shrink-0">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(enrollmentQr)}`} 
+                          alt="Android Enterprise Provisioning QR Code" 
+                          className="w-[160px] h-[160px]"
+                        />
+                      </div>
+                      <div className="space-y-3 text-left">
+                        <h4 className="text-xs font-black text-white uppercase tracking-tight flex items-center gap-1.5">
+                          <QrCode size={14} className="text-primary" />
+                          QR Code de Provisionamento
+                        </h4>
+                        <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                          Para vincular novos celulares, faça o reset de fábrica no celular. Na primeira tela inicial de boas-vindas, toque <strong>6 vezes seguidas</strong> e leia este QR Code com a câmera que abrirá.
+                        </p>
+                        <p className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">
+                          ⚠️ Este QR Code é confidencial e contém um token de vinculação direta com a MDR.
+                        </p>
+                        <button
+                          onClick={fetchEnrollmentToken}
+                          disabled={isGeneratingQr}
+                          className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border border-white/10 transition-all"
+                        >
+                          {isGeneratingQr ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                          Atualizar QR Code
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                      <Loader2 className="animate-spin text-primary" size={24} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Obtendo token de provisionamento...</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Google EMM Pendente</p>
+                    <p className="text-xs text-on-surface-variant mt-1">Sua conta do Google Enterprise ID ainda não está vinculada a este CRM.</p>
+                  </div>
+
+                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Como Vincular:</h4>
+                    <ol className="text-[11px] text-on-surface-variant/90 space-y-2 list-decimal pl-4 leading-relaxed">
+                      <li>Use uma conta do Google corporativa limpa (que nunca tenha sido cadastrada no Android Enterprise).</li>
+                      <li>Clique no botão abaixo para ir até o painel de cadastro oficial do Google.</li>
+                      <li>Siga as telas do Google e confirme. Ao final, a conta será integrada automaticamente.</li>
+                    </ol>
+                  </div>
+
+                  <button
+                    onClick={handleGenerateSignupUrl}
+                    disabled={isGeneratingLink}
+                    className="w-full flex items-center justify-center gap-2 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-white/5 disabled:opacity-50"
+                  >
+                    {isGeneratingLink ? <Loader2 className="animate-spin" size={14} /> : <QrCode size={14} />}
+                    Vincular Conta Google Enterprise EMM
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
