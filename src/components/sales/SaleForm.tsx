@@ -957,11 +957,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   }, [amountPaid, finalValue]);
 
   const availableInstallmentOptions = useMemo(() => {
-    if (formData.payment_type === 'crediario') {
+    if (formData.payment_type === 'crediario' && profile?.role === 'admin') {
       return Array.from({ length: 24 }, (_, i) => i + 1);
     }
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  }, [formData.payment_type]);
+  }, [formData.payment_type, profile?.role]);
 
   // Synchronize custom installment values when total installments or default value changes
   React.useEffect(() => {
@@ -2129,7 +2129,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               onChange={(e) => setFormData(prev => ({ ...prev, interest_table: e.target.value }))}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
             >
-              <option value="no_interest" className="bg-surface-container-high">⚪ Sem Juros (0% a.m.)</option>
+              {profile?.role === 'admin' && (
+                <option value="no_interest" className="bg-surface-container-high">⚪ Sem Juros (0% a.m.)</option>
+              )}
               <option value="premium" className="bg-surface-container-high">🟢 Premium (5% a.m.)</option>
               <option value="standard" className="bg-surface-container-high">🟡 Standard (8% a.m.)</option>
               <option value="flex" className="bg-surface-container-high">🔴 Flex (12% a.m.)</option>
