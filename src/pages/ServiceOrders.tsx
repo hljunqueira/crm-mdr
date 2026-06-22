@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Wrench, Search, Plus, Loader2, AlertCircle, CheckCircle2, 
-  User, Phone, FileText, Printer, ExternalLink, ShieldAlert, 
-  Save, ArrowLeft, Trash2, Smartphone, Monitor, PrinterIcon, 
+import {
+  Wrench, Search, Plus, Loader2, AlertCircle, CheckCircle2,
+  User, Phone, FileText, Printer, ExternalLink, ShieldAlert,
+  Save, ArrowLeft, Trash2, Smartphone, Monitor, PrinterIcon,
   Gamepad2, PlusCircle, Check, Info, Calendar, DollarSign, Send,
   Edit, X, UserCheck
 } from 'lucide-react';
@@ -158,12 +158,12 @@ function OsPaymentModal({ os, onConfirm }: { os: ServiceOrder; onConfirm: (payme
 }
 
 export default function ServiceOrders() {
-  const { 
+  const {
     serviceOrders, fetchServiceOrders, currentServiceOrder, fetchServiceOrderById,
     createServiceOrder, updateServiceOrder, deleteServiceOrder, addPartToOs,
-    deletePartFromOs, notifyOsStatus, fetchOutsourcedInfo, outsourceOs, isLoading 
+    deletePartFromOs, notifyOsStatus, fetchOutsourcedInfo, outsourceOs, isLoading
   } = useServiceOrderStore();
-  
+
   const { customers, fetchCustomers, addCustomer } = useCustomerStore();
   const { inventory, fetchInventory } = useInventoryStore();
   const { showNotification, showModal, hideModal } = useUI();
@@ -178,7 +178,7 @@ export default function ServiceOrders() {
         .select('*, customers(*), service_order_parts(*)')
         .eq('id', osId)
         .single();
-        
+
       if (error || !os) {
         console.error('Error fetching OS for sales prefill:', error);
         return;
@@ -228,12 +228,12 @@ export default function ServiceOrders() {
       console.error('Failed to offer redirect to sales:', err);
     }
   };
-  const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                     user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
+  const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' ||
+    user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
   const { units, fetchAllUnits } = useUnitStore();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
   const { partners, fetchPartners, addPartner } = usePartnerStore();
-  
+
   const [showQuickAddPartner, setShowQuickAddPartner] = useState(false);
   const [newPartnerName, setNewPartnerName] = useState('');
   const [isAddingPartner, setIsAddingPartner] = useState(false);
@@ -246,7 +246,7 @@ export default function ServiceOrders() {
   const [isEditingReportedIssue, setIsEditingReportedIssue] = useState(false);
   const [editedReportedIssue, setEditedReportedIssue] = useState('');
   const [printFormatOverride, setPrintFormatOverride] = useState<'thermal' | 'a4' | null>(null);
-  
+
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
   const [outsourcedInfo, setOutsourcedInfo] = useState<any | null>(null);
@@ -257,7 +257,7 @@ export default function ServiceOrders() {
     tracking_code: '',
     notes: ''
   });
-  
+
   // Navigation / Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
@@ -384,7 +384,7 @@ export default function ServiceOrders() {
       fetchServiceOrderById(selectedOsId);
       setIsEditingReportedIssue(false);
       setActiveMobileTab('workbench');
-      
+
       const loadOutsourceData = async () => {
         try {
           const info = await fetchOutsourcedInfo(selectedOsId);
@@ -403,11 +403,11 @@ export default function ServiceOrders() {
       showNotification('error', 'Erro', 'O nome do cliente é obrigatório.');
       return;
     }
-    
+
     setIsLoadingQuickCustomer(true);
     try {
       const cleanCpf = quickCustomer.cpf ? quickCustomer.cpf.replace(/\D/g, '') : '';
-      
+
       if (cleanCpf) {
         if (quickCustomer.type === 'PF' && !validateCPF(cleanCpf)) {
           showNotification('error', 'Erro', 'CPF inválido.');
@@ -447,7 +447,7 @@ export default function ServiceOrders() {
 
       // Find the created customer. If cleanCpf was provided, search by it. Otherwise, match by name and phone.
       const createdCustomer = useCustomerStore.getState().customers.find(
-        c => cleanCpf 
+        c => cleanCpf
           ? c.cpf.replace(/\D/g, '') === cleanCpf
           : (c.name === quickCustomer.name && c.phone.replace(/\D/g, '') === cleanPhone)
       );
@@ -472,7 +472,7 @@ export default function ServiceOrders() {
   const filteredOs = useMemo(() => {
     return serviceOrders.filter(os => {
       const isStandard = ['smartphone', 'tablet', 'notebook', 'desktop', 'printer', 'console'].includes(os.device_category);
-      
+
       let matchCategory = false;
       if (selectedCategoryTab === 'all') {
         matchCategory = true;
@@ -481,16 +481,16 @@ export default function ServiceOrders() {
       } else {
         matchCategory = os.device_category === selectedCategoryTab;
       }
-      
+
       const osNumberStr = String(os.os_number);
       const customerName = os.customers?.name?.toLowerCase() || '';
       const clientCpf = os.customers?.cpf || '';
       const deviceModel = os.device_model?.toLowerCase() || '';
       const serialNum = os.device_serial_number?.toLowerCase() || '';
-      
+
       const search = searchTerm.toLowerCase();
-      
-      const matchSearch = 
+
+      const matchSearch =
         osNumberStr.includes(search) ||
         customerName.includes(search) ||
         clientCpf.includes(search) ||
@@ -502,7 +502,7 @@ export default function ServiceOrders() {
         : osFilterTab === 'completed'
           ? ['delivered', 'returned_no_fix'].includes(os.status)
           : os.status === 'canceled';
-        
+
       return matchCategory && matchSearch && matchStatus;
     });
   }, [serviceOrders, selectedCategoryTab, searchTerm, osFilterTab]);
@@ -510,7 +510,7 @@ export default function ServiceOrders() {
   // Search filtered customers for new OS
   const filteredCustomersForSelect = useMemo(() => {
     if (!customerSearchTerm) return [];
-    return customers.filter(c => 
+    return customers.filter(c =>
       c.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
       c.cpf.includes(customerSearchTerm)
     ).slice(0, 5);
@@ -528,10 +528,10 @@ export default function ServiceOrders() {
 
   const handleToggleChecklist = async (itemId: string) => {
     if (!currentServiceOrder) return;
-    
+
     let diagnosis = currentServiceOrder.technical_diagnosis || '';
     const itemTag = `[${itemId}: OK]`;
-    
+
     if (diagnosis.includes(itemTag)) {
       diagnosis = diagnosis.replace(itemTag, '').trim();
     } else {
@@ -569,7 +569,7 @@ export default function ServiceOrders() {
 
   const handleDeleteOS = async () => {
     if (!currentServiceOrder) return;
-    
+
     try {
       await deleteServiceOrder(currentServiceOrder.id);
       showNotification('success', 'Ordem de Serviço excluída com sucesso!');
@@ -617,7 +617,7 @@ export default function ServiceOrders() {
       });
 
       showNotification('success', 'Ordem de Serviço criada com sucesso!');
-      
+
       // Load details into currentServiceOrder immediately so relation details are populated for print
       await fetchServiceOrderById(created.id);
       setJustCreatedOs(created);
@@ -803,7 +803,7 @@ export default function ServiceOrders() {
 
   const handleCreateOS = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const isComputer = ['notebook', 'desktop'].includes(newOs.device_category);
     const brandValid = isComputer || !!newOs.device_brand.trim();
     const modelValid = isComputer || !!newOs.device_model.trim();
@@ -829,11 +829,11 @@ export default function ServiceOrders() {
 
   const handleNewOsClick = () => {
     const isNotAdmin = profile?.role !== 'admin';
-    
+
     setAuthEmployeeId('');
     setAuthPassword('');
     setAuthError('');
-    
+
     if (isNotAdmin) {
       setAuthAction({ type: 'create' });
       setIsConfirmAuthOpen(true);
@@ -891,7 +891,7 @@ export default function ServiceOrders() {
   const handleDeletePart = async (partId: string) => {
     if (!currentServiceOrder) return;
     if (!confirm('Deseja realmente remover esta peça da OS?')) return;
-    
+
     try {
       await deletePartFromOs(currentServiceOrder.id, partId);
       showNotification('success', 'Peça removida com sucesso!');
@@ -907,7 +907,7 @@ export default function ServiceOrders() {
         .select('*, customers(*)')
         .eq('id', osId)
         .single();
-      
+
       if (error || !osData) return;
       const phone = osData.customers?.phone;
       if (!phone || phone.replace(/\D/g, '').length === 0) {
@@ -1475,13 +1475,13 @@ export default function ServiceOrders() {
                   <p>
                     <strong>Aparelho:</strong>{' '}
                     {(!currentServiceOrder.device_brand || currentServiceOrder.device_brand === '-') &&
-                     (!currentServiceOrder.device_model || currentServiceOrder.device_model === '-')
+                      (!currentServiceOrder.device_model || currentServiceOrder.device_model === '-')
                       ? (currentServiceOrder.device_category === 'notebook' ? 'Notebook' :
-                         currentServiceOrder.device_category === 'desktop' ? 'Computador PC' :
-                         currentServiceOrder.device_category === 'smartphone' ? 'Smartphone' :
-                         currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
-                         currentServiceOrder.device_category === 'printer' ? 'Impressora' :
-                         currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
+                        currentServiceOrder.device_category === 'desktop' ? 'Computador PC' :
+                          currentServiceOrder.device_category === 'smartphone' ? 'Smartphone' :
+                            currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
+                              currentServiceOrder.device_category === 'printer' ? 'Impressora' :
+                                currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
                       : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim()
                     }
                   </p>
@@ -1534,13 +1534,13 @@ export default function ServiceOrders() {
             <span>Aparelho:</span>
             <span className="align-right">
               {(!currentServiceOrder.device_brand || currentServiceOrder.device_brand === '-') &&
-               (!currentServiceOrder.device_model || currentServiceOrder.device_model === '-')
+                (!currentServiceOrder.device_model || currentServiceOrder.device_model === '-')
                 ? (currentServiceOrder.device_category === 'notebook' ? 'Notebook' :
-                   currentServiceOrder.device_category === 'desktop' ? 'Computador PC' :
-                   currentServiceOrder.device_category === 'smartphone' ? 'Smartphone' :
-                   currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
-                   currentServiceOrder.device_category === 'printer' ? 'Impressora' :
-                   currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
+                  currentServiceOrder.device_category === 'desktop' ? 'Computador PC' :
+                    currentServiceOrder.device_category === 'smartphone' ? 'Smartphone' :
+                      currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
+                        currentServiceOrder.device_category === 'printer' ? 'Impressora' :
+                          currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
                 : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim()
               }
             </span>
@@ -1976,7 +1976,7 @@ export default function ServiceOrders() {
           <span>Forma Pagamento:</span>
           <span className="align-right font-mono">{currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / Dinheiro'}</span>
         </div>
-        
+
         <div className="total-box">
           <div className="total-label">VALOR TOTAL PAGO</div>
           <div className="total-val">R$ {Number(currentServiceOrder.labor_value + currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
@@ -2040,7 +2040,7 @@ export default function ServiceOrders() {
 
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
-      
+
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
@@ -2081,7 +2081,7 @@ export default function ServiceOrders() {
           );
         })}
       </div>
- 
+
       {/* Mobile Tab Switcher */}
       <div className="flex lg:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1">
         <button
@@ -2107,11 +2107,10 @@ export default function ServiceOrders() {
           Detalhes / Bancada
         </button>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* COLUNA 1: FILA DE ORDENS DE SERVIÇO */}
-        <div className={cn("w-full", activeMobileTab === 'queue' ? 'block' : 'hidden lg:block')}>
+        <div className={cn("w-full lg:col-span-4 xl:col-span-3", activeMobileTab === 'queue' ? 'block' : 'hidden lg:block')}>
           <OsSidebar 
             filteredOs={filteredOs}
             selectedOsId={selectedOsId}
@@ -2132,7 +2131,7 @@ export default function ServiceOrders() {
         </div>
 
         {/* COLUNA 2 E 3: BANCADA DO TÉCNICO & DETALHES DA OS */}
-        <div className={cn("lg:col-span-2 flex flex-col gap-6", activeMobileTab === 'workbench' ? 'block' : 'hidden lg:block')}>
+        <div className={cn("lg:col-span-8 xl:col-span-9 flex flex-col gap-6", activeMobileTab === 'workbench' ? 'block' : 'hidden lg:block')}>
           {!selectedOsId || !currentServiceOrder ? (
             <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-8 h-[75vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
               <Wrench size={64} className="text-on-surface-variant opacity-20" />
@@ -2169,7 +2168,7 @@ export default function ServiceOrders() {
                   </button>
                 </div>
               )}
-              
+
               {/* FICHA GERAL DO EQUIPAMENTO */}
               <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4">
@@ -2184,9 +2183,9 @@ export default function ServiceOrders() {
                     </button>
                     <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-primary border border-white/10 shrink-0">
                       {currentServiceOrder.device_category === 'smartphone' ? <Smartphone size={24} /> :
-                       currentServiceOrder.device_category === 'notebook' || currentServiceOrder.device_category === 'desktop' ? <Monitor size={24} /> :
-                       currentServiceOrder.device_category === 'printer' ? <PrinterIcon size={24} /> :
-                       currentServiceOrder.device_category === 'console' ? <Gamepad2 size={24} /> : <Wrench size={24} />}
+                        currentServiceOrder.device_category === 'notebook' || currentServiceOrder.device_category === 'desktop' ? <Monitor size={24} /> :
+                          currentServiceOrder.device_category === 'printer' ? <PrinterIcon size={24} /> :
+                            currentServiceOrder.device_category === 'console' ? <Gamepad2 size={24} /> : <Wrench size={24} />}
                     </div>
                     <div>
                       <h2 className="text-md font-black uppercase leading-tight">
@@ -2314,8 +2313,8 @@ export default function ServiceOrders() {
                       }}
                       className={cn(
                         "flex-1 md:flex-none flex items-center justify-center gap-2 font-black uppercase tracking-widest text-[9px] px-4 py-3 rounded-2xl transition-all border cursor-pointer",
-                        outsourcedInfo 
-                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20 animate-pulse" 
+                        outsourcedInfo
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20 animate-pulse"
                           : "bg-white/5 border-white/10 text-white hover:bg-white/10"
                       )}
                       title={outsourcedInfo ? "Visualizar status no laboratório externo" : "Terceirizar serviço para laboratório parceiro"}
@@ -2342,7 +2341,7 @@ export default function ServiceOrders() {
                       <p className="font-bold mt-0.5">{currentServiceOrder.customers?.name}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
                     <Phone size={14} className="opacity-40 text-primary" />
                     <div>
@@ -2489,7 +2488,7 @@ export default function ServiceOrders() {
               </div>
 
               {/* BANCADA E TESTES DE QUALIDADE */}
-              <OsTechWorkbench 
+              <OsTechWorkbench
                 currentServiceOrder={currentServiceOrder}
                 activeChecklist={activeChecklist}
                 isChecklistItemOk={isChecklistItemOk}
@@ -2498,7 +2497,7 @@ export default function ServiceOrders() {
               />
 
               {/* CONTROLE DE PEÇAS CONSUMIDAS DO ESTOQUE */}
-              <OsPartsLogistics 
+              <OsPartsLogistics
                 currentServiceOrder={currentServiceOrder}
                 inventory={inventory}
                 selectedPartId={selectedPartId}
@@ -2542,8 +2541,8 @@ export default function ServiceOrders() {
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Mão de Obra (R$)</label>
                     <div className="relative">
                       <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         step="0.01"
                         value={currentServiceOrder.labor_value || ''}
                         disabled={!hasPermission(profile, 'OS - Editar OS')}
@@ -2589,8 +2588,8 @@ export default function ServiceOrders() {
                   {/* Warranty Notes */}
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Período de Garantia (Dias)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       value={currentServiceOrder.warranty_period}
                       disabled={!hasPermission(profile, 'OS - Editar OS')}
                       onChange={(e) => updateServiceOrder(currentServiceOrder.id, { warranty_period: parseInt(e.target.value) || 0 })}
@@ -2622,7 +2621,7 @@ export default function ServiceOrders() {
                     <select
                       value={currentServiceOrder.responsible_technician_id || ''}
                       disabled={
-                        !hasPermission(profile, 'OS - Editar OS') || 
+                        !hasPermission(profile, 'OS - Editar OS') ||
                         ['delivered', 'returned_no_fix', 'canceled'].includes(currentServiceOrder.status) ||
                         isTerminal
                       }
@@ -2642,7 +2641,7 @@ export default function ServiceOrders() {
                 </div>
 
                 <div className="flex gap-4 pt-4 border-t border-white/5">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       setSelectedOsId(null);
@@ -2652,7 +2651,7 @@ export default function ServiceOrders() {
                     Voltar
                   </button>
                   {hasPermission(profile, 'OS - Editar OS') && (
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         setSelectedOsId(null);
@@ -2681,7 +2680,7 @@ export default function ServiceOrders() {
                 <h3 className="text-md font-black uppercase tracking-wider text-white">Criar Nova Ordem de Serviço (OS)</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest">Preencha a vistoria e intake de entrada</p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsCreateOpen(false)}
                 className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
                 aria-label="Fechar"
@@ -2691,7 +2690,7 @@ export default function ServiceOrders() {
             </div>
 
             <form onSubmit={handleCreateOS} className="space-y-6 text-xs">
-              
+
               {/* Pesquisa e Seleção do Cliente */}
               <div className="bg-white/5 border border-white/10 rounded-3xl p-5 space-y-4">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
@@ -2724,7 +2723,7 @@ export default function ServiceOrders() {
                     <span className="font-bold uppercase tracking-wider text-[10px]">
                       Cliente Selecionado: {customers.find(c => c.id === newOs.customer_id)?.name}
                     </span>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         setNewOs(prev => ({ ...prev, customer_id: '' }));
@@ -2759,7 +2758,7 @@ export default function ServiceOrders() {
 
               {/* Informações Gerais do Equipamento */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
+
                 {/* Categoria */}
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria de Aparelho</label>
@@ -2916,7 +2915,7 @@ export default function ServiceOrders() {
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
                   <FileText size={14} /> 3. Acessórios Deixados na Assistência
                 </h4>
-                
+
                 <div className="flex flex-wrap gap-2.5">
                   {activeAccessoriesList.map(acc => {
                     const isChecked = newOs.accessories_left.includes(acc);
@@ -2927,8 +2926,8 @@ export default function ServiceOrders() {
                         onClick={() => handleToggleAccessory(acc)}
                         className={cn(
                           "px-4 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2",
-                          isChecked 
-                            ? "bg-primary border-primary text-on-primary" 
+                          isChecked
+                            ? "bg-primary border-primary text-on-primary"
                             : "bg-[#121214] border-white/5 text-on-surface-variant hover:bg-white/5"
                         )}
                       >
@@ -2996,8 +2995,8 @@ export default function ServiceOrders() {
                   <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Mão de Obra Orçada Inicial (Opcional)</label>
                   <div className="relative">
                     <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       placeholder="0.00"
                       value={newOs.labor_value || ''}
                       onChange={(e) => setNewOs(prev => ({ ...prev, labor_value: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 }))}
@@ -3020,8 +3019,8 @@ export default function ServiceOrders() {
                         className="w-5 h-5 rounded border-white/10 accent-primary text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       />
                       <label htmlFor="sendWhatsAppEntry" className="text-xs text-on-surface font-medium cursor-pointer select-none disabled:opacity-40 disabled:cursor-not-allowed">
-                        {hasPhone 
-                          ? 'Enviar notificação de entrada via WhatsApp' 
+                        {hasPhone
+                          ? 'Enviar notificação de entrada via WhatsApp'
                           : 'Enviar notificação de entrada via WhatsApp (Cliente sem WhatsApp cadastrado)'}
                       </label>
                     </div>
@@ -3078,14 +3077,14 @@ export default function ServiceOrders() {
             </div>
 
             <div className="flex gap-4 pt-2">
-              <button 
+              <button
                 type="button"
                 onClick={() => setIsDeleteConfirmOpen(false)}
                 className="flex-1 py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:bg-white/10 transition-all cursor-pointer"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={handleDeleteOS}
                 className="flex-1 py-4 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-[9px] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-red-500/20 cursor-pointer"
@@ -3276,7 +3275,7 @@ export default function ServiceOrders() {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary border border-primary/20 mx-auto">
               <Printer size={32} />
             </div>
-            
+
             <div className="space-y-2">
               <h3 className="text-lg font-black uppercase tracking-wider text-white">OS Registrada com Sucesso!</h3>
               <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-mono">Ordem de Serviço Nº {String(justCreatedOs.os_number).padStart(4, '0')}</p>
@@ -3367,7 +3366,7 @@ export default function ServiceOrders() {
                 <h3 className="text-sm font-black uppercase tracking-wider text-white">Cadastro Rápido de Cliente</h3>
                 <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Insira os dados essenciais para o atendimento</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setQuickCustomer({ name: '', type: 'PF', cpf: '', phone: '' });
                   setIsQuickCustomerOpen(false);
@@ -3488,7 +3487,7 @@ export default function ServiceOrders() {
                 <h3 className="text-sm font-black uppercase tracking-wider text-white">Terceirizar OS</h3>
                 <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Enviar equipamento para laboratório parceiro</p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsOutsourceModalOpen(false)}
                 className="p-1.5 rounded-xl text-on-surface-variant hover:text-white hover:bg-white/5 transition-all"
                 aria-label="Fechar"
@@ -3641,7 +3640,7 @@ export default function ServiceOrders() {
               <UserCheck size={28} />
               <h3 className="text-md font-black uppercase tracking-wider">Assinatura do Colaborador</h3>
             </div>
-            
+
             <p className="text-xs text-on-surface-variant leading-relaxed">
               Para registrar esta transação, selecione seu nome e confirme sua senha de acesso.
             </p>

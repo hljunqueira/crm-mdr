@@ -69,6 +69,10 @@ export interface ServiceOrder {
     full_name: string;
   };
   parts?: ServiceOrderPart[];
+  outsourced_orders?: {
+    id: string;
+    external_status: string;
+  }[];
 }
 
 interface ServiceOrderState {

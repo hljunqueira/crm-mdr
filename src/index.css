@@ -403,4 +403,32 @@ option {
   text-transform: none !important;
 }
 
+/* Optimization for 1366x768 and similar small laptop screens */
+@media (max-width: 1368px) and (max-height: 800px) {
+  html {
+    font-size: 12.5px !important;
+  }
+  
+  .p-8 {
+    padding: 1rem !important;
+  }
+  
+  .p-6 {
+    padding: 0.875rem !important;
+  }
+  
+  .gap-8 {
+    gap: 1rem !important;
+  }
+  
+  .gap-6 {
+    gap: 0.75rem !important;
+  }
+
+  /* Increase sidebar height slightly to maximize vertical space utilization */
+  .h-\[75vh\] {
+    height: 82vh !important;
+  }
+}
+
 

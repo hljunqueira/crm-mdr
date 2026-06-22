@@ -121,26 +121,33 @@ export default function OsSidebar({
                     <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-60">OS #{numberStr}</span>
                     <span className="text-xs font-black uppercase truncate mt-1 max-w-[120px]">{os.customers?.name}</span>
                   </div>
-                  <select
-                    value={os.status}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      updateServiceOrder(os.id, { status: e.target.value as any });
-                    }}
-                    className={cn(
-                      "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all",
-                      statusInfo.color
+                  <div className="flex flex-col items-end gap-1">
+                    <select
+                      value={os.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateServiceOrder(os.id, { status: e.target.value as any });
+                      }}
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all",
+                        statusInfo.color
+                      )}
+                    >
+                      <option value="budget_pending" className="bg-[#121214] text-red-400">🔴 Orçamento Pendente</option>
+                      <option value="awaiting_approval" className="bg-[#121214] text-amber-400">🟡 Aguardando Cliente</option>
+                      <option value="in_progress" className="bg-[#121214] text-blue-400">🔵 Em Execução</option>
+                      <option value="ready" className="bg-[#121214] text-green-400">🟢 Pronto</option>
+                      <option value="delivered" className="bg-[#121214] text-white">⚪ Entregue</option>
+                      <option value="returned_no_fix" className="bg-[#121214] text-neutral-400">❔ Sem Conserto</option>
+                      <option value="canceled" className="bg-[#121214] text-red-500">❌ Cancelado</option>
+                    </select>
+                    {os.outsourced_orders && os.outsourced_orders.length > 0 && (
+                      <span className="text-[7.5px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest text-center">
+                        Terceirizada
+                      </span>
                     )}
-                  >
-                    <option value="budget_pending" className="bg-[#121214] text-red-400">🔴 Orçamento Pendente</option>
-                    <option value="awaiting_approval" className="bg-[#121214] text-amber-400">🟡 Aguardando Cliente</option>
-                    <option value="in_progress" className="bg-[#121214] text-blue-400">🔵 Em Execução</option>
-                    <option value="ready" className="bg-[#121214] text-green-400">🟢 Pronto</option>
-                    <option value="delivered" className="bg-[#121214] text-white">⚪ Entregue</option>
-                    <option value="returned_no_fix" className="bg-[#121214] text-neutral-400">❔ Sem Conserto</option>
-                    <option value="canceled" className="bg-[#121214] text-red-500">❌ Cancelado</option>
-                  </select>
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center text-[10px] font-medium border-t border-white/5 pt-2">

@@ -72,6 +72,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const getInterestRate = () => {
     if (sale.payment_type === 'card') return 4.00;
     const accStr = sale.accessories || '';
+    if (accStr.includes('SEM JUROS') || sale.interest_table === 'no_interest') return 0.00;
     if (accStr.includes('PREMIUM (5%)') || sale.interest_table === 'premium') return 5.00;
     if (accStr.includes('FLEX (12%)') || sale.interest_table === 'flex') return 12.00;
     return 8.00; // Default Standard (8%)
@@ -588,29 +589,81 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
         {renderPageHeader(2)}
 
         <div className="font-bold text-[8.5px] uppercase mb-2">VII. Fluxo de Pagamentos</div>
-        <table className="ccb-table text-center" style={{ maxWidth: '400px', margin: '0 auto 12px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#eaeaea', fontWeight: 'bold' }}>
-              <td style={{ padding: '2px' }}>Parcela</td>
-              <td style={{ padding: '2px' }}>Data de Vencimento</td>
-              <td style={{ padding: '2px' }}>Valor R$</td>
-            </tr>
-          </thead>
-          <tbody>
-            {installmentDates.map((date, idx) => {
-              const currentVal = installments && installments[idx] 
-                ? installments[idx].value 
-                : (idx === 0 ? firstInstValue : instValue);
-              return (
-                <tr key={idx}>
-                  <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
-                  <td style={{ padding: '2px' }}>{date}</td>
-                  <td style={{ padding: '2px' }}>R$ {currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        {installmentDates.length > 12 ? (
+          <div className="flex gap-4 mb-3" style={{ maxWidth: '600px', margin: '0 auto 12px' }}>
+            <table className="ccb-table text-center flex-1">
+              <thead>
+                <tr style={{ backgroundColor: '#eaeaea', fontWeight: 'bold' }}>
+                  <td style={{ padding: '2px' }}>Parcela</td>
+                  <td style={{ padding: '2px' }}>Vencimento</td>
+                  <td style={{ padding: '2px' }}>Valor R$</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {installmentDates.slice(0, 12).map((date, idx) => {
+                  const currentVal = installments && installments[idx] 
+                    ? installments[idx].value 
+                    : (idx === 0 ? firstInstValue : instValue);
+                  return (
+                    <tr key={idx}>
+                      <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
+                      <td style={{ padding: '2px' }}>{date}</td>
+                      <td style={{ padding: '2px' }}>R$ {currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <table className="ccb-table text-center flex-1">
+              <thead>
+                <tr style={{ backgroundColor: '#eaeaea', fontWeight: 'bold' }}>
+                  <td style={{ padding: '2px' }}>Parcela</td>
+                  <td style={{ padding: '2px' }}>Vencimento</td>
+                  <td style={{ padding: '2px' }}>Valor R$</td>
+                </tr>
+              </thead>
+              <tbody>
+                {installmentDates.slice(12).map((date, idx) => {
+                  const realIdx = idx + 12;
+                  const currentVal = installments && installments[realIdx] 
+                    ? installments[realIdx].value 
+                    : instValue;
+                  return (
+                    <tr key={realIdx}>
+                      <td style={{ padding: '2px' }}>{String(realIdx + 1).padStart(3, '0')}</td>
+                      <td style={{ padding: '2px' }}>{date}</td>
+                      <td style={{ padding: '2px' }}>R$ {currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <table className="ccb-table text-center" style={{ maxWidth: '400px', margin: '0 auto 12px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#eaeaea', fontWeight: 'bold' }}>
+                <td style={{ padding: '2px' }}>Parcela</td>
+                <td style={{ padding: '2px' }}>Data de Vencimento</td>
+                <td style={{ padding: '2px' }}>Valor R$</td>
+              </tr>
+            </thead>
+            <tbody>
+              {installmentDates.map((date, idx) => {
+                const currentVal = installments && installments[idx] 
+                  ? installments[idx].value 
+                  : (idx === 0 ? firstInstValue : instValue);
+                return (
+                  <tr key={idx}>
+                    <td style={{ padding: '2px' }}>{String(idx + 1).padStart(3, '0')}</td>
+                    <td style={{ padding: '2px' }}>{date}</td>
+                    <td style={{ padding: '2px' }}>R$ {currentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
 
         <div className="text-center font-bold text-[9px] uppercase tracking-wider my-3">
           CONDIÇÕES GERAIS – CÉDULA DE CRÉDITO BANCÁRIO

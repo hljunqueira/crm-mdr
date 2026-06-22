@@ -778,13 +778,25 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       return CARD_COEFFICIENTS[installmentCount] || (1 / installmentCount);
     }
     const table = formData.interest_table || 'standard';
-    return CREDIARIO_COEFFICIENTS[table as 'premium' | 'standard' | 'flex']?.[installmentCount] || (1 / installmentCount);
+    if (table === 'no_interest') {
+      return 1 / installmentCount;
+    }
+    
+    // If we have a pre-calculated coefficient in the static map, use it
+    const coef = CREDIARIO_COEFFICIENTS[table as 'premium' | 'standard' | 'flex']?.[installmentCount];
+    if (coef !== undefined) return coef;
+
+    // Otherwise, calculate dynamically using standard PMT amortization formula
+    const rate = table === 'premium' ? 0.05 : table === 'flex' ? 0.12 : 0.08;
+    if (installmentCount === 1) return 1 + rate;
+    return rate / (1 - Math.pow(1 + rate, -installmentCount));
   }, [paymentType, formData.interest_table, installmentCount]);
 
   // Monthly rate for the selected table (used in grace period calculation)
   const monthlyRate = useMemo(() => {
     if (paymentType === 'card') return 0.04;
     const table = formData.interest_table || 'standard';
+    if (table === 'no_interest') return 0;
     if (table === 'premium') return 0.05;
     if (table === 'flex') return 0.12;
     return 0.08; // standard
@@ -945,8 +957,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   }, [amountPaid, finalValue]);
 
   const availableInstallmentOptions = useMemo(() => {
+    if (formData.payment_type === 'crediario') {
+      return Array.from({ length: 24 }, (_, i) => i + 1);
+    }
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  }, []);
+  }, [formData.payment_type]);
 
   // Synchronize custom installment values when total installments or default value changes
   React.useEffect(() => {
@@ -1045,7 +1060,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       const metadataParts: string[] = [];
       if (formData.payment_type === 'crediario') {
         const tableName = formData.interest_table === 'premium' ? 'PREMIUM (5%)' :
-                          formData.interest_table === 'flex' ? 'FLEX (12%)' : 'STANDARD (8%)';
+                          formData.interest_table === 'flex' ? 'FLEX (12%)' :
+                          formData.interest_table === 'no_interest' ? 'SEM JUROS (0%)' : 'STANDARD (8%)';
         metadataParts.push(`[Tabela: ${tableName}]`);
       }
       if (formData.down_payment > 0) {
@@ -1301,7 +1317,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const metadataParts: string[] = [];
     if (formData.payment_type === 'crediario') {
       const tableName = formData.interest_table === 'premium' ? 'PREMIUM (5%)' :
-                        formData.interest_table === 'flex' ? 'FLEX (12%)' : 'STANDARD (8%)';
+                        formData.interest_table === 'flex' ? 'FLEX (12%)' :
+                        formData.interest_table === 'no_interest' ? 'SEM JUROS (0%)' : 'STANDARD (8%)';
       metadataParts.push(`[Tabela: ${tableName}]`);
     }
     if (formData.down_payment > 0) {
@@ -2112,6 +2129,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               onChange={(e) => setFormData(prev => ({ ...prev, interest_table: e.target.value }))}
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
             >
+              <option value="no_interest" className="bg-surface-container-high">⚪ Sem Juros (0% a.m.)</option>
               <option value="premium" className="bg-surface-container-high">🟢 Premium (5% a.m.)</option>
               <option value="standard" className="bg-surface-container-high">🟡 Standard (8% a.m.)</option>
               <option value="flex" className="bg-surface-container-high">🔴 Flex (12% a.m.)</option>
