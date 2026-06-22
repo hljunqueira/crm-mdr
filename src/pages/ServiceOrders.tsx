@@ -254,6 +254,7 @@ export default function ServiceOrders() {
   const [localUnitId, setLocalUnitId] = useState<string>('');
   const [localResponsibleTechnicianId, setLocalResponsibleTechnicianId] = useState<string>('');
   const [sendingLink, setSendingLink] = useState(false);
+  const [selectedUnitIdForLink, setSelectedUnitIdForLink] = useState<string>('');
 
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
@@ -386,6 +387,17 @@ export default function ServiceOrders() {
     }
   }, [profile, units]);
 
+  useEffect(() => {
+    if (units.length > 0) {
+      const arroioMatch = units.find(u => u.name.toUpperCase().includes('ARROIO'));
+      if (arroioMatch) {
+        setSelectedUnitIdForLink(arroioMatch.id);
+      } else {
+        setSelectedUnitIdForLink(units[0].id);
+      }
+    }
+  }, [units]);
+
   // Load single OS details when selected
   useEffect(() => {
     if (selectedOsId) {
@@ -507,7 +519,7 @@ export default function ServiceOrders() {
 
     setSendingLink(true);
     try {
-      const storeId = profile?.unit_id;
+      const storeId = profile?.role === 'admin' ? selectedUnitIdForLink : profile?.unit_id;
       if (!storeId) {
         showNotification('error', 'Erro de Unidade', 'Não foi possível detectar a unidade do seu usuário.');
         setSendingLink(false);
@@ -3567,6 +3579,23 @@ export default function ServiceOrders() {
                     </button>
                   </div>
                 </div>
+
+                {profile?.role === 'admin' && units.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade p/ Envio do WhatsApp</label>
+                    <select
+                      value={selectedUnitIdForLink}
+                      onChange={(e) => setSelectedUnitIdForLink(e.target.value)}
+                      className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3.5 text-xs text-white focus:border-primary outline-none transition-all appearance-none"
+                    >
+                      {units.map((u) => (
+                        <option key={u.id} value={u.id} className="bg-[#121214]">
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">

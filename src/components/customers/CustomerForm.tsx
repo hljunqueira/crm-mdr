@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { formatCPF, formatPhone, validateCPF, validateCNPJ, cn } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { useInventoryStore } from '../../store/useInventoryStore';
+import { useUnitStore } from '../../store/useUnitStore';
 
 interface CustomerFormProps {
   initialData?: Customer;
@@ -97,6 +98,25 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   });
 
   const [sendingLink, setSendingLink] = useState(false);
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+  const { units, fetchAllUnits } = useUnitStore();
+
+  useEffect(() => {
+    if (profile?.role === 'admin') {
+      fetchAllUnits();
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (units.length > 0) {
+      const arroioMatch = units.find(u => u.name.toUpperCase().includes('ARROIO'));
+      if (arroioMatch) {
+        setSelectedUnitId(arroioMatch.id);
+      } else {
+        setSelectedUnitId(units[0].id);
+      }
+    }
+  }, [units]);
 
   const handleSendRegistrationLink = async () => {
     if (!formData.phone) {
@@ -112,7 +132,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
     setSendingLink(true);
     try {
-      const storeId = profile?.unit_id;
+      const storeId = profile?.role === 'admin' ? selectedUnitId : profile?.unit_id;
       if (!storeId) {
         showNotification('error', 'Erro de Unidade', 'Não foi possível detectar a unidade do seu usuário.');
         setSendingLink(false);
@@ -643,6 +663,23 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
               </button>
             </div>
           </div>
+
+          {profile?.role === 'admin' && units.length > 0 && (
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade p/ Envio do WhatsApp</label>
+              <select
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                {units.map((u) => (
+                  <option key={u.id} value={u.id} className="bg-[#121214]">
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
