@@ -79,8 +79,29 @@ router.post("/send-warning", async (req, res) => {
     }
     const messageText = fillTemplate(templateText, variables);
 
+    // 1.8. Get connected WhatsApp channel
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('*')
+      .eq('status', 'connected')
+      .limit(1);
+
+    if (!channels || channels.length === 0) {
+      return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado para disparar cobranças." });
+    }
+
+    const instance = channels[0].instance_name;
+    let cleanPhone = customer.phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `55${cleanPhone}`;
+    }
+    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+
     // 2. n8n webhook payload
     const n8nPayload = {
+      instanceName: instance,
+      remoteJid: remoteJid,
+      text: messageText,
       installment_id: installment.id,
       installment_number: installment.number,
       total_installments: installment.total,
@@ -92,11 +113,10 @@ router.post("/send-warning", async (req, res) => {
       device_model: (sale?.device_model_manual || "Aparelho Celular").replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase(),
       device_imei: sale?.imei_manual || "Não Informado",
       store_name: (store?.name || "MDR Celulares").trim(),
-      store_phone: store?.phone || "",
-      text: messageText
+      store_phone: store?.phone || ""
     };
 
-    const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || "https://n8n.mdrinformaticaecelulares.com.br/webhook/billing-warning";
+    const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
 
     console.log(`[Billing Webhook] Sending payload to n8n:`, n8nPayload);
 
