@@ -253,6 +253,7 @@ export default function ServiceOrders() {
   const [localWarrantyPeriod, setLocalWarrantyPeriod] = useState<number>(0);
   const [localUnitId, setLocalUnitId] = useState<string>('');
   const [localResponsibleTechnicianId, setLocalResponsibleTechnicianId] = useState<string>('');
+  const [sendingLink, setSendingLink] = useState(false);
 
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
@@ -489,6 +490,73 @@ export default function ServiceOrders() {
       showNotification('error', 'Erro', error?.response?.data?.message || 'Falha ao cadastrar cliente.');
     } finally {
       setIsLoadingQuickCustomer(false);
+    }
+  };
+
+  const handleSendRegistrationLink = async () => {
+    if (!quickCustomer.phone) {
+      showNotification('error', 'Telefone Requerido', 'Por favor, informe o celular/WhatsApp do cliente.');
+      return;
+    }
+
+    const cleanPhone = quickCustomer.phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      showNotification('error', 'Telefone Inválido', 'Por favor, informe um número de WhatsApp válido.');
+      return;
+    }
+
+    setSendingLink(true);
+    try {
+      const storeId = profile?.unit_id;
+      if (!storeId) {
+        showNotification('error', 'Erro de Unidade', 'Não foi possível detectar a unidade do seu usuário.');
+        setSendingLink(false);
+        return;
+      }
+
+      const { data: channels, error } = await supabase
+        .from('automation_channels')
+        .select('*')
+        .eq('unit_id', storeId)
+        .eq('status', 'connected')
+        .limit(1);
+
+      if (error || !channels || channels.length === 0) {
+        showNotification('error', 'Sem Canal Ativo', 'Não há nenhuma instância do WhatsApp conectada para esta unidade.');
+        setSendingLink(false);
+        return;
+      }
+
+      const instance = channels[0].instance_name;
+      let finalPhone = cleanPhone;
+      if (!finalPhone.startsWith('55')) {
+        finalPhone = '55' + finalPhone;
+      }
+      const remoteJid = `${finalPhone}@s.whatsapp.net`;
+
+      const origin = window.location.origin;
+      const registrationLink = `${origin}/cadastro?phone=${cleanPhone}`;
+      const messageText = `Olá${quickCustomer.name ? ' ' + quickCustomer.name : ''}! Para prosseguirmos com a sua análise de crédito, por favor preencha nossa ficha cadastral e envie os documentos no link a seguir:\n\n${registrationLink}`;
+
+      const res = await fetch(`/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instanceName: instance,
+          remoteJid,
+          text: messageText
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error('Falha no envio da Evolution API');
+      }
+
+      showNotification('success', 'Sucesso', 'Link de auto-cadastro enviado por WhatsApp com sucesso!');
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.message || 'Falha ao enviar link via WhatsApp.');
+    } finally {
+      setSendingLink(false);
     }
   };
 
@@ -3480,13 +3548,24 @@ export default function ServiceOrders() {
 
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Celular / WhatsApp (Opcional)</label>
-                  <input
-                    type="text"
-                    placeholder="(00) 00000-0000"
-                    value={quickCustomer.phone}
-                    onChange={(e) => setQuickCustomer(prev => ({ ...prev, phone: formatPhone(e.target.value) }))}
-                    className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3.5 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="(00) 00000-0000"
+                      value={quickCustomer.phone}
+                      onChange={(e) => setQuickCustomer(prev => ({ ...prev, phone: formatPhone(e.target.value) }))}
+                      className="flex-1 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3.5 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={sendingLink || !quickCustomer.phone}
+                      onClick={handleSendRegistrationLink}
+                      className="px-4 bg-success/20 hover:bg-success/30 text-success border border-success/30 rounded-2xl font-black uppercase tracking-widest text-[8px] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      {sendingLink ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                      Enviar Link
+                    </button>
+                  </div>
                 </div>
               </div>
 

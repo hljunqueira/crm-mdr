@@ -738,7 +738,7 @@ export default function Finance() {
     return installments.filter(inst => matchesDateFilter(inst.due_date));
   }, [installments, dateFilter]);
 
-  const totalReceivable = useMemo(() => dateFilteredInstallments.reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
+  const totalReceivable = useMemo(() => dateFilteredInstallments.filter(i => i.status !== 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
   const totalPaid = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
   const totalOverdue = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'overdue' || i.status === 'blocked').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
 
