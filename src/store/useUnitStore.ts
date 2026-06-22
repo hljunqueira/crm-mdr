@@ -26,6 +26,14 @@ export interface Unit {
   billing_reminder_days_before?: number;
   billing_reminder_days_after?: number;
   grace_period_days?: number;
+  chatbot_enabled?: boolean;
+  chatbot_prompt?: string;
+  chatbot_payment_terms?: string;
+  billing_reminder_pre_due_days?: number;
+  billing_reminder_pre_due_template?: string;
+  billing_reminder_overdue_days?: number;
+  billing_reminder_overdue_template?: string;
+  billing_reminder_payment_confirmed_template?: string;
 }
 
 interface UnitState {

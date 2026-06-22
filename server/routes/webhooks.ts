@@ -377,6 +377,67 @@ router.post('/asaas', async (req, res) => {
       }
 
       console.log(`[Asaas Webhook] Parcela #${installment.installment_number} de ${installment.sales?.customers?.name || 'Cliente'} baixada com sucesso.`);
+
+      // Enviar mensagem de confirmação de pagamento automatizada
+      const storeId = updatedInst.sales?.store_id || updatedInst.unit_id;
+      if (storeId) {
+        try {
+          const { data: store } = await supabase
+            .from('stores')
+            .select('billing_reminder_payment_confirmed_template')
+            .eq('id', storeId)
+            .maybeSingle();
+
+          const template = store?.billing_reminder_payment_confirmed_template;
+          if (template && template.trim()) {
+            const { data: channel } = await supabase
+              .from('automation_channels')
+              .select('*')
+              .eq('unit_id', storeId)
+              .eq('status', 'connected')
+              .limit(1)
+              .maybeSingle();
+
+            if (channel && channel.instance_name) {
+              const customerPhone = updatedInst.sales?.customers?.phone;
+              if (customerPhone) {
+                let cleanPhone = customerPhone.replace(/\D/g, '');
+                if (!cleanPhone.startsWith('55')) {
+                  cleanPhone = '55' + cleanPhone;
+                }
+                const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+
+                const customerName = updatedInst.sales?.customers?.name || 'Cliente';
+                const instVal = Number(updatedInst.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                const instNum = updatedInst.installment_number;
+
+                const messageText = template
+                  .replace(/{nome}/gi, customerName)
+                  .replace(/{valor}/gi, `R$ ${instVal}`)
+                  .replace(/{numero}/gi, String(instNum));
+
+                console.log(`[Asaas Webhook] Sending payment confirmation message to ${remoteJid} using instance ${channel.instance_name}`);
+                
+                const url = `${EVOLUTION_URL}/message/sendText/${channel.instance_name}`;
+                await fetch(url, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': EVOLUTION_API_KEY
+                  },
+                  body: JSON.stringify({
+                    number: remoteJid,
+                    options: { delay: 1200, presence: 'composing' },
+                    textMessage: { text: messageText }
+                  })
+                });
+              }
+            }
+          }
+        } catch (msgErr) {
+          console.error('[Asaas Webhook] Error sending payment confirmation WhatsApp notification:', msgErr);
+        }
+      }
     }
 
     // 3. Processar eventos de atraso

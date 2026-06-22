@@ -36,7 +36,7 @@ export default function OsSidebar({
       </div>
       
       {/* Seletor de Abas (Ativas / Concluídas / Canceladas) */}
-      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-full shrink-0">
+      <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-2xl border border-white/5 w-full shrink-0">
         <button
           type="button"
           onClick={() => setOsFilterTab('active')}

@@ -28,7 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { usePermissionStore } from '../store/usePermissionStore';
 
-type TabType = 'unit' | 'notifications' | 'users' | 'rbac' | 'android-enterprise' | 'auth';
+type TabType = 'unit' | 'chatbot' | 'notifications' | 'users' | 'rbac' | 'android-enterprise' | 'auth';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState<TabType>('unit');
@@ -427,6 +427,39 @@ Se você já efetuou o pagamento, por favor desconsidere esta mensagem.
 Agradecemos a sua parceria! 🤝
 *{nome_loja}*`;
 
+  const DEFAULT_BILLING_PRE_DUE_TEMPLATE = `🔔 *Aviso de Fatura a Vencer - {nome_loja}*
+
+Olá, {nome_cliente}! 😊
+
+Lembramos que a sua fatura/parcela no valor de *{valor_parcela}* vencerá em breve:
+
+📅 *Vencimento:* *{data_vencimento}*
+🔗 *Link de Pagamento:* {link_pagamento}
+
+Pague de forma prática e rápida via Pix ou Boleto clicando no link acima. Evite bloqueios e multas!
+
+Agradecemos a preferência! 🤝`;
+
+  const DEFAULT_BILLING_OVERDUE_TEMPLATE = `⚠️ *ALERTA DE BLOQUEIO DE APARELHO - {nome_loja}*
+
+Prezado(a) {nome_cliente},
+
+Identificamos que o pagamento da sua parcela no valor de *{valor_parcela}* está vencido desde *{data_vencimento}*.
+
+🚨 *IMPORTANTE:* Conforme previsto em contrato, o não pagamento implicará no *BLOQUEIO TOTAL* do seu aparelho celular.
+
+🔗 *Link para Regularização:* {link_pagamento}
+
+Por favor, efetue o pagamento no link acima ou entre em contato conosco com urgência para evitar a indisponibilidade do seu dispositivo.`;
+
+  const DEFAULT_BILLING_PAYMENT_CONFIRMED_TEMPLATE = `✅ *PAGAMENTO CONFIRMADO! - {nome_loja}*
+
+Olá, {nome_cliente}! 🎉
+
+Seu pagamento referente à parcela de *{valor_parcela}* foi recebido e processado com sucesso.
+
+Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à disposição. 🤝`;
+
   const [formData, setFormData] = useState({
     name: '',
     cnpj: '',
@@ -445,15 +478,23 @@ Agradecemos a sua parceria! 🤝
     billing_cron_hour: 9,
     billing_reminder_days_before: 3,
     billing_reminder_days_after: 5,
-    grace_period_days: 30
+    grace_period_days: 30,
+    chatbot_enabled: false,
+    chatbot_prompt: '',
+    chatbot_payment_terms: '',
+    billing_reminder_pre_due_days: 5,
+    billing_reminder_pre_due_template: '',
+    billing_reminder_overdue_days: 5,
+    billing_reminder_overdue_template: '',
+    billing_reminder_payment_confirmed_template: ''
   });
 
-  const [focusedField, setFocusedField] = useState<'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template' | null>(null);
+  const [focusedField, setFocusedField] = useState<'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template' | 'billing_reminder_pre_due_template' | 'billing_reminder_overdue_template' | 'billing_reminder_payment_confirmed_template' | 'chatbot_prompt' | 'chatbot_payment_terms' | null>(null);
   const [selectionStart, setSelectionStart] = useState<number>(0);
   const [selectionEnd, setSelectionEnd] = useState<number>(0);
 
   const updateSelection = (
-    field: 'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template',
+    field: 'os_entry_template' | 'os_budget_template' | 'os_ready_template' | 'os_receipt_terms' | 'billing_reminder_template' | 'billing_reminder_pre_due_template' | 'billing_reminder_overdue_template' | 'billing_reminder_payment_confirmed_template' | 'chatbot_prompt' | 'chatbot_payment_terms',
     e: React.SyntheticEvent<HTMLTextAreaElement>
   ) => {
     setFocusedField(field);
@@ -527,7 +568,15 @@ Agradecemos a sua parceria! 🤝
         billing_cron_hour: currentUnit.billing_cron_hour ?? 9,
         billing_reminder_days_before: currentUnit.billing_reminder_days_before ?? 3,
         billing_reminder_days_after: currentUnit.billing_reminder_days_after ?? 5,
-        grace_period_days: currentUnit.grace_period_days ?? 30
+        grace_period_days: currentUnit.grace_period_days ?? 30,
+        chatbot_enabled: currentUnit.chatbot_enabled ?? false,
+        chatbot_prompt: currentUnit.chatbot_prompt || '',
+        chatbot_payment_terms: currentUnit.chatbot_payment_terms || '',
+        billing_reminder_pre_due_days: currentUnit.billing_reminder_pre_due_days ?? 5,
+        billing_reminder_pre_due_template: currentUnit.billing_reminder_pre_due_template || DEFAULT_BILLING_PRE_DUE_TEMPLATE,
+        billing_reminder_overdue_days: currentUnit.billing_reminder_overdue_days ?? 5,
+        billing_reminder_overdue_template: currentUnit.billing_reminder_overdue_template || DEFAULT_BILLING_OVERDUE_TEMPLATE,
+        billing_reminder_payment_confirmed_template: currentUnit.billing_reminder_payment_confirmed_template || DEFAULT_BILLING_PAYMENT_CONFIRMED_TEMPLATE
       });
     }
   }, [selectedUnitId, units, unit]);
@@ -545,7 +594,8 @@ Agradecemos a sua parceria! 🤝
   const menuItems = [
     { id: 'unit', label: 'Gerenciar Unidades', icon: Building2 },
     ...(profile?.role === 'admin' ? [
-      { id: 'notifications', label: 'Alertas e Termos de OS', icon: MessageCircle },
+      { id: 'chatbot', label: 'Robô de Atendimento', icon: MessageCircle },
+      { id: 'notifications', label: 'Alertas e Termos de OS', icon: Bell },
       { id: 'users', label: 'Colaboradores', icon: User },
       { id: 'rbac', label: 'Permissões do Menu (RBAC)', icon: ShieldCheck },
       { id: 'android-enterprise', label: 'Android Enterprise (EMM)', icon: Smartphone },
@@ -883,7 +933,81 @@ Agradecemos a sua parceria! 🤝
                     </div>
 
                     <div className="space-y-4 pt-4 border-t border-white/5">
-                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Lembrete de Cobrança (WhatsApp)</label>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Fatura a Vencer (WhatsApp)</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-on-surface-variant uppercase font-bold">Dias de Antecedência:</span>
+                          <input 
+                            type="number" 
+                            min={1} 
+                            max={30}
+                            value={formData.billing_reminder_pre_due_days}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_pre_due_days: Number(e.target.value) }))}
+                            className="w-14 bg-white/5 border border-white/10 rounded-xl px-2 py-1 text-center text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+                      <textarea 
+                        id="billing_reminder_pre_due_template"
+                        rows={7}
+                        value={formData.billing_reminder_pre_due_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_pre_due_template: e.target.value }))}
+                        onFocus={(e) => updateSelection('billing_reminder_pre_due_template', e)}
+                        onSelect={(e) => updateSelection('billing_reminder_pre_due_template', e)}
+                        onKeyUp={(e) => updateSelection('billing_reminder_pre_due_template', e)}
+                        onMouseUp={(e) => updateSelection('billing_reminder_pre_due_template', e)}
+                        placeholder="Ex: Lembrete de fatura que vencerá..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Alerta de Bloqueio Diário (WhatsApp)</label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-on-surface-variant uppercase font-bold">Duração (Dias Máx):</span>
+                          <input 
+                            type="number" 
+                            min={1} 
+                            max={30}
+                            value={formData.billing_reminder_overdue_days}
+                            onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_overdue_days: Number(e.target.value) }))}
+                            className="w-14 bg-white/5 border border-white/10 rounded-xl px-2 py-1 text-center text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+                      <textarea 
+                        id="billing_reminder_overdue_template"
+                        rows={7}
+                        value={formData.billing_reminder_overdue_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_overdue_template: e.target.value }))}
+                        onFocus={(e) => updateSelection('billing_reminder_overdue_template', e)}
+                        onSelect={(e) => updateSelection('billing_reminder_overdue_template', e)}
+                        onKeyUp={(e) => updateSelection('billing_reminder_overdue_template', e)}
+                        onMouseUp={(e) => updateSelection('billing_reminder_overdue_template', e)}
+                        placeholder="Ex: Alerta de fatura vencida e aviso de bloqueio..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Confirmação de Pagamento Recebido (WhatsApp)</label>
+                      <textarea 
+                        id="billing_reminder_payment_confirmed_template"
+                        rows={7}
+                        value={formData.billing_reminder_payment_confirmed_template}
+                        onChange={(e) => setFormData(prev => ({ ...prev, billing_reminder_payment_confirmed_template: e.target.value }))}
+                        onFocus={(e) => updateSelection('billing_reminder_payment_confirmed_template', e)}
+                        onSelect={(e) => updateSelection('billing_reminder_payment_confirmed_template', e)}
+                        onKeyUp={(e) => updateSelection('billing_reminder_payment_confirmed_template', e)}
+                        onMouseUp={(e) => updateSelection('billing_reminder_payment_confirmed_template', e)}
+                        placeholder="Ex: Fatura paga e confirmada com sucesso..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Modelo: Lembrete de Cobrança Geral (WhatsApp)</label>
                       <textarea 
                         id="billing_reminder_template"
                         rows={7}
@@ -893,7 +1017,7 @@ Agradecemos a sua parceria! 🤝
                         onSelect={(e) => updateSelection('billing_reminder_template', e)}
                         onKeyUp={(e) => updateSelection('billing_reminder_template', e)}
                         onMouseUp={(e) => updateSelection('billing_reminder_template', e)}
-                        placeholder="🔔 *Lembrete de Vencimento - {nome_loja}*&#10;&#10;Olá, {nome_cliente}! Tudo bem? 😊&#10;&#10;Passando para lembrar que a sua parcela *{parcela_atual}/{total_parcelas}* está próxima do vencimento:&#10;&#10;📱 *Aparelho:* {aparelho}&#10;💵 *Valor:* *{valor_parcela}*&#10;📅 *Vencimento:* *{data_vencimento}*&#10;&#10;🔗 *Link de Pagamento (Boleto/PIX):* {link_pagamento}&#10;&#10;Para sua comodidade, você pode realizar o pagamento pelo link acima, via *PIX* ou diretamente em nossa loja física.&#10;&#10;⚠️ *Atenção:* O pagamento em dia evita multas adicionais ou bloqueios no dispositivo.&#10;&#10;Se você já efetuou o pagamento, por favor desconsidere esta mensagem.&#10;&#10;Agradecemos a sua parceria! 🤝&#10;*{nome_loja}*"
+                        placeholder="🔔 *Lembrete de Vencimento - {nome_loja}*..."
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                       />
                     </div>
@@ -1031,6 +1155,101 @@ Agradecemos a sua parceria! 🤝
                         </button>
                       ))}
                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'chatbot' && profile?.role === 'admin' && (
+              <motion.div 
+                key="chatbot"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+              >
+                <div className="flex items-center justify-between border-b border-white/5 pb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                      <MessageCircle size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Robô de Atendimento</h2>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Configure o comportamento do robô de IA do WhatsApp</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, chatbot_enabled: !prev.chatbot_enabled }))}
+                    className={cn(
+                      "w-12 h-7 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex items-center border border-white/5 shrink-0",
+                      formData.chatbot_enabled ? "bg-primary" : "bg-white/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-5 h-5 rounded-full bg-white transition-all duration-300 shadow",
+                      formData.chatbot_enabled ? "translate-x-5" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+
+                {/* Loja selector for chatbot */}
+                {profile?.role === 'admin' && units.length > 0 && (
+                  <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-[32px] border border-white/10">
+                    {units.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedUnitId(u.id)}
+                        className={cn(
+                          "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
+                          selectedUnitId === u.id 
+                            ? "bg-white text-black shadow-lg shadow-white/5" 
+                            : "text-on-surface-variant hover:text-white"
+                        )}
+                      >
+                        {u.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Instruções de Comportamento (Prompt da IA)</label>
+                    <textarea 
+                      id="chatbot_prompt"
+                      rows={10}
+                      value={formData.chatbot_prompt}
+                      onChange={(e) => setFormData(prev => ({ ...prev, chatbot_prompt: e.target.value }))}
+                      onFocus={(e) => updateSelection('chatbot_prompt', e)}
+                      onSelect={(e) => updateSelection('chatbot_prompt', e)}
+                      onKeyUp={(e) => updateSelection('chatbot_prompt', e)}
+                      onMouseUp={(e) => updateSelection('chatbot_prompt', e)}
+                      placeholder="Ex: Você é um assistente virtual da MDR Celulares. Ajude o cliente a tirar dúvidas sobre aparelhos..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                    />
+                    <p className="text-[9px] text-on-surface-variant leading-relaxed">
+                      * Este prompt define a personalidade e as diretrizes de atendimento que a inteligência artificial usará no WhatsApp da unidade selecionada.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-white/5">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Regras e Condições de Pagamento</label>
+                    <textarea 
+                      id="chatbot_payment_terms"
+                      rows={6}
+                      value={formData.chatbot_payment_terms}
+                      onChange={(e) => setFormData(prev => ({ ...prev, chatbot_payment_terms: e.target.value }))}
+                      onFocus={(e) => updateSelection('chatbot_payment_terms', e)}
+                      onSelect={(e) => updateSelection('chatbot_payment_terms', e)}
+                      onKeyUp={(e) => updateSelection('chatbot_payment_terms', e)}
+                      onMouseUp={(e) => updateSelection('chatbot_payment_terms', e)}
+                      placeholder="Ex: Aceitamos Pix, boleto em até 10x ou cartão de crédito em até 12x..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
+                    />
+                    <p className="text-[9px] text-on-surface-variant leading-relaxed">
+                      * Forneça informações detalhadas sobre as condições de pagamento e crediário da unidade para que o robô possa responder aos clientes com precisão.
+                    </p>
                   </div>
                 </div>
               </motion.div>

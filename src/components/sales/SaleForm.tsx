@@ -890,9 +890,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
     const baseVal = Math.max(0, formData.total_value - tradeInVal);
-    if (classification === 'RUIM') return baseVal * 0.5;
-    if (classification === 'MEDIO') return baseVal * 0.2;
-    return 0;
+    
+    let requiredPctVal = 0;
+    if (classification === 'RUIM') requiredPctVal = baseVal * 0.5;
+    else if (classification === 'MEDIO') requiredPctVal = baseVal * 0.2;
+
+    let suggestedVal = 0;
+    if (selectedCustomer.credit_status === 'APROVADO_COM_ENTRADA') {
+      suggestedVal = Number(selectedCustomer.suggested_down_payment || 0);
+    }
+
+    return Math.max(requiredPctVal, suggestedVal);
   }, [selectedCustomer, formData.total_value, isCashLike, formData.is_trade_in, formData.trade_in_valuation]);
 
   const riskMultiplier = useMemo(() => {

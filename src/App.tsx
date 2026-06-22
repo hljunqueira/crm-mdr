@@ -26,6 +26,7 @@ import OutsourcedOrders from './pages/OutsourcedOrders';
 import Fiscal from './pages/Fiscal';
 import CustomerOSPortal from './pages/CustomerOSPortal';
 import DeviceLockPanel from './pages/DeviceLockPanel';
+import PublicCustomerRegistration from './pages/PublicCustomerRegistration';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/atendimento" element={<Atendimento />} />
           <Route path="/login" element={<Login />} />
           <Route path="/consulta-os" element={<CustomerOSPortal />} />
+          <Route path="/cadastro" element={<PublicCustomerRegistration />} />
           
           {/* App protected routes */}
           <Route path="/dashboard" element={<PrivateRoute pageName="Dashboard"><AppLayout><Dashboard /></AppLayout></PrivateRoute>} />

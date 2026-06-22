@@ -706,9 +706,41 @@ export default function Finance() {
     });
   }, [customerGroups, searchTerm, statusFilter, dateFilter]);
 
-  const totalReceivable = installments.reduce((acc, current) => acc + current.value, 0);
-  const totalPaid = installments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0);
-  const totalOverdue = installments.filter(i => i.status === 'overdue' || i.status === 'blocked').reduce((acc, current) => acc + current.value, 0);
+  const dateFilteredInstallments = useMemo(() => {
+    const matchesDateFilter = (dueDateStr: string) => {
+      if (dateFilter === 'all') return true;
+      const dueDate = new Date(dueDateStr + 'T12:00:00');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (dateFilter === 'today') {
+        return dueDate.getFullYear() === today.getFullYear() &&
+          dueDate.getMonth() === today.getMonth() &&
+          dueDate.getDate() === today.getDate();
+      }
+
+      if (dateFilter === 'week') {
+        const nextWeek = new Date(today);
+        nextWeek.setDate(today.getDate() + 7);
+        const dueMs = dueDate.getTime();
+        return dueMs >= today.getTime() && dueMs <= nextWeek.getTime();
+      }
+
+      if (dateFilter === 'month') {
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
+      }
+
+      return true;
+    };
+
+    return installments.filter(inst => matchesDateFilter(inst.due_date));
+  }, [installments, dateFilter]);
+
+  const totalReceivable = useMemo(() => dateFilteredInstallments.reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
+  const totalPaid = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
+  const totalOverdue = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'overdue' || i.status === 'blocked').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
 
   const toggleExpand = (customerId: string) => {
     setExpandedCustomerId(prev => prev === customerId ? null : customerId);
@@ -898,7 +930,7 @@ export default function Finance() {
             { id: 'all', label: 'Total a Receber', value: `R$ ${totalReceivable.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
             { id: 'paid', label: 'Recebido (Total)', value: `R$ ${totalPaid.toLocaleString('pt-BR')}`, icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
             { id: 'overdue', label: 'Em Atraso', value: `R$ ${totalOverdue.toLocaleString('pt-BR')}`, icon: AlertCircle, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
-            { id: 'blocked', label: 'Bloqueados', value: installments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error', activeBorder: 'border-red-500/50 shadow-red-500/5', activeBar: 'bg-red-500' },
+            { id: 'blocked', label: 'Bloqueados', value: dateFilteredInstallments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error', activeBorder: 'border-red-500/50 shadow-red-500/5', activeBar: 'bg-red-500' },
           ].map((stat, idx) => {
             const isActive = statusFilter === stat.id;
             return (

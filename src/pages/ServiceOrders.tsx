@@ -247,6 +247,13 @@ export default function ServiceOrders() {
   const [editedReportedIssue, setEditedReportedIssue] = useState('');
   const [printFormatOverride, setPrintFormatOverride] = useState<'thermal' | 'a4' | null>(null);
 
+  // Local states for OS fields (prevents cursor jumping / lag during typing)
+  const [localLaborValue, setLocalLaborValue] = useState<number>(0);
+  const [localTechnicalDiagnosis, setLocalTechnicalDiagnosis] = useState<string>('');
+  const [localWarrantyPeriod, setLocalWarrantyPeriod] = useState<number>(0);
+  const [localUnitId, setLocalUnitId] = useState<string>('');
+  const [localResponsibleTechnicianId, setLocalResponsibleTechnicianId] = useState<string>('');
+
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
   const [outsourcedInfo, setOutsourcedInfo] = useState<any | null>(null);
@@ -396,6 +403,23 @@ export default function ServiceOrders() {
       loadOutsourceData();
     }
   }, [selectedOsId, fetchServiceOrderById, fetchOutsourcedInfo]);
+
+  // Synchronize local states when currentServiceOrder loads or changes
+  useEffect(() => {
+    if (currentServiceOrder) {
+      setLocalLaborValue(currentServiceOrder.labor_value || 0);
+      setLocalTechnicalDiagnosis(currentServiceOrder.technical_diagnosis || '');
+      setLocalWarrantyPeriod(currentServiceOrder.warranty_period || 0);
+      setLocalUnitId(currentServiceOrder.unit_id || '');
+      setLocalResponsibleTechnicianId(currentServiceOrder.responsible_technician_id || '');
+    } else {
+      setLocalLaborValue(0);
+      setLocalTechnicalDiagnosis('');
+      setLocalWarrantyPeriod(0);
+      setLocalUnitId('');
+      setLocalResponsibleTechnicianId('');
+    }
+  }, [currentServiceOrder]);
 
   const handleQuickCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2083,7 +2107,7 @@ export default function ServiceOrders() {
       </div>
 
       {/* Mobile Tab Switcher */}
-      <div className="flex lg:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1">
+      <div className="flex xl:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1">
         <button
           onClick={() => setActiveMobileTab('queue')}
           className={cn(
@@ -2107,16 +2131,16 @@ export default function ServiceOrders() {
           Detalhes / Bancada
         </button>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         
         {/* COLUNA 1: FILA DE ORDENS DE SERVIÇO */}
-        <div className={cn("w-full lg:col-span-4 xl:col-span-3", activeMobileTab === 'queue' ? 'block' : 'hidden lg:block')}>
+        <div className={cn("w-full xl:col-span-3", activeMobileTab === 'queue' ? 'block' : 'hidden xl:block')}>
           <OsSidebar 
             filteredOs={filteredOs}
             selectedOsId={selectedOsId}
             setSelectedOsId={(id) => {
               setSelectedOsId(id);
-              if (window.innerWidth < 1024) {
+              if (window.innerWidth < 1280) {
                 setActiveMobileTab('workbench');
               }
             }}
@@ -2131,7 +2155,7 @@ export default function ServiceOrders() {
         </div>
 
         {/* COLUNA 2 E 3: BANCADA DO TÉCNICO & DETALHES DA OS */}
-        <div className={cn("lg:col-span-8 xl:col-span-9 flex flex-col gap-6", activeMobileTab === 'workbench' ? 'block' : 'hidden lg:block')}>
+        <div className={cn("xl:col-span-9 flex flex-col gap-6", activeMobileTab === 'workbench' ? 'block' : 'hidden xl:block')}>
           {!selectedOsId || !currentServiceOrder ? (
             <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-8 h-[75vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
               <Wrench size={64} className="text-on-surface-variant opacity-20" />
@@ -2544,9 +2568,9 @@ export default function ServiceOrders() {
                       <input
                         type="number"
                         step="0.01"
-                        value={currentServiceOrder.labor_value || ''}
+                        value={localLaborValue || ''}
                         disabled={!hasPermission(profile, 'OS - Editar OS')}
-                        onChange={(e) => updateServiceOrder(currentServiceOrder.id, { labor_value: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setLocalLaborValue(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono disabled:opacity-50"
                       />
                     </div>
@@ -2559,14 +2583,21 @@ export default function ServiceOrders() {
                       <div className="flex gap-4 mt-2 text-[10px] font-bold text-on-surface-variant">
                         <span>Peças: <strong className="text-white">R$ {Number(currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
                         <span>•</span>
-                        <span>Mão de Obra: <strong className="text-white">R$ {Number(currentServiceOrder.labor_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                        <span>Mão de Obra: <strong className="text-white">R$ {Number(localLaborValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-1.5">
                       <span className="text-[8px] font-black text-primary uppercase tracking-widest block leading-none">Valor Total do Serviço</span>
                       <h4 className="text-2xl font-black text-white font-mono leading-none mt-1.5">
-                        R$ {Number(currentServiceOrder.labor_value + currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {Number(localLaborValue + currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </h4>
+                      <button
+                        type="button"
+                        onClick={() => offerRedirectToSales(currentServiceOrder.id)}
+                        className="mt-1 py-1.5 px-3 rounded-lg bg-success/20 hover:bg-success/30 text-success text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <DollarSign size={10} /> Lançar Venda
+                      </button>
                     </div>
                   </div>
 
@@ -2578,9 +2609,9 @@ export default function ServiceOrders() {
                     <textarea
                       rows={3}
                       placeholder="Descreva o laudo detalhado do reparo (Ex: Substituição da tela quebrada por tela original de reposição. Efetuado testes de toque e carga que operam 100%.)"
-                      value={currentServiceOrder.technical_diagnosis || ''}
+                      value={localTechnicalDiagnosis || ''}
                       disabled={!hasPermission(profile, 'OS - Editar OS')}
-                      onChange={(e) => updateServiceOrder(currentServiceOrder.id, { technical_diagnosis: e.target.value })}
+                      onChange={(e) => setLocalTechnicalDiagnosis(e.target.value)}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all resize-none leading-relaxed disabled:opacity-50"
                     />
                   </div>
@@ -2590,9 +2621,9 @@ export default function ServiceOrders() {
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Período de Garantia (Dias)</label>
                     <input
                       type="number"
-                      value={currentServiceOrder.warranty_period}
+                      value={localWarrantyPeriod}
                       disabled={!hasPermission(profile, 'OS - Editar OS')}
-                      onChange={(e) => updateServiceOrder(currentServiceOrder.id, { warranty_period: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setLocalWarrantyPeriod(parseInt(e.target.value) || 0)}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono disabled:opacity-50"
                     />
                   </div>
@@ -2601,9 +2632,9 @@ export default function ServiceOrders() {
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-primary uppercase tracking-widest pl-1">Unidade / Loja</label>
                     <select
-                      value={currentServiceOrder.unit_id || ''}
+                      value={localUnitId || ''}
                       disabled={!hasPermission(profile, 'OS - Editar OS')}
-                      onChange={(e) => updateServiceOrder(currentServiceOrder.id, { unit_id: e.target.value || null })}
+                      onChange={(e) => setLocalUnitId(e.target.value || '')}
                       className="w-full bg-[#121214] border border-primary/20 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="" disabled>Selecione a Unidade</option>
@@ -2619,13 +2650,13 @@ export default function ServiceOrders() {
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Colaborador Responsável</label>
                     <select
-                      value={currentServiceOrder.responsible_technician_id || ''}
+                      value={localResponsibleTechnicianId || ''}
                       disabled={
                         !hasPermission(profile, 'OS - Editar OS') ||
                         ['delivered', 'returned_no_fix', 'canceled'].includes(currentServiceOrder.status) ||
                         isTerminal
                       }
-                      onChange={(e) => updateServiceOrder(currentServiceOrder.id, { responsible_technician_id: e.target.value || null as any })}
+                      onChange={(e) => setLocalResponsibleTechnicianId(e.target.value || '')}
                       className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all disabled:opacity-50"
                     >
                       <option value="">Não Atribuído</option>
@@ -2653,9 +2684,20 @@ export default function ServiceOrders() {
                   {hasPermission(profile, 'OS - Editar OS') && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedOsId(null);
-                        showNotification('success', 'Procedimento de homologação salvo com sucesso!');
+                      onClick={async () => {
+                        try {
+                          await updateServiceOrder(currentServiceOrder.id, {
+                            labor_value: localLaborValue,
+                            technical_diagnosis: localTechnicalDiagnosis,
+                            warranty_period: localWarrantyPeriod,
+                            unit_id: localUnitId || null,
+                            responsible_technician_id: localResponsibleTechnicianId || null as any
+                          });
+                          setSelectedOsId(null);
+                          showNotification('success', 'Procedimento de homologação salvo com sucesso!');
+                        } catch (err) {
+                          showNotification('error', 'Erro', 'Falha ao salvar OS.');
+                        }
                       }}
                       className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                     >
