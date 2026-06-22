@@ -125,8 +125,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         if (match) return match.id;
       }
     }
-    // For admins or other users without a fixed unit in their profile, use the selected unit in the app
-    return profile?.unit_id || unit?.id || undefined;
+    // For admins or other users, prioritize Arroio as default if available
+    const arroioMatch = units.find(u => u.name.toUpperCase().includes('ARROIO'));
+    if (profile?.role === 'admin' && arroioMatch) {
+      return arroioMatch.id;
+    }
+    return profile?.unit_id || unit?.id || arroioMatch?.id || undefined;
   }, [user, units, profile, unit]);
 
   const [selectedUnitId, setSelectedUnitId] = useState('');
@@ -713,10 +717,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   };
 
   const showImeiField = useMemo(() => {
-    if (saleType === 'cellphone') return true;
     if (selectedDevices.length > 0) {
       return selectedDevices.some(d => d.category === 'smartphone' || d.category === 'notebook' || d.category === 'desktop');
     }
+    if (saleType === 'cellphone') return true;
     return ['smartphone', 'notebook', 'desktop'].includes(manualCategory);
   }, [saleType, selectedDevices, manualCategory]);
 
