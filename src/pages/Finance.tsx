@@ -479,7 +479,9 @@ export default function Finance() {
   const [sendingWa, setSendingWa] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue' | 'blocked'>('all');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
 
   const { installments, markAsPaid, revertPayment, fetchInstallments } = useFinanceStore();
   const { units, fetchAllUnits, unit } = useUnitStore();
@@ -675,6 +677,14 @@ export default function Finance() {
         return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
       }
 
+      if (dateFilter === 'custom') {
+        if (!customStartDate && !customEndDate) return true;
+        const dueMs = dueDate.getTime();
+        const start = customStartDate ? new Date(customStartDate + 'T00:00:00').getTime() : 0;
+        const end = customEndDate ? new Date(customEndDate + 'T23:59:59').getTime() : Infinity;
+        return dueMs >= start && dueMs <= end;
+      }
+
       return true;
     };
 
@@ -690,6 +700,8 @@ export default function Finance() {
           matchesStatus = fees.isLate;
         } else if (statusFilter === 'blocked') {
           matchesStatus = inst.status === 'blocked';
+        } else if (statusFilter === 'all') {
+          matchesStatus = inst.status !== 'paid'; // Exclude paid installments under Total a Receber tab
         }
 
         return matchesDate && matchesStatus;
@@ -704,7 +716,7 @@ export default function Finance() {
       const hasMatchingInstallments = group.displayedInstallments.length > 0;
       return matchesSearch && hasMatchingInstallments;
     });
-  }, [customerGroups, searchTerm, statusFilter, dateFilter]);
+  }, [customerGroups, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate]);
 
   const dateFilteredInstallments = useMemo(() => {
     const matchesDateFilter = (dueDateStr: string) => {
@@ -732,11 +744,19 @@ export default function Finance() {
         return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
       }
 
+      if (dateFilter === 'custom') {
+        if (!customStartDate && !customEndDate) return true;
+        const dueMs = dueDate.getTime();
+        const start = customStartDate ? new Date(customStartDate + 'T00:00:00').getTime() : 0;
+        const end = customEndDate ? new Date(customEndDate + 'T23:59:59').getTime() : Infinity;
+        return dueMs >= start && dueMs <= end;
+      }
+
       return true;
     };
 
     return installments.filter(inst => matchesDateFilter(inst.due_date));
-  }, [installments, dateFilter]);
+  }, [installments, dateFilter, customStartDate, customEndDate]);
 
   const totalReceivable = useMemo(() => dateFilteredInstallments.filter(i => i.status !== 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
   const totalPaid = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
@@ -882,6 +902,28 @@ export default function Finance() {
     }
   };
 
+  const handleSendStatement = async (customerId: string, customerName: string) => {
+    setSendingWa(`statement-${customerId}`);
+    try {
+      const res = await fetch('/api/billing/send-statement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId })
+      });
+
+      if (res.ok) {
+        showNotification('success', 'Extrato Enviado!', `Extrato consolidado enviado via WhatsApp para ${customerName}.`);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        showNotification('error', 'Falha ao Enviar', `Erro: ${errData.error || 'Erro ao processar envio'}`);
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro de Conexão', err?.message || 'Não foi possível conectar ao servidor.');
+    } finally {
+      setSendingWa(null);
+    }
+  };
+
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
 
@@ -966,7 +1008,7 @@ export default function Finance() {
               />
             </div>
 
-            {/* Period Filter Dropdown */}
+             {/* Period Filter Dropdown */}
             <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-[220px]">
               <Calendar size={16} className="text-on-surface-variant shrink-0" />
               <select
@@ -983,8 +1025,27 @@ export default function Finance() {
                 <option value="today" className="bg-[#0f0f1a] text-white">Vencendo Hoje</option>
                 <option value="week" className="bg-[#0f0f1a] text-white">Vencendo nesta Semana</option>
                 <option value="month" className="bg-[#0f0f1a] text-white">Vencendo neste Mês</option>
+                <option value="custom" className="bg-[#0f0f1a] text-white">Período Personalizado</option>
               </select>
             </div>
+
+            {dateFilter === 'custom' && (
+              <div className="flex flex-wrap gap-2 items-center bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="bg-transparent text-xs text-white outline-none font-mono focus:text-primary transition-all"
+                />
+                <span className="text-on-surface-variant text-[10px] uppercase font-black tracking-widest">até</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="bg-transparent text-xs text-white outline-none font-mono focus:text-primary transition-all"
+                />
+              </div>
+            )}
           </div>
 
           <div className="p-6 space-y-4">
@@ -1065,7 +1126,22 @@ export default function Finance() {
                           exit={{ height: 0 }}
                           className="overflow-hidden bg-black/10"
                         >
-                          <div className="p-5 border-t border-white/5">
+                          <div className="p-5 border-t border-white/5 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/[0.02] p-4 border border-white/5 rounded-2xl">
+                              <div>
+                                <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Resumo de Cobrança</p>
+                                <p className="text-xs text-white mt-1">Envie o extrato completo das parcelas em aberto e pagas para o WhatsApp do cliente.</p>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={sendingWa === `statement-${group.customerId}`}
+                                onClick={() => handleSendStatement(group.customerId, group.customerName)}
+                                className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2"
+                              >
+                                <Send size={14} className={sendingWa === `statement-${group.customerId}` ? "animate-pulse" : ""} />
+                                {sendingWa === `statement-${group.customerId}` ? 'Enviando Extrato...' : 'Enviar Extrato WhatsApp'}
+                              </button>
+                            </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-left border-collapse">
                                 <thead>

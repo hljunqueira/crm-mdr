@@ -143,4 +143,137 @@ router.post("/send-warning", async (req, res) => {
   }
 });
 
+// Endpoint to send consolidated statement of installments
+router.post("/send-statement", async (req, res) => {
+  try {
+    const { customerId } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({ error: "O ID do cliente é obrigatório." });
+    }
+
+    // 1. Fetch customer details
+    const { data: customer, error: custErr } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("id", customerId)
+      .single();
+
+    if (custErr || !customer) {
+      return res.status(404).json({ error: "Cliente não encontrado." });
+    }
+
+    if (!customer.phone) {
+      return res.status(400).json({ error: "Cliente não possui telefone cadastrado." });
+    }
+
+    // 2. Fetch all active installments for this customer
+    const { data: installments, error: instErr } = await supabase
+      .from("installments")
+      .select(`
+        *,
+        sales (
+          device_model_manual,
+          store:stores (
+            name,
+            phone
+          )
+        )
+      `)
+      .eq("customer_id", customerId)
+      .order("due_date", { ascending: true });
+
+    if (instErr || !installments || installments.length === 0) {
+      return res.status(404).json({ error: "Nenhuma parcela encontrada para este cliente." });
+    }
+
+    const paidInsts = installments.filter(i => i.status === "paid");
+    const openInsts = installments.filter(i => i.status !== "paid");
+
+    const totalValueOpen = openInsts.reduce((acc, cur) => acc + Number(cur.value), 0);
+    const storeName = installments[0]?.sales?.store?.name || "MDR Celulares";
+
+    // 3. Compile statement message
+    let messageText = `📊 *Extrato Geral de Parcelas - ${storeName}*\n\n`;
+    messageText += `Olá, *${(customer.name || "").trim().toUpperCase()}*! Tudo bem? 😊\n`;
+    messageText += `Aqui está o resumo financeiro do seu crediário:\n\n`;
+    messageText += `✅ *Parcelas Pagas:* ${paidInsts.length}\n`;
+    messageText += `⏳ *Parcelas Pendentes:* ${openInsts.length}\n`;
+    messageText += `💵 *Saldo Devedor Total:* *${totalValueOpen.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}*\n\n`;
+
+    if (openInsts.length > 0) {
+      messageText += `*PARCELAS EM ABERTO:*\n`;
+      openInsts.forEach((inst, idx) => {
+        const dueDate = new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
+        const valStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const device = inst.sales?.device_model_manual || "Celular";
+        messageText += `• Parcela ${inst.number}/${inst.total} (${device.replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase()}): *${valStr}* | Venc: *${dueDate}*\n`;
+      });
+      messageText += `\n`;
+    }
+
+    if (paidInsts.length > 0) {
+      messageText += `*ÚLTIMAS PARCELAS QUITADAS:*\n`;
+      // Show up to 5 last paid installments to avoid message bloating
+      paidInsts.slice(-5).forEach((inst) => {
+        const valStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        messageText += `• Parcela ${inst.number}/${inst.total}: *${valStr}* - ✅ Pago\n`;
+      });
+      messageText += `\n`;
+    }
+
+    messageText += `Caso necessite de atendimento ou queira efetuar o pagamento via PIX, responda a esta mensagem. Obrigado! 🙏`;
+
+    // 4. Get connected WhatsApp channel
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('*')
+      .eq('status', 'connected')
+      .limit(1);
+
+    if (!channels || channels.length === 0) {
+      return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado para disparar o extrato." });
+    }
+
+    const instance = channels[0].instance_name;
+    let cleanPhone = customer.phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `55${cleanPhone}`;
+    }
+    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+
+    // 5. Post to n8n webhook
+    const n8nPayload = {
+      instanceName: instance,
+      remoteJid: remoteJid,
+      text: messageText,
+      customer_name: (customer.name || "").trim().toUpperCase(),
+      customer_phone: customer.phone,
+      store_name: storeName
+    };
+
+    const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+
+    const response = await fetch(n8nWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+      },
+      body: JSON.stringify(n8nPayload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Statement Webhook] n8n responded with error:`, errorText);
+      return res.status(502).json({ error: "Falha na comunicação com o n8n ao enviar extrato." });
+    }
+
+    res.json({ success: true, message: "Extrato consolidado enviado via WhatsApp com sucesso!" });
+  } catch (err: any) {
+    console.error("[Statement Webhook] Error triggering statement send:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

@@ -22,8 +22,9 @@ export default function Partners() {
   }, [fetchUserPermissions]);
 
   useEffect(() => {
-    fetchPartners(undefined, true);
-  }, [fetchPartners]);
+    const isAdmin = profile?.role === 'admin';
+    fetchPartners(isAdmin ? undefined : (profile?.unit_id || undefined), isAdmin);
+  }, [fetchPartners, profile]);
 
   const filteredPartners = partners.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

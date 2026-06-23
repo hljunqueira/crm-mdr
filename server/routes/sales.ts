@@ -13,12 +13,115 @@ const validSalesColumns = [
   'payment_method'
 ];
 
+const syncDeviceLocks = async (sale: any) => {
+  try {
+    if (sale.payment_type !== 'crediario') {
+      await supabase.from('device_locks').delete().eq('sale_id', sale.id);
+      return;
+    }
+
+    const imeiStr = sale.imei_manual || '';
+    const deviceId = sale.device_id;
+    const currentDeviceIds: string[] = [];
+
+    if (imeiStr && imeiStr !== 'N/A') {
+      const imeis = imeiStr.split(',').map((i: string) => i.trim()).filter(Boolean);
+      for (const imei of imeis) {
+        if (imei !== 'N/A') {
+          const { data: dev } = await supabase
+            .from('devices')
+            .select('id, brand')
+            .eq('imei', imei)
+            .maybeSingle();
+
+          if (dev) {
+            currentDeviceIds.push(dev.id);
+            const brandLower = (dev.brand || '').toLowerCase();
+            const lockType = (brandLower === 'apple' || brandLower.includes('iphone')) ? 'icloud' : 'android';
+            
+            const { data: existingLock } = await supabase
+              .from('device_locks')
+              .select('id')
+              .eq('sale_id', sale.id)
+              .eq('device_id', dev.id)
+              .maybeSingle();
+
+            if (!existingLock) {
+              await supabase
+                .from('device_locks')
+                .insert({
+                  device_id: dev.id,
+                  sale_id: sale.id,
+                  lock_type: lockType,
+                  icloud_locked: false,
+                  mdm_locked: false
+                });
+            }
+          }
+        }
+      }
+    } else if (deviceId) {
+      currentDeviceIds.push(deviceId);
+      const { data: dev } = await supabase
+        .from('devices')
+        .select('brand')
+        .eq('id', deviceId)
+        .maybeSingle();
+
+      const brandLower = (dev?.brand || '').toLowerCase();
+      const lockType = (brandLower === 'apple' || brandLower.includes('iphone')) ? 'icloud' : 'android';
+
+      const { data: existingLock } = await supabase
+        .from('device_locks')
+        .select('id')
+        .eq('sale_id', sale.id)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+
+      if (!existingLock) {
+        await supabase
+          .from('device_locks')
+          .insert({
+            device_id: deviceId,
+            sale_id: sale.id,
+            lock_type: lockType,
+            icloud_locked: false,
+            mdm_locked: false
+          });
+      }
+    }
+
+    if (currentDeviceIds.length > 0) {
+      // Clean string formatting for the IN query: construct raw list format safely
+      const idList = currentDeviceIds.map(id => `'${id}'`).join(',');
+      await supabase
+        .from('device_locks')
+        .delete()
+        .eq('sale_id', sale.id)
+        .filter('device_id', 'not.in', `(${idList})`);
+    } else {
+      await supabase
+        .from('device_locks')
+        .delete()
+        .eq('sale_id', sale.id);
+    }
+  } catch (err) {
+    console.error(`[syncDeviceLocks] Error synchronizing device locks for sale ${sale.id}:`, err);
+  }
+};
+
 // Get all sales
 router.get("/", async (req, res) => {
-  const { data, error } = await supabase
+  const { unit_id } = req.query;
+  let query = supabase
     .from('sales')
-    .select('*, customers(name), profiles(full_name)')
-    .order('created_at', { ascending: false });
+    .select('*, customers(name), profiles(full_name)');
+
+  if (unit_id && unit_id !== 'all') {
+    query = query.eq('store_id', unit_id);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
   
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -82,6 +185,9 @@ router.post("/", async (req, res) => {
       .single();
 
     if (saleError) return res.status(500).json({ error: saleError.message });
+
+    // Sincronização de Bloqueios Automática (device_locks)
+    await syncDeviceLocks(saleData);
 
     // 2.5 Integrate with Cash Flow
     if (activeShift && saleData.status !== 'waiting_pickup') {
@@ -448,6 +554,9 @@ router.patch("/:id", async (req, res) => {
       .single();
        
     if (updateError) return res.status(500).json({ error: updateError.message });
+
+    // Sincronização de Bloqueios Automática (device_locks)
+    await syncDeviceLocks(updatedSale);
      
     // 5. Create new transaction if shift is open and has new payment
     if (activeShift && updatedSale) {

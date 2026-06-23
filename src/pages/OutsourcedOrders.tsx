@@ -6,11 +6,13 @@ import {
 } from 'lucide-react';
 import { useServiceOrderStore } from '../store/useServiceOrderStore';
 import { useUI } from '../context/UIContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { formatCPF, formatPhone } from '../lib/utils';
 
 export default function OutsourcedOrders() {
   const { fetchGlobalOutsourced, updateOutsourcedOs, removeOutsourceOs } = useServiceOrderStore();
   const { showNotification } = useUI();
+  const { profile } = useAuthStore();
 
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
@@ -33,7 +35,7 @@ export default function OutsourcedOrders() {
   const loadOutsourcedOrders = async () => {
     setLoading(true);
     try {
-      const data = await fetchGlobalOutsourced();
+      const data = await fetchGlobalOutsourced(profile?.role === 'admin' ? undefined : profile?.unit_id);
       setOrders(data || []);
     } catch (err) {
       showNotification('error', 'Falha ao buscar OS terceirizadas.');
@@ -44,7 +46,7 @@ export default function OutsourcedOrders() {
 
   useEffect(() => {
     loadOutsourcedOrders();
-  }, []);
+  }, [profile?.unit_id, profile?.role]);
 
   const handleOpenEdit = (order: any) => {
     setSelectedOrder(order);

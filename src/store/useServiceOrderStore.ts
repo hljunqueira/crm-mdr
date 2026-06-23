@@ -88,7 +88,7 @@ interface ServiceOrderState {
   deletePartFromOs: (id: string, partId: string) => Promise<void>;
   notifyOsStatus: (id: string, templateType: 'entry' | 'budget' | 'ready') => Promise<void>;
   fetchOutsourcedInfo: (osId: string) => Promise<any>;
-  fetchGlobalOutsourced: () => Promise<any[]>;
+  fetchGlobalOutsourced: (unitId?: string) => Promise<any[]>;
   outsourceOs: (osId: string, info: any) => Promise<any>;
   updateOutsourcedOs: (osId: string, outsourceId: string, info: any) => Promise<any>;
   removeOutsourceOs: (osId: string, outsourceId: string) => Promise<void>;
@@ -211,9 +211,10 @@ export const useServiceOrderStore = create<ServiceOrderState>()((set, get) => ({
     }
   },
 
-  fetchGlobalOutsourced: async () => {
+  fetchGlobalOutsourced: async (unitId?: string) => {
     try {
-      return await api.get('/os/global/outsourced');
+      const url = unitId && unitId !== 'all' ? `/os/global/outsourced?unit_id=${unitId}` : '/os/global/outsourced';
+      return await api.get(url);
     } catch (error) {
       console.error('Error fetching global outsourced list:', error);
       return [];

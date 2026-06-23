@@ -73,8 +73,9 @@ export default function CreditAnalysis() {
   ];
 
   useEffect(() => {
-    fetchCustomers();
-    fetchInventory();
+    const unitId = profile?.role === 'admin' ? undefined : (profile?.unit_id || undefined);
+    fetchCustomers(unitId);
+    fetchInventory(unitId);
     
     const fetchAdmins = async () => {
       try {
@@ -91,7 +92,7 @@ export default function CreditAnalysis() {
       }
     };
     fetchAdmins();
-  }, [fetchCustomers, fetchInventory]);
+  }, [fetchCustomers, fetchInventory, profile?.unit_id, profile?.role]);
 
   const [listFilter, setListFilter] = useState<'pending' | 'history'>('pending');
 

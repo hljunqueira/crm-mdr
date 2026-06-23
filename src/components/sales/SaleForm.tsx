@@ -172,6 +172,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   const [adminAuthError, setAdminAuthError] = useState('');
   const [adminAuthLoading, setAdminAuthLoading] = useState(false);
 
+  const [originalInstallments, setOriginalInstallments] = useState<any[]>([]);
+  const [isEditingLoaded, setIsEditingLoaded] = useState(false);
+  const [selectedSellerId, setSelectedSellerId] = useState<string>('');
+
   // Quick Customer State
   const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
   const [quickCustomer, setQuickCustomer] = useState({
@@ -378,7 +382,73 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [preAuthenticatedSellerId, setPreAuthenticatedSellerId] = useState<string | null>(null);
-  const activeSeller = employees.find(e => e.id === (preAuthenticatedSellerId || initialData?.seller_id || profile?.id));
+  const activeSeller = employees.find(e => e.id === (selectedSellerId || preAuthenticatedSellerId || initialData?.seller_id || profile?.id));
+
+  useEffect(() => {
+    if (initialData?.seller_id) {
+      setSelectedSellerId(initialData.seller_id);
+    } else if (preAuthenticatedSellerId) {
+      setSelectedSellerId(preAuthenticatedSellerId);
+    } else if (profile?.id) {
+      setSelectedSellerId(profile.id);
+    }
+  }, [initialData, preAuthenticatedSellerId, profile]);
+
+  useEffect(() => {
+    if (initialData) {
+      const loadInstallments = async () => {
+        try {
+          const { data: insts, error } = await supabase
+            .from('installments')
+            .select('*')
+            .eq('sale_id', initialData.id)
+            .order('installment_number', { ascending: true });
+          
+          if (insts && !error) {
+            setOriginalInstallments(insts);
+            
+            const dueDates = insts.map(i => i.due_date);
+            const instValues = insts.map(i => Number(i.value));
+            
+            setCustomDueDates(dueDates);
+            setCustomInstallmentValues(instValues);
+            setIsEditingLoaded(true);
+          }
+        } catch (e) {
+          console.error("Error loading original installments for editing:", e);
+        }
+      };
+
+      loadInstallments();
+
+      // Decode interest_table and down_payment_method from accessories
+      const accessoriesStr = initialData.accessories || '';
+      let detectedInterestTable = 'standard';
+      let detectedDownPaymentMethod = 'money_pix';
+
+      if (accessoriesStr.includes('[Tabela: PREMIUM (5%)]')) {
+        detectedInterestTable = 'premium';
+      } else if (accessoriesStr.includes('[Tabela: FLEX (12%)]')) {
+        detectedInterestTable = 'flex';
+      } else if (accessoriesStr.includes('[Tabela: SEM JUROS (0%)]')) {
+        detectedInterestTable = 'no_interest';
+      } else if (accessoriesStr.includes('[Tabela: STANDARD (8%)]')) {
+        detectedInterestTable = 'standard';
+      }
+
+      if (accessoriesStr.includes('[Entrada: Troca')) {
+        detectedDownPaymentMethod = 'trade';
+      } else if (accessoriesStr.includes('[Entrada: Dinheiro/PIX]')) {
+        detectedDownPaymentMethod = 'money_pix';
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        interest_table: detectedInterestTable,
+        down_payment_method: detectedDownPaymentMethod
+      }));
+    }
+  }, [initialData]);
 
   const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' ||
     user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
@@ -624,6 +694,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   // Initialize and update due dates based on base date and installment count
   React.useEffect(() => {
+    if (initialData && !isEditingLoaded) {
+      return;
+    }
     if (formData.first_due_date && formData.installments > 0) {
       const dates: string[] = [];
       const baseDate = new Date(formData.first_due_date + 'T12:00:00'); // Use noon to avoid timezone issues
@@ -634,7 +707,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       }
       setCustomDueDates(dates);
     }
-  }, [formData.first_due_date, formData.installments]);
+  }, [formData.first_due_date, formData.installments, isEditingLoaded, initialData]);
 
   React.useEffect(() => {
     fetchInstallments();
@@ -721,6 +794,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     setSelectedDevices(prev => prev.map((d, i) => {
       if (i !== idx) return d;
       return { ...d, quantity: Math.max(1, d.quantity - 1) };
+    }));
+  };
+
+  const handleDevicePriceChange = (idx: number, newPrice: number) => {
+    setSelectedDevices(prev => prev.map((d, i) => {
+      if (i !== idx) return d;
+      return { ...d, price: newPrice };
     }));
   };
 
@@ -989,6 +1069,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   // Synchronize custom installment values when total installments or default value changes
   React.useEffect(() => {
+    if (initialData && !isEditingLoaded) {
+      return;
+    }
     if (formData.installments > 0) {
       const vals: number[] = [];
       for (let i = 0; i < formData.installments; i++) {
@@ -998,7 +1081,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     } else {
       setCustomInstallmentValues([]);
     }
-  }, [formData.installments, firstInstallmentValue]);
+  }, [formData.installments, firstInstallmentValue, isEditingLoaded, initialData]);
 
   const handleInstallmentValueChange = (idx: number, newVal: number) => {
     setCustomInstallmentValues(prev => {
@@ -1115,7 +1198,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           service_fee: feeValue,
           original_price: formData.total_value,
           installments: isCashLike ? 0 : formData.installments,
-          date: formData.first_due_date,
+          date: initialData.date || new Date().toLocaleDateString('en-CA'),
           device_color: formData.device_color,
           accessories: accessoriesStr,
           payment_type: formData.payment_type as any,
@@ -1128,6 +1211,26 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
           payment_method: formData.payment_method
         });
+
+        // Clear and re-save installments preserving payment statuses
+        await supabase.from('installments').delete().eq('sale_id', initialData.id);
+        if (formData.installments > 0) {
+          const installmentsToCreate = generatedInstallments.map((inst) => {
+            const matchedOriginal = originalInstallments.find(orig => orig.installment_number === inst.number);
+            return {
+              unit_id: finalUnitId,
+              sale_id: initialData.id,
+              customer_id: formData.customer_id,
+              number: inst.number,
+              total: inst.total,
+              value: inst.value,
+              due_date: inst.dueDate,
+              status: matchedOriginal ? matchedOriginal.status : 'pending'
+            };
+          });
+          await addInstallments(installmentsToCreate);
+        }
+
         showNotification('success', 'Venda Atualizada');
         onSuccess();
       } else {
@@ -1143,7 +1246,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           service_fee: feeValue,
           original_price: formData.total_value,
           installments: isCashLike ? 0 : formData.installments,
-          date: formData.first_due_date,
+          date: new Date().toLocaleDateString('en-CA'),
           device_color: formData.device_color,
           accessories: accessoriesStr,
           status: isWaitingPickup ? 'waiting_pickup' : 'completed',
@@ -1326,11 +1429,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       return;
     }
 
-    if (isTerminal) {
-      await executeSubmit(preAuthenticatedSellerId || '');
-    } else {
-      await executeSubmit(profile?.id || '');
-    }
+    await executeSubmit(selectedSellerId || profile?.id || '');
   };
 
   if (isSuccess && selectedCustomer) {
@@ -1512,25 +1611,31 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6">
-        {activeSeller && (
-          <div className={cn(
-            "p-4 border rounded-2xl flex items-center justify-between transition-all duration-300",
-            isTerminal ? "bg-primary/10 border-primary/20 text-primary" : "bg-white/5 border-white/10 text-on-surface"
-          )}>
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest opacity-60">
-                {isTerminal ? 'Vendedor Responsável (Autenticado)' : 'Operador Logado'}
-              </p>
-              <p className="text-sm font-black text-white">{activeSeller.full_name}</p>
-            </div>
-            <div className={cn(
-              "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border",
-              isTerminal ? "bg-success/20 border-success/30 text-success" : "bg-white/10 border-white/20 text-on-surface-variant"
-            )}>
-              {isTerminal ? 'Autenticado' : 'Sessão Individual'}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Vendedor Responsável</label>
+          <div className="relative">
+            <select
+              value={selectedSellerId || ''}
+              onChange={(e) => setSelectedSellerId(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              <option value="" className="bg-[#121214] text-on-surface-variant">Selecionar Vendedor...</option>
+              {employees.map(e => (
+                <option key={e.id} value={e.id} className="bg-[#121214] text-white">
+                  {e.full_name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xs">
+              ▼
             </div>
           </div>
-        )}
+          {isTerminal && activeSeller && (
+            <p className="text-[10px] text-primary font-bold mt-1 pl-1">
+              ✓ Autenticado via Terminal: {activeSeller.full_name}
+            </p>
+          )}
+        </div>
 
         {/* Seletor de Unidade (Apenas para Admin) */}
         {profile?.role === 'admin' && (
@@ -1852,10 +1957,23 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                             +
                           </button>
                         </div>
-                        <div className="text-right">
-                          <span className="font-mono text-xs font-black text-white">
-                            {(((formData.price_type === 'trade' && stockItem?.trade_in_price) ? stockItem.trade_in_price : device.price) * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </span>
+                        <div className="text-right flex items-center gap-2">
+                          {(device.category === 'service' || device.category === 'other' || device.model.toLowerCase().includes('diversos') || (device.brand && device.brand.toLowerCase().includes('diversos'))) ? (
+                            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-2 py-1">
+                              <span className="text-[10px] text-on-surface-variant font-bold font-mono mr-1">R$</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={device.price}
+                                onChange={(e) => handleDevicePriceChange(idx, Number(e.target.value))}
+                                className="w-16 bg-transparent text-right font-mono text-xs font-black text-white outline-none border-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                            </div>
+                          ) : (
+                            <span className="font-mono text-xs font-black text-white">
+                              {(((formData.price_type === 'trade' && stockItem?.trade_in_price) ? stockItem.trade_in_price : device.price) * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                          )}
                         </div>
                         <button
                           type="button"

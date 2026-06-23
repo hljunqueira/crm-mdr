@@ -7,10 +7,16 @@ const router = Router();
 
 // Get all installments
 router.get("/installments", async (req, res) => {
-  const { data, error } = await supabase
+  const { unit_id } = req.query;
+  let query = supabase
     .from('installments')
-    .select('*, sales(*, customers(*))')
-    .order('due_date', { ascending: true });
+    .select('*, sales!inner(*, customers(*))');
+
+  if (unit_id && unit_id !== 'all') {
+    query = query.eq('sales.store_id', unit_id);
+  }
+
+  const { data, error } = await query.order('due_date', { ascending: true });
   
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);

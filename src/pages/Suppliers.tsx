@@ -22,8 +22,9 @@ export default function Suppliers() {
   }, [fetchUserPermissions]);
 
   useEffect(() => {
-    fetchSuppliers(undefined, true);
-  }, [fetchSuppliers]);
+    const isAdmin = profile?.role === 'admin';
+    fetchSuppliers(isAdmin ? undefined : (profile?.unit_id || undefined), isAdmin);
+  }, [fetchSuppliers, profile]);
 
   const filteredSuppliers = suppliers.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

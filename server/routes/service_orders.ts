@@ -394,10 +394,16 @@ router.get("/:id/outsource", async (req, res) => {
 // Sub-routes: Get all outsourced orders (for the global outsourcing panel)
 router.get("/global/outsourced", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { unit_id } = req.query;
+    let query = supabase
       .from('outsourced_orders')
-      .select('*, service_orders(*, customers(name, phone))')
-      .order('created_at', { ascending: false });
+      .select('*, service_orders!inner(*, customers(name, phone))');
+
+    if (unit_id && unit_id !== 'all') {
+      query = query.eq('service_orders.unit_id', unit_id);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);

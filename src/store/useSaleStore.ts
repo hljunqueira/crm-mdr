@@ -45,10 +45,11 @@ interface SaleState {
 export const useSaleStore = create<SaleState>()((set) => ({
   sales: [],
   isLoading: false,
-  fetchSales: async (_unitId) => {
+  fetchSales: async (unitId) => {
     set({ isLoading: true });
     try {
-      const data = await api.get('/sales');
+      const url = unitId && unitId !== 'all' ? `/sales?unit_id=${unitId}` : '/sales';
+      const data = await api.get(url);
       const mappedSales = (data || []).map((s: any) => ({
         id: s.id,
         unit_id: s.store_id,
@@ -76,12 +77,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         trade_in_valuation: Number(s.trade_in_valuation) || 0,
         trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0
       }));
-      const role = useAuthStore.getState().profile?.role;
-      const filteredSales = (_unitId && role !== 'admin')
-        ? mappedSales.filter((s: any) => s.unit_id === _unitId)
-        : mappedSales;
 
-      set({ sales: filteredSales });
+      set({ sales: mappedSales });
     } catch (error) {
       console.error('Error fetching sales:', error);
     } finally {

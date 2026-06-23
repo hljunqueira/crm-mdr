@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
   }
 
   if (unit_id && unit_id !== 'all') {
-    query = query.eq('unit_id', unit_id);
+    query = query.or(`unit_id.eq.${unit_id},unit_id.is.null`);
   }
   
   const { data, error } = await query.order('name');

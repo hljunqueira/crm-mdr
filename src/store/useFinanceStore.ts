@@ -41,7 +41,8 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
   fetchInstallments: async (unitId) => {
     set({ isLoading: true });
     try {
-      const data = await api.get('/finance/installments');
+      const url = unitId && unitId !== 'all' ? `/finance/installments?unit_id=${unitId}` : '/finance/installments';
+      const data = await api.get(url);
       const mapped = (data || []).map((i: any) => ({
         id: i.id,
         unit_id: i.sales?.store_id || i.unit_id || undefined,
@@ -63,13 +64,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         asaas_sync_status: i.asaas_sync_status
       }));
 
-      // Filter by unitId on the frontend if provided and user is not an admin
-      const role = useAuthStore.getState().profile?.role;
-      const filtered = (unitId && role !== 'admin')
-        ? mapped.filter((i: any) => i.unit_id === unitId)
-        : mapped;
-
-      set({ installments: filtered });
+      set({ installments: mapped });
     } catch (error) {
       console.error('Error fetching installments:', error);
     } finally {
