@@ -729,12 +729,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   const filteredCustomers = useMemo(() => {
     const search = customerSearch.toLowerCase().trim();
-    if (!search) return customers;
-    return customers.filter(c =>
+    const unitFiltered = customers.filter(c => !c.unit_id || c.unit_id === finalUnitId);
+    if (!search) return unitFiltered;
+    const cleanSearchDigits = search.replace(/\D/g, '');
+    return unitFiltered.filter(c =>
       c.name.toLowerCase().includes(search) ||
-      (c.cpf && c.cpf.replace(/\D/g, '').includes(search.replace(/\D/g, '')))
+      (cleanSearchDigits && c.cpf && c.cpf.replace(/\D/g, '').includes(cleanSearchDigits))
     );
-  }, [customers, customerSearch]);
+  }, [customers, customerSearch, finalUnitId]);
 
   // Auto-select product on barcode scan (exact match)
   React.useEffect(() => {
