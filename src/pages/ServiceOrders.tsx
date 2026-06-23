@@ -378,14 +378,29 @@ export default function ServiceOrders() {
     }
   };
 
-  // Default unit_id to profile's unit_id when profile/units are loaded
-  useEffect(() => {
-    if (profile?.unit_id) {
-      setNewOs(prev => ({ ...prev, unit_id: profile.unit_id }));
-    } else if (units.length > 0) {
-      setNewOs(prev => ({ ...prev, unit_id: units[0].id }));
+  // Resolve unit ID based on terminal email or profile unit_id without generic fallback for terminals
+  const resolvedUnitId = useMemo(() => {
+    if (user?.email) {
+      const email = user.email.toLowerCase().trim();
+      if (email === 'lojaarroio@mdrinformaticaecelulares.com.br') {
+        const match = units.find(u => u.name.toUpperCase().includes('ARROIO'));
+        if (match) return match.id;
+      }
+      if (email === 'lojagaivota@mdrinformaticaecelulares.com.br') {
+        const match = units.find(u => u.name.toUpperCase().includes('GAIVOTA'));
+        if (match) return match.id;
+      }
     }
-  }, [profile, units]);
+    const arroioMatch = units.find(u => u.name.toUpperCase().includes('ARROIO'));
+    return profile?.unit_id || arroioMatch?.id || units[0]?.id || '';
+  }, [user, units, profile]);
+
+  // Default unit_id to resolvedUnitId when loaded
+  useEffect(() => {
+    if (resolvedUnitId) {
+      setNewOs(prev => ({ ...prev, unit_id: resolvedUnitId }));
+    }
+  }, [resolvedUnitId]);
 
   useEffect(() => {
     if (units.length > 0) {

@@ -16,22 +16,22 @@ import { supabase } from '../../lib/supabase';
 
 const CREDIARIO_COEFFICIENTS: Record<'premium' | 'standard' | 'flex', Record<number, number>> = {
   premium: {
-    1: 1.050000,  2: 0.537805,  3: 0.367209,  4: 0.282012,  5: 0.230975,  6: 0.197017,
-    7: 0.172820,  8: 0.154722,  9: 0.140690, 10: 0.129505, 11: 0.120363, 12: 0.112825
+    1: 1.050000, 2: 0.537805, 3: 0.367209, 4: 0.282012, 5: 0.230975, 6: 0.197017,
+    7: 0.172820, 8: 0.154722, 9: 0.140690, 10: 0.129505, 11: 0.120363, 12: 0.112825
   },
   standard: {
-    1: 1.080000,  2: 0.561600,  3: 0.388033,  4: 0.301920,  5: 0.250457,  6: 0.216315,
-    7: 0.192066,  8: 0.173998,  9: 0.160041, 10: 0.148970, 11: 0.139997, 12: 0.132695
+    1: 1.080000, 2: 0.561600, 3: 0.388033, 4: 0.301920, 5: 0.250457, 6: 0.216315,
+    7: 0.192066, 8: 0.173998, 9: 0.160041, 10: 0.148970, 11: 0.139997, 12: 0.132695
   },
   flex: {
-    1: 1.120000,  2: 0.592727,  3: 0.416350,  4: 0.329234,  5: 0.277410,  6: 0.243226,
-    7: 0.219108,  8: 0.201259,  9: 0.187543, 10: 0.176706, 11: 0.167974, 12: 0.160819
+    1: 1.120000, 2: 0.592727, 3: 0.416350, 4: 0.329234, 5: 0.277410, 6: 0.243226,
+    7: 0.219108, 8: 0.201259, 9: 0.187543, 10: 0.176706, 11: 0.167974, 12: 0.160819
   }
 };
 
 const CARD_COEFFICIENTS: Record<number, number> = {
-  1: 1.040000,  2: 0.530196,  3: 0.360349,  4: 0.275490,  5: 0.224627,  6: 0.190762,
-  7: 0.166610,  8: 0.148528,  9: 0.134493, 10: 0.123291, 11: 0.114149, 12: 0.106552
+  1: 1.040000, 2: 0.530196, 3: 0.360349, 4: 0.275490, 5: 0.224627, 6: 0.190762,
+  7: 0.166610, 8: 0.148528, 9: 0.134493, 10: 0.123291, 11: 0.114149, 12: 0.106552
 };
 
 interface SaleFormProps {
@@ -73,7 +73,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       setSaleType('general');
 
       const initialDevices = [];
-      
+
       if (prefillFromOs.labor_value > 0) {
         initialDevices.push({
           id: `os-labor-${prefillFromOs.os_id}`,
@@ -147,6 +147,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   }, [units, finalUnitId, unit]);
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successReceiptFormat, setSuccessReceiptFormat] = useState<'a4' | 'thermal'>('a4');
   const [createdSale, setCreatedSale] = useState<any | null>(null);
   const [createdInstallments, setCreatedInstallments] = useState<any[]>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
@@ -159,6 +160,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   const [selectedDevices, setSelectedDevices] = useState<{ id: string; model: string; brand: string; price: number; quantity: number; imei: string; category?: string }[]>([]);
   const [deviceSearch, setDeviceSearch] = useState('');
   const [deviceDropdownOpen, setDeviceDropdownOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
 
   // States for automatic 10% discount and admin price unlock
   const [applyAutoDiscount, setApplyAutoDiscount] = useState(false);
@@ -191,7 +194,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     condition: 'new' as 'new' | 'used' | 'refurbished' | 'vitrine',
     imei: ''
   });
-  
+
   // Quick Supplier State inside the Quick Product registration
   const [isQuickSupplierOpen, setIsQuickSupplierOpen] = useState(false);
   const [quickSupplierName, setQuickSupplierName] = useState('');
@@ -202,7 +205,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       showNotification('error', 'Nome Obrigatório', 'Por favor, preencha o nome do cliente.');
       return;
     }
-    
+
     // Validate CPF/CNPJ if filled
     const cleanCpf = quickCustomer.cpf.replace(/\D/g, '');
     if (cleanCpf) {
@@ -377,8 +380,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   const [preAuthenticatedSellerId, setPreAuthenticatedSellerId] = useState<string | null>(null);
   const activeSeller = employees.find(e => e.id === (preAuthenticatedSellerId || initialData?.seller_id || profile?.id));
 
-  const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' || 
-                     user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
+  const isTerminal = user?.email?.toLowerCase().trim() === 'lojaarroio@mdrinformaticaecelulares.com.br' ||
+    user?.email?.toLowerCase().trim() === 'lojagaivota@mdrinformaticaecelulares.com.br';
 
   useEffect(() => {
     if (isTerminal && !initialData) {
@@ -407,13 +410,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   // Edit Mode Initializer: Load past sale items and settings when editing
   useEffect(() => {
     if (initialData && inventory.length > 0) {
-      const isCellphone = initialData.payment_type === 'crediario' || 
-                          (initialData.device_model && 
-                           ['iphone', 'samsung', 'xiaomi', 'motorola', 'redmi', 'poco', 'celular', 'smartphone'].some(brand => 
-                             initialData.device_model.toLowerCase().includes(brand)
-                           ));
+      const isCellphone = initialData.payment_type === 'crediario' ||
+        (initialData.device_model &&
+          ['iphone', 'samsung', 'xiaomi', 'motorola', 'redmi', 'poco', 'celular', 'smartphone'].some(brand =>
+            initialData.device_model.toLowerCase().includes(brand)
+          ));
       setSaleType(isCellphone ? 'cellphone' : 'general');
-      
+
       if (initialData.is_trade_in) {
         setFormData(prev => ({
           ...prev,
@@ -511,15 +514,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     if (selectedDevices.length > 0) {
       const total = selectedDevices.reduce((sum, d) => {
         const stockItem = inventory.find(i => i.id === d.id);
-        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price) 
-          ? stockItem.trade_in_price 
+        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price)
+          ? stockItem.trade_in_price
           : d.price;
         return sum + itemPrice * d.quantity;
       }, 0);
       const discountedTotal = applyAutoDiscount ? Number((total * 0.9).toFixed(2)) : total;
       const models = selectedDevices.map(d => `${d.model} (x${d.quantity})`).join(' + ');
       const imeis = selectedDevices.map(d => d.imei || 'N/A').filter(val => val !== 'N/A').join(', ');
-      
+
       setFormData(prev => ({
         ...prev,
         total_value: discountedTotal,
@@ -574,14 +577,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       (item.stock_quantity || 0) > 0 &&
       (item.category === 'accessory_mobile' || item.category === 'accessory_it')
     ),
-  [inventory, selectedDevices]);
+    [inventory, selectedDevices]);
 
   const filteredAccessories = useMemo(() =>
     availableAccessories.filter(item =>
       item.model.toLowerCase().includes(accessorySearch.toLowerCase()) ||
       item.brand.toLowerCase().includes(accessorySearch.toLowerCase())
     ),
-  [availableAccessories, accessorySearch]);
+    [availableAccessories, accessorySearch]);
 
   const addAccessory = (item: typeof inventory[0]) => {
     // Don't add duplicates
@@ -637,24 +640,33 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     fetchInstallments();
   }, [formData.customer_id, fetchInstallments]);
 
-  const availableDevices = useMemo(() => 
-    inventory.filter(item => ((item.stock_quantity || 0) > 0 || item.category === 'service') && item.status === 'available'), 
-  [inventory]);
+  const availableDevices = useMemo(() =>
+    inventory.filter(item => ((item.stock_quantity || 0) > 0 || item.category === 'service') && item.status === 'available'),
+    [inventory]);
 
   const filteredDevices = useMemo(() => {
     const search = deviceSearch.toLowerCase();
     return availableDevices.filter(item => {
       return item.model.toLowerCase().includes(search) ||
-             item.brand.toLowerCase().includes(search) ||
-             (item.barcode && item.barcode.toLowerCase().includes(search)) ||
-             (item.imei && item.imei.toLowerCase().includes(search));
+        item.brand.toLowerCase().includes(search) ||
+        (item.barcode && item.barcode.toLowerCase().includes(search)) ||
+        (item.imei && item.imei.toLowerCase().includes(search));
     });
   }, [availableDevices, deviceSearch]);
+
+  const filteredCustomers = useMemo(() => {
+    const search = customerSearch.toLowerCase().trim();
+    if (!search) return customers;
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(search) ||
+      (c.cpf && c.cpf.replace(/\D/g, '').includes(search.replace(/\D/g, '')))
+    );
+  }, [customers, customerSearch]);
 
   // Auto-select product on barcode scan (exact match)
   React.useEffect(() => {
     if (!deviceSearch) return;
-    const match = availableDevices.find(item => 
+    const match = availableDevices.find(item =>
       item.barcode && item.barcode.toLowerCase() === deviceSearch.trim().toLowerCase()
     );
     if (match) {
@@ -728,15 +740,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const hasSelectedCellphone = selectedDevices.some(d => {
       const category = d.category || '';
       if (category === 'smartphone') return true;
-      
+
       const modelLower = (d.model || '').toLowerCase();
       const brandLower = (d.brand || '').toLowerCase();
-      
+
       const hasKeywords = modelLower.includes('celular') || modelLower.includes('smartphone') || modelLower.includes('phone');
-      const hasBrands = ['iphone', 'samsung', 'xiaomi', 'motorola', 'lg', 'asus', 'realme', 'redmi', 'poco', 'nokia', 'tcl', 'infinix', 'huawei', 'oneplus'].some(b => 
+      const hasBrands = ['iphone', 'samsung', 'xiaomi', 'motorola', 'lg', 'asus', 'realme', 'redmi', 'poco', 'nokia', 'tcl', 'infinix', 'huawei', 'oneplus'].some(b =>
         modelLower.includes(b) || brandLower.includes(b)
       );
-      
+
       return hasKeywords || hasBrands;
     });
 
@@ -746,7 +758,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       if (!formData.device_model) return true;
       const modelLower = formData.device_model.toLowerCase();
       const hasKeywords = modelLower.includes('celular') || modelLower.includes('smartphone') || modelLower.includes('phone');
-      const hasBrands = ['iphone', 'samsung', 'xiaomi', 'motorola', 'lg', 'asus', 'realme', 'redmi', 'poco', 'nokia', 'tcl', 'infinix', 'huawei', 'oneplus'].some(b => 
+      const hasBrands = ['iphone', 'samsung', 'xiaomi', 'motorola', 'lg', 'asus', 'realme', 'redmi', 'poco', 'nokia', 'tcl', 'infinix', 'huawei', 'oneplus'].some(b =>
         modelLower.includes(b)
       );
       return hasKeywords || hasBrands || selectedDevices.length === 0;
@@ -785,7 +797,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     if (table === 'no_interest') {
       return 1 / installmentCount;
     }
-    
+
     // If we have a pre-calculated coefficient in the static map, use it
     const coef = CREDIARIO_COEFFICIENTS[table as 'premium' | 'standard' | 'flex']?.[installmentCount];
     if (coef !== undefined) return coef;
@@ -843,8 +855,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     if (selectedDevices.length > 0) {
       return selectedDevices.reduce((sum, d) => {
         const stockItem = inventory.find(i => i.id === d.id);
-        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price) 
-          ? stockItem.trade_in_price 
+        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price)
+          ? stockItem.trade_in_price
           : d.price;
         return sum + itemPrice * d.quantity;
       }, 0);
@@ -873,7 +885,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     selectedAccessories
       .filter(a => a.type === 'venda')
       .reduce((sum, a) => sum + a.price * a.quantity, 0),
-  [selectedAccessories]);
+    [selectedAccessories]);
 
   const newFinancedAmount = useMemo(() => {
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
@@ -890,7 +902,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const classification = (selectedCustomer.classification || 'BOM').toUpperCase();
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
     const baseVal = Math.max(0, formData.total_value - tradeInVal);
-    
+
     let requiredPctVal = 0;
     if (classification === 'RUIM') requiredPctVal = baseVal * 0.5;
     else if (classification === 'MEDIO') requiredPctVal = baseVal * 0.2;
@@ -992,7 +1004,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     setCustomInstallmentValues(prev => {
       const copy = [...prev];
       copy[idx] = newVal;
-      
+
       const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
       const initialFinanced = formData.total_value - formData.down_payment - tradeInVal;
       const rate = monthlyRate * riskMultiplier;
@@ -1005,7 +1017,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         const firstDue = new Date(formData.first_due_date + 'T12:00:00');
         const diffMs = firstDue.getTime() - today.getTime();
         const diffDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-        
+
         const dailyRate = rate / 30;
         const interestAccumulated = initialFinanced * dailyRate * diffDays;
 
@@ -1025,27 +1037,27 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         // Se editou outra parcela, redistribui linearmente o restante para simplificar
         const totalToDistribute = firstInstallmentValue + calculatedBaseInstallment * (copy.length - 1);
         const remainingCount = copy.length - 1 - idx;
-        
+
         if (remainingCount > 0) {
           let sumEdited = 0;
           for (let j = 0; j <= idx; j++) {
             sumEdited += copy[j];
           }
-          
+
           const remainingVal = Math.max(0, totalToDistribute - sumEdited);
           const eachRemaining = Number((remainingVal / remainingCount).toFixed(2));
           for (let j = idx + 1; j < copy.length; j++) {
             copy[j] = eachRemaining;
           }
         }
-        
+
         let currentSum = copy.reduce((sum, val) => sum + val, 0);
         const diff = Number((totalToDistribute - currentSum).toFixed(2));
         if (diff !== 0) {
           copy[copy.length - 1] = Number((copy[copy.length - 1] + diff).toFixed(2));
         }
       }
-      
+
       return copy;
     });
   };
@@ -1072,8 +1084,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       const metadataParts: string[] = [];
       if (formData.payment_type === 'crediario') {
         const tableName = formData.interest_table === 'premium' ? 'PREMIUM (5%)' :
-                          formData.interest_table === 'flex' ? 'FLEX (12%)' :
-                          formData.interest_table === 'no_interest' ? 'SEM JUROS (0%)' : 'STANDARD (8%)';
+          formData.interest_table === 'flex' ? 'FLEX (12%)' :
+            formData.interest_table === 'no_interest' ? 'SEM JUROS (0%)' : 'STANDARD (8%)';
         metadataParts.push(`[Tabela: ${tableName}]`);
       }
       if (formData.down_payment > 0) {
@@ -1085,7 +1097,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       }
 
       if (metadataParts.length > 0) {
-        accessoriesStr = accessoriesStr 
+        accessoriesStr = accessoriesStr
           ? `${accessoriesStr} | ${metadataParts.join(' | ')}`
           : metadataParts.join(' | ');
       }
@@ -1260,7 +1272,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       // Autenticado com sucesso!
       setIsConfirmAuthOpen(false);
       setAuthPassword('');
-      
+
       if (isTerminal && !initialData) {
         setPreAuthenticatedSellerId(authEmployeeId);
       } else {
@@ -1329,8 +1341,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const metadataParts: string[] = [];
     if (formData.payment_type === 'crediario') {
       const tableName = formData.interest_table === 'premium' ? 'PREMIUM (5%)' :
-                        formData.interest_table === 'flex' ? 'FLEX (12%)' :
-                        formData.interest_table === 'no_interest' ? 'SEM JUROS (0%)' : 'STANDARD (8%)';
+        formData.interest_table === 'flex' ? 'FLEX (12%)' :
+          formData.interest_table === 'no_interest' ? 'SEM JUROS (0%)' : 'STANDARD (8%)';
       metadataParts.push(`[Tabela: ${tableName}]`);
     }
     if (formData.down_payment > 0) {
@@ -1375,7 +1387,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         <div className="p-4 bg-white/5 rounded-2xl border border-white/10 max-w-sm mx-auto text-left">
           <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-2">Resumo</p>
           <p className="text-sm text-white font-black">
-            {isCashLike 
+            {isCashLike
               ? 'Pagamento À Vista'
               : `${formData.installments}x de R$ ${installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
           </p>
@@ -1393,7 +1405,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               {createdInstallments
                 .filter(inst => inst.asaas_invoice_url)
                 .map((inst, idx) => (
-                  <a 
+                  <a
                     key={idx}
                     href={inst.asaas_invoice_url}
                     target="_blank"
@@ -1411,7 +1423,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
         <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
           {!isCashLike && (
-            <button 
+            <button
               onClick={() => printElement('sale-contract')}
               className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-3"
             >
@@ -1420,15 +1432,32 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             </button>
           )}
 
-          <button 
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 gap-1 mb-1">
+            <button
+              type="button"
+              onClick={() => setSuccessReceiptFormat('a4')}
+              className={`flex-1 py-2 rounded-lg font-black uppercase tracking-widest text-[9px] transition-all ${successReceiptFormat === 'a4' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'}`}
+            >
+              A4-Padrão
+            </button>
+            <button
+              type="button"
+              onClick={() => setSuccessReceiptFormat('thermal')}
+              className={`flex-1 py-2 rounded-lg font-black uppercase tracking-widest text-[9px] transition-all ${successReceiptFormat === 'thermal' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'}`}
+            >
+              Cupom-80mm
+            </button>
+          </div>
+
+          <button
             onClick={() => printElement('sale-receipt')}
             className="w-full py-4 bg-primary/10 border border-primary/30 text-primary rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/20 transition-all flex items-center justify-center gap-3"
           >
             <Receipt size={18} />
             Imprimir Nota de Venda
           </button>
-          
-          <button 
+
+          <button
             onClick={() => {
               onSuccess();
               hideModal();
@@ -1457,7 +1486,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             />
           </div>
         </div>
-        <ContractPrint 
+        <ContractPrint
           sale={saleDataForPrint}
           customer={selectedCustomer}
           unit={resolvedUnit}
@@ -1473,6 +1502,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           firstInstallmentValue={gracePeriodInterest > 0 ? firstInstallmentValue : undefined}
           sellerName={activeSeller?.full_name}
           installments={createdInstallments.length > 0 ? createdInstallments : generatedInstallments}
+          layout={successReceiptFormat}
         />
       </div>
     );
@@ -1526,38 +1556,67 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <select 
-                required
-                value={formData.customer_id}
+              <input
+                type="text"
+                placeholder="🔍 Buscar cliente por nome ou CPF..."
+                value={customerDropdownOpen ? customerSearch : (selectedCustomer ? `${selectedCustomer.name} - ${selectedCustomer.cpf}` : '')}
                 onChange={(e) => {
-                  const custId = e.target.value;
-                  const selectedC = customers.find(c => c.id === custId);
-                  setFormData(prev => {
-                    const isAVista = selectedC?.classification === 'A_VISTA';
-                    return {
-                      ...prev,
-                      customer_id: custId,
-                      payment_type: (isAVista && prev.payment_type === 'crediario') ? 'vista' : prev.payment_type
-                    };
-                  });
+                  setCustomerSearch(e.target.value);
+                  setCustomerDropdownOpen(true);
                 }}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                <option value="" className="bg-surface-container-high">Selecionar Cliente...</option>
-                {customers.map(c => {
-                  const isBlocked = c.approved_for_purchase !== true;
-                  return (
-                    <option 
-                      key={c.id} 
-                      value={c.id} 
-                      disabled={isBlocked}
-                      className="bg-surface-container-high"
-                    >
-                      {c.name} - {c.cpf}{isBlocked ? ' (BLOQUEADO - Sem Aprovação)' : ''}
-                    </option>
-                  );
-                })}
-              </select>
+                onFocus={() => {
+                  setCustomerSearch(selectedCustomer ? selectedCustomer.name : '');
+                  setCustomerDropdownOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                  }
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+
+              {customerDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => { setCustomerDropdownOpen(false); setCustomerSearch(''); }} />
+                  <div className="relative md:absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5 text-left">
+                    {filteredCustomers.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum cliente encontrado.</div>
+                    ) : (
+                      filteredCustomers.map((c) => {
+                        const isBlocked = c.approved_for_purchase !== true;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            disabled={isBlocked}
+                            onClick={() => {
+                              setFormData(prev => {
+                                const isAVista = c.classification === 'A_VISTA';
+                                return {
+                                  ...prev,
+                                  customer_id: c.id,
+                                  payment_type: (isAVista && prev.payment_type === 'crediario') ? 'vista' : prev.payment_type
+                                };
+                              });
+                              setCustomerDropdownOpen(false);
+                              setCustomerSearch('');
+                            }}
+                            className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <div>
+                              <span className="font-bold text-white">{c.name}</span>
+                              {c.cpf && <span className="text-[10px] text-on-surface-variant font-mono ml-2">({c.cpf})</span>}
+                              {isBlocked && <span className="text-[9px] text-red-400 font-bold uppercase ml-2 tracking-wider">(Bloqueado)</span>}
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-primary tracking-wider">{c.classification}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
             </div>
             <button
               type="button"
@@ -1570,940 +1629,939 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           </div>
         </div>
 
-      {saleType !== 'general' && selectedCustomer && (
-        <>
-          <div className={cn(
-            "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
-            selectedCustomer.classification === 'A_VISTA' ? "bg-blue-500/10 border-blue-500/20 text-blue-400" :
-            selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20 text-red-400" :
-            selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
-            "bg-success/10 border-success/20 text-success"
-          )}>
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "p-2 rounded-xl border",
-                selectedCustomer.classification === 'A_VISTA' ? "bg-blue-500/10 border-blue-500/20" :
-                selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20" :
-                selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20" :
-                "bg-success/10 border-success/20"
-              )}>
-                <User size={18} />
+        {saleType !== 'general' && selectedCustomer && (
+          <>
+            <div className={cn(
+              "p-5 rounded-3xl border text-xs flex flex-col md:flex-row md:items-start justify-between gap-4 transition-all animate-in fade-in duration-300",
+              selectedCustomer.classification === 'A_VISTA' ? "bg-blue-500/10 border-blue-500/20 text-blue-400" :
+                selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20 text-red-400" :
+                  selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-400" :
+                    "bg-success/10 border-success/20 text-success"
+            )}>
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "p-2 rounded-xl border",
+                  selectedCustomer.classification === 'A_VISTA' ? "bg-blue-500/10 border-blue-500/20" :
+                    selectedCustomer.classification === 'RUIM' ? "bg-red-500/10 border-red-500/20" :
+                      selectedCustomer.classification === 'MEDIO' ? "bg-yellow-500/10 border-yellow-500/20" :
+                        "bg-success/10 border-success/20"
+                )}>
+                  <User size={18} />
+                </div>
+                <div>
+                  <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
+                  <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
+                    {selectedCustomer.classification === 'A_VISTA' ? 'Somente À Vista' :
+                      selectedCustomer.classification === 'BOM' ? 'Cliente Premium (5% a.m.)' :
+                        selectedCustomer.classification === 'RUIM' ? 'Cliente Flex (12% a.m.)' :
+                          'Cliente Standard (8% a.m.)'}
+                  </h4>
+                </div>
+              </div>
+              <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
+                {selectedCustomer.classification === 'A_VISTA' && (
+                  <span>ℹ️ <strong>Somente À Vista:</strong> Vendas parceladas no carnê não são permitidas para este cliente. O pagamento deve ser realizado à vista (Dinheiro/Pix) ou no cartão.</span>
+                )}
+                {selectedCustomer.classification === 'RUIM' && (
+                  <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de <strong>12% a.m.</strong> (Tabela Flex) devido ao risco elevado.</span>
+                )}
+                {selectedCustomer.classification === 'MEDIO' && (
+                  <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui taxa de juros de <strong>8% a.m.</strong> (Tabela Standard).</span>
+                )}
+                {selectedCustomer.classification === 'BOM' && (
+                  <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros reduzida de <strong>5% a.m.</strong> (Tabela Premium).</span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-3xl text-xs transition-all animate-in fade-in duration-300">
+              <div>
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Limite Pré-Aprovado</p>
+                <p className="text-sm font-black text-white font-mono">R$ {(selectedCustomer.credit_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
               <div>
-                <p className="font-black uppercase tracking-wider text-[10px] opacity-60">Classificação de Risco</p>
-                <h4 className="text-sm font-black uppercase leading-tight mt-0.5">
-                  {selectedCustomer.classification === 'A_VISTA' ? 'Somente À Vista' :
-                   selectedCustomer.classification === 'BOM' ? 'Cliente Premium (5% a.m.)' :
-                   selectedCustomer.classification === 'RUIM' ? 'Cliente Flex (12% a.m.)' :
-                   'Cliente Standard (8% a.m.)'}
-                </h4>
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Saldo Devedor Ativo</p>
+                <p className="text-sm font-black text-amber-400 font-mono">R$ {customerDebts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
-            </div>
-            <div className="flex-1 md:max-w-md text-[11px] leading-relaxed opacity-95">
-              {selectedCustomer.classification === 'A_VISTA' && (
-                <span>ℹ️ <strong>Somente À Vista:</strong> Vendas parceladas no carnê não são permitidas para este cliente. O pagamento deve ser realizado à vista (Dinheiro/Pix) ou no cartão.</span>
-              )}
-              {selectedCustomer.classification === 'RUIM' && (
-                <span>⚠️ <strong>Atenção:</strong> Exige entrada mínima de <strong>50%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento é restrito a até <strong>12x</strong> com juros de <strong>12% a.m.</strong> (Tabela Flex) devido ao risco elevado.</span>
-              )}
-              {selectedCustomer.classification === 'MEDIO' && (
-                <span>⚖️ <strong>Atenção:</strong> Exige entrada mínima de <strong>20%</strong> do valor do produto (R$ {minDownPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). O parcelamento possui taxa de juros de <strong>8% a.m.</strong> (Tabela Standard).</span>
-              )}
-              {selectedCustomer.classification === 'BOM' && (
-                <span>🌟 <strong>Excelente:</strong> Sem obrigatoriedade de entrada (entrada mínima de 0%). Taxa de juros reduzida de <strong>5% a.m.</strong> (Tabela Premium).</span>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-3xl text-xs transition-all animate-in fade-in duration-300">
-            <div>
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Limite Pré-Aprovado</p>
-              <p className="text-sm font-black text-white font-mono">R$ {(selectedCustomer.credit_limit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Saldo Devedor Ativo</p>
-              <p className="text-sm font-black text-amber-400 font-mono">R$ {customerDebts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            <div>
-              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Limite de Crédito Disponível</p>
-              <p className={`text-sm font-black font-mono ${availableLimit <= 0 ? 'text-red-400' : 'text-green-400'}`}>
-                R$ {availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            {formData.payment_type === 'crediario' && isOverLimit && (
-              <div className="md:col-span-3 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl mt-1 animate-pulse">
-                <AlertCircle size={14} className="shrink-0" />
-                <span className="font-bold text-[10px] uppercase tracking-wider">
-                  Bloqueio: Valor financiado (R$ {newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) excede o limite disponível! Apenas após nova análise de crédito.
-                </span>
+              <div>
+                <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Limite de Crédito Disponível</p>
+                <p className={`text-sm font-black font-mono ${availableLimit <= 0 ? 'text-red-400' : 'text-green-400'}`}>
+                  R$ {availableLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        {/* Seletor do Tipo de Venda */}
-        <div className="md:col-span-2 space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
-          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
-            <button
-              type="button"
-              onClick={() => {
-                setSaleType('general');
-                setSelectedDevices([]);
-                setApplyAutoDiscount(false);
-              }}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-              )}
-            >
-              Vendas Em Geral
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSaleType('cellphone');
-                setSelectedDevices([]);
-                setApplyAutoDiscount(false);
-              }}
-              className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-              )}
-            >
-              Crediário Loja
-            </button>
-          </div>
-        </div>
-
-        {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
-        <div className="md:col-span-2 space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Buscar Produto no Estoque</label>
-          <div className="flex gap-2">
-            <div className="relative flex-1 font-display">
-              <input
-                type="text"
-                placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
-                value={deviceSearch}
-                onChange={(e) => {
-                  setDeviceSearch(e.target.value);
-                  setDeviceDropdownOpen(true);
-                }}
-                onFocus={() => setDeviceDropdownOpen(true)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                  }
-                }}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-              />
-              
-              {deviceDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
-                  <div className="relative md:absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
-                    {filteredDevices.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
-                    ) : (
-                      filteredDevices.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => addDeviceToSale(item)}
-                          className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
-                        >
-                          <div>
-                            <span className="font-bold text-white">{item.model}</span>
-                            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
-                            {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
-                          </div>
-                          <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
+              {formData.payment_type === 'crediario' && isOverLimit && (
+                <div className="md:col-span-3 flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl mt-1 animate-pulse">
+                  <AlertCircle size={14} className="shrink-0" />
+                  <span className="font-bold text-[10px] uppercase tracking-wider">
+                    Bloqueio: Valor financiado (R$ {newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}) excede o limite disponível! Apenas após nova análise de crédito.
+                  </span>
+                </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                fetchSuppliers(finalUnitId, true);
-                setQuickProduct(prev => ({
-                  ...prev,
-                  category: saleType === 'cellphone' ? 'smartphone' : 'other',
-                  imei: ''
-                }));
-                setIsQuickProductOpen(true);
-              }}
-              className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
-              title="Cadastro Rápido de Produto"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Vincular do Estoque (Múltiplos Itens) */}
-        <div className="md:col-span-2 space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Itens Vinculados do Estoque</label>
-          
-          {selectedDevices.length === 0 ? (
-            <div className="p-4 bg-white/5 border border-white/5 border-dashed rounded-2xl text-center text-xs text-on-surface-variant/50">
-              Nenhum item do estoque vinculado. Busque itens no estoque acima.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {selectedDevices.map((device, idx) => {
-                const stockItem = inventory.find(i => i.id === device.id);
-                const maxQty = stockItem?.stock_quantity || 99;
-                return (
-                  <div key={device.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
-                        <Smartphone size={16} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-white leading-tight">{device.model}</p>
-                        {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {/* Controles de Quantidade */}
-                      <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => decreaseDeviceQty(idx)}
-                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black"
-                        >
-                          −
-                        </button>
-                        <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
-                          {device.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => increaseDeviceQty(idx)}
-                          disabled={device.quantity >= maxQty}
-                          className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-xs font-black text-white">
-                          {(((formData.price_type === 'trade' && stockItem?.trade_in_price) ? stockItem.trade_in_price : device.price) * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeDeviceFromSale(idx)}
-                        className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* Tipo de Preço (Normal ou com Troca) */}
-        {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
-          <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
+          {/* Seletor do Tipo de Venda */}
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
             <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
+                onClick={() => {
+                  setSaleType('general');
+                  setSelectedDevices([]);
+                  setApplyAutoDiscount(false);
+                }}
                 className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                  "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
                 )}
               >
-                Preço Especial com Troca
+                Vendas Em Geral
               </button>
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
-                className={cn(
-                  "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                Preço Venda Direta
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Modelo do Aparelho - Exibido apenas em vendas de celular/crediário */}
-        {saleType === 'cellphone' && (
-          <div className="space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Aparelho</label>
-            <input 
-              type="text" 
-              required
-              placeholder="Ex: iPhone 15 Pro Max"
-              value={formData.device_model}
-              onChange={(e) => setFormData(prev => ({ ...prev, device_model: e.target.value }))}
-              readOnly={selectedDevices.length > 0}
-              className={cn(
-                "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
-                selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
-              )}
-            />
-          </div>
-        )}
-
-        {/* IMEI / Serial Condicional - Exibido apenas em vendas de celular/crediário */}
-        {saleType === 'cellphone' && showImeiField && (
-          <div className="space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
-            <input 
-              type="text" 
-              required
-              placeholder="Número do IMEI"
-              value={formData.imei}
-              onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-            />
-          </div>
-        )}
-
-        {/* Valor Total */}
-        <div className="space-y-2 col-span-1 md:col-span-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Venda (R$)</label>
-          <div className="relative">
-            <input 
-              type="number" 
-              required
-              placeholder="0.00"
-              value={formData.total_value === 0 ? '' : formData.total_value}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
-              }}
-              readOnly={!isAdminUnlocked}
-              className={cn(
-                "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all pr-36",
-                !isAdminUnlocked && "opacity-80 cursor-not-allowed"
-              )}
-            />
-            {!isAdminUnlocked && (
               <button
                 type="button"
                 onClick={() => {
-                  setAdminAuthError('');
-                  setAdminAuthPassword('');
-                  setAdminAuthEmployeeId('');
-                  setIsAdminAuthModalOpen(true);
+                  setSaleType('cellphone');
+                  setSelectedDevices([]);
+                  setApplyAutoDiscount(false);
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
-              >
-                Desbloquear Admin
-              </button>
-            )}
-          </div>
-          {isAdminUnlocked && (
-            <span className="text-[10px] text-green-400 font-bold mt-1 block">🔓 Edição liberada pelo Administrador</span>
-          )}
-          {selectedDevices.length > 0 && (
-            <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
-              <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-              {profile?.role === 'admin' && (
-                <>
-                  <span>Custo: <strong className="text-amber-400 font-mono">R$ {costTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                  {costTotal > 0 && (
-                    <span className={cn(
-                      "font-bold",
-                      profitMarginPercent < 0 ? "text-red-400" : "text-green-400"
-                    )}>
-                      Margem: {profitMarginPercent.toFixed(1)}% {profitMarginPercent < 0 ? '[Prejuízo]' : ''}
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {saleType === 'general' && (
-          <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
-            <div>
-              <p className="text-[10px] font-black text-white uppercase tracking-widest">Desconto de 10% Automático</p>
-              <p className="text-[11px] text-on-surface-variant/70">Aplica 10% de desconto no valor total da venda.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setApplyAutoDiscount(prev => !prev)}
-              className={cn(
-                "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
-                applyAutoDiscount 
-                  ? "bg-green-500/20 border-green-500/30 text-green-400" 
-                  : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
-              )}
-            >
-              {applyAutoDiscount ? "Ativo" : "Desativar"}
-            </button>
-          </div>
-        )}
-
-
-
-        {/* Checkbox Receber Aparelho na Troca */}
-        {isSellingCellphone && (
-          <>
-            <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
-              <div>
-                <p className="text-[10px] font-black text-white uppercase tracking-widest">Receber Aparelho de Cliente na Troca (Trade-in)</p>
-                <p className="text-[11px] text-on-surface-variant/70">Ative para cadastrar os dados do celular usado recebido como abatimento.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, is_trade_in: !prev.is_trade_in }))}
                 className={cn(
-                  "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
-                  formData.is_trade_in 
-                    ? "bg-primary/20 border-primary/30 text-primary" 
-                    : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+                  "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
                 )}
               >
-                {formData.is_trade_in ? "Troca Ativa" : "Desativado"}
+                Crediário Loja
               </button>
             </div>
-
-            {/* Sub-formulário Trade-in */}
-            {formData.is_trade_in && (
-              <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-[32px] animate-in fade-in duration-300">
-                <div className="md:col-span-3 pb-2 border-b border-white/5">
-                  <span className="text-[10px] font-black text-primary uppercase tracking-wider block">📱 Dados do Celular Recebido (Troca)</span>
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição (Opcional)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: Apple iPhone 11 64GB Preto Usado"
-                    value={formData.trade_in_device_brand}
-                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
-                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto (Opcional)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: iPhone 11 64GB"
-                    value={formData.trade_in_device_model}
-                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_model: e.target.value }))}
-                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
-                  <input 
-                    type="text" 
-                    maxLength={15}
-                    placeholder="IMEI de 15 dígitos"
-                    value={formData.trade_in_device_imei}
-                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_imei: e.target.value.replace(/\D/g, '') }))}
-                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Avaliação (Abatimento) *</label>
-                  <input 
-                    type="number" 
-                    required
-                    placeholder="R$ 0.00"
-                    value={formData.trade_in_valuation === 0 ? '' : formData.trade_in_valuation}
-                    onChange={(e) => setFormData(prev => ({ ...prev, trade_in_valuation: Number(e.target.value) || 0 }))}
-                    className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
-                  />
-                </div>
-
-
-              </div>
-            )}
-          </>
-        )}
-
-        {formData.payment_type !== 'vista' && (
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada Financeira (Dinheiro/PIX) (R$)</label>
-            <input 
-              type="number" 
-              placeholder="0.00"
-              value={formData.down_payment === 0 ? '' : formData.down_payment}
-              onChange={(e) => {
-                const val = e.target.value;
-                setFormData(prev => ({ ...prev, down_payment: val === '' ? 0 : Number(val) }));
-              }}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-            />
           </div>
-        )}
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
-          <select 
-            value={formData.payment_type}
-            onChange={(e) => {
-              const val = e.target.value;
-              setFormData(prev => {
-                const isCashLike = val === 'vista' || val === 'debit';
-                return {
-                  ...prev,
-                  payment_type: val as any,
-                  installments: isCashLike ? 0 : 12,
-                  down_payment: isCashLike ? 0 : prev.down_payment
-                };
-              });
-            }}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-          >
-            {saleType === 'general' ? (
-              <>
-                <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
-                <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
-                <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
-              </>
-            ) : (
-              <>
-                <option 
-                  value="crediario" 
-                  disabled={selectedCustomer?.classification === 'A_VISTA'}
-                  className="bg-surface-container-high"
-                >
-                  Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : ''}
-                </option>
-                <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
-                <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
-                <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
-              </>
-            )}
-          </select>
-          {selectedCustomer?.classification === 'A_VISTA' && (
-            <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl mt-1 animate-pulse">
-              <AlertCircle size={14} className="shrink-0" />
-              <span className="font-bold text-[10px] uppercase tracking-wider">
-                Aviso: Cliente classificado como 'Somente À Vista'. Vendas parceladas não permitidas (sujeito a análise de crédito).
-              </span>
-            </div>
-          )}
-        </div>
+          {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Buscar Produto no Estoque</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1 font-display">
+                <input
+                  type="text"
+                  placeholder={saleType === 'cellphone' ? "🔍 Buscar celulares no estoque..." : "🔍 Buscar informática, acessórios ou produtos no estoque..."}
+                  value={deviceSearch}
+                  onChange={(e) => {
+                    setDeviceSearch(e.target.value);
+                    setDeviceDropdownOpen(true);
+                  }}
+                  onFocus={() => setDeviceDropdownOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                />
 
-        {formData.payment_type === 'vista' && (
-          <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl animate-in fade-in duration-300">
-            <input
-              type="checkbox"
-              id="isWaitingPickup"
-              checked={isWaitingPickup}
-              onChange={(e) => setIsWaitingPickup(e.target.checked)}
-              className="w-5 h-5 rounded border-white/10 accent-primary text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer"
-            />
-            <label htmlFor="isWaitingPickup" className="text-xs text-on-surface font-medium cursor-pointer select-none">
-              Apenas reservar e aguardar retirada (Pagamento na retirada)
-            </label>
-          </div>
-        )}
-
-        {((formData.payment_type === 'vista' && !isWaitingPickup) || (formData.payment_type !== 'debit' && formData.payment_type !== 'card' && formData.down_payment > 0)) && (
-          <div className="space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
-              Forma de Recebimento ({formData.payment_type === 'vista' ? 'Valor Integral' : 'Valor da Entrada'})
-            </label>
-            <select
-              value={formData.payment_method}
-              onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              <option value="money" className="bg-[#121214]">Dinheiro (Físico)</option>
-              <option value="pix" className="bg-[#121214]">PIX (Digital)</option>
-            </select>
-          </div>
-        )}
-
-        {formData.payment_type === 'crediario' && (
-          <div className="space-y-2 animate-in fade-in duration-300">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tabela de Juros</label>
-            <select 
-              value={formData.interest_table}
-              onChange={(e) => setFormData(prev => ({ ...prev, interest_table: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-            >
-              {profile?.role === 'admin' && (
-                <option value="no_interest" className="bg-surface-container-high">⚪ Sem Juros (0% a.m.)</option>
-              )}
-              <option value="premium" className="bg-surface-container-high">🟢 Premium (5% a.m.)</option>
-              <option value="standard" className="bg-surface-container-high">🟡 Standard (8% a.m.)</option>
-              <option value="flex" className="bg-surface-container-high">🔴 Flex (12% a.m.)</option>
-            </select>
-          </div>
-        )}
-
-        {formData.payment_type !== 'vista' && formData.payment_type !== 'debit' && (
-          <>
-            <div className="space-y-2 animate-in fade-in duration-300">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
-              <select 
-                value={formData.installments}
-                onChange={(e) => setFormData(prev => ({ ...prev, installments: Number(e.target.value) }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
-              >
-                {availableInstallmentOptions.map(n => (
-                  <option key={n} value={n} className="bg-surface-container-high">{n} Parcela(s)</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2 animate-in fade-in duration-300">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">1º Vencimento</label>
-              <input 
-                type="date" 
-                value={formData.first_due_date}
-                onChange={(e) => setFormData(prev => ({ ...prev, first_due_date: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
-              />
-            </div>
-          </>
-        )}
-
-        {saleType !== 'general' && (
-          <>
-
-            <div className="md:col-span-2 space-y-3">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>
-
-              {/* Selected accessories list */}
-              {selectedAccessories.length > 0 && (
-                <div className="space-y-2">
-                  {selectedAccessories.map(acc => (
-                    <div key={acc.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-white truncate">{acc.model}</p>
-                        <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                      </div>
-                      {/* Brinde / Venda toggle */}
-                      <button
-                        type="button"
-                        onClick={() => toggleAccessoryType(acc.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-                          acc.type === 'brinde'
-                            ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
-                            : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
-                        }`}
-                      >
-                        {acc.type === 'brinde' ? <Gift size={11} /> : <ShoppingBag size={11} />}
-                        {acc.type === 'brinde' ? 'Brinde' : 'Venda'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeAccessory(acc.id)}
-                        className="p-1.5 text-on-surface-variant hover:text-error transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add accessory dropdown */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setAccessoryDropdownOpen(prev => !prev)}
-                  className="w-full flex items-center gap-3 px-5 py-3.5 bg-white/5 border border-dashed border-white/20 rounded-2xl text-[10px] font-black text-on-surface-variant hover:text-white hover:border-white/40 transition-all"
-                >
-                  <Plus size={14} />
-                  Buscar acessório do estoque
-                  {availableAccessories.length > 0 && (
-                    <span className="ml-auto text-[8px] bg-white/10 px-2 py-0.5 rounded-full">{availableAccessories.length} disponíveis</span>
-                  )}
-                </button>
-
-                {accessoryDropdownOpen && (
-                  <div className="absolute z-20 top-full mt-2 w-full bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-                    <div className="p-3 border-b border-white/5">
-                      <input
-                        type="text"
-                        placeholder="Buscar por nome ou marca..."
-                        value={accessorySearch}
-                        onChange={e => setAccessorySearch(e.target.value)}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                          }
-                        }}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {filteredAccessories.length === 0 ? (
-                        <p className="text-[10px] text-on-surface-variant text-center p-4">Nenhum item encontrado no estoque</p>
+                {deviceDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => { setDeviceDropdownOpen(false); setDeviceSearch(''); }} />
+                    <div className="relative md:absolute left-0 right-0 mt-2 bg-[#1c1c30] border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-20 custom-scrollbar divide-y divide-white/5">
+                      {filteredDevices.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum item disponível no estoque.</div>
                       ) : (
-                        filteredAccessories.map(item => (
+                        filteredDevices.map((item) => (
                           <button
                             key={item.id}
                             type="button"
-                            onClick={() => addAccessory(item)}
-                            disabled={!!selectedAccessories.find(a => a.id === item.id)}
-                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 text-left transition-all disabled:opacity-40"
+                            onClick={() => addDeviceToSale(item)}
+                            className="w-full text-left px-5 py-3 hover:bg-white/5 transition-all flex items-center justify-between text-xs"
                           >
                             <div>
-                              <p className="text-xs font-black text-white">{item.model}</p>
-                              <p className="text-[9px] text-on-surface-variant">{item.brand} · Estoque: {item.stock_quantity}</p>
+                              <span className="font-bold text-white">{item.model}</span>
+                              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-2">({item.brand})</span>
+                              {item.imei && <p className="text-[9px] text-on-surface-variant/70 mt-0.5 font-mono">IMEI: {item.imei}</p>}
                             </div>
-                            <span className="text-xs font-black text-primary font-mono">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            <span className="font-black text-primary font-mono ml-3">{item.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                           </button>
                         ))
                       )}
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  fetchSuppliers(finalUnitId, true);
+                  setQuickProduct(prev => ({
+                    ...prev,
+                    category: saleType === 'cellphone' ? 'smartphone' : 'other',
+                    imei: ''
+                  }));
+                  setIsQuickProductOpen(true);
+                }}
+                className="px-5 bg-primary hover:bg-primary/80 text-on-primary rounded-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+                title="Cadastro Rápido de Produto"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+          </div>
 
-              {selectedAccessories.length > 0 && (
-                <div className="flex items-center justify-between text-[10px] px-1">
-                  <span className="text-on-surface-variant">
-                    {selectedAccessories.filter(a => a.type === 'brinde').length} brinde(s) · {selectedAccessories.filter(a => a.type === 'venda').length} venda(s)
-                  </span>
-                  {accessoriesTotal > 0 && (
-                    <span className="text-green-400 font-black">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adicionado ao total</span>
+          {/* Vincular do Estoque (Múltiplos Itens) */}
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Itens Vinculados do Estoque</label>
+
+            {selectedDevices.length === 0 ? (
+              <div className="p-4 bg-white/5 border border-white/5 border-dashed rounded-2xl text-center text-xs text-on-surface-variant/50">
+                Nenhum item do estoque vinculado. Busque itens no estoque acima.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {selectedDevices.map((device, idx) => {
+                  const stockItem = inventory.find(i => i.id === device.id);
+                  const maxQty = stockItem?.stock_quantity || 99;
+                  return (
+                    <div key={device.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
+                          <Smartphone size={16} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-white leading-tight">{device.model}</p>
+                          {device.brand && <p className="text-[10px] text-on-surface-variant uppercase tracking-wider">{device.brand}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {/* Controles de Quantidade */}
+                        <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => decreaseDeviceQty(idx)}
+                            className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black"
+                          >
+                            −
+                          </button>
+                          <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
+                            {device.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => increaseDeviceQty(idx)}
+                            disabled={device.quantity >= maxQty}
+                            className="px-2.5 py-1.5 text-on-surface-variant hover:bg-white/10 hover:text-white transition-all text-xs font-black disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono text-xs font-black text-white">
+                            {(((formData.price_type === 'trade' && stockItem?.trade_in_price) ? stockItem.trade_in_price : device.price) * device.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeDeviceFromSale(idx)}
+                          className="p-1 hover:bg-red-500/10 hover:text-red-400 text-on-surface-variant/60 rounded-lg transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Tipo de Preço (Normal ou com Troca) */}
+          {isSellingCellphone && selectedDevices.some(d => d.category === 'smartphone') && (
+            <div className="md:col-span-2 space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Preço Aplicado</label>
+              <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, price_type: 'trade' }))}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    formData.price_type === 'trade' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
                   )}
-                </div>
+                >
+                  Preço Especial com Troca
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, price_type: 'normal' }))}
+                  className={cn(
+                    "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                    formData.price_type === 'normal' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+                  )}
+                >
+                  Preço Venda Direta
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Modelo do Aparelho - Exibido apenas em vendas de celular/crediário */}
+          {saleType === 'cellphone' && (
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Modelo do Aparelho</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: iPhone 15 Pro Max"
+                value={formData.device_model}
+                onChange={(e) => setFormData(prev => ({ ...prev, device_model: e.target.value }))}
+                readOnly={selectedDevices.length > 0}
+                className={cn(
+                  "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all",
+                  selectedDevices.length > 0 && "opacity-50 cursor-not-allowed"
+                )}
+              />
+            </div>
+          )}
+
+          {/* IMEI / Serial Condicional - Exibido apenas em vendas de celular/crediário */}
+          {saleType === 'cellphone' && showImeiField && (
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+              <input
+                type="text"
+                required
+                placeholder="Número do IMEI"
+                value={formData.imei}
+                onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
+            </div>
+          )}
+
+          {/* Valor Total */}
+          <div className="space-y-2 col-span-1 md:col-span-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Venda (R$)</label>
+            <div className="relative">
+              <input
+                type="number"
+                required
+                placeholder="0.00"
+                value={formData.total_value === 0 ? '' : formData.total_value}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, total_value: val === '' ? 0 : Number(val) }));
+                }}
+                readOnly={!isAdminUnlocked}
+                className={cn(
+                  "w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all pr-36",
+                  !isAdminUnlocked && "opacity-80 cursor-not-allowed"
+                )}
+              />
+              {!isAdminUnlocked && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminAuthError('');
+                    setAdminAuthPassword('');
+                    setAdminAuthEmployeeId('');
+                    setIsAdminAuthModalOpen(true);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all"
+                >
+                  Desbloquear Admin
+                </button>
               )}
             </div>
-          </>
-        )}
-      </div>
+            {isAdminUnlocked && (
+              <span className="text-[10px] text-green-400 font-bold mt-1 block">🔓 Edição liberada pelo Administrador</span>
+            )}
+            {selectedDevices.length > 0 && (
+              <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
+                <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                {profile?.role === 'admin' && (
+                  <>
+                    <span>Custo: <strong className="text-amber-400 font-mono">R$ {costTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                    {costTotal > 0 && (
+                      <span className={cn(
+                        "font-bold",
+                        profitMarginPercent < 0 ? "text-red-400" : "text-green-400"
+                      )}>
+                        Margem: {profitMarginPercent.toFixed(1)}% {profitMarginPercent < 0 ? '[Prejuízo]' : ''}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
-      {/* Preview Section */}
-      {formData.payment_type !== 'vista' && generatedInstallments.length > 0 && (
-        <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
-          {formData.payment_type !== 'card' && (
+          {saleType === 'general' && (
+            <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
+              <div>
+                <p className="text-[10px] font-black text-white uppercase tracking-widest">Desconto de 10% Automático</p>
+                <p className="text-[11px] text-on-surface-variant/70">Aplica 10% de desconto no valor total da venda.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApplyAutoDiscount(prev => !prev)}
+                className={cn(
+                  "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                  applyAutoDiscount
+                    ? "bg-green-500/20 border-green-500/30 text-green-400"
+                    : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+                )}
+              >
+                {applyAutoDiscount ? "Ativo" : "Desativar"}
+              </button>
+            </div>
+          )}
+
+
+
+          {/* Checkbox Receber Aparelho na Troca */}
+          {isSellingCellphone && (
             <>
-              <div className="flex items-center justify-between pb-6 border-b border-white/5">
-                <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação</h4>
-                <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">Taxas MDR Aplicadas</span>
+              <div className="md:col-span-2 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between animate-in fade-in duration-300">
+                <div>
+                  <p className="text-[10px] font-black text-white uppercase tracking-widest">Receber Aparelho de Cliente na Troca (Trade-in)</p>
+                  <p className="text-[11px] text-on-surface-variant/70">Ative para cadastrar os dados do celular usado recebido como abatimento.</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, is_trade_in: !prev.is_trade_in }))}
+                  className={cn(
+                    "px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                    formData.is_trade_in
+                      ? "bg-primary/20 border-primary/30 text-primary"
+                      : "bg-white/5 border-white/10 text-on-surface-variant hover:text-white"
+                  )}
+                >
+                  {formData.is_trade_in ? "Troca Ativa" : "Desativado"}
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                <div>
-                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
-                  <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-                {formData.is_trade_in && (
-                  <div>
-                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Abatimento Troca</p>
-                    <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              {/* Sub-formulário Trade-in */}
+              {formData.is_trade_in && (
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-[32px] animate-in fade-in duration-300">
+                  <div className="md:col-span-3 pb-2 border-b border-white/5">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-wider block">📱 Dados do Celular Recebido (Troca)</span>
                   </div>
-                )}
-                {formData.down_payment > 0 && (
-                  <div>
-                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada Financeira</p>
-                    <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Apple iPhone 11 64GB Preto Usado"
+                      value={formData.trade_in_device_brand}
+                      onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_brand: e.target.value }))}
+                      className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
+                    />
                   </div>
-                )}
-                <div>
-                  <p className="text-[8px] text-primary font-black uppercase tracking-widest mb-1">Saldo Financiado</p>
-                  <p className="text-sm font-black text-primary font-mono">R$ {newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Juros/Serviço (R$)</p>
-                  <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Final</p>
-                  <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              </div>
-              {accessoriesTotal > 0 && (
-                <div className="flex items-center gap-3 p-3 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
-                  <ShoppingBag size={14} className="text-green-400 shrink-0" />
-                  <span className="text-on-surface-variant">Acessórios (venda):</span>
-                  <span className="text-green-400 font-black font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  <span className="text-on-surface-variant ml-auto text-[10px]">incluídos no Valor Final</span>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Curto (Opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: iPhone 11 64GB"
+                      value={formData.trade_in_device_model}
+                      onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_model: e.target.value }))}
+                      className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">IMEI / Serial</label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      placeholder="IMEI de 15 dígitos"
+                      value={formData.trade_in_device_imei}
+                      onChange={(e) => setFormData(prev => ({ ...prev, trade_in_device_imei: e.target.value.replace(/\D/g, '') }))}
+                      className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor de Avaliação (Abatimento) *</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="R$ 0.00"
+                      value={formData.trade_in_valuation === 0 ? '' : formData.trade_in_valuation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, trade_in_valuation: Number(e.target.value) || 0 }))}
+                      className="w-full bg-[#1e1e38] border border-white/10 rounded-2xl px-5 py-4 text-xs text-white focus:border-primary outline-none transition-all font-mono"
+                    />
+                  </div>
+
+
                 </div>
               )}
             </>
           )}
 
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">
-                {gracePeriodInterest > 0 ? `Parcela com carência` : `Plano de ${formData.installments}x`}
-              </p>
-              <p className="text-xl font-black text-white font-mono">
-                R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-              {gracePeriodInterest > 0 && (
-                <p className="text-[9px] text-amber-400 font-black mt-0.5">
-                  * Inclui juros de carência pro-rata distribuídos em todas as parcelas
-                </p>
-              )}
-            </div>
-            <div className="text-right flex gap-6">
-              {formData.is_trade_in && (
-                <div>
-                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Abatimento Troca</p>
-                  <p className="text-sm font-black text-red-400 font-mono">R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada (Dinheiro/Pix)</p>
-                <p className="text-sm font-black text-on-surface-variant font-mono">R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
-            </div>
-          </div>
-
-          {formData.payment_type !== 'card' && gracePeriodInterest > 0 && (
-            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[10px] animate-in fade-in duration-300">
-              <Calendar size={14} className="text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-amber-400 font-black uppercase tracking-wider">Juro de Carência Aplicado</p>
-                <p className="text-on-surface-variant mt-0.5">
-                  Vencimento estendido além de {resolvedUnit?.grace_period_days ?? 30} dias — juro pro-rata de{' '}
-                  <strong className="text-amber-400">
-                    R$ {gracePeriodInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </strong>{' '}
-                  distribuído igualmente em todas as parcelas.
-                </p>
-              </div>
+          {formData.payment_type !== 'vista' && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Entrada Financeira (Dinheiro/PIX) (R$)</label>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={formData.down_payment === 0 ? '' : formData.down_payment}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({ ...prev, down_payment: val === '' ? 0 : Number(val) }));
+                }}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+              />
             </div>
           )}
 
-          {formData.payment_type !== 'card' && (
-            <div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas e valores individualmente:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {generatedInstallments.map((inst, i) => (
-                  <div key={i} className={`p-3 rounded-2xl border ${gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'} flex flex-col gap-2`}>
-                    <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Parcela {inst.number}/{formData.installments}</p>
-                    
-                    {/* Campo interativo para o Valor da Parcela */}
-                    <div className="relative flex items-center">
-                      <span className="absolute left-2.5 text-[10px] text-primary font-bold">R$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={customInstallmentValues[i] !== undefined ? customInstallmentValues[i] : inst.value}
-                        onChange={(e) => handleInstallmentValueChange(i, Number(e.target.value) || 0)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-7 pr-2.5 py-1.5 text-xs font-mono font-bold text-white focus:border-primary outline-none transition-all"
-                      />
-                    </div>
-
-                    <input
-                      type="date"
-                      value={customDueDates[i] || ''}
-                      onChange={(e) => handleDueDateChange(i, e.target.value)}
-                      className="w-full bg-transparent border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Preview Section for cash/pix sale (À Vista) or Debit with Change (Troco) Calculator */}
-      {isCashLike && formData.total_value > 0 && (
-        <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6 animate-in fade-in duration-300">
-          <div className="flex items-center justify-between pb-6 border-b border-white/5">
-            <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{paymentType === 'debit' ? "Resumo da Negociação (Débito)" : "Resumo da Negociação (À Vista)"}</h4>
-            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[8px] font-black text-green-400 uppercase tracking-widest leading-none">Sem Juros</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
-              <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-            {accessoriesTotal > 0 && (
-              <div>
-                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Acessórios (Venda)</p>
-                <p className="text-sm font-black text-green-400 font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Forma de Parcelamento</label>
+            <select
+              value={formData.payment_type}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFormData(prev => {
+                  const isCashLike = val === 'vista' || val === 'debit';
+                  return {
+                    ...prev,
+                    payment_type: val as any,
+                    installments: isCashLike ? 0 : 12,
+                    down_payment: isCashLike ? 0 : prev.down_payment
+                  };
+                });
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+            >
+              {saleType === 'general' ? (
+                <>
+                  <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
+                  <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+                  <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
+                </>
+              ) : (
+                <>
+                  <option
+                    value="crediario"
+                    disabled={selectedCustomer?.classification === 'A_VISTA'}
+                    className="bg-surface-container-high"
+                  >
+                    Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : ''}
+                  </option>
+                  <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+                  <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
+                  <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
+                </>
+              )}
+            </select>
+            {selectedCustomer?.classification === 'A_VISTA' && (
+              <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl mt-1 animate-pulse">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider">
+                  Aviso: Cliente classificado como 'Somente À Vista'. Vendas parceladas não permitidas (sujeito a análise de crédito).
+                </span>
               </div>
             )}
-            <div>
-              <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Total a Pagar</p>
-              <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
           </div>
 
-          {/* Troco Calculator */}
-          <div className="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-4">
-            <h5 className="text-[9px] font-black text-white uppercase tracking-wider">Calculadora de Troco</h5>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Pago pelo Cliente (R$)</label>
-                <div className="relative">
-                  <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    placeholder="0.00"
-                    value={amountPaid === 0 ? '' : amountPaid}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setAmountPaid(val === '' ? 0 : Number(val));
-                    }}
-                    className="w-full bg-[#121214] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-primary outline-none transition-all"
-                  />
-                </div>
+          {formData.payment_type === 'vista' && (
+            <div className="flex items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-2xl animate-in fade-in duration-300">
+              <input
+                type="checkbox"
+                id="isWaitingPickup"
+                checked={isWaitingPickup}
+                onChange={(e) => setIsWaitingPickup(e.target.checked)}
+                className="w-5 h-5 rounded border-white/10 accent-primary text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer"
+              />
+              <label htmlFor="isWaitingPickup" className="text-xs text-on-surface font-medium cursor-pointer select-none">
+                Apenas reservar e aguardar retirada (Pagamento na retirada)
+              </label>
+            </div>
+          )}
+
+          {((formData.payment_type === 'vista' && !isWaitingPickup) || (formData.payment_type !== 'debit' && formData.payment_type !== 'card' && formData.down_payment > 0)) && (
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
+                Forma de Recebimento ({formData.payment_type === 'vista' ? 'Valor Integral' : 'Valor da Entrada'})
+              </label>
+              <select
+                value={formData.payment_method}
+                onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                <option value="money" className="bg-[#121214]">Dinheiro (Físico)</option>
+                <option value="pix" className="bg-[#121214]">PIX (Digital)</option>
+              </select>
+            </div>
+          )}
+
+          {formData.payment_type === 'crediario' && (
+            <div className="space-y-2 animate-in fade-in duration-300">
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tabela de Juros</label>
+              <select
+                value={formData.interest_table}
+                onChange={(e) => setFormData(prev => ({ ...prev, interest_table: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+              >
+                {profile?.role === 'admin' && (
+                  <option value="no_interest" className="bg-surface-container-high">⚪ Sem Juros (0% a.m.)</option>
+                )}
+                <option value="premium" className="bg-surface-container-high">🟢 Premium (5% a.m.)</option>
+                <option value="standard" className="bg-surface-container-high">🟡 Standard (8% a.m.)</option>
+                <option value="flex" className="bg-surface-container-high">🔴 Flex (12% a.m.)</option>
+              </select>
+            </div>
+          )}
+
+          {formData.payment_type !== 'vista' && formData.payment_type !== 'debit' && (
+            <>
+              <div className="space-y-2 animate-in fade-in duration-300">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Parcelas</label>
+                <select
+                  value={formData.installments}
+                  onChange={(e) => setFormData(prev => ({ ...prev, installments: Number(e.target.value) }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
+                >
+                  {availableInstallmentOptions.map(n => (
+                    <option key={n} value={n} className="bg-surface-container-high">{n} Parcela(s)</option>
+                  ))}
+                </select>
               </div>
-              <div className="flex flex-col justify-end">
-                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1 font-sans">Troco a Devolver</p>
-                <p className={cn(
-                  "text-lg font-black font-mono leading-none",
-                  changeValue < 0 ? "text-error" : changeValue > 0 ? "text-green-400" : "text-white"
-                )}>
-                  R$ {changeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-                {amountPaid > 0 && amountPaid < finalValue && (
-                  <p className="text-[9px] text-error font-bold mt-1">Valor pago é menor que o total da venda.</p>
+
+              <div className="space-y-2 animate-in fade-in duration-300">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">1º Vencimento</label>
+                <input
+                  type="date"
+                  value={formData.first_due_date}
+                  onChange={(e) => setFormData(prev => ({ ...prev, first_due_date: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all"
+                />
+              </div>
+            </>
+          )}
+
+          {saleType !== 'general' && (
+            <>
+
+              <div className="md:col-span-2 space-y-3">
+                <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Acessórios Inclusos</label>
+
+                {/* Selected accessories list */}
+                {selectedAccessories.length > 0 && (
+                  <div className="space-y-2">
+                    {selectedAccessories.map(acc => (
+                      <div key={acc.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black text-white truncate">{acc.model}</p>
+                          <p className="text-[10px] text-on-surface-variant">R$ {acc.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                        {/* Brinde / Venda toggle */}
+                        <button
+                          type="button"
+                          onClick={() => toggleAccessoryType(acc.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${acc.type === 'brinde'
+                            ? 'bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20'
+                            : 'bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20'
+                            }`}
+                        >
+                          {acc.type === 'brinde' ? <Gift size={11} /> : <ShoppingBag size={11} />}
+                          {acc.type === 'brinde' ? 'Brinde' : 'Venda'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeAccessory(acc.id)}
+                          className="p-1.5 text-on-surface-variant hover:text-error transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add accessory dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setAccessoryDropdownOpen(prev => !prev)}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 bg-white/5 border border-dashed border-white/20 rounded-2xl text-[10px] font-black text-on-surface-variant hover:text-white hover:border-white/40 transition-all"
+                  >
+                    <Plus size={14} />
+                    Buscar acessório do estoque
+                    {availableAccessories.length > 0 && (
+                      <span className="ml-auto text-[8px] bg-white/10 px-2 py-0.5 rounded-full">{availableAccessories.length} disponíveis</span>
+                    )}
+                  </button>
+
+                  {accessoryDropdownOpen && (
+                    <div className="absolute z-20 top-full mt-2 w-full bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+                      <div className="p-3 border-b border-white/5">
+                        <input
+                          type="text"
+                          placeholder="Buscar por nome ou marca..."
+                          value={accessorySearch}
+                          onChange={e => setAccessorySearch(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                            }
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {filteredAccessories.length === 0 ? (
+                          <p className="text-[10px] text-on-surface-variant text-center p-4">Nenhum item encontrado no estoque</p>
+                        ) : (
+                          filteredAccessories.map(item => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => addAccessory(item)}
+                              disabled={!!selectedAccessories.find(a => a.id === item.id)}
+                              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 text-left transition-all disabled:opacity-40"
+                            >
+                              <div>
+                                <p className="text-xs font-black text-white">{item.model}</p>
+                                <p className="text-[9px] text-on-surface-variant">{item.brand} · Estoque: {item.stock_quantity}</p>
+                              </div>
+                              <span className="text-xs font-black text-primary font-mono">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedAccessories.length > 0 && (
+                  <div className="flex items-center justify-between text-[10px] px-1">
+                    <span className="text-on-surface-variant">
+                      {selectedAccessories.filter(a => a.type === 'brinde').length} brinde(s) · {selectedAccessories.filter(a => a.type === 'venda').length} venda(s)
+                    </span>
+                    {accessoriesTotal > 0 && (
+                      <span className="text-green-400 font-black">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adicionado ao total</span>
+                    )}
+                  </div>
                 )}
               </div>
+            </>
+          )}
+        </div>
+
+        {/* Preview Section */}
+        {formData.payment_type !== 'vista' && generatedInstallments.length > 0 && (
+          <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
+            {formData.payment_type !== 'card' && (
+              <>
+                <div className="flex items-center justify-between pb-6 border-b border-white/5">
+                  <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Resumo da Negociação</h4>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[8px] font-black text-primary uppercase tracking-widest leading-none">Taxas MDR Aplicadas</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                  <div>
+                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
+                    <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  {formData.is_trade_in && (
+                    <div>
+                      <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Abatimento Troca</p>
+                      <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  )}
+                  {formData.down_payment > 0 && (
+                    <div>
+                      <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada Financeira</p>
+                      <p className="text-sm font-black text-red-400 font-mono">- R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[8px] text-primary font-black uppercase tracking-widest mb-1">Saldo Financiado</p>
+                    <p className="text-sm font-black text-primary font-mono">R$ {newFinancedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Juros/Serviço (R$)</p>
+                    <p className="text-sm font-black text-primary font-mono">+ R$ {feeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Final</p>
+                    <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+                {accessoriesTotal > 0 && (
+                  <div className="flex items-center gap-3 p-3 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
+                    <ShoppingBag size={14} className="text-green-400 shrink-0" />
+                    <span className="text-on-surface-variant">Acessórios (venda):</span>
+                    <span className="text-green-400 font-black font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-on-surface-variant ml-auto text-[10px]">incluídos no Valor Final</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+              <div>
+                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">
+                  {gracePeriodInterest > 0 ? `Parcela com carência` : `Plano de ${formData.installments}x`}
+                </p>
+                <p className="text-xl font-black text-white font-mono">
+                  R$ {firstInstallmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                {gracePeriodInterest > 0 && (
+                  <p className="text-[9px] text-amber-400 font-black mt-0.5">
+                    * Inclui juros de carência pro-rata distribuídos em todas as parcelas
+                  </p>
+                )}
+              </div>
+              <div className="text-right flex gap-6">
+                {formData.is_trade_in && (
+                  <div>
+                    <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Abatimento Troca</p>
+                    <p className="text-sm font-black text-red-400 font-mono">R$ {formData.trade_in_valuation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Entrada (Dinheiro/Pix)</p>
+                  <p className="text-sm font-black text-on-surface-variant font-mono">R$ {formData.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+            </div>
+
+            {formData.payment_type !== 'card' && gracePeriodInterest > 0 && (
+              <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[10px] animate-in fade-in duration-300">
+                <Calendar size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-amber-400 font-black uppercase tracking-wider">Juro de Carência Aplicado</p>
+                  <p className="text-on-surface-variant mt-0.5">
+                    Vencimento estendido além de {resolvedUnit?.grace_period_days ?? 30} dias — juro pro-rata de{' '}
+                    <strong className="text-amber-400">
+                      R$ {gracePeriodInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </strong>{' '}
+                    distribuído igualmente em todas as parcelas.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {formData.payment_type !== 'card' && (
+              <div>
+                <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-3">📅 Vencimentos — ajuste as datas e valores individualmente:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {generatedInstallments.map((inst, i) => (
+                    <div key={i} className={`p-3 rounded-2xl border ${gracePeriodInterest > 0 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-white/5 border-white/5'} flex flex-col gap-2`}>
+                      <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest">Parcela {inst.number}/{formData.installments}</p>
+
+                      {/* Campo interativo para o Valor da Parcela */}
+                      <div className="relative flex items-center">
+                        <span className="absolute left-2.5 text-[10px] text-primary font-bold">R$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={customInstallmentValues[i] !== undefined ? customInstallmentValues[i] : inst.value}
+                          onChange={(e) => handleInstallmentValueChange(i, Number(e.target.value) || 0)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl pl-7 pr-2.5 py-1.5 text-xs font-mono font-bold text-white focus:border-primary outline-none transition-all"
+                        />
+                      </div>
+
+                      <input
+                        type="date"
+                        value={customDueDates[i] || ''}
+                        onChange={(e) => handleDueDateChange(i, e.target.value)}
+                        className="w-full bg-transparent border border-white/10 rounded-xl px-2.5 py-1.5 text-[11px] font-black text-white focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Preview Section for cash/pix sale (À Vista) or Debit with Change (Troco) Calculator */}
+        {isCashLike && formData.total_value > 0 && (
+          <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between pb-6 border-b border-white/5">
+              <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{paymentType === 'debit' ? "Resumo da Negociação (Débito)" : "Resumo da Negociação (À Vista)"}</h4>
+              <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[8px] font-black text-green-400 uppercase tracking-widest leading-none">Sem Juros</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Preço Base (Aparelho)</p>
+                <p className="text-sm font-black text-white font-mono">R$ {formData.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+              {accessoriesTotal > 0 && (
+                <div>
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Acessórios (Venda)</p>
+                  <p className="text-sm font-black text-green-400 font-mono">+ R$ {accessoriesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1">Valor Total a Pagar</p>
+                <p className="text-sm font-black text-white font-mono">R$ {finalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+
+            {/* Troco Calculator */}
+            <div className="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+              <h5 className="text-[9px] font-black text-white uppercase tracking-wider">Calculadora de Troco</h5>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Valor Pago pelo Cliente (R$)</label>
+                  <div className="relative">
+                    <DollarSign size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant opacity-60" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={amountPaid === 0 ? '' : amountPaid}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setAmountPaid(val === '' ? 0 : Number(val));
+                      }}
+                      className="w-full bg-[#121214] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:border-primary outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col justify-end">
+                  <p className="text-[8px] text-on-surface-variant font-black uppercase tracking-widest mb-1 font-sans">Troco a Devolver</p>
+                  <p className={cn(
+                    "text-lg font-black font-mono leading-none",
+                    changeValue < 0 ? "text-error" : changeValue > 0 ? "text-green-400" : "text-white"
+                  )}>
+                    R$ {changeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  {amountPaid > 0 && amountPaid < finalValue && (
+                    <p className="text-[9px] text-error font-bold mt-1">Valor pago é menor que o total da venda.</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-        <button 
-          type="button"
-          onClick={onCancel}
-          className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
-        >
-          Cancelar
-        </button>
-        <button 
-          type="submit"
-          className="w-full sm:flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
-        >
-          <Save size={16} /> {initialData ? 'Atualizar Venda' : 'Finalizar Venda'}
-        </button>
-      </div>
-    </form>
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface-variant hover:text-white transition-all"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="w-full sm:flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+          >
+            <Save size={16} /> {initialData ? 'Atualizar Venda' : 'Finalizar Venda'}
+          </button>
+        </div>
+      </form>
 
       {/* Modal de Cadastro Rápido de Cliente */}
       {isQuickCustomerOpen && (
@@ -2516,15 +2574,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 </div>
                 <h3 className="text-lg font-black text-white uppercase tracking-tight font-display">Cadastro Rápido de Cliente</h3>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsQuickCustomerOpen(false)}
                 className="p-1.5 hover:bg-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all"
               >
                 <X size={18} />
               </button>
             </div>
-            
+
             <form onSubmit={handleQuickCustomerSave} className="p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nome Completo</label>
@@ -2603,15 +2661,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 </div>
                 <h3 className="text-lg font-black text-white uppercase tracking-tight font-display">Cadastro Rápido de Produto</h3>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsQuickProductOpen(false)}
                 className="p-1.5 hover:bg-white/5 rounded-xl text-on-surface-variant hover:text-white transition-all"
               >
                 <X size={18} />
               </button>
             </div>
-            
+
             <form onSubmit={handleQuickProductSave} className="p-6 space-y-4 text-left">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição do Item</label>
@@ -2774,8 +2832,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           <div className="bg-[#121224] border border-white/10 rounded-[28px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <h4 className="text-sm font-black text-white uppercase tracking-wider font-display">Novo Fornecedor</h4>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsQuickSupplierOpen(false)}
                 className="p-1 hover:bg-white/5 rounded-lg text-on-surface-variant hover:text-white transition-all"
               >
@@ -2821,7 +2879,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               <UserCheck size={28} />
               <h3 className="text-md font-black uppercase tracking-wider">Assinatura do Colaborador</h3>
             </div>
-            
+
             <p className="text-xs text-on-surface-variant leading-relaxed">
               Para registrar esta transação, selecione seu nome e confirme sua senha de acesso.
             </p>
@@ -2907,7 +2965,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               <UserCheck size={28} />
               <h3 className="text-md font-black uppercase tracking-wider">Autorização do Administrador</h3>
             </div>
-            
+
             <p className="text-xs text-on-surface-variant leading-relaxed">
               Esta ação requer autorização de um administrador. Selecione um usuário admin e digite a senha.
             </p>

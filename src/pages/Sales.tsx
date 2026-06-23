@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import {
@@ -21,6 +21,8 @@ import { formatCPF, formatPhone, resolveUnitInfo } from '../lib/utils';
 import SaleForm from '../components/sales/SaleForm';
 import ContractPrint from '../components/sales/ContractPrint';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
+import SaleReceiptPrint from '../components/sales/SaleReceiptPrint';
+import { supabase } from '../lib/supabase';
 
 function SyncButton({ instId }: { instId: string }) {
   const [loading, setLoading] = useState(false);
@@ -315,6 +317,23 @@ function SaleDocumentViewer({
   const [activeTab, setActiveTab] = useState<'contract' | 'receipt' | 'pix_carne'>(
     sale.payment_type === 'vista' ? 'receipt' : 'contract'
   );
+  const [receiptFormat, setReceiptFormat] = useState<'a4' | 'thermal'>('a4');
+  const [sellerName, setSellerName] = useState<string>('');
+
+  useEffect(() => {
+    if (sale.seller_id) {
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', sale.seller_id)
+        .single()
+        .then(({ data }) => {
+          if (data?.full_name) {
+            setSellerName(data.full_name);
+          }
+        });
+    }
+  }, [sale.seller_id]);
 
   useEffect(() => {
     if (activeTab === 'pix_carne' && installments.length > 0) {
@@ -448,6 +467,7 @@ function SaleDocumentViewer({
       .join('\n');
 
     const isReceipt = activeTab === 'receipt';
+    const isThermal = isReceipt && receiptFormat === 'thermal';
 
     printWindow.document.write(`
       <html>
@@ -459,14 +479,14 @@ function SaleDocumentViewer({
             body { background: #fff !important; color: #000 !important; font-family: sans-serif; margin: 0; padding: 0; }
             @media print {
               .no-print { display: none; }
-              ${isReceipt ? `
+              ${isThermal ? `
                 @page { size: 80mm auto; margin: 0; }
                 body { width: 80mm; }
                 .thermal-receipt, html, body { page-break-inside: avoid !important; break-inside: avoid !important; }
               ` : `
                 @page { size: A4; margin: 0 !important; }
                 body { margin: 0 !important; padding: 0 !important; }
-                .contract-page, .pix-slip-page {
+                .contract-page, .pix-slip-page, .a4-receipt {
                   page-break-after: always !important;
                   break-after: page !important;
                   height: 297mm !important;
@@ -478,7 +498,7 @@ function SaleDocumentViewer({
                   color: #000000 !important;
                   margin: 0 !important;
                 }
-                .contract-page:last-child, .pix-slip-page:last-child {
+                .contract-page:last-child, .pix-slip-page:last-child, .a4-receipt:last-child {
                   page-break-after: avoid !important;
                   break-after: avoid !important;
                 }
@@ -487,7 +507,7 @@ function SaleDocumentViewer({
           </style>
         </head>
         <body>
-          <div id="sale-document-preview-area" style="${isReceipt ? 'width: 80mm; margin: 0;' : 'max-width: 800px; margin: 0 auto;'}">
+          <div id="sale-document-preview-area" style="${isThermal ? 'width: 80mm; margin: 0;' : 'max-width: 800px; margin: 0 auto;'}">
             ${element.innerHTML}
           </div>
           <script>
@@ -568,6 +588,25 @@ function SaleDocumentViewer({
             </span>
           )}
         </div>
+
+        {activeTab === 'receipt' && (
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 gap-1 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setReceiptFormat('a4')}
+              className={`px-3 py-1.5 rounded-lg font-black uppercase tracking-widest text-[8px] sm:text-[9px] transition-all ${receiptFormat === 'a4' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'}`}
+            >
+              A4 Premium (Padrão)
+            </button>
+            <button
+              type="button"
+              onClick={() => setReceiptFormat('thermal')}
+              className={`px-3 py-1.5 rounded-lg font-black uppercase tracking-widest text-[8px] sm:text-[9px] transition-all ${receiptFormat === 'thermal' ? 'bg-white text-black' : 'text-on-surface-variant hover:text-white'}`}
+            >
+              Cupom (80mm)
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20 self-start sm:self-auto">
           <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -814,385 +853,38 @@ function SaleDocumentViewer({
               )}
             </div>
           ) : (
-            /* Nota de Venda / Recibo de 80mm */
-            <div className="thermal-receipt bg-white text-black text-left" style={{ width: '80mm', fontFamily: 'Arial, sans-serif', padding: '10px' }}>
-              <style dangerouslySetInnerHTML={{ __html: `
-                #sale-document-preview-area .thermal-receipt {
-                  width: 80mm;
-                  margin: 0 auto;
-                  padding: 3mm;
-                  box-sizing: border-box;
-                  font-family: Arial, sans-serif;
-                  font-size: 10.5px;
-                  color: #000;
-                  background: #fff;
-                  line-height: 1.3;
-                  font-weight: bold;
-                }
-                #sale-document-preview-area .copy-indicator {
-                  text-align: center;
-                  font-weight: bold;
-                  font-size: 10px;
-                  border: 1px solid #000;
-                  padding: 2px;
-                  margin-bottom: 8px;
-                  letter-spacing: 1px;
-                }
-                #sale-document-preview-area .header-center {
-                  text-align: center;
-                  margin-bottom: 6px;
-                }
-                #sale-document-preview-area .brand-name {
-                  font-size: 18px;
-                  font-weight: 900;
-                  letter-spacing: -1px;
-                  margin-bottom: 2px;
-                }
-                #sale-document-preview-area .brand-sub {
-                  font-size: 8px;
-                  letter-spacing: 1px;
-                  margin-bottom: 6px;
-                }
-                #sale-document-preview-area .unit-details {
-                  font-size: 9px;
-                  color: #333;
-                }
-                #sale-document-preview-area .receipt-title {
-                  font-size: 13px;
-                  font-weight: bold;
-                  margin-top: 4px;
-                }
-                #sale-document-preview-area .receipt-num {
-                  font-size: 10px;
-                  font-weight: bold;
-                }
-                #sale-document-preview-area .receipt-date {
-                  font-size: 9px;
-                }
-                #sale-document-preview-area .divider {
-                  border-top: 1px dashed #000;
-                  margin: 6px 0;
-                }
-                #sale-document-preview-area .double-divider {
-                  border-top: 1px double #000;
-                  border-bottom: 1px double #000;
-                  height: 3px;
-                  margin: 6px 0;
-                }
-                #sale-document-preview-area .section-title {
-                  font-weight: bold;
-                  text-transform: uppercase;
-                  margin-bottom: 4px;
-                  font-size: 9px;
-                  letter-spacing: 0.5px;
-                  text-decoration: underline;
-                }
-                #sale-document-preview-area .row {
-                  display: flex;
-                  justify-content: space-between;
-                  margin: 2px 0;
-                }
-                #sale-document-preview-area .align-right {
-                  text-align: right;
-                  max-width: 60%;
-                  word-wrap: break-word;
-                }
-                #sale-document-preview-area .font-mono {
-                  font-family: monospace;
-                }
-                #sale-document-preview-area .text-small {
-                  font-size: 8.5px;
-                }
-                #sale-document-preview-area .trade-box {
-                  background: #f0f0f0;
-                  border: 1px dashed #000;
-                  padding: 4px;
-                  margin: 2px 0;
-                  font-size: 8.5px;
-                }
-                #sale-document-preview-area .total-box {
-                  border: 2px solid #000;
-                  padding: 5px;
-                  margin: 6px 0;
-                  text-align: center;
-                }
-                #sale-document-preview-area .total-label {
-                  font-size: 8.5px;
-                  font-weight: bold;
-                }
-                #sale-document-preview-area .total-val {
-                  font-size: 16px;
-                  font-weight: bold;
-                }
-                #sale-document-preview-area .discount-info {
-                  font-size: 8.5px;
-                  border: 1px dotted #000;
-                  padding: 4px;
-                  margin-top: 6px;
-                  line-height: 1.2;
-                }
-                #sale-document-preview-area .discount-title {
-                  font-weight: bold;
-                }
-                #sale-document-preview-area .sig-line-box {
-                  margin-top: 20px;
-                  text-align: center;
-                }
-                #sale-document-preview-area .sig-line {
-                  border-top: 1px solid #000;
-                  width: 80%;
-                  margin: 0 auto 4px auto;
-                }
-                #sale-document-preview-area .sig-label {
-                  font-size: 8.5px;
-                  line-height: 1.1;
-                  display: block;
-                }
-                #sale-document-preview-area .footer-note {
-                  font-size: 8px;
-                  text-align: center;
-                  margin-top: 8px;
-                  line-height: 1.2;
-                }
-              `}} />
-
-              {/* Copy Indicator */}
-              <div className="copy-indicator">COMPROVANTE DE VENDA</div>
-
-              {/* Company Header */}
-              {(() => {
-                const cleanUnitName = (resolvedUnit.name || 'MDR').replace(/MDR\s*(Informática\s*(e|&)\s*Celulares)?\s*-\s*/gi, '').toUpperCase();
-                return (
-                  <div className="header-center">
-                    <div className="brand-name">MDR</div>
-                    <div className="brand-sub">INFORMÁTICA &amp; CELULARES</div>
-                    <div className="unit-details" style={{ fontSize: '9px', lineHeight: '1.25', color: '#333' }}>
-                      <strong>LOJA: {cleanUnitName}</strong>
-                      {resolvedUnit.cnpj && <> | CNPJ: {resolvedUnit.cnpj}</>}
-                      {resolvedUnit.phone && <> | Tel: {formatPhone(resolvedUnit.phone)}</>}
-                      <br />
-                      {resolvedUnit.address}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="double-divider"></div>
-
-              {/* Title and Meta */}
-              <div className="header-center">
-                <div className="receipt-title">NOTA DE VENDA</div>
-                <div className="receipt-num">N° #{receiptNumber}</div>
-                <div className="receipt-date">Data: {today}</div>
-              </div>
-
-              <div className="divider"></div>
-
-              {/* Buyer Section */}
-              <div className="section-title">DADOS DO CLIENTE</div>
-              <div className="row">
-                <span>Nome:</span>
-                <span className="align-right">{customer.name}</span>
-              </div>
-              <div className="row">
-                <span>CPF:</span>
-                <span className="align-right font-mono">{formatCPF(customer.cpf)}</span>
-              </div>
-              <div className="row">
-                <span>Tel:</span>
-                <span className="align-right font-mono">{formatPhone(customer.phone)}</span>
-              </div>
-              {customer.address && (
-                <div className="row">
-                  <span>Endereço:</span>
-                  <span className="align-right">{customer.address}</span>
-                </div>
-              )}
-
-              <div className="divider"></div>
-
-              {/* Product Section */}
-              <div className="section-title">PRODUTOS E SERVIÇOS</div>
-              <div className="row">
-                <span>Aparelho:</span>
-                <span className="align-right">{sale.device_model}</span>
-              </div>
-              <div className="row">
-                <span>IMEI/Serial:</span>
-                <span className="align-right font-mono">{sale.imei || '—'}</span>
-              </div>
-              {sale.device_color && (
-                <div className="row">
-                  <span>Cor:</span>
-                  <span className="align-right">{sale.device_color}</span>
-                </div>
-              )}
-              {(() => {
-                const cleanedAccessories = sale.accessories
-                  ? sale.accessories
-                      .split('|')
-                      .map(item => item.trim())
-                      .filter(item => item && !(item.startsWith('[') && item.endsWith(']')))
-                      .join(' | ')
-                  : '';
-                if (!cleanedAccessories) return null;
-                return (
-                  <div className="row">
-                    <span>Acessórios:</span>
-                    <span className="align-right text-small">{cleanedAccessories}</span>
-                  </div>
-                );
-              })()}
-              <div className="row">
-                <span>Pagamento:</span>
-                <span className="align-right">{getPaymentLabel(sale.payment_type)}</span>
-              </div>
-
-              <div className="divider"></div>
-
-              {/* Financial Details */}
-              <div className="section-title">RESUMO FINANCEIRO</div>
-              <div className="row">
-                <span>Preço Base:</span>
-                <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </div>
-              
-              {sale.down_payment > 0 && (
-                <>
-                  <div className="row">
-                    <span>Entrada:</span>
-                    <span className="align-right font-mono">R$ {sale.down_payment.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  {downPaymentMethod === 'trade' && (
-                    <div className="trade-box">
-                      Recebido: {tradeDeviceModel} (IMEI: {tradeDeviceImei || 'N/A'})
-                    </div>
-                  )}
-                </>
-              )}
-
-              {sale.is_trade_in && (
-                <>
-                  <div className="row" style={{ color: '#dc2626', fontWeight: 'bold' }}>
-                    <span>Valor da Troca (Dedução):</span>
-                    <span className="align-right font-mono">- R$ {Number(sale.trade_in_valuation).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="trade-box">
-                    Troca: {sale.trade_in_device_brand} {sale.trade_in_device_model} {sale.trade_in_device_imei ? `(IMEI: ${sale.trade_in_device_imei})` : ''}
-                  </div>
-                </>
-              )}
-
-              {sale.payment_type === 'crediario' && (
-                <>
-                  <div className="row">
-                    <span>Saldo Financiado:</span>
-                    <span className="align-right font-mono">R$ {financed.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  {(() => {
-                    if (installments && installments.length > 0) {
-                      const firstVal = installments[0].value;
-                      const allSame = installments.every(inst => inst.value === firstVal);
-                      if (allSame) {
-                        return (
-                          <div className="row">
-                            <span>Parcelas:</span>
-                            <span className="align-right font-mono">{sale.installments}x de R$ {firstVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          </div>
-                        );
-                      }
-                      const rest = installments.slice(1);
-                      const restVal = rest[0]?.value;
-                      const restAllSame = rest.every(inst => inst.value === restVal);
-                      if (restAllSame && restVal !== undefined) {
-                        return (
-                          <>
-                            <div className="row">
-                              <span>1ª Parcela:</span>
-                              <span className="align-right font-mono">R$ {firstVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            {sale.installments > 1 && (
-                              <div className="row">
-                                <span>Parcelas 2-{sale.installments}:</span>
-                                <span className="align-right font-mono">{sale.installments - 1}x de R$ {restVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                              </div>
-                            )}
-                          </>
-                        );
-                      }
-                      return (
-                        <div className="space-y-0.5">
-                          {installments.map((inst, idx) => (
-                            <div className="row text-small" key={idx}>
-                              <span>Parcela {inst.number || idx + 1}:</span>
-                              <span className="align-right font-mono">R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="row">
-                        <span>Parcelas:</span>
-                        <span className="align-right font-mono">{sale.installments}x de R$ {instValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                    );
-                  })()}
-                  <div className="row">
-                    <span>1º Vencimento:</span>
-                    <span className="align-right font-mono">{installmentDates[0] || today}</span>
-                  </div>
-                </>
-              )}
-
-              {sale.payment_type === 'card' && (
-                <div className="row">
-                  <span>Parcelamento:</span>
-                  <span className="align-right font-mono">{sale.installments}x no Cartão</span>
-                </div>
-              )}
-
-              {sale.payment_type === 'vista' && (sale as any).amount_paid > 0 && (
-                <>
-                  <div className="row">
-                    <span>Valor Recebido:</span>
-                    <span className="align-right font-mono">R$ {(sale as any).amount_paid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="row">
-                    <span>Troco:</span>
-                    <span className="align-right font-mono">R$ {(sale as any).change_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                </>
-              )}
-
-              <div className="divider"></div>
-
-              {/* Total Box */}
-              <div className="total-box">
-                <div className="total-label">VALOR TOTAL</div>
-                <div className="total-val">R$ {sale.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              </div>
-              <div className="divider"></div>
-
-              {/* Signatures */}
-              <div className="sig-line-box" style={{ marginTop: '50px' }}>
-                <div className="sig-line"></div>
-                <span className="sig-label">{resolvedUnit.name || 'MDR Informática & Celulares'}<br />Vendedor / Responsável</span>
-              </div>
-
-              <div className="sig-line-box" style={{ marginTop: '50px' }}>
-                <div className="sig-line"></div>
-                <span className="sig-label">{customer.name}<br />Comprador</span>
-              </div>
-
-              <div className="divider"></div>
-
-              {/* Footer Note */}
-              <div className="footer-note">
-                Comprovante emitido por MDR Informática e Celulares.<br />
-                O aparelho é propriedade do vendedor até a quitação total das parcelas.
-              </div>
-            </div>
+            <SaleReceiptPrint
+              sale={{
+                device_model: (sale as any).device_model_manual || sale.device_model || '',
+                imei: (sale as any).imei_manual || sale.imei || '',
+                total_value: sale.total_value,
+                original_price: sale.original_price,
+                down_payment: sale.down_payment,
+                installments: sale.installments,
+                service_fee: sale.service_fee,
+                date: sale.date || '',
+                device_color: (sale as any).device_color,
+                accessories: sale.accessories,
+                payment_type: sale.payment_type,
+                down_payment_method: downPaymentMethod,
+                trade_device_model: tradeDeviceModel,
+                trade_device_imei: tradeDeviceImei,
+                interest_table: interestTable,
+                is_trade_in: sale.is_trade_in,
+                trade_in_valuation: sale.trade_in_valuation,
+                trade_in_device_brand: (sale as any).trade_in_device_brand,
+                trade_in_device_model: (sale as any).trade_in_device_model,
+                trade_in_device_imei: (sale as any).trade_in_device_imei
+              }}
+              customer={customer}
+              unit={unit}
+              installmentValue={instValue}
+              firstInstallmentValue={firstInstValue}
+              sellerName={sellerName}
+              installments={installments}
+              layout={receiptFormat}
+              isPreview={true}
+            />
           )}
         </div>
       </div>
@@ -1306,6 +998,10 @@ export default function Sales() {
   const { installments, fetchInstallments } = useFinanceStore();
   const { units, fetchAllUnits } = useUnitStore();
   const { profile } = useAuthStore();
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
+  const isAdmin = profile?.role === 'admin';
+  const activeUnitFilter = isAdmin ? selectedUnitId : (profile?.unit_id || 'all');
+
   const { showNotification, showModal, hideModal } = useUI();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
   const { activeShift, fetchActiveShift } = useCashStore();
@@ -1341,7 +1037,7 @@ export default function Sales() {
   }, [fetchUserPermissions]);
 
   useEffect(() => {
-    const unitId = profile?.unit_id || undefined;
+    const unitId = profile?.role === 'admin' ? undefined : (profile?.unit_id || undefined);
     fetchSales(unitId);
     fetchCustomers(unitId);
     fetchInstallments(unitId);
@@ -1349,9 +1045,25 @@ export default function Sales() {
     if (profile?.unit_id) {
       fetchActiveShift(profile.unit_id);
     }
-  }, [profile?.unit_id, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits, fetchActiveShift]);
+  }, [profile?.unit_id, profile?.role, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits, fetchActiveShift]);
+
+  const salesForMetrics = useMemo(() => {
+    return sales.filter(s => activeUnitFilter === 'all' || s.unit_id === activeUnitFilter);
+  }, [sales, activeUnitFilter]);
+
+  const volumeBreakdown = useMemo(() => {
+    if (!isAdmin || units.length === 0) return null;
+    return units.map(u => {
+      const val = sales.filter(s => s.unit_id === u.id).reduce((acc, s) => acc + s.total_value, 0);
+      const shortName = u.name.toUpperCase().includes('GAIVOTA') ? 'Gaivota' : u.name.toUpperCase().includes('ARROIO') ? 'Arroio' : u.name;
+      return `${shortName}: R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    }).join(' • ');
+  }, [sales, units, isAdmin]);
 
   const filteredSales = sales.filter(s => {
+    const matchesUnit = activeUnitFilter === 'all' || s.unit_id === activeUnitFilter;
+    if (!matchesUnit) return false;
+
     const matchesSearch = (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       s.device_model.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.imei.includes(searchTerm);
@@ -1522,10 +1234,10 @@ export default function Sales() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
         {[
-          { id: 'all', label: 'Volume de Vendas', value: `R$ ${sales.reduce((acc, s) => acc + s.total_value, 0).toLocaleString('pt-BR')}`, icon: ShoppingBag, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
-          { id: 'waiting_pickup', label: 'Aguardando Retirada', value: sales.filter(s => s.status === 'waiting_pickup').length.toString(), icon: Clock, color: 'text-warning', activeBorder: 'border-warning/50 shadow-warning/5', activeBar: 'bg-warning' },
-          { id: 'completed', label: 'Entregues / Em Dia', value: sales.filter(s => s.status === 'completed').length.toString(), icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
-          { id: 'overdue', label: 'Contratos Atrasados', value: sales.filter(s => s.status === 'overdue').length.toString(), icon: ShieldCheck, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
+          { id: 'all', label: 'Volume de Vendas', value: `R$ ${salesForMetrics.reduce((acc, s) => acc + s.total_value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: ShoppingBag, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
+          { id: 'waiting_pickup', label: 'Aguardando Retirada', value: salesForMetrics.filter(s => s.status === 'waiting_pickup').length.toString(), icon: Clock, color: 'text-warning', activeBorder: 'border-warning/50 shadow-warning/5', activeBar: 'bg-warning' },
+          { id: 'completed', label: 'Entregues / Em Dia', value: salesForMetrics.filter(s => s.status === 'completed').length.toString(), icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
+          { id: 'overdue', label: 'Contratos Atrasados', value: salesForMetrics.filter(s => s.status === 'overdue').length.toString(), icon: ShieldCheck, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
         ].map((stat, idx) => {
           const isActive = statusFilter === stat.id;
           return (
@@ -1542,6 +1254,9 @@ export default function Sales() {
               </div>
               <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
               <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{stat.value}</h3>
+              {stat.id === 'all' && volumeBreakdown && (
+                <p className="text-[9px] font-bold text-primary mt-2 uppercase tracking-wide opacity-80">{volumeBreakdown}</p>
+              )}
             </div>
           );
         })}
@@ -1559,6 +1274,26 @@ export default function Sales() {
               className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
             />
           </div>
+          {isAdmin && units.length > 0 && (
+            <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-[200px] w-full md:w-auto">
+              <span className="text-primary shrink-0">🏪</span>
+              <select
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+                className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-8 font-display font-black uppercase tracking-wider"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right center',
+                }}
+              >
+                <option value="all" className="bg-[#0f0f1a] text-white">Todas as Unidades</option>
+                {units.map(u => (
+                  <option key={u.id} value={u.id} className="bg-[#0f0f1a] text-white">{u.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">

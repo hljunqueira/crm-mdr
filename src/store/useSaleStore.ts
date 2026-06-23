@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { api } from '../lib/api';
 import { useInventoryStore } from './useInventoryStore';
+import { useAuthStore } from './useAuthStore';
+
 
 export interface Sale {
   id: string;
@@ -74,7 +76,12 @@ export const useSaleStore = create<SaleState>()((set) => ({
         trade_in_valuation: Number(s.trade_in_valuation) || 0,
         trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0
       }));
-      set({ sales: mappedSales });
+      const role = useAuthStore.getState().profile?.role;
+      const filteredSales = (_unitId && role !== 'admin')
+        ? mappedSales.filter((s: any) => s.unit_id === _unitId)
+        : mappedSales;
+
+      set({ sales: filteredSales });
     } catch (error) {
       console.error('Error fetching sales:', error);
     } finally {

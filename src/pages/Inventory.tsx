@@ -1175,7 +1175,12 @@ function InventoryTransfer({ item, onSuccess }: { item: InventoryItem; onSuccess
             stock_quantity: qty,
             imei: item.imei || '',
             barcode: item.barcode || '',
-            status: 'available'
+            status: 'available',
+            short_name: item.short_name,
+            description: item.description,
+            trade_in_price: item.trade_in_price,
+            notes: item.notes,
+            supplier: item.supplier
           });
         }
       }
