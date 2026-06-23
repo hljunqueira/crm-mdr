@@ -285,4 +285,352 @@ router.post("/quotas", async (req, res) => {
   }
 });
 
+// 6. GET /api/scp/dashboard/:profile_id — Obter dados consolidados do investidor para o dashboard
+router.get("/dashboard/:profile_id", async (req, res) => {
+  try {
+    const { profile_id } = req.params;
+
+    // 1. Get Wallet
+    const { data: wallet, error: walletError } = await supabase
+      .from("wallets")
+      .select("balance, future_receipts")
+      .eq("profile_id", profile_id)
+      .maybeSingle();
+
+    if (walletError) throw walletError;
+
+    const walletData = wallet || { balance: 0, future_receipts: 0 };
+
+    // 2. Get Investor Quotas and associated Lots
+    const { data: quotas, error: quotasError } = await supabase
+      .from("investor_quotas")
+      .select(`
+        id,
+        amount_invested,
+        ownership_percentage,
+        contract_url,
+        lot:lots (
+          id,
+          title,
+          status
+        )
+      `)
+      .eq("profile_id", profile_id);
+
+    if (quotasError) throw quotasError;
+
+    const lotsList = [];
+
+    if (quotas) {
+      for (const q of quotas) {
+        if (!q.lot) continue;
+        const lot: any = q.lot;
+
+        // Fetch devices in this lot
+        const { data: devices, error: devError } = await supabase
+          .from("devices")
+          .select("id, status")
+          .eq("lot_id", lot.id);
+
+        const totalProducts = devices ? devices.length : 0;
+        const soldProducts = devices ? devices.filter(d => d.status === "sold").length : 0;
+
+        // Fetch installments for devices in this lot
+        let healthRate = 100.0;
+        if (devices && devices.length > 0) {
+          const deviceIds = devices.map(d => d.id);
+          const { data: sales, error: salesError } = await supabase
+            .from("sales")
+            .select("id")
+            .in("device_id", deviceIds);
+
+          if (sales && sales.length > 0) {
+            const saleIds = sales.map(s => s.id);
+            const { data: insts, error: instsError } = await supabase
+              .from("installments")
+              .select("status")
+              .in("sale_id", saleIds);
+
+            if (insts && insts.length > 0) {
+              const activeInsts = insts.filter(i => i.status !== "cancelled");
+              if (activeInsts.length > 0) {
+                const healthyInsts = activeInsts.filter(i => i.status !== "overdue" && i.status !== "blocked");
+                healthRate = Number(((healthyInsts.length / activeInsts.length) * 100).toFixed(1));
+              }
+            }
+          }
+        }
+
+        lotsList.push({
+          id: lot.id,
+          quotaId: q.id,
+          title: lot.title,
+          amountInvested: Number(q.amount_invested),
+          ownershipPercentage: Number(q.ownership_percentage) * 100, // stored as fraction e.g. 0.15
+          totalProducts,
+          soldProducts,
+          healthRate,
+          status: lot.status,
+          contractUrl: q.contract_url
+        });
+      }
+    }
+
+    // 3. Get Recent Transactions
+    const { data: transactions, error: txError } = await supabase
+      .from("wallet_transactions")
+      .select("id, type, amount, description, created_at")
+      .eq("profile_id", profile_id)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (txError) throw txError;
+
+    const formattedTransactions = (transactions || []).map((t: any) => ({
+      id: t.id,
+      type: t.type,
+      amount: Number(t.amount),
+      description: t.description || "",
+      date: new Date(t.created_at).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      })
+    }));
+
+    res.json({
+      wallet: {
+        balance: Number(walletData.balance),
+        futureReceipts: Number(walletData.future_receipts)
+      },
+      lots: lotsList,
+      transactions: formattedTransactions
+    });
+
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. POST /api/scp/withdraw — Registrar pedido de saque (investidor)
+router.post("/withdraw", async (req, res) => {
+  try {
+    const { profile_id, amount, pix_key_type, pix_key } = req.body;
+    if (!profile_id || !amount || !pix_key_type || !pix_key) {
+      return res.status(400).json({ error: "Todos os campos do saque são obrigatórios." });
+    }
+
+    if (Number(amount) <= 0) {
+      return res.status(400).json({ error: "O valor do resgate deve ser maior que zero." });
+    }
+
+    // Verificar se o saldo do investidor é suficiente
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("balance")
+      .eq("profile_id", profile_id)
+      .maybeSingle();
+
+    const balance = wallet ? Number(wallet.balance) : 0;
+    if (balance < Number(amount)) {
+      return res.status(400).json({ error: "Saldo insuficiente para solicitar este saque." });
+    }
+
+    const { data, error } = await supabase
+      .from("withdrawal_requests")
+      .insert({
+        profile_id,
+        amount: Number(amount),
+        pix_key_type,
+        pix_key,
+        status: "PENDING"
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 8. GET /api/scp/withdrawals — Listar solicitações de saque (admin ou histórico)
+router.get("/withdrawals", async (req, res) => {
+  try {
+    const { profile_id } = req.query; // opcional para filtrar por investidor
+    let query = supabase
+      .from("withdrawal_requests")
+      .select("*, profiles(full_name)")
+      .order("created_at", { ascending: false });
+
+    if (profile_id) {
+      query = query.eq("profile_id", profile_id);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 9. POST /api/scp/withdrawals/:id/approve — Aprovar saque Pix (admin)
+router.post("/withdrawals/:id/approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Buscar dados do saque
+    const { data: request, error: reqErr } = await supabase
+      .from("withdrawal_requests")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (reqErr || !request) {
+      return res.status(404).json({ error: "Solicitação de saque não encontrada." });
+    }
+
+    if (request.status !== "PENDING") {
+      return res.status(400).json({ error: "Esta solicitação já foi processada." });
+    }
+
+    // Obter saldo atual do investidor
+    const { data: wallet, error: wallErr } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("profile_id", request.profile_id)
+      .single();
+
+    if (wallErr || !wallet) {
+      return res.status(400).json({ error: "Carteira do investidor não encontrada." });
+    }
+
+    const val = Number(request.amount);
+
+    // Deduzir o valor da carteira do investidor
+    const { error: walletUpErr } = await supabase
+      .from("wallets")
+      .update({
+        balance: Number(wallet.balance) - val,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", wallet.id);
+
+    if (walletUpErr) throw walletUpErr;
+
+    // Registrar transação de WITHDRAWAL no extrato
+    const { error: txErr } = await supabase
+      .from("wallet_transactions")
+      .insert({
+        profile_id: request.profile_id,
+        type: "WITHDRAWAL",
+        amount: val,
+        description: `Saque Pix Aprovado (${request.pix_key_type}: ${request.pix_key})`
+      });
+
+    if (txErr) throw txErr;
+
+    // Atualizar status do saque
+    const { data: updatedReq, error: statusErr } = await supabase
+      .from("withdrawal_requests")
+      .update({
+        status: "APPROVED",
+        processed_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (statusErr) throw statusErr;
+
+    res.json({ success: true, request: updatedReq });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 10. POST /api/scp/withdrawals/:id/reject — Rejeitar saque Pix (admin)
+router.post("/withdrawals/:id/reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: updatedReq, error } = await supabase
+      .from("withdrawal_requests")
+      .update({
+        status: "REJECTED",
+        processed_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, request: updatedReq });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11. GET /api/scp/available-devices — Listar aparelhos disponíveis para vincular ao lote
+router.get("/available-devices", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("devices")
+      .select("id, model, brand, imei, sale_price, cost_price")
+      .eq("status", "available")
+      .is("lot_id", null)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 12. POST /api/scp/lots/:id/link-devices — Vincular aparelhos ao lote
+router.post("/lots/:id/link-devices", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { device_ids } = req.body; // array de strings (UUIDs)
+
+    if (!device_ids || !Array.isArray(device_ids)) {
+      return res.status(400).json({ error: "Uma lista de IDs de aparelhos é obrigatória." });
+    }
+
+    const { data, error } = await supabase
+      .from("devices")
+      .update({ lot_id: id })
+      .in("id", device_ids)
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, updatedDevices: data || [] });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 13. POST /api/scp/quotas/:id/contract — Atualizar link do contrato da cota
+router.post("/quotas/:id/contract", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { contract_url } = req.body;
+
+    const { data, error } = await supabase
+      .from("investor_quotas")
+      .update({ contract_url })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, quota: data });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

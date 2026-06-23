@@ -11,8 +11,23 @@ export interface Lot {
   investor_quotas?: any[];
 }
 
+export interface WithdrawalRequest {
+  id: string;
+  profile_id: string;
+  amount: number;
+  pix_key_type: string;
+  pix_key: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  created_at: string;
+  processed_at?: string;
+  profiles?: {
+    full_name: string;
+  };
+}
+
 interface ScpState {
   lots: Lot[];
+  withdrawals: WithdrawalRequest[];
   isLoading: boolean;
   fetchLots: () => Promise<void>;
   createLot: (lot: Omit<Lot, 'id' | 'created_at'>) => Promise<Lot>;
@@ -22,10 +37,22 @@ interface ScpState {
     amount_invested: number;
     ownership_percentage: number;
   }) => Promise<void>;
+  fetchWithdrawals: (profileId?: string) => Promise<void>;
+  requestWithdrawal: (payload: {
+    profile_id: string;
+    amount: number;
+    pix_key_type: string;
+    pix_key: string;
+  }) => Promise<void>;
+  approveWithdrawal: (id: string) => Promise<void>;
+  rejectWithdrawal: (id: string) => Promise<void>;
+  linkDevices: (lotId: string, deviceIds: string[]) => Promise<void>;
+  updateContractUrl: (quotaId: string, contractUrl: string) => Promise<void>;
 }
 
 export const useScpStore = create<ScpState>()((set, get) => ({
   lots: [],
+  withdrawals: [],
   isLoading: false,
   fetchLots: async () => {
     set({ isLoading: true });
@@ -54,6 +81,63 @@ export const useScpStore = create<ScpState>()((set, get) => ({
       get().fetchLots();
     } catch (err) {
       console.error('Error adding quota:', err);
+      throw err;
+    }
+  },
+  fetchWithdrawals: async (profileId) => {
+    set({ isLoading: true });
+    try {
+      const url = profileId ? `/scp/withdrawals?profile_id=${profileId}` : '/scp/withdrawals';
+      const data = await api.get(url);
+      set({ withdrawals: data || [] });
+    } catch (err) {
+      console.error('Error fetching withdrawals:', err);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+  requestWithdrawal: async (payload) => {
+    try {
+      await api.post('/scp/withdraw', payload);
+      get().fetchWithdrawals(payload.profile_id);
+    } catch (err) {
+      console.error('Error requesting withdrawal:', err);
+      throw err;
+    }
+  },
+  approveWithdrawal: async (id) => {
+    try {
+      await api.post(`/scp/withdrawals/${id}/approve`, {});
+      get().fetchWithdrawals();
+    } catch (err) {
+      console.error('Error approving withdrawal:', err);
+      throw err;
+    }
+  },
+  rejectWithdrawal: async (id) => {
+    try {
+      await api.post(`/scp/withdrawals/${id}/reject`, {});
+      get().fetchWithdrawals();
+    } catch (err) {
+      console.error('Error rejecting withdrawal:', err);
+      throw err;
+    }
+  },
+  linkDevices: async (lotId, deviceIds) => {
+    try {
+      await api.post(`/scp/lots/${lotId}/link-devices`, { device_ids: deviceIds });
+      get().fetchLots();
+    } catch (err) {
+      console.error('Error linking devices:', err);
+      throw err;
+    }
+  },
+  updateContractUrl: async (quotaId, contractUrl) => {
+    try {
+      await api.post(`/scp/quotas/${quotaId}/contract`, { contract_url: contractUrl });
+      get().fetchLots();
+    } catch (err) {
+      console.error('Error updating contract URL:', err);
       throw err;
     }
   }
