@@ -9,6 +9,7 @@ import { useCustomerStore, Customer } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
+import { useUnitStore } from '../store/useUnitStore';
 import CustomerForm from '../components/customers/CustomerForm';
 
 export default function Customers() {
@@ -17,14 +18,25 @@ export default function Customers() {
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
+  const { units, fetchAllUnits } = useUnitStore();
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+
+  const isAdmin = profile?.role === 'admin';
 
   useEffect(() => {
     fetchUserPermissions();
-  }, [fetchUserPermissions]);
+    if (isAdmin) {
+      fetchAllUnits();
+    }
+  }, [fetchUserPermissions, isAdmin, fetchAllUnits]);
 
   useEffect(() => {
-    fetchCustomers(profile?.unit_id || undefined);
-  }, [profile?.unit_id, fetchCustomers]);
+    if (isAdmin) {
+      fetchCustomers(selectedUnitId || undefined);
+    } else {
+      fetchCustomers(profile?.unit_id || undefined);
+    }
+  }, [profile?.unit_id, isAdmin, selectedUnitId, fetchCustomers]);
 
   useEffect(() => {
     const searchParam = new URLSearchParams(window.location.search).get('search');
@@ -134,6 +146,22 @@ export default function Customers() {
               className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
             />
           </div>
+          {isAdmin && (
+            <div className="w-full md:w-64">
+              <select
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+                className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all appearance-none cursor-pointer"
+              >
+                <option value="" className="bg-[#121214]">Todas as Unidades</option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id} className="bg-[#121214]">
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">

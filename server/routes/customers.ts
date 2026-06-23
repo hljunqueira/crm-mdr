@@ -5,10 +5,14 @@ const router = Router();
 
 // Get all customers
 router.get("/", async (req, res) => {
-  const { data, error } = await supabase
-    .from('customers')
-    .select('*')
-    .order('name');
+  const { unit_id } = req.query;
+  let query = supabase.from('customers').select('*');
+  
+  if (unit_id && unit_id !== 'all') {
+    query = query.eq('unit_id', unit_id);
+  }
+
+  const { data, error } = await query.order('name');
   
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -16,13 +20,19 @@ router.get("/", async (req, res) => {
 
 // Create customer
 router.post("/", async (req, res) => {
-  const { phone } = req.body;
+  const { phone, unit_id } = req.body;
   if (phone) {
     const cleanNewPhone = phone.replace(/\D/g, '');
     if (cleanNewPhone) {
-      const { data: allCustomers, error: fetchError } = await supabase
+      let query = supabase
         .from('customers')
         .select('id, phone');
+
+      if (unit_id) {
+        query = query.eq('unit_id', unit_id);
+      }
+
+      const { data: allCustomers, error: fetchError } = await query;
 
       if (!fetchError && allCustomers) {
         const duplicate = allCustomers.find(c => {
@@ -32,7 +42,7 @@ router.post("/", async (req, res) => {
         });
 
         if (duplicate) {
-          return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente." });
+          return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente nesta unidade." });
         }
       }
     }
@@ -50,14 +60,26 @@ router.post("/", async (req, res) => {
 
 // Update customer
 router.patch("/:id", async (req, res) => {
-  const { phone } = req.body;
+  const { phone, unit_id } = req.body;
   if (phone) {
     const cleanNewPhone = phone.replace(/\D/g, '');
     if (cleanNewPhone) {
-      const { data: allCustomers, error: fetchError } = await supabase
+      let currentUnitId = unit_id;
+      if (!currentUnitId) {
+        const { data: cust } = await supabase.from('customers').select('unit_id').eq('id', req.params.id).single();
+        currentUnitId = cust?.unit_id;
+      }
+
+      let query = supabase
         .from('customers')
         .select('id, phone')
         .neq('id', req.params.id);
+
+      if (currentUnitId) {
+        query = query.eq('unit_id', currentUnitId);
+      }
+
+      const { data: allCustomers, error: fetchError } = await query;
 
       if (!fetchError && allCustomers) {
         const duplicate = allCustomers.find(c => {
@@ -67,7 +89,7 @@ router.patch("/:id", async (req, res) => {
         });
 
         if (duplicate) {
-          return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente." });
+          return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente nesta unidade." });
         }
       }
     }

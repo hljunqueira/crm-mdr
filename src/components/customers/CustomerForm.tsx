@@ -28,6 +28,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     name: initialData?.name || '',
     cpf: initialData?.cpf || '',
     phone: initialData?.phone || '',
+    unit_id: initialData?.unit_id || profile?.unit_id || '',
     parent_contact_phone: initialData?.parent_contact_phone || '',
     reference1_name: initialData?.reference1_name || '',
     reference1_phone: initialData?.reference1_phone || '',
@@ -98,7 +99,6 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   });
 
   const [sendingLink, setSendingLink] = useState(false);
-  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const { units, fetchAllUnits } = useUnitStore();
 
   useEffect(() => {
@@ -108,15 +108,14 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
   }, [profile]);
 
   useEffect(() => {
-    if (units.length > 0) {
+    if (units.length > 0 && !formData.unit_id) {
       const arroioMatch = units.find(u => u.name.toUpperCase().includes('ARROIO'));
-      if (arroioMatch) {
-        setSelectedUnitId(arroioMatch.id);
-      } else {
-        setSelectedUnitId(units[0].id);
-      }
+      setFormData(prev => ({
+        ...prev,
+        unit_id: arroioMatch ? arroioMatch.id : units[0].id
+      }));
     }
-  }, [units]);
+  }, [units, formData.unit_id]);
 
   const handleSendRegistrationLink = async () => {
     if (!formData.phone) {
@@ -132,7 +131,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
     setSendingLink(true);
     try {
-      const storeId = profile?.role === 'admin' ? selectedUnitId : profile?.unit_id;
+      const storeId = formData.unit_id || profile?.unit_id;
       if (!storeId) {
         showNotification('error', 'Erro de Unidade', 'Não foi possível detectar a unidade do seu usuário.');
         setSendingLink(false);
@@ -666,12 +665,13 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
           {profile?.role === 'admin' && units.length > 0 && (
             <div className="md:col-span-2 space-y-2">
-              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade p/ Envio do WhatsApp</label>
+              <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Unidade do Cliente</label>
               <select
-                value={selectedUnitId}
-                onChange={(e) => setSelectedUnitId(e.target.value)}
+                value={formData.unit_id}
+                onChange={(e) => setFormData(p => ({ ...p, unit_id: e.target.value }))}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
               >
+                <option value="" className="bg-[#121214]">Selecione uma unidade</option>
                 {units.map((u) => (
                   <option key={u.id} value={u.id} className="bg-[#121214]">
                     {u.name}

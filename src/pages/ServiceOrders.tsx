@@ -255,6 +255,14 @@ export default function ServiceOrders() {
   const [localResponsibleTechnicianId, setLocalResponsibleTechnicianId] = useState<string>('');
   const [sendingLink, setSendingLink] = useState(false);
   const [selectedUnitIdForLink, setSelectedUnitIdForLink] = useState<string>('');
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+  const isAdmin = profile?.role === 'admin';
+
+  useEffect(() => {
+    if (profile?.unit_id && !isAdmin) {
+      setSelectedUnitId(profile.unit_id);
+    }
+  }, [profile?.unit_id, isAdmin]);
 
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
@@ -324,8 +332,7 @@ export default function ServiceOrders() {
 
   // Load and fetch initial states
   useEffect(() => {
-    fetchServiceOrders();
-    fetchCustomers();
+    fetchCustomers(profile?.unit_id || undefined);
     fetchInventory();
     fetchAllUnits();
     fetchUserPermissions();
@@ -342,7 +349,12 @@ export default function ServiceOrders() {
       if (data) setAdmins(data);
     };
     fetchAdmins();
-  }, [fetchServiceOrders, fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions, fetchPartners, profile?.unit_id, fetchActiveShift]);
+  }, [fetchCustomers, fetchInventory, fetchAllUnits, fetchUserPermissions, fetchPartners, profile?.unit_id, fetchActiveShift]);
+
+  // Fetch service orders when selectedUnitId changes
+  useEffect(() => {
+    fetchServiceOrders(isAdmin ? selectedUnitId : (profile?.unit_id || undefined));
+  }, [selectedUnitId, isAdmin, profile?.unit_id, fetchServiceOrders]);
 
   useEffect(() => {
     const searchParam = new URLSearchParams(window.location.search).get('search');
@@ -694,7 +706,7 @@ export default function ServiceOrders() {
       showNotification('success', 'Ordem de Serviço excluída com sucesso!');
       setSelectedOsId(null);
       setIsDeleteConfirmOpen(false);
-      fetchServiceOrders();
+      fetchServiceOrders(isAdmin ? selectedUnitId : (profile?.unit_id || undefined));
     } catch (err) {
       showNotification('error', 'Falha ao excluir a Ordem de Serviço.');
     }
@@ -776,7 +788,7 @@ export default function ServiceOrders() {
         responsible_technician_id: '',
         custom_accessory: ''
       });
-      fetchServiceOrders();
+      fetchServiceOrders(isAdmin ? selectedUnitId : (profile?.unit_id || undefined));
     } catch (err) {
       showNotification('error', 'Erro', 'Falha ao salvar Ordem de Serviço.');
     } finally {
@@ -831,7 +843,7 @@ export default function ServiceOrders() {
 
         await updateServiceOrder(authAction.osId, updates);
         showNotification('success', 'Status da OS atualizado e assinado com sucesso!');
-        fetchServiceOrders();
+        fetchServiceOrders(isAdmin ? selectedUnitId : (profile?.unit_id || undefined));
         if (selectedOsId === authAction.osId) {
           fetchServiceOrderById(authAction.osId);
         }
@@ -878,7 +890,7 @@ export default function ServiceOrders() {
           };
           await updateServiceOrder(osId, finalUpdates);
           showNotification('success', 'OS entregue com sucesso!');
-          fetchServiceOrders();
+          fetchServiceOrders(isAdmin ? selectedUnitId : (profile?.unit_id || undefined));
           if (selectedOsId === osId) {
             fetchServiceOrderById(osId);
           }
@@ -2166,14 +2178,30 @@ export default function ServiceOrders() {
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Assistência Técnica</h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Ordens de Serviço (OS) & Manutenções</p>
         </div>
-        {hasPermission(profile, 'OS - Criar Nova OS') && (
-          <button
-            onClick={handleNewOsClick}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-black font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
-          >
-            <Plus size={16} /> Nova Ordem de Serviço
-          </button>
-        )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          {isAdmin && (
+            <select
+              value={selectedUnitId}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+              className="bg-white/5 border border-outline-variant/30 rounded-2xl px-5 py-4 text-xs text-on-surface font-black uppercase tracking-wider focus:border-white outline-none transition-all appearance-none cursor-pointer"
+            >
+              <option value="" className="bg-[#121214]">Todas as Unidades</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id} className="bg-[#121214]">
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {hasPermission(profile, 'OS - Criar Nova OS') && (
+            <button
+              onClick={handleNewOsClick}
+              className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-black font-black uppercase tracking-widest text-[10px] px-6 py-4 rounded-3xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20"
+            >
+              <Plus size={16} /> Nova Ordem de Serviço
+            </button>
+          )}
+        </div>
       </div>
 
       {/* TABS DE CATEGORIAS */}

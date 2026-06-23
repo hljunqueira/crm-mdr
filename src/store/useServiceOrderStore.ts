@@ -79,7 +79,7 @@ interface ServiceOrderState {
   serviceOrders: ServiceOrder[];
   currentServiceOrder: ServiceOrder | null;
   isLoading: boolean;
-  fetchServiceOrders: () => Promise<void>;
+  fetchServiceOrders: (unitId?: string) => Promise<void>;
   fetchServiceOrderById: (id: string) => Promise<void>;
   createServiceOrder: (os: Omit<ServiceOrder, 'id' | 'os_number' | 'created_at' | 'updated_at' | 'total_value'>) => Promise<ServiceOrder>;
   updateServiceOrder: (id: string, os: Partial<ServiceOrder>) => Promise<void>;
@@ -99,10 +99,11 @@ export const useServiceOrderStore = create<ServiceOrderState>()((set, get) => ({
   currentServiceOrder: null,
   isLoading: false,
 
-  fetchServiceOrders: async () => {
+  fetchServiceOrders: async (unitId?: string) => {
     set({ isLoading: true });
     try {
-      const data = await api.get('/os');
+      const url = unitId && unitId !== 'all' ? `/os?unit_id=${unitId}` : '/os';
+      const data = await api.get(url);
       set({ serviceOrders: data || [] });
     } catch (error) {
       console.error('Error fetching service orders:', error);

@@ -30,10 +30,16 @@ async function updateOsPartsValue(osId: string) {
 // Get all service orders
 router.get("/", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { unit_id } = req.query;
+    let query = supabase
       .from('service_orders')
-      .select('*, customers(name, phone, cpf), outsourced_orders(id, external_status), profiles:profiles!responsible_technician_id(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)')
-      .order('created_at', { ascending: false });
+      .select('*, customers(name, phone, cpf), outsourced_orders(id, external_status), profiles:profiles!responsible_technician_id(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)');
+
+    if (unit_id && unit_id !== 'all') {
+      query = query.eq('unit_id', unit_id);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);

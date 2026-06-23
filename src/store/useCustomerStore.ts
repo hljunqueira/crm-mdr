@@ -48,10 +48,11 @@ interface CustomerState {
 export const useCustomerStore = create<CustomerState>()((set) => ({
   customers: [],
   isLoading: false,
-  fetchCustomers: async (_unitId) => {
+  fetchCustomers: async (unitId) => {
     set({ isLoading: true });
     try {
-      const data = await api.get('/customers');
+      const url = unitId && unitId !== 'all' ? `/customers?unit_id=${unitId}` : '/customers';
+      const data = await api.get(url);
       set({ customers: data || [] });
     } catch (error) {
       console.error('Error fetching customers:', error);
