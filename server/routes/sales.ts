@@ -115,7 +115,7 @@ router.get("/", async (req, res) => {
   const { unit_id } = req.query;
   let query = supabase
     .from('sales')
-    .select('*, customers(name), profiles(full_name)');
+    .select('*, customers(name), profiles(full_name), devices(cost_price)');
 
   if (unit_id && unit_id !== 'all') {
     query = query.eq('store_id', unit_id);

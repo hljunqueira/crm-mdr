@@ -427,7 +427,7 @@ export default function Reports() {
       const saleNum = s.id.split('-')[0].toUpperCase();
       
       const mainDevice = inventory.find(inv => inv.id === s.device_id);
-      const mainCost = mainDevice ? mainDevice.cost_price : 0;
+      const mainCost = mainDevice ? mainDevice.cost_price : (s.device_cost_price || 0);
       const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
       const mainSale = (s.original_price ?? s.total_value) - tradeInVal;
       const mainProfit = mainSale - mainCost;

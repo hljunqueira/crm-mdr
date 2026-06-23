@@ -30,6 +30,7 @@ export interface Sale {
   trade_in_valuation?: number;
   trade_in_sale_price_estimate?: number;
   payment_method?: string;
+  device_cost_price?: number;
 }
 
 interface SaleState {
@@ -75,7 +76,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         trade_in_device_model: s.trade_in_device_model || '',
         trade_in_device_imei: s.trade_in_device_imei || '',
         trade_in_valuation: Number(s.trade_in_valuation) || 0,
-        trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0
+        trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0,
+        device_cost_price: Number(s.devices?.cost_price) || 0
       }));
 
       set({ sales: mappedSales });

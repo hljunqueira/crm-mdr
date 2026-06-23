@@ -1,22 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
-const supabaseUrl = 'https://supabase.mdrinformaticaecelulares.com.br';
-const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q';
+dotenv.config();
 
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 async function run() {
-  console.log('--- SALES ---');
-  const { data: sales } = await supabase
-    .from('sales')
-    .select('id, store_id, total_value, customer_id, customers(name)');
-  console.log(sales);
+  const deviceId = 'ddf14a30-d8c3-4068-b14f-d5b931216a11';
+  const { data: device } = await supabase
+    .from('devices')
+    .select('*, stores(name)')
+    .eq('id', deviceId)
+    .single();
 
-  console.log('\n--- SERVICE ORDERS ---');
-  const { data: service_orders } = await supabase
-    .from('service_orders')
-    .select('id, unit_id, os_number, customer_id, customers(name)');
-  console.log(service_orders);
+  console.log('Device Store ID:', device?.store_id, 'Store Name:', device?.stores?.name);
 }
 
 run();
