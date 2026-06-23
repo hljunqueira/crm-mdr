@@ -27,6 +27,7 @@ const PAGE_ROUTES = [
   { name: 'Controle de Caixa', path: '/cash-control' },
   { name: 'Controle de Bloqueio', path: '/device-locks' },
   { name: 'Fiscal (NFe/NFSe)', path: '/fiscal' },
+  { name: 'Investimentos SCP', path: '/scp' },
   { name: 'Configurações', path: '/settings' },
 ];
 

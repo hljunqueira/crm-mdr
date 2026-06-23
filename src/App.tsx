@@ -27,6 +27,9 @@ import Fiscal from './pages/Fiscal';
 import CustomerOSPortal from './pages/CustomerOSPortal';
 import DeviceLockPanel from './pages/DeviceLockPanel';
 import PublicCustomerRegistration from './pages/PublicCustomerRegistration';
+import PartnersLogin from './pages/PartnersLogin';
+import InvestorDashboard from './pages/InvestorDashboard';
+import ScpManagement from './pages/ScpManagement';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
@@ -37,6 +40,22 @@ export default function App() {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  const isPartnersSubdomain = window.location.hostname.startsWith('parceiros');
+
+  if (isPartnersSubdomain) {
+    return (
+      <Router>
+        <UIProvider>
+          <Routes>
+            <Route path="/login" element={<PartnersLogin />} />
+            <Route path="/dashboard" element={<InvestorDashboard />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </UIProvider>
+      </Router>
+    );
+  }
 
   return (
     <Router>
@@ -60,6 +79,7 @@ export default function App() {
           <Route path="/device-valuations" element={<PrivateRoute requireAdmin={true}><AppLayout><DeviceValuations /></AppLayout></PrivateRoute>} />
           <Route path="/suppliers" element={<PrivateRoute pageName="Fornecedores"><AppLayout><Suppliers /></AppLayout></PrivateRoute>} />
           <Route path="/partners" element={<PrivateRoute pageName="Parceiros"><AppLayout><Partners /></AppLayout></PrivateRoute>} />
+          <Route path="/scp" element={<PrivateRoute requireAdmin={true}><AppLayout><ScpManagement /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute pageName="Financeiro"><AppLayout><Finance /></AppLayout></PrivateRoute>} />
           <Route path="/cash-control" element={<PrivateRoute pageName="Controle de Caixa"><AppLayout><CashControl /></AppLayout></PrivateRoute>} />
           <Route path="/device-locks" element={<PrivateRoute pageName="Controle de Bloqueio"><AppLayout><DeviceLockPanel /></AppLayout></PrivateRoute>} />

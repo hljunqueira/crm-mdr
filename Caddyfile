@@ -3,7 +3,7 @@
 }
 
 # --- CRM App ---
-mdrinformaticaecelulares.com.br, api.mdrinformaticaecelulares.com.br {
+mdrinformaticaecelulares.com.br, api.mdrinformaticaecelulares.com.br, parceiros.mdrinformaticaecelulares.com.br {
     reverse_proxy app:3000
     encode gzip
 }

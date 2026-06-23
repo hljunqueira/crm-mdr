@@ -110,6 +110,9 @@ export default function Sidebar() {
         { name: 'Controle de Caixa', icon: DollarSign, path: '/cash-control' },
         { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
+        ...(profile?.role === 'admin' ? [
+          { name: 'Investimentos SCP', displayName: 'Investimentos SCP', icon: TrendingUp, path: '/scp' }
+        ] : []),
       ]
     },
     {
