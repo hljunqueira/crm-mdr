@@ -78,9 +78,7 @@ export default function InvestorDashboard() {
   const [withdrawalSuccess, setWithdrawalSuccess] = useState('');
   const [withdrawalError, setWithdrawalError] = useState('');
 
-  // Estados do Simulador de Investimento
-  const [simVal, setSimVal] = useState(10000);
-  const [simRate, setSimRate] = useState(20);
+
 
   // Estados do Modal do Contrato de Risco
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
@@ -188,12 +186,7 @@ export default function InvestorDashboard() {
     ? (lots.reduce((acc, lot) => acc + lot.healthRate, 0) / lots.length).toFixed(1)
     : "100.0";
 
-  // Cálculos do simulador
-  // Assumindo um markup médio de juros de 100% em vendas parceladas de 12x
-  const simTotalInterest = simVal * 2.0; // Juros/lucro gerado total na carteira financiada
-  const simInvShareInterest = simTotalInterest * (simRate / 100);
-  const simTotalProjectedReturn = simVal + simInvShareInterest;
-  const simMonthlyReturn = simTotalProjectedReturn / 12;
+
 
   if (loading) {
     return (
@@ -381,20 +374,29 @@ export default function InvestorDashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="h-[38px] flex items-center justify-between text-[9px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3 leading-tight">
-                  <span>Aparelhos no lote:</span>
-                  <span className="font-bold text-white">
-                    {wallet.activeDevicesCount} Ativos • {wallet.paidDevicesCount} Quitados • {wallet.defaultedDevicesCount} Inad.
-                  </span>
+                <div className="h-[38px] flex items-center justify-between text-[9px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3 leading-tight gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[8px] uppercase tracking-wider text-zinc-500">Aparelhos no lote:</span>
+                    <span className="font-bold text-white">
+                      {wallet.activeDevicesCount} Ativos • {wallet.paidDevicesCount} Quitados • {wallet.defaultedDevicesCount} Inad.
+                    </span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setIsContractModalOpen(true)}
+                    className="py-1.5 px-2.5 border border-zinc-850 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22]"
+                  >
+                    Termos de Riscos
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Layout Column: Evolution Chart & Investment Simulator */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Layout Column: Evolution Chart */}
+            <div className="grid grid-cols-1 gap-6">
               
               {/* Gráfico "Meu Dinheiro Trabalhando" */}
-              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-8 shadow-xl">
+              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-xl">
                 <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
                   <BarChart3 size={16} className="text-emerald-500" /> Evolução Mensal - Meu Dinheiro Trabalhando
                 </h3>
@@ -418,74 +420,6 @@ export default function InvestorDashboard() {
                     </ResponsiveContainer>
                   </div>
                 )}
-              </div>
-
-              {/* Simulador e Termo de Compromisso */}
-              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-4 shadow-xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4 flex items-center gap-2">
-                    <Calculator size={16} className="text-emerald-500" /> Simulador de Rentabilidade
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-zinc-400">Aporte Estimado</span>
-                        <span className="font-mono font-bold text-white">R$ {simVal.toLocaleString('pt-BR')}</span>
-                      </div>
-                      <input 
-                        type="range"
-                        min="1000"
-                        max="100000"
-                        step="1000"
-                        value={simVal}
-                        onChange={(e) => setSimVal(parseInt(e.target.value))}
-                        className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-zinc-400">Participação nos Juros</span>
-                        <span className="font-mono font-bold text-emerald-400">{simRate}%</span>
-                      </div>
-                      <input 
-                        type="range"
-                        min="10"
-                        max="50"
-                        step="5"
-                        value={simRate}
-                        onChange={(e) => setSimRate(parseInt(e.target.value))}
-                        className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 mt-6 space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-zinc-400">Devolução de Capital:</span>
-                      <span className="font-mono text-zinc-200">R$ {simVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-zinc-400">Lucro de Juros Simulado:</span>
-                      <span className="font-mono text-emerald-400">R$ {simInvShareInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex justify-between text-xs border-t border-zinc-800/80 pt-2 font-bold">
-                      <span className="text-white">Retorno Estimado Total:</span>
-                      <span className="font-mono text-emerald-400">R$ {simTotalProjectedReturn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-zinc-800/60 mt-4 flex items-center justify-between">
-                  <span className="text-[9px] text-zinc-500 italic leading-tight pr-4">
-                    * Simulação ilustrativa em 12 parcelas de R$ {simMonthlyReturn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}.
-                  </span>
-                  <button 
-                    onClick={() => setIsContractModalOpen(true)}
-                    className="py-2 px-3 border border-zinc-700 hover:border-white text-zinc-300 hover:text-white text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-transparent"
-                  >
-                    Termos de Riscos
-                  </button>
-                </div>
               </div>
             </div>
 
