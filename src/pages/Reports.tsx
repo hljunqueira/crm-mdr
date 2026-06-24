@@ -39,7 +39,7 @@ export default function Reports() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
   
   // Overview & Lab Period filters
-  const [dateRange, setDateRange] = useState<'30days' | 'month' | 'year' | 'all' | 'custom'>('30days');
+  const [dateRange, setDateRange] = useState<'week' | 'month' | '30days' | 'year' | 'all' | 'custom'>('week');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
@@ -192,6 +192,14 @@ export default function Reports() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    if (dateRange === 'week') {
+      const currentDay = today.getDay();
+      const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - distanceToMonday);
+      monday.setHours(0, 0, 0, 0);
+      return date >= monday && date <= new Date(today.getTime() + 86400000);
+    }
     if (dateRange === '30days') {
       const past30 = new Date(today);
       past30.setDate(today.getDate() - 30);
@@ -1106,8 +1114,9 @@ export default function Reports() {
                     backgroundPosition: 'right center',
                   }}
                 >
-                  <option value="30days" className="bg-[#0f0f1a]">Últimos 30 dias</option>
+                  <option value="week" className="bg-[#0f0f1a]">Esta Semana</option>
                   <option value="month" className="bg-[#0f0f1a]">Este Mês</option>
+                  <option value="30days" className="bg-[#0f0f1a]">Últimos 30 dias</option>
                   <option value="year" className="bg-[#0f0f1a]">Este Ano</option>
                   <option value="custom" className="bg-[#0f0f1a]">Período Personalizado</option>
                   <option value="all" className="bg-[#0f0f1a]">Todo o Período</option>
