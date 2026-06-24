@@ -471,6 +471,147 @@ function PaymentConfirmationContent({
   );
 }
 
+function BatchPaymentConfirmationContent({
+  items,
+  onMethodChange,
+  onValueChange
+}: {
+  items: Installment[];
+  onMethodChange: (method: 'pix' | 'money' | 'card') => void;
+  onValueChange: (value: number) => void;
+}) {
+  const [method, setMethod] = useState<'pix' | 'money' | 'card'>('money');
+  const [amountPaid, setAmountPaid] = useState<string>('');
+
+  const totalOriginal = items.reduce((sum, item) => sum + item.value, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const suggestedDiscount = items.reduce((sum, item) => {
+    const dueDate = new Date(item.due_date + 'T12:00:00');
+    if (dueDate > today) {
+      const daysEarly = Math.max(0, Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+      return sum + Number((item.value * 0.08 / 30 * daysEarly).toFixed(2));
+    }
+    return sum;
+  }, 0);
+
+  const [discount, setDiscount] = useState(suggestedDiscount);
+
+  useEffect(() => {
+    onMethodChange(method);
+  }, [method]);
+
+  const totalToReceive = Math.max(0, totalOriginal - discount);
+
+  useEffect(() => {
+    onValueChange(totalToReceive);
+  }, [discount, totalToReceive]);
+
+  const change = Math.max(0, Number(amountPaid) - totalToReceive);
+
+  return (
+    <div className="space-y-4 text-xs text-left">
+      <p className="text-xs">
+        Liquidação antecipada de <span className="text-white font-black">{items.length} parcelas</span> de <span className="text-white font-black">{items[0]?.customer_name}</span>.
+      </p>
+      
+      <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
+        <div className="flex justify-between text-xs">
+          <span className="text-on-surface-variant uppercase tracking-widest font-black">Valor Original Total</span>
+          <span className="text-white font-mono font-black">R$ {totalOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </div>
+        {discount > 0 && (
+          <div className="flex justify-between text-xs text-green-400">
+            <span className="uppercase tracking-widest font-black">Desconto de Liquidez</span>
+            <span className="font-mono font-black">- R$ {discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-xs pt-2 border-t border-white/10 mt-1">
+          <span className="text-white uppercase tracking-widest font-black">Total a Receber</span>
+          <span className="text-white font-mono font-black text-sm">R$ {totalToReceive.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+        </div>
+      </div>
+
+      <div className="space-y-2 bg-white/5 p-4 rounded-2xl border border-white/10 mt-2">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">
+            Desconto de Liquidez Concedido (R$)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max={totalOriginal}
+            value={discount === 0 ? '' : discount}
+            onChange={(e) => {
+              const val = e.target.value;
+              const numVal = val === '' ? 0 : Number(val);
+              if (numVal >= 0 && numVal <= totalOriginal) {
+                setDiscount(numVal);
+              }
+            }}
+            placeholder={`Sugerido: R$ ${suggestedDiscount.toLocaleString('pt-BR')}`}
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+          />
+          <p className="text-[9px] text-on-surface-variant/80">
+            Digite o valor total do desconto concedido ao cliente para quitação antecipada destas parcelas.
+          </p>
+        </div>
+      </div>
+
+      {/* Payment Method Selector */}
+      <div className="space-y-2">
+        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">Forma de Pagamento</p>
+        <div className="grid grid-cols-3 gap-2">
+          {(['pix', 'money', 'card'] as const).map(m => {
+            const label = m === 'pix' ? 'PIX' : m === 'money' ? 'Dinheiro' : 'Cartão';
+            const active = method === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMethod(m)}
+                className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active
+                    ? 'bg-white text-black border-white'
+                    : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                  }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Change Calculator (Only for Money/Cash) */}
+      {method === 'money' && (
+        <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10 mt-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">Valor Recebido (Dinheiro)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={amountPaid}
+              onChange={(e) => setAmountPaid(e.target.value)}
+              placeholder="R$ 0,00"
+              className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+            />
+          </div>
+          {Number(amountPaid) > 0 && (
+            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black">Troco a devolver</span>
+              <span className="text-sm font-black text-success font-mono">
+                R$ {change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Finance() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -482,6 +623,7 @@ export default function Finance() {
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [selectedInstIds, setSelectedInstIds] = useState<string[]>([]);
 
   const { installments, markAsPaid, revertPayment, fetchInstallments } = useFinanceStore();
   const { units, fetchAllUnits, unit } = useUnitStore();
@@ -851,6 +993,68 @@ export default function Finance() {
     }
   };
 
+  const handleBatchPayment = (items: Installment[]) => {
+    if (!activeShift) {
+      showNotification('error', 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.');
+      return;
+    }
+
+    if (items.length === 0) return;
+
+    let selectedMethod: 'pix' | 'money' | 'card' = 'money';
+    let finalTotalValue = items.reduce((sum, item) => sum + item.value, 0);
+    const hasAsaas = items.some(item => item.asaas_invoice_url);
+
+    showModal({
+      title: 'Liquidação de Parcelas em Lote',
+      children: (
+        <div className="space-y-4">
+          {hasAsaas && (
+            <p className="text-[9px] text-warning font-black uppercase tracking-widest bg-warning/10 p-3 rounded-xl border border-warning/20">
+              ⚠️ Atenção: Uma ou mais parcelas selecionadas possuem cobranças no Asaas. A liquidação manual dará a baixa local no caixa do CRM, mas a cobrança correspondente no Asaas deverá ser gerenciada manualmente se necessário.
+            </p>
+          )}
+          <BatchPaymentConfirmationContent
+            items={items}
+            onMethodChange={(method) => {
+              selectedMethod = method;
+            }}
+            onValueChange={(val) => {
+              finalTotalValue = val;
+            }}
+          />
+        </div>
+      ),
+      confirmText: 'Confirmar Liquidação',
+      onConfirm: async () => {
+        try {
+          const totalOriginal = items.reduce((sum, item) => sum + item.value, 0);
+          const totalDiscount = Math.max(0, totalOriginal - finalTotalValue);
+
+          // Mark each installment as paid
+          // Distribute discount proportionally based on installment value
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const propDiscount = totalOriginal > 0 ? (item.value / totalOriginal) * totalDiscount : 0;
+            const finalVal = Math.max(0, item.value - propDiscount);
+            await markAsPaid(item.id, finalVal, selectedMethod);
+          }
+
+          showNotification('success', 'Parcelas Liquidadas com Sucesso');
+          setSelectedInstIds(prev => prev.filter(id => !items.map(item => item.id).includes(id)));
+          
+          if (selectedUnitId) {
+            await fetchActiveShift(selectedUnitId);
+            await fetchTransactions(selectedUnitId);
+          }
+          hideModal();
+        } catch (error: any) {
+          showNotification('error', error?.response?.data?.error || 'Erro ao liquidar parcelas');
+        }
+      }
+    });
+  };
+
   const handleRevertPayment = (item: Installment) => {
     showModal({
       title: 'Confirmar Estorno de Pagamento',
@@ -1130,23 +1334,57 @@ export default function Finance() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/[0.02] p-4 border border-white/5 rounded-2xl">
                               <div>
                                 <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Resumo de Cobrança</p>
-                                <p className="text-xs text-white mt-1">Envie o extrato completo das parcelas em aberto e pagas para o WhatsApp do cliente.</p>
+                                <p className="text-xs text-white mt-1 flex flex-wrap items-center gap-2">
+                                  Envie o extrato completo ou liquide várias parcelas selecionadas de uma vez com desconto.
+                                  {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length > 0 && (
+                                    <span className="bg-success/20 text-success text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-success/30 animate-pulse">
+                                      {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length} Selecionada(s)
+                                    </span>
+                                  )}
+                                </p>
                               </div>
-                              <button
-                                type="button"
-                                disabled={sendingWa === `statement-${group.customerId}`}
-                                onClick={() => handleSendStatement(group.customerId, group.customerName)}
-                                className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2"
-                              >
-                                <Send size={14} className={sendingWa === `statement-${group.customerId}` ? "animate-pulse" : ""} />
-                                {sendingWa === `statement-${group.customerId}` ? 'Enviando Extrato...' : 'Enviar Extrato WhatsApp'}
-                              </button>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBatchPayment(group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)))}
+                                    className="px-4 py-2.5 bg-success hover:scale-[1.02] active:scale-[0.98] text-white border border-success/25 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-success/15"
+                                  >
+                                    <DollarSign size={14} />
+                                    Liquidar Selecionadas
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  disabled={sendingWa === `statement-${group.customerId}`}
+                                  onClick={() => handleSendStatement(group.customerId, group.customerName)}
+                                  className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Send size={14} className={sendingWa === `statement-${group.customerId}` ? "animate-pulse" : ""} />
+                                  {sendingWa === `statement-${group.customerId}` ? 'Enviando Extrato...' : 'Enviar Extrato WhatsApp'}
+                                </button>
+                              </div>
                             </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-left border-collapse">
                                 <thead>
                                   <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
-                                    <th className="pb-3 pl-4">Nº Parcela</th>
+                                    <th className="pb-3 pl-4 w-10">
+                                      <input
+                                        type="checkbox"
+                                        checked={group.displayedInstallments.filter(i => i.status !== 'paid').length > 0 && group.displayedInstallments.filter(i => i.status !== 'paid').every(i => selectedInstIds.includes(i.id))}
+                                        onChange={(e) => {
+                                          const pendingIds = group.displayedInstallments.filter(i => i.status !== 'paid').map(i => i.id);
+                                          if (e.target.checked) {
+                                            setSelectedInstIds(prev => [...new Set([...prev, ...pendingIds])]);
+                                          } else {
+                                            setSelectedInstIds(prev => prev.filter(id => !pendingIds.includes(id)));
+                                          }
+                                        }}
+                                        className="rounded border-white/10 bg-white/5 text-primary focus:ring-0"
+                                      />
+                                    </th>
+                                    <th className="pb-3 pl-2">Nº Parcela</th>
                                     <th className="pb-3">Data de Vencimento</th>
                                     <th className="pb-3">Status Interno</th>
                                     <th className="pb-3 text-right">Valor Original</th>
@@ -1159,7 +1397,23 @@ export default function Finance() {
                                     const fees = calculateOverdueFees(inst);
                                     return (
                                       <tr key={inst.id} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01] transition-all">
-                                        <td className="py-4 pl-4 text-xs font-black text-white">
+                                        <td className="py-4 pl-4">
+                                          {inst.status !== 'paid' ? (
+                                            <input
+                                              type="checkbox"
+                                              checked={selectedInstIds.includes(inst.id)}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  setSelectedInstIds(prev => [...prev, inst.id]);
+                                                } else {
+                                                  setSelectedInstIds(prev => prev.filter(id => id !== inst.id));
+                                                }
+                                              }}
+                                              className="rounded border-white/10 bg-white/5 text-primary focus:ring-0"
+                                            />
+                                          ) : null}
+                                        </td>
+                                        <td className="py-4 pl-2 text-xs font-black text-white">
                                           Parcela {inst.number} de {inst.total}
                                         </td>
                                         <td className="py-4 text-xs font-mono text-on-surface-variant">
