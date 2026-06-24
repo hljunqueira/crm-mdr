@@ -1268,6 +1268,7 @@ export default function Sales() {
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
             <input
               type="text"
+              autoComplete="one-time-code"
               placeholder="Buscar por cliente, modelo ou IMEI..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

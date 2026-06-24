@@ -110,7 +110,7 @@ export default function SaleReceiptPrint({
         <div className="section-title">DADOS DO CLIENTE</div>
         <div className="row">
           <span>Nome:</span>
-          <span className="align-right">{customer.name}</span>
+          <span className="align-right">{customer.name?.toUpperCase()}</span>
         </div>
         <div className="row">
           <span>CPF:</span>
@@ -123,7 +123,7 @@ export default function SaleReceiptPrint({
         {customer.address && (
           <div className="row">
             <span>Endereço:</span>
-            <span className="align-right">{customer.address}</span>
+            <span className="align-right">{customer.address?.toUpperCase()}</span>
           </div>
         )}
 
@@ -132,7 +132,7 @@ export default function SaleReceiptPrint({
         <div className="section-title">PRODUTOS E SERVIÇOS</div>
         <div className="row">
           <span>Aparelho:</span>
-          <span className="align-right">{sale.device_model}</span>
+          <span className="align-right">{sale.device_model?.toUpperCase()}</span>
         </div>
         <div className="row">
           <span>IMEI/Serial:</span>
@@ -141,7 +141,7 @@ export default function SaleReceiptPrint({
         {sale.device_color && (
           <div className="row">
             <span>Cor:</span>
-            <span className="align-right">{sale.device_color}</span>
+            <span className="align-right">{sale.device_color?.toUpperCase()}</span>
           </div>
         )}
         {(() => {
@@ -156,7 +156,7 @@ export default function SaleReceiptPrint({
           return (
             <div className="row">
               <span>Acessórios:</span>
-              <span className="align-right text-small">{cleanedAccessories}</span>
+              <span className="align-right text-small">{cleanedAccessories?.toUpperCase()}</span>
             </div>
           );
         })()}
@@ -181,7 +181,7 @@ export default function SaleReceiptPrint({
             </div>
             {sale.down_payment_method === 'trade' && (
               <div className="trade-box">
-                Recebido: {sale.trade_device_model} (IMEI: {sale.trade_device_imei || 'N/A'})
+                Recebido: {sale.trade_device_model?.toUpperCase()} (IMEI: {sale.trade_device_imei || 'N/A'})
               </div>
             )}
           </>
@@ -194,7 +194,7 @@ export default function SaleReceiptPrint({
               <span className="align-right font-mono">- R$ {Number(sale.trade_valuation ?? sale.trade_in_valuation).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="trade-box">
-              Troca: {sale.trade_in_device_brand} {sale.trade_in_device_model} {sale.trade_in_device_imei ? `(IMEI: ${sale.trade_in_device_imei})` : ''}
+              Troca: {sale.trade_in_device_brand?.toUpperCase()} {sale.trade_in_device_model?.toUpperCase()} {sale.trade_in_device_imei ? `(IMEI: ${sale.trade_in_device_imei})` : ''}
             </div>
           </>
         )}
@@ -326,14 +326,14 @@ export default function SaleReceiptPrint({
             <div style={{ height: '40px' }}></div>
             <div className="sig-line-box">
               <div className="sig-line"></div>
-              <span className="sig-label">{resolvedUnit.name}<br />Vendedor / Responsável</span>
+              <span className="sig-label">{resolvedUnit.name?.toUpperCase()}<br />Vendedor / Responsável</span>
             </div>
 
             <div style={{ height: '55px' }}></div>
 
             <div className="sig-line-box">
               <div className="sig-line"></div>
-              <span className="sig-label">{customer.name}<br />Comprador</span>
+              <span className="sig-label">{customer.name?.toUpperCase()}<br />Comprador</span>
             </div>
           </>
         )}
@@ -341,7 +341,7 @@ export default function SaleReceiptPrint({
         <div className="divider"></div>
 
         <div className="footer-note">
-          Comprovante interno emitido por {resolvedUnit.name}.<br />
+          Comprovante interno emitido por {resolvedUnit.name?.toUpperCase()}.<br />
           {sale.payment_type === 'crediario' ? (
             <>O aparelho é propriedade do vendedor até a quitação total das parcelas.<br />Pagamentos via PIX/Dinheiro/Transferência.</>
           ) : (
@@ -365,7 +365,7 @@ export default function SaleReceiptPrint({
               <p><strong>{resolvedUnit.name.toUpperCase()}</strong></p>
               {resolvedUnit.cnpj && <p>CNPJ: {resolvedUnit.cnpj}</p>}
               {resolvedUnit.phone && <p>Telefone: {formatPhone(resolvedUnit.phone)}</p>}
-              <p>{resolvedUnit.address}</p>
+              <p>{resolvedUnit.address?.toUpperCase()}</p>
             </div>
           </div>
           <div className="header-right">
@@ -398,7 +398,7 @@ export default function SaleReceiptPrint({
           <div className="client-grid">
             <div>
               <span className="field-label">NOME COMPLETO</span>
-              <span className="field-value font-semibold">{customer.name}</span>
+              <span className="field-value font-semibold">{customer.name?.toUpperCase()}</span>
             </div>
             <div>
               <span className="field-label">CPF / CNPJ</span>
@@ -411,7 +411,7 @@ export default function SaleReceiptPrint({
             {customer.address && (
               <div className="col-span-3">
                 <span className="field-label">ENDEREÇO</span>
-                <span className="field-value">{customer.address}</span>
+                <span className="field-value">{customer.address?.toUpperCase()}</span>
               </div>
             )}
           </div>
@@ -432,8 +432,8 @@ export default function SaleReceiptPrint({
             <tbody>
               <tr>
                 <td>
-                  <div className="prod-name">{sale.device_model}</div>
-                  {sale.device_color && <div className="prod-meta">Cor: {sale.device_color}</div>}
+                  <div className="prod-name">{sale.device_model?.toUpperCase()}</div>
+                  {sale.device_color && <div className="prod-meta">Cor: {sale.device_color?.toUpperCase()}</div>}
                   {(() => {
                     const cleanedAccessories = sale.accessories
                       ? sale.accessories
@@ -443,7 +443,7 @@ export default function SaleReceiptPrint({
                           .join(' | ')
                       : '';
                     if (!cleanedAccessories) return null;
-                    return <div className="prod-meta text-primary">Acessórios inclusos: {cleanedAccessories}</div>;
+                    return <div className="prod-meta text-primary">Acessórios inclusos: {cleanedAccessories?.toUpperCase()}</div>;
                   })()}
                 </td>
                 <td className="font-mono">{sale.imei || '—'}</td>

@@ -21,6 +21,9 @@ export interface Installment {
   asaas_payment_id?: string;
   asaas_invoice_url?: string;
   asaas_sync_status?: string;
+  paid_value?: number;
+  discount_value?: number;
+  interest_value?: number;
 }
 
 interface FinanceState {
@@ -61,7 +64,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         payment_method: i.payment_method,
         asaas_payment_id: i.asaas_payment_id,
         asaas_invoice_url: i.asaas_invoice_url,
-        asaas_sync_status: i.asaas_sync_status
+        asaas_sync_status: i.asaas_sync_status,
+        paid_value: i.paid_value ? Number(i.paid_value) : undefined,
+        discount_value: i.discount_value ? Number(i.discount_value) : 0,
+        interest_value: i.interest_value ? Number(i.interest_value) : 0
       }));
 
       set({ installments: mapped });
@@ -98,7 +104,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         payment_method: data.payment_method,
         asaas_payment_id: data.asaas_payment_id,
         asaas_invoice_url: data.asaas_invoice_url,
-        asaas_sync_status: data.asaas_sync_status
+        asaas_sync_status: data.asaas_sync_status,
+        paid_value: data.paid_value ? Number(data.paid_value) : undefined,
+        discount_value: data.discount_value ? Number(data.discount_value) : 0,
+        interest_value: data.interest_value ? Number(data.interest_value) : 0
       };
 
       set((state) => ({
@@ -129,7 +138,10 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         payment_method: undefined,
         asaas_payment_id: data.asaas_payment_id,
         asaas_invoice_url: data.asaas_invoice_url,
-        asaas_sync_status: data.asaas_sync_status
+        asaas_sync_status: data.asaas_sync_status,
+        paid_value: undefined,
+        discount_value: 0,
+        interest_value: 0
       };
 
       set((state) => ({

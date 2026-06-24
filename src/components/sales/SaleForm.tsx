@@ -455,6 +455,9 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   useEffect(() => {
     if (isTerminal && !initialData) {
+      setAuthEmployeeId('');
+      setAuthPassword('');
+      setAuthError('');
       setIsConfirmAuthOpen(true);
     }
   }, [isTerminal, initialData]);
@@ -3035,8 +3038,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                {/* Prevent Chrome Autofill */}
+                <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
+                <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={authPassword}
                   onChange={(e) => {
@@ -3121,8 +3128,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                {/* Prevent Chrome Autofill */}
+                <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
+                <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={adminAuthPassword}
                   onChange={(e) => {

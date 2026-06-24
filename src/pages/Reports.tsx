@@ -33,7 +33,7 @@ export default function Reports() {
   const { profile } = useAuthStore();
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas' | 'liquidacoes'>('overview');
 
   // Global filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
@@ -198,12 +198,12 @@ export default function Reports() {
       const monday = new Date(today);
       monday.setDate(today.getDate() - distanceToMonday);
       monday.setHours(0, 0, 0, 0);
-      return date >= monday && date <= new Date(today.getTime() + 86400000);
+      return date >= monday;
     }
     if (dateRange === '30days') {
       const past30 = new Date(today);
       past30.setDate(today.getDate() - 30);
-      return date >= past30 && date <= new Date(today.getTime() + 86400000);
+      return date >= past30;
     }
     if (dateRange === 'month') {
       return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
@@ -619,6 +619,41 @@ export default function Reports() {
     return { sales: orphanSalesVal, osCount: orphanOSCount };
   }, [usersList, sales, serviceOrders, selectedMonth, selectedYear, selectedUnitId]);
 
+  const filteredInstallmentsReport = useMemo(() => {
+    return installments.filter(i => 
+      i.status === 'paid' && 
+      filterByUnit(i.unit_id) && 
+      filterByDateRange(i.paid_at)
+    );
+  }, [installments, selectedUnitId, dateRange, customStartDate, customEndDate]);
+
+  const liquidationStats = useMemo(() => {
+    let totalOriginal = 0;
+    let totalReceived = 0;
+    let totalDiscount = 0;
+    let totalInterest = 0;
+    
+    filteredInstallmentsReport.forEach(i => {
+      const orig = Number(i.value || 0);
+      const paid = Number(i.paid_value !== undefined ? i.paid_value : orig);
+      const disc = Number(i.discount_value || 0);
+      const juros = Number(i.interest_value || 0);
+      
+      totalOriginal += orig;
+      totalReceived += paid;
+      totalDiscount += disc;
+      totalInterest += juros;
+    });
+    
+    return {
+      totalOriginal,
+      totalReceived,
+      totalDiscount,
+      totalInterest,
+      count: filteredInstallmentsReport.length
+    };
+  }, [filteredInstallmentsReport]);
+
   const handleUpdateTarget = () => {
     const parsed = parseFloat(targetInput);
     if (!isNaN(parsed) && parsed >= 0) {
@@ -945,6 +980,28 @@ export default function Reports() {
     exportTableCSV(rows, 'relatorio_fluxo_caixa', headers);
   };
 
+  const handleExportLiquidacoesCSV = () => {
+    if (filteredInstallmentsReport.length === 0) {
+      showNotification('error', 'Sem dados', 'Não há liquidações para exportar.');
+      return;
+    }
+    const headers = ['Cliente', 'Contrato/Parcela', 'Vencimento', 'Pagamento', 'Valor Original', 'Desconto Concedido', 'Juros/Multa', 'Valor Pago', 'Meio Pagto'];
+    const rows = filteredInstallmentsReport.map(i => [
+      i.customer_name || 'Sem Nome',
+      `Parcela ${i.number}/${i.total}`,
+      i.due_date,
+      i.paid_at ? formatPaymentDate(i.paid_at) : '',
+      Number(i.value || 0).toFixed(2),
+      Number(i.discount_value || 0).toFixed(2),
+      Number(i.interest_value || 0).toFixed(2),
+      Number(i.paid_value !== undefined ? i.paid_value : i.value).toFixed(2),
+      i.payment_method === 'pix' ? 'PIX' :
+      i.payment_method === 'money' ? 'Dinheiro' :
+      i.payment_method === 'card' ? 'Cartão' : 'Outros'
+    ]);
+    exportTableCSV(rows, 'relatorio_liquidacoes_descontos', headers);
+  };
+
   const auditStats = useMemo(() => {
     if (!activeAudit || !auditItems.length) {
       return { totalItems: 0, countedItems: 0, deltaCount: 0, costDiscrepancy: 0, percentage: 0 };
@@ -1058,6 +1115,15 @@ export default function Reports() {
             </button>
           )}
 
+          {activeTab === 'liquidacoes' && (
+            <button 
+              onClick={handleExportLiquidacoesCSV}
+              className="bg-white text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
+            >
+              <Download size={14} /> Exportar Planilha CSV
+            </button>
+          )}
+
           {activeTab === 'lucro_presumido' && (
             <button 
               onClick={handlePrintReport}
@@ -1076,6 +1142,7 @@ export default function Reports() {
           { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
           { id: 'lucro_presumido', label: 'Lucro Presumido', icon: Calculator },
           { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench },
+          { id: 'liquidacoes', label: 'Liquidações & Descontos', icon: Percent },
           { id: 'auditoria', label: 'Auditoria de Estoque', icon: CheckCircle2 },
           ...(profile?.role === 'admin' ? [{ id: 'metas', label: 'Desempenho & Metas', icon: Award }] : [])
         ].map(tab => (
@@ -2889,6 +2956,143 @@ export default function Reports() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB: LIQUIDAÇÕES & DESCONTOS ────────────────────────────────────── */}
+      {activeTab === 'liquidacoes' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          
+          {/* Sub Filters Toolbar */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+              {/* Period Selector */}
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
+                <Calendar size={14} className="text-on-surface-variant" />
+                <select
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value as any)}
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                  }}
+                >
+                  <option value="week" className="bg-[#0f0f1a]">Esta Semana</option>
+                  <option value="month" className="bg-[#0f0f1a]">Este Mês</option>
+                  <option value="30days" className="bg-[#0f0f1a]">Últimos 30 dias</option>
+                  <option value="year" className="bg-[#0f0f1a]">Este Ano</option>
+                  <option value="custom" className="bg-[#0f0f1a]">Período Personalizado</option>
+                  <option value="all" className="bg-[#0f0f1a]">Todo o Período</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Custom Dates inputs (reactive) */}
+            <AnimatePresence>
+              {dateRange === 'custom' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/5"
+                >
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
+                    <span className="text-[9px] font-black uppercase text-on-surface-variant">Início:</span>
+                    <input 
+                      type="date" 
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="bg-transparent outline-none text-white w-full cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
+                    <span className="text-[9px] font-black uppercase text-on-surface-variant">Fim:</span>
+                    <input 
+                      type="date" 
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="bg-transparent outline-none text-white w-full cursor-pointer"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Stats Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[
+              { label: 'Total Recebido (Líquido)', value: `R$ ${liquidationStats.totalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: `${liquidationStats.count} parcelas quitadas`, color: 'text-success' },
+              { label: 'Total de Descontos Concedidos', value: `R$ ${liquidationStats.totalDiscount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Redução proporcional (antecipação)', color: 'text-primary' },
+              { label: 'Total de Juros e Multas Cobrados', value: `R$ ${liquidationStats.totalInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Acrescimos por atraso', color: 'text-error' },
+              { label: 'Valor Original das Parcelas', value: `R$ ${liquidationStats.totalOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Expectativa contratual base', color: 'text-white' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white/[0.01] hover:bg-white/[0.02] p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
+                <div className="absolute top-4 right-4 opacity-10">
+                  <DollarSign size={24} className={stat.color} />
+                </div>
+                <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
+                <h3 className="text-xl font-black text-white font-mono leading-none tracking-tight my-1.5">{stat.value}</h3>
+                <p className="text-[9px] text-on-surface-variant opacity-70 mt-1">{stat.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Detailed Table */}
+          <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+            <div>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider">Histórico de Liquidações e Descontos</h3>
+              <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Detalhamento das parcelas recebidas com descontos ou mora no período</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-widest pb-3">
+                    <th className="pb-3 pl-4">Cliente</th>
+                    <th className="pb-3">Contrato / Parcela</th>
+                    <th className="pb-3">Vencimento</th>
+                    <th className="pb-3">Pagamento</th>
+                    <th className="pb-3 text-right">Valor Original</th>
+                    <th className="pb-3 text-right">Desconto</th>
+                    <th className="pb-3 text-right">Juros/Multa</th>
+                    <th className="pb-3 text-right pr-4">Valor Pago</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {filteredInstallmentsReport.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma parcela liquidada no período.</td>
+                    </tr>
+                  ) : (
+                    filteredInstallmentsReport.map((inst, idx) => {
+                      const paidVal = inst.paid_value !== undefined ? inst.paid_value : inst.value;
+                      return (
+                        <tr key={inst.id || idx} className="hover:bg-white/[0.01]">
+                          <td className="py-4 pl-4 font-bold text-white uppercase">{inst.customer_name || 'Sem Nome'}</td>
+                          <td className="py-4 text-on-surface-variant">Parcela {inst.number}/{inst.total}</td>
+                          <td className="py-4 font-mono">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                          <td className="py-4 font-mono">{inst.paid_at ? formatPaymentDate(inst.paid_at) : '—'}</td>
+                          <td className="py-4 text-right font-mono text-white">R$ {Number(inst.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 text-right font-mono text-green-400">
+                            {Number(inst.discount_value || 0) > 0 ? `- R$ ${Number(inst.discount_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                          </td>
+                          <td className="py-4 text-right font-mono text-error">
+                            {Number(inst.interest_value || 0) > 0 ? `+ R$ ${Number(inst.interest_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                          </td>
+                          <td className="py-4 text-right pr-4 font-mono font-black text-success">
+                            R$ {Number(paidVal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

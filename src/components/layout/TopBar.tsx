@@ -225,6 +225,7 @@ export default function TopBar() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors" size={18} />
             <input 
               type="text" 
+              autoComplete="one-time-code"
               placeholder="Pesquisar leads, serviços ou clientes..."
               value={searchQuery}
               onFocus={() => setShowSearchDropdown(true)}
@@ -515,10 +516,15 @@ export default function TopBar() {
             </div>
 
             <form onSubmit={handleSavePassword} className="space-y-4">
+              {/* Prevent Chrome Autofill */}
+              <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
+              <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
+
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Nova Senha</label>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   required
                   placeholder="••••••••"
                   value={newPassword}
@@ -531,6 +537,7 @@ export default function TopBar() {
                 <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Confirmar Nova Senha</label>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   required
                   placeholder="••••••••"
                   value={confirmPassword}

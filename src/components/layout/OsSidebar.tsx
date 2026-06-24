@@ -75,11 +75,11 @@ export default function OsSidebar({
         </button>
       </div>
       
-      {/* Campo de Busca */}
       <div className="relative group">
         <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
         <input 
           type="text" 
+          autoComplete="one-time-code"
           placeholder="Buscar por OS, cliente, modelo ou N/S..." 
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}

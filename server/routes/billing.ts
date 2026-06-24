@@ -27,7 +27,10 @@ router.post("/send-warning", async (req, res) => {
           store:stores (
             name,
             phone,
-            billing_reminder_template
+            billing_reminder_template,
+            billing_reminder_pre_due_template,
+            billing_reminder_overdue_template,
+            billing_reminder_payment_confirmed_template
           )
         )
       `)
@@ -72,7 +75,17 @@ router.post("/send-warning", async (req, res) => {
       link_pagamento: installment.asaas_invoice_url || ""
     };
 
+    // Decide which template to use based on installment status
     let templateText = store?.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE;
+    
+    if (installment.status === 'overdue' || installment.status === 'blocked') {
+      templateText = store?.billing_reminder_overdue_template || templateText;
+    } else if (installment.status === 'pending') {
+      templateText = store?.billing_reminder_pre_due_template || templateText;
+    } else if (installment.status === 'paid') {
+      templateText = store?.billing_reminder_payment_confirmed_template || templateText;
+    }
+
     if (!installment.asaas_invoice_url) {
       templateText = templateText.replace(/.*\{link_pagamento\}.*\n?/gi, '');
       templateText = templateText.replace(/\n{3,}/g, '\n\n');
@@ -172,7 +185,8 @@ router.post("/send-statement", async (req, res) => {
       .from("installments")
       .select(`
         *,
-        sales (
+        sales!inner (
+          customer_id,
           device_model_manual,
           store:stores (
             name,
@@ -180,7 +194,7 @@ router.post("/send-statement", async (req, res) => {
           )
         )
       `)
-      .eq("customer_id", customerId)
+      .eq("sales.customer_id", customerId)
       .order("due_date", { ascending: true });
 
     if (instErr || !installments || installments.length === 0) {

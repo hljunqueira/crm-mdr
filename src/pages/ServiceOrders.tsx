@@ -1478,7 +1478,7 @@ export default function ServiceOrders() {
           <table className="a4-grid-table border border-black text-black">
             <tbody>
               <tr>
-                <td style={{ width: '60%' }} colSpan={2}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Cliente:</strong> {currentServiceOrder.customers?.name?.toUpperCase()}</td>
                 <td style={{ width: '40%' }} colSpan={2}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
               </tr>
               {(() => {
@@ -1495,12 +1495,12 @@ export default function ServiceOrders() {
                 return (
                   <>
                     <tr>
-                      <td colSpan={2}><strong>Endereço:</strong> {parsed.street}</td>
-                      <td colSpan={2}><strong>Bairro:</strong> {parsed.neighborhood}</td>
+                      <td colSpan={2}><strong>Endereço:</strong> {parsed.street?.toUpperCase()}</td>
+                      <td colSpan={2}><strong>Bairro:</strong> {parsed.neighborhood?.toUpperCase()}</td>
                     </tr>
                     <tr>
-                      <td style={{ width: '45%' }}><strong>Cidade:</strong> {city}</td>
-                      <td style={{ width: '15%' }}><strong>UF:</strong> {uf}</td>
+                      <td style={{ width: '45%' }}><strong>Cidade:</strong> {city?.toUpperCase()}</td>
+                      <td style={{ width: '15%' }}><strong>UF:</strong> {uf?.toUpperCase()}</td>
                       <td style={{ width: '40%' }} colSpan={2}><strong>CEP:</strong> {parsed.cep}</td>
                     </tr>
                   </>
@@ -1509,7 +1509,7 @@ export default function ServiceOrders() {
               <tr>
                 <td style={{ width: '45%' }}><strong>CPF/CNPJ:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
                 <td style={{ width: '15%' }}><strong>RG/IE:</strong> —</td>
-                <td style={{ width: '40%' }} colSpan={2}><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>E-mail:</strong> {currentServiceOrder.customers?.email?.toUpperCase() || '—'}</td>
               </tr>
             </tbody>
           </table>
@@ -1522,7 +1522,7 @@ export default function ServiceOrders() {
                 <td style={{ width: '40%' }} colSpan={2}><strong>Operadora:</strong> —</td>
               </tr>
               <tr>
-                <td style={{ width: '60%' }} colSpan={2}><strong>Modelo/Marca:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Modelo/Marca:</strong> {currentServiceOrder.device_brand?.toUpperCase()} {currentServiceOrder.device_model?.toUpperCase()}</td>
                 <td style={{ width: '40%' }} colSpan={2}><strong>Nº Patrimônio:</strong> —</td>
               </tr>
               <tr>
@@ -1553,13 +1553,13 @@ export default function ServiceOrders() {
                 </tr>
               )}
               <tr>
-                <td colSpan={4}><strong>Acessórios Inclusos:</strong> {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 ? currentServiceOrder.accessories_left.join(', ') : 'Nenhum'}</td>
+                <td colSpan={4}><strong>Acessórios Inclusos:</strong> {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 ? currentServiceOrder.accessories_left.map(acc => acc.toUpperCase()).join(', ') : 'NENHUM'}</td>
               </tr>
               <tr>
-                <td colSpan={4}><strong>Sintomas / Defeito Relatado:</strong> {currentServiceOrder.reported_issue}</td>
+                <td colSpan={4}><strong>Sintomas / Defeito Relatado:</strong> {currentServiceOrder.reported_issue?.toUpperCase()}</td>
               </tr>
               <tr>
-                <td colSpan={4}><strong>Observações / Vistoria Visual:</strong> {currentServiceOrder.cosmetic_condition || 'Nenhuma observação estética'}</td>
+                <td colSpan={4}><strong>Observações / Vistoria Visual:</strong> {currentServiceOrder.cosmetic_condition?.toUpperCase() || 'NENHUMA OBSERVAÇÃO ESTÉTICA'}</td>
               </tr>
               <tr>
                 <td colSpan={4}>
@@ -1583,7 +1583,7 @@ export default function ServiceOrders() {
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
               <span>Estou de acordo com o que li no todo desta nota.</span>
-              <strong className="mt-1">{currentServiceOrder.customers?.name}</strong>
+              <strong className="mt-1">{currentServiceOrder.customers?.name?.toUpperCase()}</strong>
             </div>
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
@@ -1602,7 +1602,7 @@ export default function ServiceOrders() {
                 <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">COMPROVANTE DE RETIRADA</h3>
                 <p className="text-[9px] text-slate-500 uppercase mt-0.5">{brandName} {brandSub}</p>
                 <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-[9px] text-slate-700">
-                  <p><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</p>
+                  <p><strong>Cliente:</strong> {currentServiceOrder.customers?.name?.toUpperCase()}</p>
                   <p>
                     <strong>Aparelho:</strong>{' '}
                     {(!currentServiceOrder.device_brand || currentServiceOrder.device_brand === '-') &&
@@ -1613,7 +1613,7 @@ export default function ServiceOrders() {
                             currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
                               currentServiceOrder.device_category === 'printer' ? 'Impressora' :
                                 currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
-                      : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim()
+                      : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim().toUpperCase()
                     }
                   </p>
                   {currentServiceOrder.device_serial_number && <p><strong>IMEI/Serial:</strong> {currentServiceOrder.device_serial_number}</p>}
@@ -1659,7 +1659,7 @@ export default function ServiceOrders() {
           {/* Buyer Section */}
           <div className="row-left">
             <span>Cliente:</span>
-            <span>{currentServiceOrder.customers?.name}</span>
+            <span>{currentServiceOrder.customers?.name?.toUpperCase()}</span>
           </div>
           <div className="row">
             <span>Aparelho:</span>
@@ -1672,7 +1672,7 @@ export default function ServiceOrders() {
                       currentServiceOrder.device_category === 'tablet' ? 'Tablet' :
                         currentServiceOrder.device_category === 'printer' ? 'Impressora' :
                           currentServiceOrder.device_category === 'console' ? 'Console' : 'Equipamento')
-                : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim()
+                : `${currentServiceOrder.device_brand || ''} ${currentServiceOrder.device_model || ''}`.trim().toUpperCase()
               }
             </span>
           </div>
@@ -1703,6 +1703,7 @@ export default function ServiceOrders() {
 
           <div className="divider"></div>
 
+          {/* Online Tracking Instruction */}
           <div className="section-title" style={{ textAlign: 'center' }}>PAGAMENTO VIA PIX</div>
           <div className="clauses" style={{ textAlign: 'center', fontSize: '10px' }}>
             Chave Celular: <strong>48999035854</strong><br />
@@ -1752,7 +1753,7 @@ export default function ServiceOrders() {
         <div className="section-title">DADOS DO CLIENTE</div>
         <div className="row-left">
           <span>Nome:</span>
-          <span>{currentServiceOrder.customers?.name}</span>
+          <span>{currentServiceOrder.customers?.name?.toUpperCase()}</span>
         </div>
         <div className="row-left">
           <span>CPF:</span>
@@ -1769,7 +1770,7 @@ export default function ServiceOrders() {
         <div className="section-title">DADOS DO EQUIPAMENTO</div>
         <div className="row">
           <span>Aparelho:</span>
-          <span className="align-right">{currentServiceOrder.device_brand} {currentServiceOrder.device_model}</span>
+          <span className="align-right">{currentServiceOrder.device_brand?.toUpperCase()} {currentServiceOrder.device_model?.toUpperCase()}</span>
         </div>
         <div className="row">
           <span>Categoria:</span>
@@ -1810,18 +1811,18 @@ export default function ServiceOrders() {
         <div className="section-title">VISTORIA E ENTRADA</div>
         <div className="row">
           <span>Defeito Relatado:</span>
-          <span className="align-right text-small">{currentServiceOrder.reported_issue}</span>
+          <span className="align-right text-small">{currentServiceOrder.reported_issue?.toUpperCase()}</span>
         </div>
         {currentServiceOrder.cosmetic_condition && (
           <div className="row">
             <span>Vistoria Visual:</span>
-            <span className="align-right text-small">{currentServiceOrder.cosmetic_condition}</span>
+            <span className="align-right text-small">{currentServiceOrder.cosmetic_condition?.toUpperCase()}</span>
           </div>
         )}
         {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 && (
           <div className="row">
             <span>Acessórios Inclusos:</span>
-            <span className="align-right text-small">{currentServiceOrder.accessories_left.join(', ')}</span>
+            <span className="align-right text-small">{currentServiceOrder.accessories_left.map(acc => acc.toUpperCase()).join(', ')}</span>
           </div>
         )}
         <div className="row">
@@ -1846,9 +1847,9 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '60px', marginBottom: '20px' }}>
+        <div className="sig-line-box" style={{ marginTop: '80px', marginBottom: '20px' }}>
           <div className="sig-line"></div>
-          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
+          <span className="sig-label">{currentServiceOrder.customers?.name?.toUpperCase()}<br />Cliente</span>
         </div>
 
         <div className="divider"></div>
@@ -1910,7 +1911,7 @@ export default function ServiceOrders() {
           <table className="a4-grid-table border border-black text-black">
             <tbody>
               <tr>
-                <td style={{ width: '60%' }} colSpan={2}><strong>Cliente:</strong> {currentServiceOrder.customers?.name}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Cliente:</strong> {currentServiceOrder.customers?.name?.toUpperCase()}</td>
                 <td style={{ width: '40%' }} colSpan={2}><strong>Telefone:</strong> {currentServiceOrder.customers?.phone ? formatPhone(currentServiceOrder.customers.phone) : '—'}</td>
               </tr>
               {(() => {
@@ -1927,12 +1928,12 @@ export default function ServiceOrders() {
                 return (
                   <>
                     <tr>
-                      <td colSpan={2}><strong>Endereço:</strong> {parsed.street}</td>
-                      <td colSpan={2}><strong>Bairro:</strong> {parsed.neighborhood}</td>
+                      <td colSpan={2}><strong>Endereço:</strong> {parsed.street?.toUpperCase()}</td>
+                      <td colSpan={2}><strong>Bairro:</strong> {parsed.neighborhood?.toUpperCase()}</td>
                     </tr>
                     <tr>
-                      <td style={{ width: '45%' }}><strong>Cidade:</strong> {city}</td>
-                      <td style={{ width: '15%' }}><strong>UF:</strong> {uf}</td>
+                      <td style={{ width: '45%' }}><strong>Cidade:</strong> {city?.toUpperCase()}</td>
+                      <td style={{ width: '15%' }}><strong>UF:</strong> {uf?.toUpperCase()}</td>
                       <td style={{ width: '40%' }} colSpan={2}><strong>CEP:</strong> {parsed.cep}</td>
                     </tr>
                   </>
@@ -1941,7 +1942,7 @@ export default function ServiceOrders() {
               <tr>
                 <td style={{ width: '45%' }}><strong>CPF/CNPJ:</strong> {currentServiceOrder.customers?.cpf ? formatCPF(currentServiceOrder.customers.cpf) : '—'}</td>
                 <td style={{ width: '15%' }}><strong>RG/IE:</strong> —</td>
-                <td style={{ width: '40%' }} colSpan={2}><strong>E-mail:</strong> {currentServiceOrder.customers?.email || '—'}</td>
+                <td style={{ width: '40%' }} colSpan={2}><strong>E-mail:</strong> {currentServiceOrder.customers?.email?.toUpperCase() || '—'}</td>
               </tr>
             </tbody>
           </table>
@@ -1954,7 +1955,7 @@ export default function ServiceOrders() {
                 <td style={{ width: '40%' }} colSpan={2}><strong>Operadora:</strong> —</td>
               </tr>
               <tr>
-                <td style={{ width: '60%' }} colSpan={2}><strong>Modelo/Marca:</strong> {currentServiceOrder.device_brand} {currentServiceOrder.device_model}</td>
+                <td style={{ width: '60%' }} colSpan={2}><strong>Modelo/Marca:</strong> {currentServiceOrder.device_brand?.toUpperCase()} {currentServiceOrder.device_model?.toUpperCase()}</td>
                 <td style={{ width: '40%' }} colSpan={2}><strong>Nº Patrimônio:</strong> —</td>
               </tr>
               <tr>
@@ -1962,12 +1963,12 @@ export default function ServiceOrders() {
                 <td style={{ width: '40%' }} colSpan={2}><strong>Senha/PIN:</strong> {currentServiceOrder.device_passcode || '—'}</td>
               </tr>
               <tr>
-                <td colSpan={4}><strong>Problema Original / Sintomas:</strong> {currentServiceOrder.reported_issue}</td>
+                <td colSpan={4}><strong>Problema Original / Sintomas:</strong> {currentServiceOrder.reported_issue?.toUpperCase()}</td>
               </tr>
               <tr>
                 <td colSpan={4}>
                   <strong>Laudo Técnico de Reparo:</strong>{' '}
-                  {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim() : 'Reparo concluído.'}
+                  {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim().toUpperCase() : 'Reparo concluído.'}
                 </td>
               </tr>
             </tbody>
@@ -1979,7 +1980,7 @@ export default function ServiceOrders() {
               <tr>
                 <td style={{ width: '33%' }}><strong>Mão de Obra:</strong> R$ {Number(currentServiceOrder.labor_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                 <td style={{ width: '33%' }}><strong>Peças Aplicadas:</strong> R$ {Number(currentServiceOrder.parts_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style={{ width: '34%' }}><strong>Forma Pagamento:</strong> {currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / Dinheiro'}</td>
+                <td style={{ width: '34%' }}><strong>Forma Pagamento:</strong> {currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / DINHEIRO'}</td>
               </tr>
               <tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
                 <td colSpan={3} style={{ textAlign: 'center', fontSize: '11px' }}>
@@ -2004,12 +2005,12 @@ export default function ServiceOrders() {
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
               <span>Técnico Responsável</span>
-              <strong className="mt-1">{currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</strong>
+              <strong className="mt-1">{currentServiceOrder.finalized_by?.full_name?.toUpperCase() || `${brandName} ${brandSub}`}</strong>
             </div>
             <div className="a4-sig-box">
               <div className="a4-sig-line"></div>
               <span>Assinatura do Cliente</span>
-              <strong className="mt-1">{currentServiceOrder.customers?.name}</strong>
+              <strong className="mt-1">{currentServiceOrder.customers?.name?.toUpperCase()}</strong>
             </div>
           </div>
         </div>
@@ -2043,10 +2044,10 @@ export default function ServiceOrders() {
             Data Saída: {today} | Atendente: {currentServiceOrder.created_by?.full_name?.split(' ')[0] || 'Sistema'}
           </div>
           {currentServiceOrder.finalized_by?.full_name && (
-            <div className="receipt-date">Técnico: {currentServiceOrder.finalized_by.full_name}</div>
+            <div className="receipt-date">Técnico: {currentServiceOrder.finalized_by.full_name?.toUpperCase()}</div>
           )}
           {currentServiceOrder.delivered_by?.full_name && (
-            <div className="receipt-date">Caixa: {currentServiceOrder.delivered_by.full_name}</div>
+            <div className="receipt-date">Caixa: {currentServiceOrder.delivered_by.full_name?.toUpperCase()}</div>
           )}
         </div>
 
@@ -2056,7 +2057,7 @@ export default function ServiceOrders() {
         <div className="section-title">DADOS DO CLIENTE</div>
         <div className="row-left">
           <span>Nome:</span>
-          <span>{currentServiceOrder.customers?.name}</span>
+          <span>{currentServiceOrder.customers?.name?.toUpperCase()}</span>
         </div>
         <div className="row-left">
           <span>CPF:</span>
@@ -2069,7 +2070,7 @@ export default function ServiceOrders() {
         <div className="section-title">DADOS DO EQUIPAMENTO</div>
         <div className="row">
           <span>Aparelho:</span>
-          <span className="align-right">{currentServiceOrder.device_brand} {currentServiceOrder.device_model}</span>
+          <span className="align-right">{currentServiceOrder.device_brand?.toUpperCase()} {currentServiceOrder.device_model?.toUpperCase()}</span>
         </div>
         <div className="row">
           <span>S/N ou IMEI:</span>
@@ -2082,12 +2083,12 @@ export default function ServiceOrders() {
         <div className="section-title">LAUDO TÉCNICO DE REPARO</div>
         <div className="row">
           <span>Problema Original:</span>
-          <span className="align-right text-small">{currentServiceOrder.reported_issue}</span>
+          <span className="align-right text-small">{currentServiceOrder.reported_issue?.toUpperCase()}</span>
         </div>
         <div className="row">
           <span>Laudo Técnico:</span>
           <span className="align-right text-small">
-            {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim() : 'Reparo concluído.'}
+            {currentServiceOrder.technical_diagnosis ? currentServiceOrder.technical_diagnosis.split('[')[0].trim().toUpperCase() : 'Reparo concluído.'}
           </span>
         </div>
 
@@ -2105,7 +2106,7 @@ export default function ServiceOrders() {
         </div>
         <div className="row">
           <span>Forma Pagamento:</span>
-          <span className="align-right font-mono">{currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / Dinheiro'}</span>
+          <span className="align-right font-mono">{currentServiceOrder.payment_method ? currentServiceOrder.payment_method.toUpperCase() : 'PIX / DINHEIRO'}</span>
         </div>
 
         <div className="total-box">
@@ -2150,14 +2151,14 @@ export default function ServiceOrders() {
         <div className="divider"></div>
 
         {/* Signatures */}
-        <div className="sig-line-box" style={{ marginTop: '28px' }}>
+        <div className="sig-line-box" style={{ marginTop: '80px' }}>
           <div className="sig-line"></div>
-          <span className="sig-label">Técnico: {currentServiceOrder.finalized_by?.full_name || `${brandName} ${brandSub}`}</span>
+          <span className="sig-label">Técnico: {currentServiceOrder.finalized_by?.full_name?.toUpperCase() || `${brandName} ${brandSub}`}</span>
         </div>
 
-        <div className="sig-line-box" style={{ marginTop: '28px' }}>
+        <div className="sig-line-box" style={{ marginTop: '80px' }}>
           <div className="sig-line"></div>
-          <span className="sig-label">{currentServiceOrder.customers?.name}<br />Cliente</span>
+          <span className="sig-label">{currentServiceOrder.customers?.name?.toUpperCase()}<br />Cliente</span>
         </div>
 
         <div className="divider"></div>
@@ -2865,6 +2866,7 @@ export default function ServiceOrders() {
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   <input
                     type="text"
+                    autoComplete="one-time-code"
                     placeholder="Pesquisar cliente por nome ou CPF..."
                     value={customerSearchTerm}
                     onChange={(e) => setCustomerSearchTerm(e.target.value)}
@@ -3869,8 +3871,12 @@ export default function ServiceOrders() {
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Senha de Acesso</label>
+                {/* Prevent Chrome Autofill */}
+                <input type="text" name="chrome_prevent_email" style={{ display: 'none' }} />
+                <input type="password" name="chrome_prevent_pass" style={{ display: 'none' }} />
                 <input
                   type="password"
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={authPassword}
                   onChange={(e) => {

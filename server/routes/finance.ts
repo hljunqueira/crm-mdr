@@ -181,6 +181,28 @@ router.patch("/installments/:id", async (req, res) => {
   const updatePayload = { ...req.body };
   delete updatePayload.bypassShiftValidation;
 
+  if (status === 'paid') {
+    updatePayload.paid_value = amount;
+    // Keep value as original value, do not overwrite it
+    delete updatePayload.value;
+
+    const originalVal = Number(current.value);
+    if (amount < originalVal) {
+      updatePayload.discount_value = originalVal - amount;
+      updatePayload.interest_value = 0;
+    } else if (amount > originalVal) {
+      updatePayload.interest_value = amount - originalVal;
+      updatePayload.discount_value = 0;
+    } else {
+      updatePayload.discount_value = 0;
+      updatePayload.interest_value = 0;
+    }
+  } else if (status === 'pending' || status === 'overdue') {
+    updatePayload.paid_value = null;
+    updatePayload.discount_value = 0;
+    updatePayload.interest_value = 0;
+  }
+
   const { data, error } = await supabase
     .from('installments')
     .update(updatePayload)
