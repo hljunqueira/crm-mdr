@@ -24,7 +24,39 @@ const syncDeviceLocks = async (sale: any) => {
     const deviceId = sale.device_id;
     const currentDeviceIds: string[] = [];
 
-    if (imeiStr && imeiStr !== 'N/A') {
+    if (deviceId) {
+      currentDeviceIds.push(deviceId);
+      const { data: dev } = await supabase
+        .from('devices')
+        .select('brand')
+        .eq('id', deviceId)
+        .maybeSingle();
+
+      const brandLower = (dev?.brand || '').toLowerCase();
+      const isIphone = brandLower === 'apple' || brandLower.includes('iphone') || 
+                       (sale.device_model_manual || '').toLowerCase().includes('iphone') || 
+                       (sale.device_model_manual || '').toLowerCase().includes('apple');
+      const lockType = isIphone ? 'icloud' : 'android';
+
+      const { data: existingLock } = await supabase
+        .from('device_locks')
+        .select('id')
+        .eq('sale_id', sale.id)
+        .eq('device_id', deviceId)
+        .maybeSingle();
+
+      if (!existingLock) {
+        await supabase
+          .from('device_locks')
+          .insert({
+            device_id: deviceId,
+            sale_id: sale.id,
+            lock_type: lockType,
+            icloud_locked: false,
+            mdm_locked: false
+          });
+      }
+    } else if (imeiStr && imeiStr !== 'N/A') {
       const imeis = imeiStr.split(',').map((i: string) => i.trim()).filter(Boolean);
       for (const imei of imeis) {
         if (imei !== 'N/A') {
@@ -59,35 +91,6 @@ const syncDeviceLocks = async (sale: any) => {
             }
           }
         }
-      }
-    } else if (deviceId) {
-      currentDeviceIds.push(deviceId);
-      const { data: dev } = await supabase
-        .from('devices')
-        .select('brand')
-        .eq('id', deviceId)
-        .maybeSingle();
-
-      const brandLower = (dev?.brand || '').toLowerCase();
-      const lockType = (brandLower === 'apple' || brandLower.includes('iphone')) ? 'icloud' : 'android';
-
-      const { data: existingLock } = await supabase
-        .from('device_locks')
-        .select('id')
-        .eq('sale_id', sale.id)
-        .eq('device_id', deviceId)
-        .maybeSingle();
-
-      if (!existingLock) {
-        await supabase
-          .from('device_locks')
-          .insert({
-            device_id: deviceId,
-            sale_id: sale.id,
-            lock_type: lockType,
-            icloud_locked: false,
-            mdm_locked: false
-          });
       }
     }
 
