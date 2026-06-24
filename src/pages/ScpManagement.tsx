@@ -23,8 +23,15 @@ export default function ScpManagement() {
 
   const [selectedLotId, setSelectedLotId] = useState<string>('');
   const [isQuotaOpen, setIsQuotaOpen] = useState(false);
-  const [newQuota, setNewQuota] = useState({ profile_id: '', amount_invested: 0, ownership_percentage: 0 });
+  const [newQuota, setNewQuota] = useState({ profile_id: '', amount_invested: 0, ownership_percentage: 0, interest_sharing_percentage: 20 });
   const [investors, setInvestors] = useState<any[]>([]);
+
+  // Estado para estatísticas administrativas consolidada
+  const [adminStats, setAdminStats] = useState({
+    totalRepasses: 0,
+    totalWithdrawals: 0,
+    totalInadimplencia: 0
+  });
 
   // Estados para vinculação de aparelhos
   const [isLinkDevicesOpen, setIsLinkDevicesOpen] = useState(false);
@@ -56,6 +63,43 @@ export default function ScpManagement() {
       fetchWithdrawals();
     }
   }, [activePanelTab, fetchWithdrawals]);
+
+  // Carregar estatísticas administrativas para os KPIs do Admin
+  useEffect(() => {
+    const fetchAdminStats = async () => {
+      try {
+        const { data: txs } = await supabase
+          .from('wallet_transactions')
+          .select('amount')
+          .eq('type', 'CREDIT');
+        
+         const { data: wds } = await supabase
+           .from('withdrawal_requests')
+           .select('amount')
+           .eq('status', 'APPROVED');
+
+         const { data: insts } = await supabase
+           .from('installments')
+           .select('value')
+           .in('status', ['overdue', 'blocked']);
+
+         const totalRep = txs ? txs.reduce((acc, t) => acc + Number(t.amount), 0) : 0;
+         const totalWithdraw = wds ? wds.reduce((acc, w) => acc + Number(w.amount), 0) : 0;
+         const totalInad = insts ? insts.reduce((acc, i) => acc + Number(i.value), 0) : 0;
+
+         setAdminStats({
+           totalRepasses: totalRep,
+           totalWithdrawals: totalWithdraw,
+           totalInadimplencia: totalInad
+         });
+      } catch (err) {
+        console.error('Error fetching admin SCP stats:', err);
+      }
+    };
+    if (activePanelTab === 'lots') {
+      fetchAdminStats();
+    }
+  }, [lots, activePanelTab]);
 
   const fetchAvailableDevices = async () => {
     try {
@@ -101,11 +145,12 @@ export default function ScpManagement() {
         lot_id: selectedLotId,
         profile_id: newQuota.profile_id,
         amount_invested: newQuota.amount_invested,
-        ownership_percentage: newQuota.ownership_percentage / 100 // Convert percent to decimal (ex: 15 to 0.15)
+        ownership_percentage: newQuota.ownership_percentage / 100, // Convert percent to decimal (ex: 15 to 0.15)
+        interest_sharing_percentage: newQuota.interest_sharing_percentage / 100 // Convert percent to decimal (ex: 20 to 0.20)
       });
       showNotification('success', 'Sucesso', 'Cota de investidor associada com sucesso!');
       setIsQuotaOpen(false);
-      setNewQuota({ profile_id: '', amount_invested: 0, ownership_percentage: 0 });
+      setNewQuota({ profile_id: '', amount_invested: 0, ownership_percentage: 0, interest_sharing_percentage: 20 });
     } catch (err) {
       showNotification('error', 'Erro', 'Falha ao associar a cota.');
     } finally {
@@ -225,14 +270,16 @@ export default function ScpManagement() {
       {activePanelTab === 'lots' ? (
         <>
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 flex items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                 <TrendingUp size={20} />
               </div>
               <div>
-                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Lotes Ativos</span>
-                <span className="text-xl font-extrabold text-white">{lots.length}</span>
+                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Capital Captado</span>
+                <span className="text-xl font-extrabold text-white">
+                  R$ {lots.reduce((sum, l) => sum + (l.investor_quotas || []).reduce((s, q) => s + Number(q.amount_invested), 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
             </div>
 
@@ -241,9 +288,9 @@ export default function ScpManagement() {
                 <DollarSign size={20} />
               </div>
               <div>
-                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Captação Total</span>
-                <span className="text-xl font-extrabold text-white">
-                  R$ {lots.reduce((sum, l) => sum + Number(l.target_amount), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Repasses Efetuados</span>
+                <span className="text-xl font-extrabold text-emerald-400">
+                  R$ {adminStats.totalRepasses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
@@ -253,8 +300,22 @@ export default function ScpManagement() {
                 <Users size={20} />
               </div>
               <div>
-                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Parceiros Investidores</span>
-                <span className="text-xl font-extrabold text-white">{investors.length}</span>
+                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Resgates Pagos</span>
+                <span className="text-xl font-extrabold text-white">
+                  R$ {adminStats.totalWithdrawals.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] text-zinc-400 uppercase tracking-widest block font-bold">Inadimplência</span>
+                <span className="text-xl font-extrabold text-rose-400">
+                  R$ {adminStats.totalInadimplencia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
             </div>
           </div>
@@ -320,10 +381,15 @@ export default function ScpManagement() {
                                     </a>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-zinc-200">
-                                    {Number(q.ownership_percentage * 100).toFixed(1)}% (R$ {Number(q.amount_invested).toLocaleString('pt-BR')})
-                                  </span>
+                                  <div className="flex items-center gap-2 text-right justify-end">
+                                  <div className="text-right">
+                                    <span className="font-semibold text-zinc-200 block">
+                                      Cota: {Number(q.ownership_percentage * 100).toFixed(1)}% (R$ {Number(q.amount_invested).toLocaleString('pt-BR')})
+                                    </span>
+                                    <span className="text-[9px] text-zinc-500 block">
+                                      Juros: {Number(q.interest_sharing_percentage ? q.interest_sharing_percentage * 100 : 20).toFixed(0)}%
+                                    </span>
+                                  </div>
                                   <button
                                     onClick={() => {
                                       setSelectedQuotaId(q.id);
@@ -539,6 +605,20 @@ export default function ScpManagement() {
                 placeholder="Ex: 15.5 para 15.5%"
                 value={newQuota.ownership_percentage || ''}
                 onChange={(e) => setNewQuota(prev => ({ ...prev, ownership_percentage: parseFloat(e.target.value) }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Participação nos Juros (%)</label>
+              <input
+                type="number"
+                required
+                min={1}
+                max={100}
+                step={1}
+                placeholder="Ex: 20 para 20%"
+                value={newQuota.interest_sharing_percentage || ''}
+                onChange={(e) => setNewQuota(prev => ({ ...prev, interest_sharing_percentage: parseFloat(e.target.value) }))}
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
               />
             </div>

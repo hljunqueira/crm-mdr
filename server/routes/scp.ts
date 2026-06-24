@@ -246,10 +246,16 @@ router.post("/lots", async (req, res) => {
 // 5. POST /api/scp/quotas — Associar investidor a um lote (cota)
 router.post("/quotas", async (req, res) => {
   try {
-    const { profile_id, lot_id, amount_invested, ownership_percentage } = req.body;
+    const { profile_id, lot_id, amount_invested, ownership_percentage, interest_sharing_percentage } = req.body;
     const { data, error } = await supabase
       .from("investor_quotas")
-      .insert({ profile_id, lot_id, amount_invested, ownership_percentage })
+      .insert({ 
+        profile_id, 
+        lot_id, 
+        amount_invested, 
+        ownership_percentage, 
+        interest_sharing_percentage: interest_sharing_percentage !== undefined ? interest_sharing_percentage : 0.20 
+      })
       .select()
       .single();
 
@@ -298,7 +304,6 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       .maybeSingle();
 
     if (walletError) throw walletError;
-
     const walletData = wallet || { balance: 0, future_receipts: 0 };
 
     // 2. Get Investor Quotas and associated Lots
@@ -308,10 +313,13 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         id,
         amount_invested,
         ownership_percentage,
+        interest_sharing_percentage,
         contract_url,
+        signed_contract_at,
         lot:lots (
           id,
           title,
+          target_amount,
           status
         )
       `)
@@ -319,34 +327,140 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
     if (quotasError) throw quotasError;
 
+    // 3. Fetch all wallet transactions for this investor
+    const { data: allTransactions, error: txsErr } = await supabase
+      .from("wallet_transactions")
+      .select("*")
+      .eq("profile_id", profile_id)
+      .order("created_at", { ascending: false });
+
+    if (txsErr) throw txsErr;
+
+    const credits = (allTransactions || []).filter(t => t.type === "CREDIT");
+    const capitalRecovered = credits.reduce((acc, t) => acc + Number(t.capital_portion || 0), 0);
+    const interestReceived = credits.reduce((acc, t) => acc + Number(t.interest_portion || 0), 0);
+    const totalReceived = capitalRecovered + interestReceived;
+    const capitalInvested = (quotas || []).reduce((acc, q) => acc + Number(q.amount_invested || 0), 0);
+
+    const roi = capitalInvested > 0 ? (interestReceived / capitalInvested) * 100 : 0;
+
+    // 4. Calculate monthly receipts history
+    const monthlyHistoryMap: Record<string, { month: string; amount: number }> = {};
+    credits.forEach(c => {
+      const date = new Date(c.created_at);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+      if (!monthlyHistoryMap[key]) {
+        monthlyHistoryMap[key] = { month: label.toUpperCase(), amount: 0 };
+      }
+      monthlyHistoryMap[key].amount += Number(c.amount);
+    });
+
+    const monthlyHistory = Object.keys(monthlyHistoryMap)
+      .sort()
+      .map(k => monthlyHistoryMap[k]);
+
+    // 5. Gather detailed products (smartphones) metrics and list
+    const myProducts: any[] = [];
+    let activeDevicesCount = 0;
+    let paidDevicesCount = 0;
+    let defaultedDevicesCount = 0;
+
     const lotsList = [];
 
     if (quotas) {
       for (const q of quotas) {
         if (!q.lot) continue;
         const lot: any = q.lot;
+        const lotTarget = Number(lot.target_amount || q.amount_invested || 1);
+        const ownershipFraction = Number(q.amount_invested) / lotTarget;
 
         // Fetch devices in this lot
-        const { data: devices, error: devError } = await supabase
+        const { data: devices } = await supabase
           .from("devices")
-          .select("id, status")
+          .select("id, brand, model, imei, status, cost_price")
           .eq("lot_id", lot.id);
 
         const totalProducts = devices ? devices.length : 0;
         const soldProducts = devices ? devices.filter(d => d.status === "sold").length : 0;
 
-        // Fetch installments for devices in this lot
-        let healthRate = 100.0;
+        let lotHealthRate = 100.0;
+
         if (devices && devices.length > 0) {
           const deviceIds = devices.map(d => d.id);
-          const { data: sales, error: salesError } = await supabase
+          
+          // Get sales for these devices
+          const { data: sales } = await supabase
             .from("sales")
-            .select("id")
-            .in("device_id", deviceIds);
+            .select("id, device_id, customer_name, installments")
+            .in("device_id", deviceIds)
+            .neq("status", "cancelled");
 
+          for (const dev of devices) {
+            const devSale = sales ? sales.find(s => s.device_id === dev.id) : null;
+            if (devSale) {
+              // Fetch installments for this sale
+              const { data: insts } = await supabase
+                .from("installments")
+                .select("id, status, value, paid_value, installment_number")
+                .eq("sale_id", devSale.id)
+                .neq("status", "cancelled");
+
+              const totalInst = insts ? insts.length : 1;
+              const paidInst = insts ? insts.filter(i => i.status === "paid").length : 0;
+              const isOverdue = insts ? insts.some(i => i.status === "overdue" || i.status === "blocked") : false;
+
+              // Calculate device-specific capital returned and interest received
+              const devTxIds = insts ? insts.map(i => i.id) : [];
+              const devTxs = credits.filter(t => t.installment_id && devTxIds.includes(t.installment_id));
+              
+              const devCapReturned = devTxs.reduce((sum, t) => sum + Number(t.capital_portion || 0), 0);
+              const devIntReceived = devTxs.reduce((sum, t) => sum + Number(t.interest_portion || 0), 0);
+
+              let devStatus = "ativo";
+              if (paidInst === totalInst) {
+                devStatus = "quitado";
+                paidDevicesCount++;
+              } else if (isOverdue) {
+                devStatus = "inadimplente";
+                defaultedDevicesCount++;
+              } else {
+                activeDevicesCount++;
+              }
+
+              myProducts.push({
+                id: dev.id,
+                model: `${dev.brand} ${dev.model}`,
+                imei: dev.imei,
+                client: devSale.customer_name || "Cliente",
+                installments: `${paidInst}/${totalInst}`,
+                capitalReturned: Number(devCapReturned.toFixed(2)),
+                interestReceived: Number(devIntReceived.toFixed(2)),
+                totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
+                remainingValue: Number((q.amount_invested * ownershipFraction - devCapReturned).toFixed(2)), // Remaining capital portion
+                status: devStatus
+              });
+            } else {
+              // In stock
+              myProducts.push({
+                id: dev.id,
+                model: `${dev.brand} ${dev.model}`,
+                imei: dev.imei,
+                client: "-",
+                installments: "-",
+                capitalReturned: 0,
+                interestReceived: 0,
+                totalReceived: 0,
+                remainingValue: Number((Number(dev.cost_price || 0) * ownershipFraction).toFixed(2)),
+                status: "estoque"
+              });
+            }
+          }
+
+          // Compute lot health rate
           if (sales && sales.length > 0) {
             const saleIds = sales.map(s => s.id);
-            const { data: insts, error: instsError } = await supabase
+            const { data: insts } = await supabase
               .from("installments")
               .select("status")
               .in("sale_id", saleIds);
@@ -355,7 +469,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
               const activeInsts = insts.filter(i => i.status !== "cancelled");
               if (activeInsts.length > 0) {
                 const healthyInsts = activeInsts.filter(i => i.status !== "overdue" && i.status !== "blocked");
-                healthRate = Number(((healthyInsts.length / activeInsts.length) * 100).toFixed(1));
+                lotHealthRate = Number(((healthyInsts.length / activeInsts.length) * 100).toFixed(1));
               }
             }
           }
@@ -366,45 +480,47 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           quotaId: q.id,
           title: lot.title,
           amountInvested: Number(q.amount_invested),
-          ownershipPercentage: Number(q.ownership_percentage) * 100, // stored as fraction e.g. 0.15
+          ownershipPercentage: Number(q.ownership_percentage) * 100,
+          interestSharingPercentage: Number(q.interest_sharing_percentage ?? 0.20) * 100,
           totalProducts,
           soldProducts,
-          healthRate,
+          healthRate: lotHealthRate,
           status: lot.status,
-          contractUrl: q.contract_url
+          contractUrl: q.contract_url,
+          signedContractAt: q.signed_contract_at
         });
       }
     }
 
-    // 3. Get Recent Transactions
-    const { data: transactions, error: txError } = await supabase
-      .from("wallet_transactions")
-      .select("id, type, amount, description, created_at")
-      .eq("profile_id", profile_id)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (txError) throw txError;
-
-    const formattedTransactions = (transactions || []).map((t: any) => ({
-      id: t.id,
-      type: t.type,
-      amount: Number(t.amount),
-      description: t.description || "",
-      date: new Date(t.created_at).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-      })
-    }));
-
     res.json({
       wallet: {
         balance: Number(walletData.balance),
-        futureReceipts: Number(walletData.future_receipts)
+        futureReceipts: Number(walletData.future_receipts),
+        capitalInvested,
+        capitalRecovered,
+        interestReceived,
+        totalReceived,
+        roi,
+        activeDevicesCount,
+        paidDevicesCount,
+        defaultedDevicesCount
       },
       lots: lotsList,
-      transactions: formattedTransactions
+      products: myProducts,
+      transactions: (allTransactions || []).slice(0, 15).map((t: any) => ({
+        id: t.id,
+        type: t.type,
+        amount: Number(t.amount),
+        capitalPortion: Number(t.capital_portion || 0),
+        interestPortion: Number(t.interest_portion || 0),
+        description: t.description || "",
+        date: new Date(t.created_at).toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        })
+      })),
+      monthlyHistory
     });
 
   } catch (error: any) {

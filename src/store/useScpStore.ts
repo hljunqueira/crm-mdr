@@ -36,6 +36,7 @@ interface ScpState {
     lot_id: string;
     amount_invested: number;
     ownership_percentage: number;
+    interest_sharing_percentage?: number;
   }) => Promise<void>;
   fetchWithdrawals: (profileId?: string) => Promise<void>;
   requestWithdrawal: (payload: {

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import crypto from "crypto";
 import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix } from "../services/asaasService.js";
+import { processScpInstallmentPayout } from "./scp_payout_trigger.js";
 
 const router = Router();
 
@@ -257,6 +258,11 @@ router.patch("/installments/:id", async (req, res) => {
           .eq('id', activeShift.id);
       }
     }
+
+    // Trigger SCP payout if this installment is for an invested device
+    processScpInstallmentPayout(req.params.id, amount).catch(err => {
+      console.error("[SCP Payout Trigger Error] Failed to run scp payout:", err);
+    });
   } else if (status === 'pending' || status === 'overdue') {
     // If reverting payment, delete transaction and adjust shift balances
     const { data: tx } = await supabase

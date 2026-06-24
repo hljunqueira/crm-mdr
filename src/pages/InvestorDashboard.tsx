@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Wallet, TrendingUp, AlertCircle, ShieldCheck, 
   Activity, ArrowDownLeft, ArrowUpRight, BarChart3, Package, Calendar,
-  LogOut, Loader2, CheckCircle2, X
+  LogOut, Loader2, CheckCircle2, X, Info, Calculator, FileText
 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import ScpManagement from './ScpManagement';
 
 interface InvestedLot {
@@ -12,19 +13,36 @@ interface InvestedLot {
   title: string;
   amountInvested: number;
   ownershipPercentage: number;
+  interestSharingPercentage: number;
   totalProducts: number;
   soldProducts: number;
-  healthRate: number; // 0-100 percentage of on-time payments
+  healthRate: number;
   status: 'OPEN' | 'IN_STOCK' | 'IN_SALES' | 'CLOSED';
   contractUrl?: string;
+  signedContractAt?: string;
 }
 
 interface Transaction {
   id: string;
-  type: 'AMORTIZATION' | 'PROFIT' | 'WITHDRAWAL';
+  type: 'AMORTIZATION' | 'PROFIT' | 'WITHDRAWAL' | 'CREDIT';
   amount: number;
+  capitalPortion: number;
+  interestPortion: number;
   description: string;
   date: string;
+}
+
+interface Product {
+  id: string;
+  model: string;
+  imei: string;
+  client: string;
+  installments: string;
+  capitalReturned: number;
+  interestReceived: number;
+  totalReceived: number;
+  remainingValue: number;
+  status: 'estoque' | 'ativo' | 'quitado' | 'inadimplente';
 }
 
 export default function InvestorDashboard() {
@@ -35,11 +53,21 @@ export default function InvestorDashboard() {
   
   const [wallet, setWallet] = useState({
     balance: 0,
-    futureReceipts: 0
+    futureReceipts: 0,
+    capitalInvested: 0,
+    capitalRecovered: 0,
+    interestReceived: 0,
+    totalReceived: 0,
+    roi: 0,
+    activeDevicesCount: 0,
+    paidDevicesCount: 0,
+    defaultedDevicesCount: 0
   });
 
   const [lots, setLots] = useState<InvestedLot[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [monthlyHistory, setMonthlyHistory] = useState<any[]>([]);
 
   // Estados do Modal de Resgate
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
@@ -49,6 +77,13 @@ export default function InvestorDashboard() {
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false);
   const [withdrawalSuccess, setWithdrawalSuccess] = useState('');
   const [withdrawalError, setWithdrawalError] = useState('');
+
+  // Estados do Simulador de Investimento
+  const [simVal, setSimVal] = useState(10000);
+  const [simRate, setSimRate] = useState(20);
+
+  // Estados do Modal do Contrato de Risco
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false);
 
   useEffect(() => {
     const storedProfile = localStorage.getItem('partners_profile');
@@ -79,7 +114,9 @@ export default function InvestorDashboard() {
       const data = await res.json();
       setWallet(data.wallet);
       setLots(data.lots);
+      setProducts(data.products || []);
       setTransactions(data.transactions);
+      setMonthlyHistory(data.monthlyHistory || []);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Erro ao conectar ao servidor. Tente novamente mais tarde.');
@@ -151,6 +188,13 @@ export default function InvestorDashboard() {
     ? (lots.reduce((acc, lot) => acc + lot.healthRate, 0) / lots.length).toFixed(1)
     : "100.0";
 
+  // Cálculos do simulador
+  // Assumindo um markup médio de juros de 100% em vendas parceladas de 12x
+  const simTotalInterest = simVal * 2.0; // Juros/lucro gerado total na carteira financiada
+  const simInvShareInterest = simTotalInterest * (simRate / 100);
+  const simTotalProjectedReturn = simVal + simInvShareInterest;
+  const simMonthlyReturn = simTotalProjectedReturn / 12;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#09090b] text-[#fafafa] flex flex-col justify-center items-center font-sans antialiased">
@@ -202,7 +246,7 @@ export default function InvestorDashboard() {
           <div className="flex items-center gap-2 border-r border-[#27272a] pr-4 mr-1">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-xs font-semibold text-zinc-300">
-              {profile?.role === 'admin' ? 'Administrador' : 'Painel do Investidor'}
+              {profile?.role === 'admin' ? 'Administrador' : 'Investidor'}
             </span>
           </div>
           <button 
@@ -237,106 +281,210 @@ export default function InvestorDashboard() {
             )}
 
             {/* Wallet & Health Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               
               {/* Card: Saldo Disponível */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Saldo Disponível</span>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Saldo Disponível</span>
                   <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                     <Wallet size={18} />
                   </div>
                 </div>
                 <div>
-                  <span className="text-4xl font-extrabold tracking-tight">
+                  <span className="text-3xl font-extrabold tracking-tight">
                     R$ {wallet.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                  <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
+                  <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <ShieldCheck size={14} className="text-emerald-400" />
-                    Disponível para saque imediato via Pix
+                    Pronto para saque Pix
                   </p>
                 </div>
                 <button 
                   onClick={() => setIsWithdrawalOpen(true)}
-                  className="w-full mt-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[10px] rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 cursor-pointer"
+                  className="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 cursor-pointer border-0"
                 >
                   Solicitar Resgate
                 </button>
               </div>
 
-              {/* Card: Recebíveis Futuros */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
+              {/* Card: Capital Investido */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Recebíveis Futuros</span>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Capital Investido</span>
                   <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                     <TrendingUp size={18} />
                   </div>
                 </div>
                 <div>
-                  <span className="text-4xl font-extrabold tracking-tight">
-                    R$ {wallet.futureReceipts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <span className="text-3xl font-extrabold tracking-tight">
+                    R$ {wallet.capitalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                  <p className="text-xs text-zinc-400 mt-2 flex items-center gap-1.5">
+                  <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <Calendar size={14} className="text-indigo-400" />
-                    Projeção de carteira com base nas parcelas pendentes
+                    Valor aportado nos lotes SCP
                   </p>
                 </div>
-                <div className="h-[46px] flex items-center text-xs text-zinc-500 italic mt-6 border-t border-zinc-800/60 pt-4">
-                  * Atualizado com base nas vendas ativas
+                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                  <span>Recebido de volta:</span>
+                  <span className="font-bold text-zinc-300">R$ {wallet.capitalRecovered.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
 
-              {/* Card: Indicador de Saúde */}
-              <div className="relative overflow-hidden bg-[#18181b] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
+              {/* Card: Juros Recebidos */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+                <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Participação nos Juros</span>
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <ArrowDownLeft size={18} />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-3xl font-extrabold tracking-tight text-emerald-400">
+                    R$ {wallet.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
+                    <Info size={14} className="text-emerald-400" />
+                    Lucros obtidos dos financiamentos
+                  </p>
+                </div>
+                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                  <span>Total Recebido (Cap+Juros):</span>
+                  <span className="font-bold text-emerald-400">R$ {wallet.totalReceived.toLocaleString('pt-BR')}</span>
+                </div>
+              </div>
+
+              {/* Card: ROI & Saúde */}
+              <div className="relative overflow-hidden bg-[#18181b] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="flex justify-between items-center mb-4">
-                  <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Saúde da Carteira</span>
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Retorno & Saúde</span>
                   <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
                     <BarChart3 size={18} />
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="relative h-24 w-24 flex items-center justify-center">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                      <path
-                        className="text-zinc-800"
-                        strokeWidth="3.5"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      />
-                      <path
-                        className="text-emerald-500 transition-all duration-1000"
-                        strokeWidth="3.5"
-                        strokeDasharray={`${averageHealth}, 100`}
-                        strokeLinecap="round"
-                        stroke="currentColor"
-                        fill="none"
-                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                      />
-                    </svg>
-                    <div className="absolute text-center">
-                      <span className="text-lg font-black">{averageHealth}%</span>
+                <div className="flex items-center gap-4">
+                  <div className="space-y-1 flex-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-zinc-400">ROI Acumulado</span>
+                      <span className="font-extrabold text-emerald-400">+{wallet.roi.toFixed(1)}%</span>
                     </div>
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-zinc-400">Em dia</span>
-                      <span className="font-semibold text-emerald-400">{averageHealth}%</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-zinc-400">Inadimplência</span>
-                      <span className="font-semibold text-rose-500">{(100 - Number(averageHealth)).toFixed(1)}%</span>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-zinc-400">Saúde em Dia</span>
+                      <span className="font-extrabold text-indigo-400">{averageHealth}%</span>
                     </div>
                     <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden mt-1">
                       <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${averageHealth}%` }}></div>
                     </div>
                   </div>
                 </div>
-                <div className="text-[10px] text-zinc-500 mt-4 leading-relaxed">
-                  Calculado a partir de parcelas pagas em dia vs. parcelas atrasadas nos lotes SCP investidos.
+                <div className="h-[38px] flex items-center justify-between text-[9px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3 leading-tight">
+                  <span>Aparelhos no lote:</span>
+                  <span className="font-bold text-white">
+                    {wallet.activeDevicesCount} Ativos • {wallet.paidDevicesCount} Quitados • {wallet.defaultedDevicesCount} Inad.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Layout Column: Evolution Chart & Investment Simulator */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* Gráfico "Meu Dinheiro Trabalhando" */}
+              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-8 shadow-xl">
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
+                  <BarChart3 size={16} className="text-emerald-500" /> Evolução Mensal - Meu Dinheiro Trabalhando
+                </h3>
+                {monthlyHistory.length === 0 ? (
+                  <div className="h-64 flex items-center justify-center text-zinc-500 text-xs">
+                    Dados históricos indisponíveis ou sem repasses efetuados ainda.
+                  </div>
+                ) : (
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthlyHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <XAxis dataKey="month" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
+                          labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                          formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Repasse creditado']}
+                        />
+                        <Bar dataKey="amount" fill="#10b981" radius={[6, 6, 0, 0]} barSize={36} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              {/* Simulador e Termo de Compromisso */}
+              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-4 shadow-xl flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4 flex items-center gap-2">
+                    <Calculator size={16} className="text-emerald-500" /> Simulador de Rentabilidade
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-zinc-400">Aporte Estimado</span>
+                        <span className="font-mono font-bold text-white">R$ {simVal.toLocaleString('pt-BR')}</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="1000"
+                        max="100000"
+                        step="1000"
+                        value={simVal}
+                        onChange={(e) => setSimVal(parseInt(e.target.value))}
+                        className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-zinc-400">Participação nos Juros</span>
+                        <span className="font-mono font-bold text-emerald-400">{simRate}%</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="10"
+                        max="50"
+                        step="5"
+                        value={simRate}
+                        onChange={(e) => setSimRate(parseInt(e.target.value))}
+                        className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 mt-6 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-400">Devolução de Capital:</span>
+                      <span className="font-mono text-zinc-200">R$ {simVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-zinc-400">Lucro de Juros Simulado:</span>
+                      <span className="font-mono text-emerald-400">R$ {simInvShareInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-xs border-t border-zinc-800/80 pt-2 font-bold">
+                      <span className="text-white">Retorno Estimado Total:</span>
+                      <span className="font-mono text-emerald-400">R$ {simTotalProjectedReturn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-zinc-800/60 mt-4 flex items-center justify-between">
+                  <span className="text-[9px] text-zinc-500 italic leading-tight pr-4">
+                    * Simulação ilustrativa em 12 parcelas de R$ {simMonthlyReturn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}.
+                  </span>
+                  <button 
+                    onClick={() => setIsContractModalOpen(true)}
+                    className="py-2 px-3 border border-zinc-700 hover:border-white text-zinc-300 hover:text-white text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-transparent"
+                  >
+                    Termos de Riscos
+                  </button>
                 </div>
               </div>
             </div>
@@ -378,7 +526,9 @@ export default function InvestorDashboard() {
                             </div>
                             <div className="bg-[#18181b] p-3 rounded-2xl border border-zinc-800/80">
                               <span className="text-[9px] text-zinc-400 uppercase tracking-wider block">Participação</span>
-                              <span className="text-xs font-bold text-white">{lot.ownershipPercentage}%</span>
+                              <span className="text-xs font-bold text-white">
+                                {lot.ownershipPercentage}% (Juros: {lot.interestSharingPercentage}%)
+                              </span>
                             </div>
                           </div>
 
@@ -418,6 +568,65 @@ export default function InvestorDashboard() {
               )}
             </section>
 
+            {/* Detailed Products List: Meus Produtos */}
+            <section className="space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                <Package size={14} className="text-emerald-500" /> Meus Produtos Detalhados
+              </h3>
+
+              {products.length === 0 ? (
+                <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-12 text-center text-zinc-500">
+                  Nenhum aparelho associado aos lotes investidos.
+                </div>
+              ) : (
+                <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                        <th className="py-4 px-6">Aparelho</th>
+                        <th className="py-4 px-6">Cliente Final</th>
+                        <th className="py-4 px-6 text-center">Parcelas</th>
+                        <th className="py-4 px-6 text-right">Capital Recuperado</th>
+                        <th className="py-4 px-6 text-right">Juros Recebidos</th>
+                        <th className="py-4 px-6 text-right">Total Repassado</th>
+                        <th className="py-4 px-6 text-right">Capital Restante</th>
+                        <th className="py-4 px-6 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/40">
+                      {products.map((p) => (
+                        <tr key={p.id} className="hover:bg-zinc-800/10 transition-colors">
+                          <td className="py-4 px-6">
+                            <span className="font-bold text-white block">{p.model}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">IMEI: {p.imei}</span>
+                          </td>
+                          <td className="py-4 px-6 text-zinc-300 font-medium">{p.client}</td>
+                          <td className="py-4 px-6 text-center font-mono text-zinc-400">{p.installments}</td>
+                          <td className="py-4 px-6 text-right font-mono text-zinc-300">R$ {p.capitalReturned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {p.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono font-bold text-emerald-400">R$ {p.totalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-zinc-400">R$ {p.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                              p.status === 'estoque' 
+                                ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' 
+                                : p.status === 'quitado'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : p.status === 'inadimplente'
+                                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                            }`}>
+                              {p.status === 'estoque' ? 'Estoque' : p.status === 'quitado' ? 'Quitado' : p.status === 'inadimplente' ? 'Inadimplente' : 'Ativo'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
             {/* Transaction History */}
             <section className="space-y-4">
               <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
@@ -429,46 +638,46 @@ export default function InvestorDashboard() {
                   Nenhuma transação financeira registrada para este parceiro.
                 </div>
               ) : (
-                <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-                  <div className="divide-y divide-zinc-800/60">
-                    {transactions.map((tx) => (
-                      <div key={tx.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-zinc-800/20 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                            tx.type === 'PROFIT' 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                              : tx.type === 'AMORTIZATION'
-                                ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}>
-                            {tx.type === 'WITHDRAWAL' ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold text-white block">{tx.description}</span>
-                            <span className="text-[10px] text-zinc-400 flex items-center gap-1.5 mt-1">
-                              <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase ${
-                                tx.type === 'PROFIT' 
-                                  ? 'bg-emerald-500/10 text-emerald-400' 
-                                  : tx.type === 'AMORTIZATION'
-                                    ? 'bg-indigo-500/10 text-indigo-400'
-                                    : 'bg-rose-500/10 text-rose-400'
-                              }`}>
-                                {tx.type}
-                              </span>
-                              • {tx.date}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className={`text-sm font-extrabold tracking-tight ${
+                <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[600px]">
+                    <thead>
+                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                        <th className="py-4 px-6">Transação</th>
+                        <th className="py-4 px-6">Data</th>
+                        <th className="py-4 px-6 text-right">Capital</th>
+                        <th className="py-4 px-6 text-right">Juros/Rentabilidade</th>
+                        <th className="py-4 px-6 text-right">Valor Lançado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/40">
+                      {transactions.map((tx) => (
+                        <tr key={tx.id} className="hover:bg-zinc-800/10 transition-colors">
+                          <td className="py-4 px-6 flex items-center gap-3">
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              tx.type === 'WITHDRAWAL' 
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            }`}>
+                              {tx.type === 'WITHDRAWAL' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
+                            </div>
+                            <span className="font-bold text-white">{tx.description}</span>
+                          </td>
+                          <td className="py-4 px-6 text-zinc-400 font-medium">{tx.date}</td>
+                          <td className="py-4 px-6 text-right font-mono text-zinc-400">
+                            {tx.type === 'WITHDRAWAL' ? "-" : `R$ ${tx.capitalPortion.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          </td>
+                          <td className="py-4 px-6 text-right font-mono text-emerald-400">
+                            {tx.type === 'WITHDRAWAL' ? "-" : `R$ ${tx.interestPortion.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          </td>
+                          <td className={`py-4 px-6 text-right font-mono font-extrabold ${
                             tx.type === 'WITHDRAWAL' ? 'text-rose-400' : 'text-emerald-400'
                           }`}>
                             {tx.type === 'WITHDRAWAL' ? '-' : '+'} R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </section>
@@ -483,7 +692,7 @@ export default function InvestorDashboard() {
             <button 
               type="button"
               onClick={() => setIsWithdrawalOpen(false)}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -553,19 +762,73 @@ export default function InvestorDashboard() {
               <button
                 type="button"
                 onClick={() => setIsWithdrawalOpen(false)}
-                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer"
+                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={submittingWithdrawal}
-                className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
               >
                 {submittingWithdrawal ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Saque'}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal: Termos de Riscos e Compromisso */}
+      {isContractModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-zinc-800 w-full max-w-2xl rounded-3xl p-8 space-y-6 shadow-2xl relative max-h-[85vh] flex flex-col">
+            <button 
+              type="button"
+              onClick={() => setIsContractModalOpen(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <FileText size={18} className="text-emerald-500" /> Regulamento de Investimento SCP
+            </h3>
+            
+            <div className="flex-1 overflow-y-auto text-xs text-zinc-400 space-y-4 pr-2 leading-relaxed font-sans">
+              <section className="space-y-2 border-b border-zinc-800/50 pb-4">
+                <h4 className="font-bold text-zinc-200">1. Natureza do Aporte</h4>
+                <p>O investidor injeta capital de forma voluntária para compor o estoque e o financiamento (venda no crediário) de smartphones controlados pela MDR Informática & Celulares.</p>
+              </section>
+
+              <section className="space-y-2 border-b border-zinc-800/50 pb-4">
+                <h4 className="font-bold text-zinc-200">2. Rentabilidade e Riscos</h4>
+                <p>Os retornos (devolução de capital e dividendos sobre juros) são vinculados exclusivamente à venda efetiva dos aparelhos e ao adimplemento de cada parcela paga pelos clientes finais.</p>
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+                  ⚠️ <strong>Risco de Inadimplência:</strong> Em caso de falta de pagamento por parte do cliente final, as parcelas correspondentes ao investidor sofrerão atraso no repasse. A MDR aplicará as penalidades de restrição de acesso ao aparelho (bloqueio via PayJoy/DeviceLock) e cobrará o cliente para reestabelecer o fluxo de caixa ou reaver o aparelho.
+                </div>
+              </section>
+
+              <section className="space-y-2 border-b border-zinc-800/50 pb-4">
+                <h4 className="font-bold text-zinc-200">3. Retomada de Estoque</h4>
+                <p>Caso o aparelho seja repossessado devido à inadimplência definitiva, ele retornará ao estoque do Lote como "Disponível" e será revendido. A amortização de capital recomeçará a partir da nova venda do aparelho, protegendo o saldo de capital investido.</p>
+              </section>
+
+              <section className="space-y-2 pb-2">
+                <h4 className="font-bold text-zinc-200">4. Desistência e Prazos de Reembolso</h4>
+                <p>A desistência do negócio antes do prazo final estimado do lote sujeita-se a uma carência de 60 (sessenta) dias para o início do estorno do capital não amortizado, com aplicação de multa administrativa de 10% sobre o saldo remanescente sob custódia da MDR.</p>
+              </section>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-800/60 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsContractModalOpen(false)}
+                className="w-full py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[10px] rounded-xl transition-all cursor-pointer border-0"
+              >
+                Fechar e Entendido
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
