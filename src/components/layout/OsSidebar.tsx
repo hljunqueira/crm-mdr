@@ -120,6 +120,9 @@ export default function OsSidebar({
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-60">OS #{numberStr}</span>
                     <span className="text-xs font-black uppercase truncate mt-1 max-w-[120px]">{os.customers?.name}</span>
+                    <span className="text-[9.5px] font-medium text-on-surface-variant mt-0.5 truncate max-w-[120px] block">
+                      Téc: {os.profiles?.full_name || 'Não designado'}
+                    </span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <select

@@ -333,6 +333,22 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         {activeTab === 'info' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in duration-300">
             <div className="space-y-2">
+              <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none text-white appearance-none"
+              >
+                <option value="smartphone" className="bg-[#121214] text-white">📱 Smartphone / Celular</option>
+                <option value="accessory_mobile" className="bg-[#121214] text-white">🔌 Acessório Celular</option>
+                <option value="accessory_it" className="bg-[#121214] text-white">💻 Acessório Informática</option>
+                <option value="part" className="bg-[#121214] text-white">🔧 Peça de Reposição</option>
+                <option value="service" className="bg-[#121214] text-white">🛠️ Mão de Obra / Serviço</option>
+                <option value="other" className="bg-[#121214] text-white">📦 Outros</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
               <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Preço de Custo (R$)</label>
               <input
                 type="number"
@@ -386,22 +402,6 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 />
               </div>
             )}
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none text-white appearance-none"
-              >
-                <option value="smartphone" className="bg-[#121214] text-white">📱 Smartphone / Celular</option>
-                <option value="accessory_mobile" className="bg-[#121214] text-white">🔌 Acessório Celular</option>
-                <option value="accessory_it" className="bg-[#121214] text-white">💻 Acessório Informática</option>
-                <option value="part" className="bg-[#121214] text-white">🔧 Peça de Reposição</option>
-                <option value="service" className="bg-[#121214] text-white">🛠️ Mão de Obra / Serviço</option>
-                <option value="other" className="bg-[#121214] text-white">📦 Outros</option>
-              </select>
-            </div>
 
             {formData.category !== 'service' && (
               <div className="space-y-2">

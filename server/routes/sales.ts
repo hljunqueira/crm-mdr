@@ -16,58 +16,61 @@ const validSalesColumns = [
 
 const syncDeviceLocks = async (sale: any) => {
   try {
-    if (sale.payment_type !== 'crediario') {
+    const imeiStr = (sale.imei_manual || '').trim();
+    const hasImei = imeiStr !== '' && imeiStr.toUpperCase() !== 'N/A' && imeiStr !== '0000000';
+
+    if (sale.payment_type !== 'crediario' || !hasImei) {
       await supabase.from('device_locks').delete().eq('sale_id', sale.id);
       return;
     }
-
-    const imeiStr = sale.imei_manual || '';
     const deviceId = sale.device_id;
     const currentDeviceIds: string[] = [];
 
     if (deviceId) {
-      currentDeviceIds.push(deviceId);
       const { data: dev } = await supabase
         .from('devices')
-        .select('brand')
+        .select('brand, category')
         .eq('id', deviceId)
         .maybeSingle();
 
-      const brandLower = (dev?.brand || '').toLowerCase();
-      const isIphone = brandLower === 'apple' || brandLower.includes('iphone') || 
-                       (sale.device_model_manual || '').toLowerCase().includes('iphone') || 
-                       (sale.device_model_manual || '').toLowerCase().includes('apple');
-      const lockType = isIphone ? 'icloud' : 'android';
+      if (dev && dev.category === 'smartphone') {
+        currentDeviceIds.push(deviceId);
+        const brandLower = (dev.brand || '').toLowerCase();
+        const isIphone = brandLower === 'apple' || brandLower.includes('iphone') || 
+                         (sale.device_model_manual || '').toLowerCase().includes('iphone') || 
+                         (sale.device_model_manual || '').toLowerCase().includes('apple');
+        const lockType = isIphone ? 'icloud' : 'android';
 
-      const { data: existingLock } = await supabase
-        .from('device_locks')
-        .select('id')
-        .eq('sale_id', sale.id)
-        .eq('device_id', deviceId)
-        .maybeSingle();
-
-      if (!existingLock) {
-        await supabase
+        const { data: existingLock } = await supabase
           .from('device_locks')
-          .insert({
-            device_id: deviceId,
-            sale_id: sale.id,
-            lock_type: lockType,
-            icloud_locked: false,
-            mdm_locked: false
-          });
+          .select('id')
+          .eq('sale_id', sale.id)
+          .eq('device_id', deviceId)
+          .maybeSingle();
+
+        if (!existingLock) {
+          await supabase
+            .from('device_locks')
+            .insert({
+              device_id: deviceId,
+              sale_id: sale.id,
+              lock_type: lockType,
+              icloud_locked: false,
+              mdm_locked: false
+            });
+        }
       }
-    } else if (imeiStr && imeiStr !== 'N/A') {
+    } else {
       const imeis = imeiStr.split(',').map((i: string) => i.trim()).filter(Boolean);
       for (const imei of imeis) {
-        if (imei !== 'N/A') {
+        if (imei !== 'N/A' && imei !== '0000000') {
           const { data: dev } = await supabase
             .from('devices')
-            .select('id, brand')
+            .select('id, brand, category')
             .eq('imei', imei)
             .maybeSingle();
 
-          if (dev) {
+          if (dev && dev.category === 'smartphone') {
             currentDeviceIds.push(dev.id);
             const brandLower = (dev.brand || '').toLowerCase();
             const lockType = (brandLower === 'apple' || brandLower.includes('iphone')) ? 'icloud' : 'android';
@@ -111,36 +114,49 @@ const syncDeviceLocks = async (sale: any) => {
         .eq('sale_id', sale.id)
         .is('device_id', null);
     } else {
-      // If there are no real devices associated, ensure there is a single virtual lock (device_id is null)
-      const { data: existingNullLock } = await supabase
-        .from('device_locks')
-        .select('id')
-        .eq('sale_id', sale.id)
-        .is('device_id', null)
-        .maybeSingle();
-
-      if (!existingNullLock) {
-        const isIphone = (sale.device_model_manual || '').toLowerCase().includes('iphone') || 
-                         (sale.device_model_manual || '').toLowerCase().includes('apple');
-        const lockType = isIphone ? 'icloud' : 'android';
-
-        await supabase
-          .from('device_locks')
-          .insert({
-            device_id: null,
-            sale_id: sale.id,
-            lock_type: lockType,
-            icloud_locked: false,
-            mdm_locked: false
-          });
+      let shouldCreateNullLock = false;
+      if (deviceId) {
+        shouldCreateNullLock = false;
+      } else {
+        shouldCreateNullLock = true;
       }
 
-      // Delete any locks for this sale where device_id is NOT null
-      await supabase
-        .from('device_locks')
-        .delete()
-        .eq('sale_id', sale.id)
-        .not('device_id', 'is', null);
+      if (shouldCreateNullLock) {
+        const { data: existingNullLock } = await supabase
+          .from('device_locks')
+          .select('id')
+          .eq('sale_id', sale.id)
+          .is('device_id', null)
+          .maybeSingle();
+
+        if (!existingNullLock) {
+          const isIphone = (sale.device_model_manual || '').toLowerCase().includes('iphone') || 
+                           (sale.device_model_manual || '').toLowerCase().includes('apple');
+          const lockType = isIphone ? 'icloud' : 'android';
+
+          await supabase
+            .from('device_locks')
+            .insert({
+              device_id: null,
+              sale_id: sale.id,
+              lock_type: lockType,
+              icloud_locked: false,
+              mdm_locked: false
+            });
+        }
+
+        // Delete any locks for this sale where device_id is NOT null
+        await supabase
+          .from('device_locks')
+          .delete()
+          .eq('sale_id', sale.id)
+          .not('device_id', 'is', null);
+      } else {
+        await supabase
+          .from('device_locks')
+          .delete()
+          .eq('sale_id', sale.id);
+      }
     }
   } catch (err) {
     console.error(`[syncDeviceLocks] Error synchronizing device locks for sale ${sale.id}:`, err);
@@ -467,8 +483,8 @@ router.patch("/:id", async (req, res) => {
       // Restore old devices stock
       const restoredDeviceIds = new Set<string>();
       if (oldSale.device_id) {
-        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', oldSale.device_id).maybeSingle();
-        if (dev) {
+        const { data: dev } = await supabase.from('devices').select('id, stock_quantity, category').eq('id', oldSale.device_id).maybeSingle();
+        if (dev && dev.category !== 'service') {
           const newQty = (dev.stock_quantity || 0) + 1;
           await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
           restoredDeviceIds.add(dev.id);
@@ -478,8 +494,8 @@ router.patch("/:id", async (req, res) => {
         const imeis = oldSale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
         for (const imei of imeis) {
           if (imei !== 'N/A' && imei !== '0000000') {
-            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).maybeSingle();
-            if (dev && !restoredDeviceIds.has(dev.id)) {
+            const { data: dev } = await supabase.from('devices').select('id, stock_quantity, category').eq('imei', imei).maybeSingle();
+            if (dev && dev.category !== 'service' && !restoredDeviceIds.has(dev.id)) {
               const newQty = (dev.stock_quantity || 0) + 1;
               await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
               restoredDeviceIds.add(dev.id);
@@ -494,10 +510,10 @@ router.patch("/:id", async (req, res) => {
           const qtyMatch = part.match(/\(x(\d+)\)/i);
           const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
           if (cleanName) {
-            const { data: devs } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).eq('store_id', oldSale.store_id);
+            const { data: devs } = await supabase.from('devices').select('id, stock_quantity, category').eq('model', cleanName).eq('store_id', oldSale.store_id);
             if (devs && devs.length > 0) {
               const dev = devs[0];
-              if (!restoredDeviceIds.has(dev.id)) {
+              if (dev.category !== 'service' && !restoredDeviceIds.has(dev.id)) {
                 const newQty = (dev.stock_quantity || 0) + quantity;
                 await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', dev.id);
                 restoredDeviceIds.add(dev.id);
@@ -510,8 +526,8 @@ router.patch("/:id", async (req, res) => {
       // Decrement new devices stock
       const decrementedDeviceIds = new Set<string>();
       if (req.body.device_id) {
-        const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('id', req.body.device_id).maybeSingle();
-        if (dev) {
+        const { data: dev } = await supabase.from('devices').select('id, stock_quantity, category').eq('id', req.body.device_id).maybeSingle();
+        if (dev && dev.category !== 'service') {
           const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
           await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
           decrementedDeviceIds.add(dev.id);
@@ -521,8 +537,8 @@ router.patch("/:id", async (req, res) => {
         const imeis = req.body.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
         for (const imei of imeis) {
           if (imei !== 'N/A' && imei !== '0000000') {
-            const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('imei', imei).maybeSingle();
-            if (dev && !decrementedDeviceIds.has(dev.id)) {
+            const { data: dev } = await supabase.from('devices').select('id, stock_quantity, category').eq('imei', imei).maybeSingle();
+            if (dev && dev.category !== 'service' && !decrementedDeviceIds.has(dev.id)) {
               const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
               await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
               decrementedDeviceIds.add(dev.id);
@@ -538,10 +554,10 @@ router.patch("/:id", async (req, res) => {
           const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
           if (cleanName) {
             const storeId = req.body.store_id || oldSale.store_id;
-            const { data: devs } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).eq('store_id', storeId);
+            const { data: devs } = await supabase.from('devices').select('id, stock_quantity, category').eq('model', cleanName).eq('store_id', storeId);
             if (devs && devs.length > 0) {
               const dev = devs[0];
-              if (!decrementedDeviceIds.has(dev.id)) {
+              if (dev.category !== 'service' && !decrementedDeviceIds.has(dev.id)) {
                 const newQty = Math.max(0, (dev.stock_quantity || 0) - quantity);
                 await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', dev.id);
                 decrementedDeviceIds.add(dev.id);
@@ -562,11 +578,13 @@ router.patch("/:id", async (req, res) => {
       for (const acc of oldAccList) {
         const cleanName = acc.replace(/\s*\([^)]*\)\s*/g, '').trim();
         if (cleanName) {
-          const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).limit(1);
+          const { data: dev } = await supabase.from('devices').select('id, stock_quantity, category').eq('model', cleanName).limit(1);
           if (dev && dev.length > 0) {
             const target = dev[0];
-            const newQty = (target.stock_quantity || 0) + 1;
-            await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', target.id);
+            if (target.category !== 'service') {
+              const newQty = (target.stock_quantity || 0) + 1;
+              await supabase.from('devices').update({ stock_quantity: newQty, status: 'available' }).eq('id', target.id);
+            }
           }
         }
       }
@@ -577,11 +595,13 @@ router.patch("/:id", async (req, res) => {
       for (const acc of newAccList) {
         const cleanName = acc.replace(/\s*\([^)]*\)\s*/g, '').trim();
         if (cleanName) {
-          const { data: dev } = await supabase.from('devices').select('id, stock_quantity').eq('model', cleanName).limit(1);
+          const { data: dev } = await supabase.from('devices').select('id, stock_quantity, category').eq('model', cleanName).limit(1);
           if (dev && dev.length > 0) {
             const target = dev[0];
-            const newQty = Math.max(0, (target.stock_quantity || 0) - 1);
-            await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', target.id);
+            if (target.category !== 'service') {
+              const newQty = Math.max(0, (target.stock_quantity || 0) - 1);
+              await supabase.from('devices').update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' }).eq('id', target.id);
+            }
           }
         }
       }
@@ -717,11 +737,11 @@ router.delete("/:id", async (req, res) => {
     if (sale.device_id) {
       const { data: device } = await supabase
         .from('devices')
-        .select('id, stock_quantity')
+        .select('id, stock_quantity, category')
         .eq('id', sale.device_id)
         .maybeSingle();
 
-      if (device) {
+      if (device && device.category !== 'service') {
         const newQty = (device.stock_quantity || 0) + 1;
         await supabase
           .from('devices')
@@ -736,11 +756,11 @@ router.delete("/:id", async (req, res) => {
         if (imei !== 'N/A' && imei !== '0000000') {
           const { data: device } = await supabase
             .from('devices')
-            .select('id, stock_quantity')
+            .select('id, stock_quantity, category')
             .eq('imei', imei)
             .maybeSingle();
 
-          if (device && !restoredDeviceIds.has(device.id)) {
+          if (device && device.category !== 'service' && !restoredDeviceIds.has(device.id)) {
             const newQty = (device.stock_quantity || 0) + 1;
             await supabase
               .from('devices')
@@ -760,13 +780,13 @@ router.delete("/:id", async (req, res) => {
         if (cleanName) {
           const { data: devices } = await supabase
             .from('devices')
-            .select('id, stock_quantity')
+            .select('id, stock_quantity, category')
             .eq('model', cleanName)
             .eq('store_id', sale.store_id);
 
           if (devices && devices.length > 0) {
             const target = devices[0];
-            if (!restoredDeviceIds.has(target.id)) {
+            if (target.category !== 'service' && !restoredDeviceIds.has(target.id)) {
               const newQty = (target.stock_quantity || 0) + quantity;
               await supabase
                 .from('devices')
@@ -794,17 +814,20 @@ router.delete("/:id", async (req, res) => {
           // Find the device/accessory by model name
           const { data: device } = await supabase
             .from('devices')
-            .select('id, stock_quantity')
+            .select('id, stock_quantity, category')
             .eq('model', cleanName)
             .limit(1);
 
           if (device && device.length > 0) {
             const targetDevice = device[0];
-            const newQty = (targetDevice.stock_quantity || 0) + 1;
-            await supabase
-              .from('devices')
-              .update({ stock_quantity: newQty, status: 'available' })
-              .eq('id', targetDevice.id);
+            if (targetDevice.category !== 'service' && !restoredDeviceIds.has(targetDevice.id)) {
+              const newQty = (targetDevice.stock_quantity || 0) + 1;
+              await supabase
+                .from('devices')
+                .update({ stock_quantity: newQty, status: 'available' })
+                .eq('id', targetDevice.id);
+              restoredDeviceIds.add(targetDevice.id);
+            }
           }
         }
       }

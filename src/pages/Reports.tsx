@@ -5,12 +5,13 @@ import {
   Download, BarChart2, Printer, Percent, Award, BookOpen, Clock, 
   Users, ArrowUpRight, CheckCircle2, AlertCircle, Wrench, ChevronUp, Eye,
   Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X, Trash2,
-  Barcode, AlertTriangle
+  Barcode, AlertTriangle, CreditCard
 } from 'lucide-react';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
   CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell 
 } from 'recharts';
+import { cn } from '../lib/utils';
 import { useUI } from '../context/UIContext';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useSaleStore } from '../store/useSaleStore';
@@ -21,6 +22,7 @@ import { useCashStore, CashTransaction } from '../store/useCashStore';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useInventoryAuditStore } from '../store/useInventoryAuditStore';
+import { useFinancialDashboardStore } from '../store/useFinancialDashboardStore';
 
 export default function Reports() {
   const { showNotification } = useUI();
@@ -31,9 +33,10 @@ export default function Reports() {
   const { transactions, fetchTransactions, addTransaction, deleteTransaction } = useCashStore();
   const { inventory, fetchInventory } = useInventoryStore();
   const { profile } = useAuthStore();
+  const { bills, forecast, fetchDashboardData } = useFinancialDashboardStore();
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas' | 'liquidacoes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas' | 'liquidacoes' | 'controle_cartoes'>('overview');
 
   // Global filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
@@ -180,6 +183,12 @@ export default function Reports() {
       }
     }
   }, [activeTab, selectedUnitId, fetchAudits, fetchActiveAudit, fetchAuditItems]);
+
+  useEffect(() => {
+    if (activeTab === 'controle_cartoes') {
+      fetchDashboardData(selectedMonth, selectedYear, selectedUnitId);
+    }
+  }, [activeTab, selectedMonth, selectedYear, selectedUnitId, fetchDashboardData]);
 
   // Date check helper
   const filterByDateRange = (dateStr?: string) => {
@@ -1144,6 +1153,7 @@ export default function Reports() {
           { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench },
           { id: 'liquidacoes', label: 'Liquidações & Descontos', icon: Percent },
           { id: 'auditoria', label: 'Auditoria de Estoque', icon: CheckCircle2 },
+          { id: 'controle_cartoes', label: 'Controle de Cartões', icon: CreditCard },
           ...(profile?.role === 'admin' ? [{ id: 'metas', label: 'Desempenho & Metas', icon: Award }] : [])
         ].map(tab => (
           <button
@@ -3093,6 +3103,162 @@ export default function Reports() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'controle_cartoes' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-4">
+                <CreditCard size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Total a pagar cartão (Dívida Total)</p>
+              <h3 className="text-2xl font-black text-white leading-none font-mono">
+                R$ {bills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success mb-4">
+                <CheckCircle2 size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Pago este Mês</p>
+              <h3 className="text-2xl font-black text-success leading-none font-mono">
+                R$ {bills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+
+            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-error/10 border border-error/20 flex items-center justify-center text-error mb-4">
+                <AlertCircle size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Pendente este Mês</p>
+              <h3 className="text-2xl font-black text-error leading-none font-mono">
+                R$ {bills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="xl:col-span-8 bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">
+                Detalhamento dos Lançamentos Ativos no Mês
+              </h3>
+
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
+                      <th className="pb-3 pl-4">Dia</th>
+                      <th className="pb-3">Descrição</th>
+                      <th className="pb-3 text-center">Parcela</th>
+                      <th className="pb-3 text-center">Restantes</th>
+                      <th className="pb-3 text-right">Valor Parcela</th>
+                      <th className="pb-3 text-right pr-4">Total Restante</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {bills.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-xs text-on-surface-variant">
+                          Nenhum cartão ativo ou despesa registrada neste período.
+                        </td>
+                      </tr>
+                    ) : (
+                      bills.map((bill) => (
+                        <tr key={bill.id} className="hover:bg-white/[0.01] transition-all">
+                          <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
+                          <td className="py-4 text-xs font-bold text-white uppercase">
+                            {bill.description}
+                            <span className={cn(
+                              "ml-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border",
+                              bill.category === 'store'
+                                ? "bg-primary/10 border-primary/20 text-primary"
+                                : "bg-purple-500/10 border-purple-500/20 text-purple-400"
+                            )}>
+                              {bill.category === 'store' ? 'Loja' : 'Pessoal'}
+                            </span>
+                          </td>
+                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">
+                            {bill.current_installment} / {bill.total_installments}
+                          </td>
+                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">
+                            {bill.remaining_installments}
+                          </td>
+                          <td className="py-4 text-right text-xs font-mono font-black text-white">
+                            R$ {Number(bill.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-4 text-right pr-4 text-xs font-mono font-black text-white/80">
+                            R$ {(Number(bill.value) * Math.max(0, bill.remaining_installments || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="xl:col-span-4 space-y-6">
+              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
+                  Comparativo de Custos e Previsões
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-on-surface-variant uppercase tracking-widest font-black">Previsão Entrada Total</span>
+                    <span className="text-white font-mono font-black">
+                      R$ {((forecast?.store_1_forecast || 0) + (forecast?.store_2_forecast || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-on-surface-variant uppercase tracking-widest font-black">Entrada Cartão Mês</span>
+                    <span className="text-green-400 font-mono font-black">
+                      + R$ {Number(forecast?.card_payments_inflow || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-on-surface-variant uppercase tracking-widest font-black">Fatura Cartão Mês</span>
+                    <span className="text-error font-mono font-black">
+                      - R$ {bills.reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-on-surface-variant uppercase tracking-widest font-black">Despesas Fixas Loja</span>
+                    <span className="text-error font-mono font-black">
+                      - R$ {Number(forecast?.fixed_store_expenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-on-surface-variant uppercase tracking-widest font-black">Despesas Pessoais</span>
+                    <span className="text-purple-400 font-mono font-black">
+                      - R$ {Number(forecast?.fixed_personal_expenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/5 flex justify-between items-center text-sm font-bold">
+                    <span className="text-white uppercase tracking-widest font-black">Saldo Operacional</span>
+                    {(() => {
+                      const totalInflow = (forecast?.store_1_forecast || 0) + (forecast?.store_2_forecast || 0) + (forecast?.card_payments_inflow || 0);
+                      const totalOutflow = bills.reduce((sum, b) => sum + Number(b.value), 0) + (forecast?.fixed_store_expenses || 0) + (forecast?.fixed_personal_expenses || 0);
+                      const balance = totalInflow - totalOutflow;
+                      return (
+                        <span className={cn("font-mono font-black", balance >= 0 ? "text-success" : "text-error")}>
+                          R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

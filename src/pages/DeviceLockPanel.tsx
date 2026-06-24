@@ -159,8 +159,8 @@ export default function DeviceLockPanel() {
     
     const customerName = lock.sale?.customer?.name || '';
     const customerCpf = lock.sale?.customer?.cpf || '';
-    const deviceModel = lock.device?.model || '';
-    const imei = lock.device?.imei || '';
+    const deviceModel = lock.device?.model || lock.sale?.device_model_manual || '';
+    const imei = lock.device?.imei || lock.sale?.imei_manual || '';
     const matchesSearch = 
       customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customerCpf.includes(searchTerm) ||
@@ -442,8 +442,8 @@ export default function DeviceLockPanel() {
                             <span className="flex items-center gap-1.5 mb-1">
                               <span className="text-xs">{isIos ? '🍏 iOS' : '🤖 Android'}</span>
                             </span>
-                            <p className="font-semibold text-white text-sm">{lock.device?.model || 'Modelo Desconhecido'}</p>
-                            <p className="text-[10px] text-on-surface-variant mt-0.5">IMEI: {lock.device?.imei || 'Não Informado'}</p>
+                            <p className="font-semibold text-white text-sm">{lock.device?.model || lock.sale?.device_model_manual || 'Modelo Desconhecido'}</p>
+                            <p className="text-[10px] text-on-surface-variant mt-0.5">IMEI: {lock.device?.imei || lock.sale?.imei_manual || 'Não Informado'}</p>
                           </div>
                         </td>
 

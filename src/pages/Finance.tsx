@@ -10,12 +10,13 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
+import { useFinancialDashboardStore } from '../store/useFinancialDashboardStore';
 import { useUnitStore } from '../store/useUnitStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore, CashShift, CashTransaction } from '../store/useCashStore';
-import { formatCPF, formatPhone, printElement } from '../lib/utils';
+import { formatCPF, formatPhone, printElement, cn } from '../lib/utils';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
 
 // PIX defaults — overridden by unit settings
@@ -615,6 +616,109 @@ function BatchPaymentConfirmationContent({
 export default function Finance() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'payable_cards'>('receivables');
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  
+  const { 
+    bills, 
+    forecast, 
+    fetchDashboardData, 
+    createBill, 
+    updateBill, 
+    deleteBill, 
+    toggleBillPayment, 
+    saveForecast 
+  } = useFinancialDashboardStore();
+
+  const [isBillModalOpen, setIsBillModalOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<any | null>(null);
+  const [billFormData, setBillFormData] = useState({
+    day: 5,
+    description: '',
+    start_month: new Date().getMonth() + 1,
+    start_year: new Date().getFullYear(),
+    total_installments: 12,
+    value: 0,
+    category: 'store' as 'store' | 'personal'
+  });
+
+  const [forecastForm, setForecastForm] = useState({
+    store_1_forecast: 0,
+    store_2_forecast: 0,
+    fixed_store_expenses: 0,
+    fixed_personal_expenses: 0,
+    card_payments_inflow: 0
+  });
+
+  const handleOpenBillModal = (bill?: any) => {
+    if (bill) {
+      setEditingBill(bill);
+      setBillFormData({
+        day: bill.day,
+        description: bill.description,
+        start_month: bill.start_month,
+        start_year: bill.start_year,
+        total_installments: bill.total_installments,
+        value: bill.value,
+        category: bill.category
+      });
+    } else {
+      setEditingBill(null);
+      setBillFormData({
+        day: 5,
+        description: '',
+        start_month: selectedMonth,
+        start_year: selectedYear,
+        total_installments: 12,
+        value: 0,
+        category: 'store'
+      });
+    }
+    setIsBillModalOpen(true);
+  };
+
+  const handleSaveBill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingBill) {
+        await updateBill(editingBill.id, billFormData);
+        showNotification('success', 'Conta de cartão atualizada com sucesso!');
+      } else {
+        await createBill({ ...billFormData, unit_id: selectedUnitId });
+        showNotification('success', 'Conta de cartão inserida com sucesso!');
+      }
+      setIsBillModalOpen(false);
+      fetchDashboardData(selectedMonth, selectedYear, selectedUnitId);
+    } catch (err) {
+      showNotification('error', 'Erro', 'Não foi possível salvar a conta de cartão.');
+    }
+  };
+
+  const handleDeleteBill = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir esta conta de cartão?')) {
+      try {
+        await deleteBill(id);
+        showNotification('success', 'Conta de cartão excluída.');
+        fetchDashboardData(selectedMonth, selectedYear, selectedUnitId);
+      } catch (err) {
+        showNotification('error', 'Erro', 'Falha ao excluir conta.');
+      }
+    }
+  };
+
+  const handleSaveForecast = async () => {
+    try {
+      await saveForecast({
+        ...forecastForm,
+        month: selectedMonth,
+        year: selectedYear
+      });
+      showNotification('success', 'Previsões e relatórios salvos com sucesso!');
+    } catch (err) {
+      showNotification('error', 'Erro', 'Falha ao salvar as previsões financeiras.');
+    }
+  };
   const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
   const [pixModalItem, setPixModalItem] = useState<Installment | null | undefined>(undefined); // undefined = closed
   const [sendingWa, setSendingWa] = useState<string | null>(null);
@@ -1134,8 +1238,12 @@ export default function Finance() {
       {/* HEADER E SELETOR DE UNIDADE */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">Recebíveis</h1>
-          <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">Gestão de Parcelas e Recebimentos</p>
+          <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">
+            {activeFinanceTab === 'receivables' ? 'Recebíveis' : 'Contas a Pagar (Cartões)'}
+          </h1>
+          <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">
+            {activeFinanceTab === 'receivables' ? 'Gestão de Parcelas e Recebimentos' : 'Mensal Fixo de Cartões de Crédito e Custos'}
+          </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           {/* Unit Selector for Admins */}
@@ -1158,18 +1266,47 @@ export default function Finance() {
               </select>
             </div>
           )}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center justify-center gap-2 px-5 py-3.5 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto"
-          >
-            <Download size={16} />
-            Exportar CSV
-          </button>
+          {activeFinanceTab === 'receivables' && (
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center justify-center gap-2 px-5 py-3.5 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto"
+            >
+              <Download size={16} />
+              Exportar CSV
+            </button>
+          )}
         </div>
       </div>
 
+      {/* TABS DE SELEÇÃO FINANCEIRA */}
+      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-fit mb-8 gap-1">
+        <button
+          onClick={() => setActiveFinanceTab('receivables')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+            activeFinanceTab === 'receivables'
+              ? "bg-white text-black shadow-lg"
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Recebíveis
+        </button>
+        <button
+          onClick={() => setActiveFinanceTab('payable_cards')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+            activeFinanceTab === 'payable_cards'
+              ? "bg-white text-black shadow-lg"
+              : "text-on-surface-variant hover:text-white"
+          )}
+        >
+          Contas a Pagar (Cartões)
+        </button>
+      </div>
+
       {/* RENDER CONTEÚDO */}
-      <>
+      {activeFinanceTab === 'receivables' ? (
+        <>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
           {[
@@ -1519,6 +1656,385 @@ export default function Finance() {
           </div>
         </div>
       </>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.02] border border-white/5 p-6 rounded-[32px]">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5">
+                <Calendar size={16} className="text-primary shrink-0" />
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="bg-transparent text-xs text-white outline-none w-28 cursor-pointer font-display font-black uppercase tracking-wider"
+                >
+                  {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, idx) => (
+                    <option key={idx} value={idx + 1} className="bg-[#0f0f1a] text-white">{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5">
+                <Calendar size={16} className="text-primary shrink-0" />
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="bg-transparent text-xs text-white outline-none w-20 cursor-pointer font-display font-black uppercase tracking-wider"
+                >
+                  {[2026, 2027, 2028, 2029, 2030].map(y => (
+                    <option key={y} value={y} className="bg-[#0f0f1a] text-white">{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleOpenBillModal()}
+              className="flex items-center justify-center gap-2 px-6 py-3.5 bg-primary text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 cursor-pointer w-full md:w-auto"
+            >
+              <Plus size={16} /> Nova Conta de Cartão
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="xl:col-span-8 bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">
+                  Mensal Fixo - Cartão ({bills.length})
+                </h3>
+              </div>
+
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
+                      <th className="pb-3 pl-4">Dia</th>
+                      <th className="pb-3">Descrição</th>
+                      <th className="pb-3 text-center">P</th>
+                      <th className="pb-3 text-center">X</th>
+                      <th className="pb-3 text-center">F</th>
+                      <th className="pb-3 text-right">Valor</th>
+                      <th className="pb-3 text-center">Pago</th>
+                      <th className="pb-3 text-right pr-4">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {bills.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-xs text-on-surface-variant">
+                          Nenhuma conta de cartão ativa para o período selecionado.
+                        </td>
+                      </tr>
+                    ) : (
+                      bills.map((bill) => (
+                        <tr key={bill.id} className="hover:bg-white/[0.01] transition-all group">
+                          <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
+                          <td className="py-4 text-xs font-bold text-white uppercase">
+                            {bill.description}
+                            <span className={cn(
+                              "ml-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border",
+                              bill.category === 'store'
+                                ? "bg-primary/10 border-primary/20 text-primary"
+                                : "bg-purple-500/10 border-purple-500/20 text-purple-400"
+                            )}>
+                              {bill.category === 'store' ? 'Loja' : 'Pessoal'}
+                            </span>
+                          </td>
+                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">{bill.current_installment}</td>
+                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">{bill.total_installments}</td>
+                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">{bill.remaining_installments}</td>
+                          <td className="py-4 text-right text-xs font-mono font-black text-white">
+                            R$ {Number(bill.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!bill.is_paid}
+                              onChange={(e) => toggleBillPayment(bill.id, selectedMonth, selectedYear, e.target.checked)}
+                              className="rounded border-white/10 bg-white/5 text-primary focus:ring-0 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-4 text-right pr-4">
+                            <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenBillModal(bill)}
+                                className="p-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-white transition-all cursor-pointer"
+                                title="Editar"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBill(bill.id)}
+                                className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 rounded text-red-400 transition-all cursor-pointer"
+                                title="Excluir"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pt-4 border-t border-white/5 flex flex-wrap justify-between text-xs font-bold text-white pl-4 pr-4">
+                <span>Contas Ativas: {bills.length}</span>
+                <div className="flex gap-6">
+                  <span>Pago: <span className="text-success font-mono">R$ {bills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
+                  <span>Restante: <span className="text-error font-mono">R$ {bills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
+                  <span>Total Mês: <span className="text-primary font-mono">R$ {bills.reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
+                </div>
+              </div>
+            </div>
+
+            <div className="xl:col-span-4 space-y-6">
+              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
+                  Relatório Mensal
+                </h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1 opacity-70">Total a pagar cartão (Dívida Total)</p>
+                    <p className="text-xl font-black text-white font-mono">
+                      R$ {bills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
+                    <div>
+                      <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1 opacity-70">Total cartão mês</p>
+                      <p className="text-sm font-black text-white font-mono">
+                        R$ {bills.reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-error uppercase tracking-widest font-black mb-1 opacity-70">Total cartão à pagar</p>
+                      <p className="text-sm font-black text-error font-mono">
+                        R$ {bills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 border-t border-white/5 pt-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Entrada cartão Mês (Previsão)</label>
+                      <input
+                        type="number"
+                        value={forecastForm.card_payments_inflow || ''}
+                        onChange={(e) => setForecastForm(prev => ({ ...prev, card_payments_inflow: Number(e.target.value) }))}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-white w-full"
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Conta fixa Lojas</label>
+                      <input
+                        type="number"
+                        value={forecastForm.fixed_store_expenses || ''}
+                        onChange={(e) => setForecastForm(prev => ({ ...prev, fixed_store_expenses: Number(e.target.value) }))}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-white w-full"
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Conta fixa Pessoal</label>
+                      <input
+                        type="number"
+                        value={forecastForm.fixed_personal_expenses || ''}
+                        onChange={(e) => setForecastForm(prev => ({ ...prev, fixed_personal_expenses: Number(e.target.value) }))}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-white w-full"
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
+                  Entrada - Previsão
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Loja 1 (S)</label>
+                      <input
+                        type="number"
+                        value={forecastForm.store_1_forecast || ''}
+                        onChange={(e) => setForecastForm(prev => ({ ...prev, store_1_forecast: Number(e.target.value) }))}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-white w-full"
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Loja 2 (G)</label>
+                      <input
+                        type="number"
+                        value={forecastForm.store_2_forecast || ''}
+                        onChange={(e) => setForecastForm(prev => ({ ...prev, store_2_forecast: Number(e.target.value) }))}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono text-white outline-none focus:border-white w-full"
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveForecast}
+                    className="w-full py-3 bg-white text-black font-black uppercase tracking-widest text-[9px] rounded-xl hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shadow-lg shadow-white/5"
+                  >
+                    Salvar Relatório & Previsões
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {isBillModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsBillModalOpen(false)}>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md p-6 shadow-2xl space-y-6 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-black text-white uppercase tracking-widest">
+                  {editingBill ? 'Editar Conta de Cartão' : 'Nova Conta de Cartão'}
+                </h3>
+                <button
+                  onClick={() => setIsBillModalOpen(false)}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveBill} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Dia do Vencimento</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="31"
+                      value={billFormData.day}
+                      onChange={(e) => setBillFormData(prev => ({ ...prev, day: Number(e.target.value) }))}
+                      className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Valor da Parcela</label>
+                    <input
+                      type="number"
+                      required
+                      step="0.01"
+                      min="0.01"
+                      value={billFormData.value || ''}
+                      onChange={(e) => setBillFormData(prev => ({ ...prev, value: Number(e.target.value) }))}
+                      className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Descrição da Conta</label>
+                  <input
+                    type="text"
+                    required
+                    value={billFormData.description}
+                    onChange={(e) => setBillFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white"
+                    placeholder="Ex: CARTÃO NUBANK C.M."
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Mês Início</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="12"
+                      value={billFormData.start_month}
+                      onChange={(e) => setBillFormData(prev => ({ ...prev, start_month: Number(e.target.value) }))}
+                      className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Ano Início</label>
+                    <input
+                      type="number"
+                      required
+                      min="2026"
+                      value={billFormData.start_year}
+                      onChange={(e) => setBillFormData(prev => ({ ...prev, start_year: Number(e.target.value) }))}
+                      className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Total Parc.</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={billFormData.total_installments}
+                      onChange={(e) => setBillFormData(prev => ({ ...prev, total_installments: Number(e.target.value) }))}
+                      className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Classificação / Tipo</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['store', 'personal'] as const).map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setBillFormData(prev => ({ ...prev, category: cat }))}
+                        className={cn(
+                          "py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                          billFormData.category === cat
+                            ? "bg-white text-black border-white"
+                            : "bg-white/5 text-white border-white/10 hover:bg-white/10"
+                        )}
+                      >
+                        {cat === 'store' ? 'Loja / Fixa' : 'Pessoal'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
+                >
+                  {editingBill ? 'Atualizar Conta' : 'Adicionar Conta'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* PIX / Boleto Modal */}
       <AnimatePresence>
