@@ -749,4 +749,87 @@ router.post("/quotas/:id/contract", async (req, res) => {
   }
 });
 
+// 14. DELETE /api/scp/lots/:id — Excluir lote (se não houver cotas)
+router.delete("/lots/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar se existem cotas
+    const { data: quotas, error: qError } = await supabase
+      .from("investor_quotas")
+      .select("id")
+      .eq("lot_id", id);
+
+    if (qError) throw qError;
+
+    if (quotas && quotas.length > 0) {
+      return res.status(400).json({ error: "Não é possível excluir um lote que já possui investidores vinculados." });
+    }
+
+    // Desvincular aparelhos associados
+    await supabase
+      .from("devices")
+      .update({ lot_id: null })
+      .eq("lot_id", id);
+
+    // Excluir lote
+    const { error: dError } = await supabase
+      .from("lots")
+      .delete()
+      .eq("id", id);
+
+    if (dError) throw dError;
+
+    res.json({ success: true, message: "Lote excluído com sucesso!" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 15. DELETE /api/scp/quotas/:id — Remover cotista
+router.delete("/quotas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: quota, error: qError } = await supabase
+      .from("investor_quotas")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (qError) throw qError;
+    if (!quota) {
+      return res.status(404).json({ error: "Cota não encontrada." });
+    }
+
+    // Abater do future_receipts da carteira
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("profile_id", quota.profile_id)
+      .maybeSingle();
+
+    if (wallet) {
+      const newFutureReceipts = Math.max(0, Number(wallet.future_receipts || 0) - Number(quota.amount_invested));
+      await supabase
+        .from("wallets")
+        .update({ future_receipts: newFutureReceipts })
+        .eq("id", wallet.id);
+    }
+
+    // Excluir cota
+    const { error: dError } = await supabase
+      .from("investor_quotas")
+      .delete()
+      .eq("id", id);
+
+    if (dError) throw dError;
+
+    res.json({ success: true, message: "Cotista removido com sucesso!" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
+

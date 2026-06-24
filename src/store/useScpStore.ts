@@ -49,6 +49,8 @@ interface ScpState {
   rejectWithdrawal: (id: string) => Promise<void>;
   linkDevices: (lotId: string, deviceIds: string[]) => Promise<void>;
   updateContractUrl: (quotaId: string, contractUrl: string) => Promise<void>;
+  deleteLot: (id: string) => Promise<void>;
+  deleteQuota: (id: string) => Promise<void>;
 }
 
 export const useScpStore = create<ScpState>()((set, get) => ({
@@ -139,6 +141,24 @@ export const useScpStore = create<ScpState>()((set, get) => ({
       get().fetchLots();
     } catch (err) {
       console.error('Error updating contract URL:', err);
+      throw err;
+    }
+  },
+  deleteLot: async (id) => {
+    try {
+      await api.delete(`/scp/lots/${id}`);
+      get().fetchLots();
+    } catch (err) {
+      console.error('Error deleting lot:', err);
+      throw err;
+    }
+  },
+  deleteQuota: async (id) => {
+    try {
+      await api.delete(`/scp/quotas/${id}`);
+      get().fetchLots();
+    } catch (err) {
+      console.error('Error deleting quota:', err);
       throw err;
     }
   }

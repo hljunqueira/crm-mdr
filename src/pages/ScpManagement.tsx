@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building, Package, DollarSign, Users, PlusCircle, Check, Loader2,
-  TrendingUp, BarChart3, ArrowDownLeft, ShieldCheck, Link2, X
+  TrendingUp, BarChart3, ArrowDownLeft, ShieldCheck, Link2, X, Trash2
 } from 'lucide-react';
 import { useScpStore } from '../store/useScpStore';
 import { useUI } from '../context/UIContext';
@@ -11,7 +11,7 @@ export default function ScpManagement() {
   const { 
     lots, fetchLots, createLot, addQuota, isLoading,
     withdrawals, fetchWithdrawals, approveWithdrawal, rejectWithdrawal,
-    linkDevices, updateContractUrl 
+    linkDevices, updateContractUrl, deleteLot, deleteQuota
   } = useScpStore();
   const { showNotification } = useUI();
 
@@ -265,6 +265,26 @@ export default function ScpManagement() {
     }
   };
 
+  const handleDeleteLot = async (id: string, title: string) => {
+    if (!confirm(`Deseja realmente excluir o lote "${title}"? Esta ação removerá o lote e desvinculará seus aparelhos.`)) return;
+    try {
+      await deleteLot(id);
+      showNotification('success', 'Sucesso', 'Lote excluído com sucesso.');
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.response?.data?.error || err.message || 'Falha ao excluir lote.');
+    }
+  };
+
+  const handleDeleteQuota = async (id: string, investorName: string) => {
+    if (!confirm(`Deseja realmente remover o cotista "${investorName}" deste lote?`)) return;
+    try {
+      await deleteQuota(id);
+      showNotification('success', 'Sucesso', 'Cotista removido com sucesso.');
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.response?.data?.error || err.message || 'Falha ao remover cotista.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -395,9 +415,21 @@ export default function ScpManagement() {
                           <h4 className="font-bold text-white text-sm">{lot.title}</h4>
                           <span className="text-[10px] text-zinc-500">Criado em {new Date(lot.created_at).toLocaleDateString('pt-BR')}</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded text-[8px] font-black bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
-                          {lot.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[8px] font-black bg-primary/10 text-primary border border-primary/20 uppercase tracking-widest">
+                            {lot.status}
+                          </span>
+                          {(lot.investor_quotas || []).length === 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLot(lot.id, lot.title)}
+                              className="p-1 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded-lg transition-colors border-0 bg-transparent cursor-pointer"
+                              title="Excluir Lote"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 my-6">
@@ -454,6 +486,14 @@ export default function ScpManagement() {
                                     title="Editar Contrato"
                                   >
                                     <Link2 size={12} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteQuota(q.id, q.profiles?.full_name || 'Investidor')}
+                                    className="p-1 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded transition-all cursor-pointer border-0 bg-transparent"
+                                    title="Remover Cotista"
+                                  >
+                                    <Trash2 size={12} />
                                   </button>
                                 </div>
                               </div>
