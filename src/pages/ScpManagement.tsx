@@ -13,7 +13,7 @@ export default function ScpManagement() {
     withdrawals, fetchWithdrawals, approveWithdrawal, rejectWithdrawal,
     linkDevices, updateContractUrl, deleteLot, deleteQuota
   } = useScpStore();
-  const { showNotification } = useUI();
+  const { showNotification, showModal, hideModal } = useUI();
 
   const [activePanelTab, setActivePanelTab] = useState<'lots' | 'withdrawals'>('lots');
 
@@ -204,24 +204,54 @@ export default function ScpManagement() {
     }
   };
 
-  const handleApproveWithdrawal = async (id: string) => {
-    if (!confirm('Deseja realmente aprovar este resgate Pix? Certifique-se de que a transferência já foi efetuada no banco.')) return;
-    try {
-      await approveWithdrawal(id);
-      showNotification('success', 'Sucesso', 'Resgate aprovado e saldo debitado com sucesso.');
-    } catch (err) {
-      showNotification('error', 'Erro', 'Falha ao aprovar resgate.');
-    }
+  const handleApproveWithdrawal = (id: string) => {
+    showModal({
+      title: 'Aprovar Solicitação de Resgate',
+      children: (
+        <div className="space-y-4 text-white text-xs">
+          <p className="text-sm">Deseja realmente aprovar este resgate Pix?</p>
+          <p className="text-[10px] text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 font-black uppercase tracking-widest leading-normal">
+            Certifique-se de que a transferência Pix já foi efetuada manualmente na sua conta bancária antes de confirmar.
+          </p>
+        </div>
+      ),
+      type: 'info',
+      confirmText: 'Aprovar e Liquidar',
+      onConfirm: async () => {
+        try {
+          await approveWithdrawal(id);
+          showNotification('success', 'Sucesso', 'Resgate aprovado e saldo debitado com sucesso.');
+          hideModal();
+        } catch (err) {
+          showNotification('error', 'Erro', 'Falha ao aprovar resgate.');
+        }
+      }
+    });
   };
 
-  const handleRejectWithdrawal = async (id: string) => {
-    if (!confirm('Deseja realmente rejeitar este resgate Pix?')) return;
-    try {
-      await rejectWithdrawal(id);
-      showNotification('success', 'Sucesso', 'Resgate rejeitado com sucesso.');
-    } catch (err) {
-      showNotification('error', 'Erro', 'Falha ao rejeitar resgate.');
-    }
+  const handleRejectWithdrawal = (id: string) => {
+    showModal({
+      title: 'Rejeitar Solicitação de Resgate',
+      children: (
+        <div className="space-y-4 text-white text-xs">
+          <p className="text-sm">Deseja realmente rejeitar este resgate Pix?</p>
+          <p className="text-[10px] text-zinc-400 leading-normal uppercase tracking-wider">
+            O valor solicitado retornará ao saldo disponível na carteira do parceiro investidor.
+          </p>
+        </div>
+      ),
+      type: 'danger',
+      confirmText: 'Rejeitar Resgate',
+      onConfirm: async () => {
+        try {
+          await rejectWithdrawal(id);
+          showNotification('success', 'Sucesso', 'Resgate rejeitado com sucesso.');
+          hideModal();
+        } catch (err) {
+          showNotification('error', 'Erro', 'Falha ao rejeitar resgate.');
+        }
+      }
+    });
   };
 
   const toggleDeviceSelection = (id: string) => {
@@ -265,24 +295,54 @@ export default function ScpManagement() {
     }
   };
 
-  const handleDeleteLot = async (id: string, title: string) => {
-    if (!confirm(`Deseja realmente excluir o lote "${title}"? Esta ação removerá o lote e desvinculará seus aparelhos.`)) return;
-    try {
-      await deleteLot(id);
-      showNotification('success', 'Sucesso', 'Lote excluído com sucesso.');
-    } catch (err: any) {
-      showNotification('error', 'Erro', err.response?.data?.error || err.message || 'Falha ao excluir lote.');
-    }
+  const handleDeleteLot = (id: string, title: string) => {
+    showModal({
+      title: 'Confirmar Exclusão de Lote',
+      children: (
+        <div className="space-y-4 text-white text-xs">
+          <p className="text-sm">Deseja realmente excluir o lote <span className="text-white font-black">{title}</span>?</p>
+          <p className="text-[10px] text-zinc-400 leading-relaxed uppercase tracking-wider">
+            Esta ação desvinculará todos os aparelhos vinculados a este lote, devolvendo-os ao estoque geral.
+          </p>
+        </div>
+      ),
+      type: 'danger',
+      confirmText: 'Excluir Lote',
+      onConfirm: async () => {
+        try {
+          await deleteLot(id);
+          showNotification('success', 'Sucesso', 'Lote excluído com sucesso.');
+          hideModal();
+        } catch (err: any) {
+          showNotification('error', 'Erro', err.response?.data?.error || err.message || 'Falha ao excluir lote.');
+        }
+      }
+    });
   };
 
-  const handleDeleteQuota = async (id: string, investorName: string) => {
-    if (!confirm(`Deseja realmente remover o cotista "${investorName}" deste lote?`)) return;
-    try {
-      await deleteQuota(id);
-      showNotification('success', 'Sucesso', 'Cotista removido com sucesso.');
-    } catch (err: any) {
-      showNotification('error', 'Erro', err.response?.data?.error || err.message || 'Falha ao remover cotista.');
-    }
+  const handleDeleteQuota = (id: string, investorName: string) => {
+    showModal({
+      title: 'Confirmar Remoção de Cotista',
+      children: (
+        <div className="space-y-4 text-white text-xs">
+          <p className="text-sm">Deseja realmente remover o cotista <span className="text-white font-black">{investorName}</span> deste lote?</p>
+          <p className="text-[10px] text-rose-400 bg-rose-500/10 p-3 rounded-xl border border-rose-500/20 font-black uppercase tracking-widest leading-normal">
+            Atenção: O valor investido será abatido do saldo de recebíveis futuros na carteira deste investidor.
+          </p>
+        </div>
+      ),
+      type: 'danger',
+      confirmText: 'Confirmar Remoção',
+      onConfirm: async () => {
+        try {
+          await deleteQuota(id);
+          showNotification('success', 'Sucesso', 'Cotista removido com sucesso.');
+          hideModal();
+        } catch (err: any) {
+          showNotification('error', 'Erro', err.response?.data?.error || err.message || 'Falha ao remover cotista.');
+        }
+      }
+    });
   };
 
   return (
