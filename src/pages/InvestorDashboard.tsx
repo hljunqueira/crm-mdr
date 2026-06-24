@@ -80,6 +80,10 @@ export default function InvestorDashboard() {
 
 
 
+  // Estados do Simulador de Investimento
+  const [selectedLotIdForSim, setSelectedLotIdForSim] = useState<string>('');
+  const [simVal, setSimVal] = useState(10000);
+
   // Estados do Modal do Contrato de Risco
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
 
@@ -100,6 +104,12 @@ export default function InvestorDashboard() {
       window.location.href = '/login';
     }
   }, []);
+
+  useEffect(() => {
+    if (lots.length > 0 && !selectedLotIdForSim) {
+      setSelectedLotIdForSim(lots[0].quotaId || '');
+    }
+  }, [lots, selectedLotIdForSim]);
 
   const fetchDashboardData = async (profileId: string) => {
     try {
@@ -185,6 +195,15 @@ export default function InvestorDashboard() {
   const averageHealth = lots.length > 0 
     ? (lots.reduce((acc, lot) => acc + lot.healthRate, 0) / lots.length).toFixed(1)
     : "100.0";
+
+  // Find current rate based on selected lot, fallback to first lot, fallback to 20
+  const selectedLotForSimObj = lots.find(l => l.quotaId === selectedLotIdForSim) || lots[0];
+  const simRate = selectedLotForSimObj ? selectedLotForSimObj.interestSharingPercentage : 20;
+
+  const simTotalInterest = simVal * 2.0; // Juros/lucro gerado total na carteira financiada
+  const simInvShareInterest = simTotalInterest * (simRate / 100);
+  const simTotalProjectedReturn = simVal + simInvShareInterest;
+  const simMonthlyReturn = simTotalProjectedReturn / 12;
 
 
 
@@ -392,11 +411,11 @@ export default function InvestorDashboard() {
               </div>
             </div>
 
-            {/* Layout Column: Evolution Chart */}
-            <div className="grid grid-cols-1 gap-6">
+            {/* Layout Column: Evolution Chart & Investment Simulator */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Gráfico "Meu Dinheiro Trabalhando" */}
-              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-xl">
+              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-8 shadow-xl">
                 <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
                   <BarChart3 size={16} className="text-emerald-500" /> Evolução Mensal - Meu Dinheiro Trabalhando
                 </h3>
@@ -420,6 +439,76 @@ export default function InvestorDashboard() {
                     </ResponsiveContainer>
                   </div>
                 )}
+              </div>
+
+              {/* Simulador de Rentabilidade (Preconfigurado pelo Admin) */}
+              <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-4 shadow-xl flex flex-col justify-between">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4 flex items-center gap-2">
+                    <Calculator size={16} className="text-emerald-500" /> Simulador de Rentabilidade
+                  </h3>
+                  
+                  {lots.length > 0 ? (
+                    <div className="space-y-4">
+                      {/* Seletor de Lote */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Selecione o Lote</label>
+                        <select
+                          value={selectedLotIdForSim}
+                          onChange={(e) => setSelectedLotIdForSim(e.target.value)}
+                          className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors"
+                        >
+                          {lots.map((l) => (
+                            <option key={l.quotaId} value={l.quotaId} className="bg-[#121214]">
+                              {l.title} ({l.interestSharingPercentage}% de juros)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Slider de Aporte */}
+                      <div>
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-zinc-400">Aporte Estimado</span>
+                          <span className="font-mono font-bold text-white">R$ {simVal.toLocaleString('pt-BR')}</span>
+                        </div>
+                        <input 
+                          type="range"
+                          min="1000"
+                          max="100000"
+                          step="1000"
+                          value={simVal}
+                          onChange={(e) => setSimVal(parseInt(e.target.value))}
+                          className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Resultado Simulado */}
+                      <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 mt-6 space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-400">Devolução de Capital:</span>
+                          <span className="font-mono text-zinc-200">R$ {simVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-400">Lucro de Juros Simulado:</span>
+                          <span className="font-mono text-emerald-400">R$ {simInvShareInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between text-xs border-t border-zinc-800/80 pt-2 font-bold">
+                          <span className="text-white">Retorno Estimado Total:</span>
+                          <span className="font-mono text-emerald-400">R$ {simTotalProjectedReturn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-[9px] text-zinc-500 italic mt-3 block text-center">
+                        * Simulação em 12 parcelas de R$ {simMonthlyReturn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-zinc-500 text-xs">
+                      Não há lotes ativos para simulação de rentabilidade.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
