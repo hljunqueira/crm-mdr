@@ -18,40 +18,42 @@ router.get("/bills", async (req, res) => {
     const { data: bills, error: billsError } = await query;
     if (billsError) throw billsError;
 
-    // Fetch payments for this month/year
-    const { data: payments, error: paymentsError } = await supabase
-      .from("credit_card_bill_payments")
-      .select("bill_id")
-      .eq("month", month)
-      .eq("year", year);
-    if (paymentsError) throw paymentsError;
+    // Filter active bills for this period first
+    const activeBillsRaw = bills.filter(bill => {
+      const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
+      const currentInstallment = elapsedMonths + 1;
+      return currentInstallment >= 1 && currentInstallment <= bill.total_installments;
+    });
 
-    const paidBillIds = new Set(payments?.map(p => p.bill_id) || []);
+    const activeBillIds = activeBillsRaw.map(b => b.id);
 
-    const activeBills = bills
-      .map(bill => {
-        const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
-        const currentInstallment = elapsedMonths + 1;
-        const isPaid = paidBillIds.has(bill.id);
-        
-        // If the current installment is paid, the remaining installments left to pay is total minus current
-        // If it is unpaid, it is total minus current + 1 (since the current one is still due)
-        const remainingInstallments = isPaid
-          ? Math.max(0, bill.total_installments - currentInstallment)
-          : Math.max(0, bill.total_installments - currentInstallment + 1);
+    // Fetch all payments for these active bills to calculate remaining installments accurately
+    let allPayments: any[] = [];
+    if (activeBillIds.length > 0) {
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("credit_card_bill_payments")
+        .select("bill_id, month, year")
+        .in("bill_id", activeBillIds);
+      if (paymentsError) throw paymentsError;
+      allPayments = paymentsData || [];
+    }
 
-        // Is it active in the selected month/year?
-        const isActive = currentInstallment >= 1 && currentInstallment <= bill.total_installments;
+    const activeBills = activeBillsRaw.map(bill => {
+      const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
+      const currentInstallment = elapsedMonths + 1;
+      
+      const paymentsForBill = allPayments.filter(p => p.bill_id === bill.id);
+      const isPaid = paymentsForBill.some(p => p.month === month && p.year === year);
+      const remainingInstallments = Math.max(0, bill.total_installments - paymentsForBill.length);
 
-        return {
-          ...bill,
-          current_installment: currentInstallment,
-          remaining_installments: remainingInstallments,
-          is_active: isActive,
-          is_paid: isPaid
-        };
-      })
-      .filter(bill => bill.is_active);
+      return {
+        ...bill,
+        current_installment: currentInstallment,
+        remaining_installments: remainingInstallments,
+        is_active: true,
+        is_paid: isPaid
+      };
+    });
 
     res.json(activeBills);
   } catch (error: any) {

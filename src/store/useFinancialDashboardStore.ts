@@ -37,7 +37,7 @@ interface FinancialDashboardState {
   createBill: (bill: Omit<CreditCardBill, 'id'>) => Promise<void>;
   updateBill: (id: string, bill: Partial<CreditCardBill>) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
-  toggleBillPayment: (id: string, month: number, year: number, pay: boolean) => Promise<void>;
+  toggleBillPayment: (id: string, month: number, year: number, pay: boolean, unitId?: string) => Promise<void>;
   saveForecast: (forecast: FinancialForecast) => Promise<void>;
 }
 
@@ -90,26 +90,10 @@ export const useFinancialDashboardStore = create<FinancialDashboardState>()((set
     }
   },
 
-  toggleBillPayment: async (id, month, year, pay) => {
+  toggleBillPayment: async (id, month, year, pay, unitId) => {
     try {
-      const res = await api.post(`/financial-dashboard/bills/${id}/pay`, { month, year, pay });
-      set((state) => ({
-        bills: state.bills.map((b) => {
-          if (b.id === id) {
-            const isPaid = res.paid;
-            const currentInstallment = b.current_installment || 1;
-            const remainingInstallments = isPaid
-              ? Math.max(0, b.total_installments - currentInstallment)
-              : Math.max(0, b.total_installments - currentInstallment + 1);
-            return {
-              ...b,
-              is_paid: isPaid,
-              remaining_installments: remainingInstallments
-            };
-          }
-          return b;
-        })
-      }));
+      await api.post(`/financial-dashboard/bills/${id}/pay`, { month, year, pay });
+      await get().fetchDashboardData(month, year, unitId);
     } catch (error) {
       console.error('Error toggling bill payment:', error);
       throw error;

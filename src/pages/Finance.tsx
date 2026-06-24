@@ -764,6 +764,32 @@ export default function Finance() {
     }
   }, [selectedUnitId, fetchInstallments, fetchActiveShift, fetchTransactions]);
 
+  useEffect(() => {
+    if (selectedUnitId && activeFinanceTab === 'payable_cards') {
+      fetchDashboardData(selectedMonth, selectedYear, selectedUnitId);
+    }
+  }, [selectedMonth, selectedYear, selectedUnitId, activeFinanceTab, fetchDashboardData]);
+
+  useEffect(() => {
+    if (forecast) {
+      setForecastForm({
+        store_1_forecast: forecast.store_1_forecast || 0,
+        store_2_forecast: forecast.store_2_forecast || 0,
+        fixed_store_expenses: forecast.fixed_store_expenses || 0,
+        fixed_personal_expenses: forecast.fixed_personal_expenses || 0,
+        card_payments_inflow: forecast.card_payments_inflow || 0
+      });
+    } else {
+      setForecastForm({
+        store_1_forecast: 0,
+        store_2_forecast: 0,
+        fixed_store_expenses: 0,
+        fixed_personal_expenses: 0,
+        card_payments_inflow: 0
+      });
+    }
+  }, [forecast]);
+
   const formatPaymentDate = (dateStr?: string) => {
     if (!dateStr) return '';
     try {
@@ -1731,7 +1757,7 @@ export default function Finance() {
                         <tr key={bill.id} className="hover:bg-white/[0.01] transition-all group">
                           <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
                           <td className="py-4 text-xs font-bold text-white uppercase">
-                            {bill.description}
+                            P-{bill.current_installment} {bill.description}
                             <span className={cn(
                               "ml-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border",
                               bill.category === 'store'
@@ -1751,7 +1777,7 @@ export default function Finance() {
                             <input
                               type="checkbox"
                               checked={!!bill.is_paid}
-                              onChange={(e) => toggleBillPayment(bill.id, selectedMonth, selectedYear, e.target.checked)}
+                              onChange={(e) => toggleBillPayment(bill.id, selectedMonth, selectedYear, e.target.checked, selectedUnitId)}
                               className="rounded border-white/10 bg-white/5 text-primary focus:ring-0 cursor-pointer"
                             />
                           </td>
