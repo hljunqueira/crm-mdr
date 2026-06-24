@@ -118,13 +118,14 @@ export default function Reports() {
   const [auditToDeleteId, setAuditToDeleteId] = useState<string | null>(null);
   const [isDeletingAudit, setIsDeletingAudit] = useState(false);
 
-  // Fetch all required data on mount
+  // Fetch all required data when unit changes
   useEffect(() => {
-    fetchSales();
-    fetchInstallments();
-    fetchServiceOrders();
+    const unitParam = selectedUnitId === 'all' ? undefined : selectedUnitId;
+    fetchSales(unitParam);
+    fetchInstallments(unitParam);
+    fetchServiceOrders(unitParam);
     fetchAllUnits();
-  }, [fetchSales, fetchInstallments, fetchServiceOrders, fetchAllUnits]);
+  }, [selectedUnitId, fetchSales, fetchInstallments, fetchServiceOrders, fetchAllUnits]);
 
   const fetchUsers = async () => {
     try {
