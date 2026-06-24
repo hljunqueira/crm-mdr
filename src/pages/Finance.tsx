@@ -1279,33 +1279,35 @@ export default function Finance() {
       </div>
 
       {/* TABS DE SELEÇÃO FINANCEIRA */}
-      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-fit mb-8 gap-1">
-        <button
-          onClick={() => setActiveFinanceTab('receivables')}
-          className={cn(
-            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-            activeFinanceTab === 'receivables'
-              ? "bg-white text-black shadow-lg"
-              : "text-on-surface-variant hover:text-white"
-          )}
-        >
-          Recebíveis
-        </button>
-        <button
-          onClick={() => setActiveFinanceTab('payable_cards')}
-          className={cn(
-            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-            activeFinanceTab === 'payable_cards'
-              ? "bg-white text-black shadow-lg"
-              : "text-on-surface-variant hover:text-white"
-          )}
-        >
-          Contas a Pagar (Cartões)
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-fit mb-8 gap-1">
+          <button
+            onClick={() => setActiveFinanceTab('receivables')}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+              activeFinanceTab === 'receivables'
+                ? "bg-white text-black shadow-lg"
+                : "text-on-surface-variant hover:text-white"
+            )}
+          >
+            Recebíveis
+          </button>
+          <button
+            onClick={() => setActiveFinanceTab('payable_cards')}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+              activeFinanceTab === 'payable_cards'
+                ? "bg-white text-black shadow-lg"
+                : "text-on-surface-variant hover:text-white"
+            )}
+          >
+            Contas a Pagar (Cartões)
+          </button>
+        </div>
+      )}
 
       {/* RENDER CONTEÚDO */}
-      {activeFinanceTab === 'receivables' ? (
+      {activeFinanceTab === 'receivables' || !isAdmin ? (
         <>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
