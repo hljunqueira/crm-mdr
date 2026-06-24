@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     store_id UUID REFERENCES stores(id),
     full_name TEXT,
     avatar_url TEXT,
-    role TEXT DEFAULT 'attendant' CHECK (role IN ('admin', 'attendant', 'technician')),
+    role TEXT DEFAULT 'attendant' CHECK (role IN ('admin', 'attendant', 'technician', 'investor')),
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

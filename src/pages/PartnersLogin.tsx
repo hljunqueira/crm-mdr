@@ -1,85 +1,175 @@
 import React, { useState } from 'react';
 import { 
-  KeyRound, Phone, Loader2, Send, ShieldCheck, 
-  MessageSquareShare, CheckCircle2, Lock
+  KeyRound, Loader2, Send, ShieldCheck, 
+  MessageSquareShare, CheckCircle2, Lock, Mail,
+  Eye, EyeOff, AlertCircle, ArrowRight
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function PartnersLogin() {
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
+  const [viewMode, setViewMode] = useState<'login' | 'forgot' | 'reset'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, '');
-    let formatted = raw;
-    if (raw.length > 2) {
-      formatted = `(${raw.substring(0, 2)}) ${raw.substring(2)}`;
-    }
-    if (raw.length > 7) {
-      formatted = `(${raw.substring(0, 2)}) ${raw.substring(2, 7)}-${raw.substring(7, 11)}`;
-    }
-    setPhone(formatted.substring(0, 15));
-  };
-
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      setError('Por favor, insira um número de WhatsApp válido.');
-      return;
-    }
-
     setLoading(true);
     setError('');
+    setSuccess('');
+
     try {
-      const res = await fetch('/api/scp/auth/request-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone })
+      // 1. Autenticar com e-mail e senha no Supabase Auth
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha ao solicitar código.');
+      if (authError) {
+        throw new Error(authError.message === 'Invalid login credentials' 
+          ? 'E-mail ou senha incorretos.' 
+          : authError.message
+        );
+      }
 
-      setSuccess('Código enviado para seu WhatsApp!');
-      setStep('otp');
-    } catch (err: any) {
-      setError(err.message || 'Falha ao enviar código. Verifique o número.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!data.user) {
+        throw new Error('Usuário não localizado após login.');
+      }
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (otp.length < 6) {
-      setError('O código de verificação deve conter 6 dígitos.');
-      return;
-    }
+      // 2. Buscar perfil correspondente no banco para validar o papel (role)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', data.user.id)
+        .single();
 
-    setLoading(true);
-    setError('');
-    try {
-      const cleanPhone = phone.replace(/\D/g, '');
-      const res = await fetch('/api/scp/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone, code: otp })
-      });
+      if (profileError || !profile) {
+        await supabase.auth.signOut();
+        throw new Error('Perfil do investidor não localizado no banco.');
+      }
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Código inválido.');
+      // 3. Validar se é investidor ou administrador
+      if (profile.role !== 'investor' && profile.role !== 'admin') {
+        await supabase.auth.signOut();
+        throw new Error('Acesso restrito a investidores e administradores.');
+      }
 
-      localStorage.setItem('partners_token', data.token);
-      localStorage.setItem('partners_profile', JSON.stringify(data.profile));
+      // 4. Salvar dados de sessão específicos para a área de parceiros
+      localStorage.setItem('partners_token', data.session.access_token);
+      localStorage.setItem('partners_profile', JSON.stringify({ id: profile.id, role: profile.role }));
       window.location.href = '/dashboard';
+
     } catch (err: any) {
-      setError(err.message || 'Código incorreto. Tente novamente.');
+      setError(err.message || 'Falha ao autenticar. Tente novamente.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const res = await fetch('/api/users/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao processar a solicitação de recuperação.');
+      }
+
+      setSuccess('Código de recuperação enviado para o WhatsApp cadastrado!');
+      setViewMode('reset');
+    } catch (err: any) {
+      setError(err.message || 'Erro ao solicitar código de redefinição.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (newPassword.length < 6) {
+      setError('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: resetCode, newPassword })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao redefinir a senha.');
+      }
+
+      // Login automático após redefinição bem-sucedida
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password: newPassword
+      });
+
+      if (authError || !authData.user) {
+        setSuccess('Senha alterada! Volte para a tela anterior e faça o login.');
+        setViewMode('login');
+        return;
+      }
+
+      // Obter o perfil do banco
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profile && (profile.role === 'investor' || profile.role === 'admin')) {
+        localStorage.setItem('partners_token', authData.session.access_token);
+        localStorage.setItem('partners_profile', JSON.stringify({ id: profile.id, role: profile.role }));
+        window.location.href = '/dashboard';
+      } else {
+        await supabase.auth.signOut();
+        setViewMode('login');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao redefinir a senha.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    if (viewMode === 'forgot') {
+      handleForgotPassword(e);
+    } else if (viewMode === 'reset') {
+      handleResetPassword(e);
+    } else {
+      handleLogin(e);
     }
   };
 
@@ -88,6 +178,8 @@ export default function PartnersLogin() {
       {/* Background Glows */}
       <div className="absolute top-1/4 left-1/4 h-[350px] w-[350px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 h-[350px] w-[350px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+      
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
 
       <div className="w-full max-w-[420px] z-10 space-y-8">
         {/* Brand Logo Header */}
@@ -107,120 +199,218 @@ export default function PartnersLogin() {
         <div className="bg-[#121214]/60 border border-zinc-800/80 backdrop-blur-xl rounded-[32px] p-8 shadow-2xl space-y-6">
           <div className="space-y-1">
             <h2 className="text-base font-bold text-white">
-              {step === 'phone' ? 'Acessar Conta' : 'Verificar WhatsApp'}
+              {viewMode === 'forgot' ? 'Recuperar Acesso' : viewMode === 'reset' ? 'Definir Nova Senha' : 'Acessar Conta'}
             </h2>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              {step === 'phone' 
-                ? 'Insira seu celular/WhatsApp cadastrado para receber o link e código de acesso instantâneo.' 
-                : `Enviamos um código de 6 dígitos no WhatsApp cadastrado.`}
+              {viewMode === 'forgot' 
+                ? 'Digite seu e-mail de investidor. Enviaremos um código de verificação para o WhatsApp cadastrado.' 
+                : viewMode === 'reset' 
+                  ? 'Insira o código de 6 dígitos que chegou em seu WhatsApp e configure sua nova senha.'
+                  : 'Insira suas credenciais de investidor para acessar o painel de rendimentos.'}
             </p>
           </div>
 
           {/* Feedback de Notificações */}
           {error && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-2xl flex items-center gap-2.5 animate-in fade-in zoom-in-95">
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+              <AlertCircle size={16} className="text-rose-400 shrink-0" />
               {error}
             </div>
           )}
 
           {success && (
             <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-2xl flex items-center gap-2.5 animate-in fade-in zoom-in-95">
-              <CheckCircle2 size={16} className="text-emerald-400" />
+              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
               {success}
             </div>
           )}
 
-          {step === 'phone' ? (
-            /* Formulário: Inserir Telefone */
-            <form onSubmit={handleRequestOtp} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">WhatsApp do Investidor</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
-                    <Phone size={16} />
+          <form onSubmit={handleFormSubmit} className="space-y-4">
+            {viewMode === 'login' ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">E-mail do Investidor</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                      <Mail size={16} />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-5 py-4 text-sm text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="(00) 99999-0000"
-                    value={phone}
-                    onChange={handlePhoneChange}
-                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-5 py-4 text-sm text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600"
-                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center pl-1">
+                    <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Senha de Acesso</label>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setViewMode('forgot');
+                        setError('');
+                        setSuccess('');
+                      }}
+                      className="text-[9px] font-black text-zinc-500 hover:text-white uppercase tracking-widest transition-colors cursor-pointer border-0 bg-transparent"
+                    >
+                      Esqueci a senha
+                    </button>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                      <Lock size={16} />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-12 py-4 text-sm text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors cursor-pointer border-0 bg-transparent"
+                      title={showPassword ? "Ocultar senha" : "Exibir senha"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : viewMode === 'forgot' ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">E-mail do Investidor</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                      <Mail size={16} />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-5 py-4 text-sm text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[10px] rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Enviando código...
-                  </>
-                ) : (
-                  <>
-                    <Send size={12} />
-                    Solicitar Código por WhatsApp
-                  </>
-                )}
-              </button>
-            </form>
-          ) : (
-            /* Formulário: Inserir Código OTP */
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">Código de Confirmação</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
-                    <KeyRound size={16} />
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">Código de Verificação</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                      <KeyRound size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      placeholder="000000"
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-5 py-4 text-sm text-center font-mono tracking-[0.5em] text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600 placeholder:tracking-normal"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    required
-                    placeholder="000000"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-5 py-4 text-sm text-center font-mono tracking-[0.5em] text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600 placeholder:tracking-normal"
-                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">Nova Senha</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                      <Lock size={16} />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="Mínimo 6 caracteres"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-12 py-4 text-sm text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors cursor-pointer border-0 bg-transparent"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest pl-1">Confirmar Nova Senha</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-500">
+                      <Lock size={16} />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="Repita a nova senha"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl pl-11 pr-12 py-4 text-sm text-white focus:border-emerald-500 focus:bg-white/[0.07] outline-none transition-all placeholder:text-zinc-600"
+                    />
+                  </div>
                 </div>
               </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-indigo-600 hover:from-emerald-400 hover:to-indigo-500 text-white font-extrabold uppercase tracking-widest text-[10px] rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Validando...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={14} />
-                    Verificar e Entrar
-                  </>
-                )}
-              </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[10px] rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  {viewMode === 'forgot' ? (
+                    <>
+                      <Send size={12} />
+                      Enviar Código
+                    </>
+                  ) : viewMode === 'reset' ? (
+                    <>
+                      <ShieldCheck size={14} />
+                      Redefinir Senha e Entrar
+                    </>
+                  ) : (
+                    <>
+                      Entrar
+                      <ArrowRight size={14} />
+                    </>
+                  )}
+                </>
+              )}
+            </button>
 
+            {viewMode !== 'login' && (
               <button
                 type="button"
                 onClick={() => {
-                  setStep('phone');
-                  setSuccess('');
+                  setViewMode('login');
                   setError('');
+                  setSuccess('');
                 }}
-                className="w-full text-center text-[9px] text-zinc-500 uppercase tracking-widest font-black hover:text-white transition-colors"
+                className="w-full text-center text-[9px] text-zinc-500 uppercase tracking-widest font-black hover:text-white transition-colors cursor-pointer border-0 bg-transparent mt-2"
               >
-                Alterar Número de Telefone
+                ← Voltar para o Login
               </button>
-            </form>
-          )}
+            )}
+          </form>
         </div>
 
         {/* Footer info */}
