@@ -117,7 +117,7 @@ export default function OsSidebar({
                 )}
               >
                 <div className="flex justify-between items-start w-full">
-                  <div className="flex flex-col">
+                  <div className="flex flex-col min-w-0 flex-1">
                     <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-60">OS #{numberStr}</span>
                     <span className="text-xs font-black uppercase truncate mt-1 max-w-[120px]">{os.customers?.name}</span>
                     <span className="text-[9.5px] font-medium text-on-surface-variant mt-0.5 truncate max-w-[120px] block">
@@ -133,7 +133,7 @@ export default function OsSidebar({
                         updateServiceOrder(os.id, { status: e.target.value as any });
                       }}
                       className={cn(
-                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all",
+                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all max-w-[110px] truncate",
                         statusInfo.color
                       )}
                     >
