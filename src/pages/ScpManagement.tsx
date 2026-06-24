@@ -26,6 +26,16 @@ export default function ScpManagement() {
   const [newQuota, setNewQuota] = useState({ profile_id: '', amount_invested: 0, ownership_percentage: 0, interest_sharing_percentage: 20 });
   const [investors, setInvestors] = useState<any[]>([]);
 
+  // Cadastro de novo investidor
+  const [isCreateInvestorOpen, setIsCreateInvestorOpen] = useState(false);
+  const [investorFormData, setInvestorFormData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    phone: ''
+  });
+  const [isSavingInvestor, setIsSavingInvestor] = useState(false);
+
   // Estado para estatísticas administrativas consolidada
   const [adminStats, setAdminStats] = useState({
     totalRepasses: 0,
@@ -43,18 +53,19 @@ export default function ScpManagement() {
   const [selectedQuotaId, setSelectedQuotaId] = useState('');
   const [contractUrl, setContractUrl] = useState('');
 
+  const fetchProfiles = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('active', true);
+    if (data) {
+      setInvestors(data.filter(u => u.role === 'investor' || u.role === 'admin'));
+    }
+  };
+
   // Load lots, investors and withdrawals
   useEffect(() => {
     fetchLots();
-    const fetchProfiles = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, role')
-        .eq('active', true);
-      if (data) {
-        setInvestors(data.filter(u => u.role === 'investor' || u.role === 'admin'));
-      }
-    };
     fetchProfiles();
   }, [fetchLots]);
 
@@ -219,6 +230,41 @@ export default function ScpManagement() {
     );
   };
 
+  const handleCreateInvestorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!investorFormData.full_name || !investorFormData.email || !investorFormData.password) {
+      showNotification('error', 'Erro', 'Nome, e-mail e senha são obrigatórios.');
+      return;
+    }
+    setIsSavingInvestor(true);
+    try {
+      const res = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: investorFormData.full_name,
+          email: investorFormData.email,
+          password: investorFormData.password,
+          phone: investorFormData.phone || null,
+          role: 'investor',
+          store_id: null
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao criar investidor');
+      }
+      showNotification('success', 'Sucesso', 'Parceiro Investidor cadastrado com sucesso!');
+      setIsCreateInvestorOpen(false);
+      setInvestorFormData({ full_name: '', email: '', password: '', phone: '' });
+      fetchProfiles();
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.message || 'Falha ao cadastrar investidor.');
+    } finally {
+      setIsSavingInvestor(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -256,6 +302,14 @@ export default function ScpManagement() {
               )}
             </button>
           </div>
+
+          <button
+            onClick={() => setIsCreateInvestorOpen(true)}
+            className="px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-black uppercase text-[10px] tracking-wider rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer border border-zinc-700"
+          >
+            <PlusCircle size={14} />
+            Novo Investidor
+          </button>
 
           <button
             onClick={() => setIsCreateOpen(true)}
@@ -637,6 +691,80 @@ export default function ScpManagement() {
               >
                 {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Confirmar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Cadastrar Novo Investidor */}
+      {isCreateInvestorOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleCreateInvestorSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Cadastrar Novo Investidor</h3>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nome Completo</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: João da Silva"
+                value={investorFormData.full_name}
+                onChange={(e) => setInvestorFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">E-mail</label>
+              <input
+                type="email"
+                required
+                placeholder="Ex: joao@investidor.com"
+                value={investorFormData.email}
+                onChange={(e) => setInvestorFormData(prev => ({ ...prev, email: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Senha de Acesso</label>
+              <input
+                type="password"
+                required
+                placeholder="Mínimo 6 caracteres"
+                value={investorFormData.password}
+                onChange={(e) => setInvestorFormData(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Telefone / WhatsApp</label>
+              <input
+                type="text"
+                placeholder="Ex: 48991234567"
+                value={investorFormData.phone}
+                onChange={(e) => setInvestorFormData(prev => ({ ...prev, phone: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsCreateInvestorOpen(false)}
+                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingInvestor}
+                className="flex-1 py-3.5 bg-primary hover:bg-primary/80 text-on-primary font-black uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+              >
+                {isSavingInvestor ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                Cadastrar
               </button>
             </div>
           </form>

@@ -225,7 +225,7 @@ export default function Settings() {
     email: '',
     password: '',
     full_name: '',
-    role: 'attendant' as 'admin' | 'attendant' | 'technician',
+    role: 'attendant' as 'admin' | 'attendant' | 'technician' | 'investor',
     store_id: '',
     phone: ''
   });
@@ -1319,9 +1319,11 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                                     ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' 
                                     : usr.role === 'technician'
                                     ? 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                                    : usr.role === 'investor'
+                                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
                                     : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                                 }`}>
-                                  {usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : 'Atendente'}
+                                  {usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : usr.role === 'investor' ? 'Parceiro Investidor' : 'Atendente'}
                                 </span>
                               </td>
                               <td className="px-6 py-4 text-xs text-on-surface-variant">
@@ -1435,6 +1437,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                                 <option value="attendant" className="bg-surface-container-high">Atendente</option>
                                 <option value="technician" className="bg-surface-container-high">Técnico de OS</option>
                                 <option value="admin" className="bg-surface-container-high">Administrador Geral</option>
+                                <option value="investor" className="bg-surface-container-high">Parceiro Investidor</option>
                               </select>
                             </div>
 
@@ -1529,7 +1532,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                     <option value="">-- Escolha um colaborador da lista --</option>
                     {usersList.map(usr => (
                       <option key={usr.id} value={usr.id}>
-                        {usr.full_name} ({usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : 'Atendente'}) - {usr.email}
+                        {usr.full_name} ({usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : usr.role === 'investor' ? 'Investidor' : 'Atendente'}) - {usr.email}
                       </option>
                     ))}
                   </select>
