@@ -36,6 +36,7 @@ export default function PublicCustomerRegistration() {
     document_address_url: '',
     document_id_url: '',
     document_income_url: '',
+    self_photo_url: '',
     registration_status: 'PRE_CADASTRO',
     credit_status: 'EM_ANALISE',
     approved_for_purchase: false,
@@ -97,7 +98,7 @@ export default function PublicCustomerRegistration() {
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: 'document_address_url' | 'document_id_url' | 'document_income_url'
+    fieldName: 'document_address_url' | 'document_id_url' | 'document_income_url' | 'self_photo_url'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -148,6 +149,11 @@ export default function PublicCustomerRegistration() {
 
     if (!formData.document_id_url) {
       showNotification('error', 'Documento Faltando', 'Por favor, anexe uma foto de sua CNH ou RG.');
+      return;
+    }
+
+    if (!formData.self_photo_url) {
+      showNotification('error', 'Selfie Faltando', 'Por favor, anexe ou tire uma selfie segurando seu documento para validação.');
       return;
     }
 
@@ -447,18 +453,29 @@ export default function PublicCustomerRegistration() {
             * Por favor, tire fotos nítidas dos comprovantes (ou anexe em PDF/Imagem). É obrigatório o envio do Documento de Identidade para prosseguir.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'CNH ou RG *', key: 'document_id_url' as const },
               { label: 'Comp. Residência', key: 'document_address_url' as const },
-              { label: 'Comp. Renda', key: 'document_income_url' as const }
+              { label: 'Comp. Renda', key: 'document_income_url' as const },
+              { label: 'Sua Selfie *', key: 'self_photo_url' as const, isSelfie: true }
             ].map((doc, idx) => (
               <div key={idx} className="bg-black/30 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-between text-center gap-3">
                 <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-wider">{doc.label}</span>
                 
                 {formData[doc.key] ? (
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-400 py-2">
-                    <Check size={12} /> Pronto
+                  <div className="flex flex-col items-center gap-2 py-1 w-full">
+                    {doc.isSelfie ? (
+                      <img 
+                        src={formData[doc.key]} 
+                        alt="Selfie Preview" 
+                        className="w-12 h-12 rounded-full object-cover border border-white/20"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-green-400">
+                        <Check size={12} /> Pronto
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-[10px] text-on-surface-variant/40 py-2 font-medium">Nenhum arquivo</div>
@@ -474,7 +491,8 @@ export default function PublicCustomerRegistration() {
                   )}
                   <input 
                     type="file" 
-                    accept="image/*,application/pdf"
+                    accept={doc.isSelfie ? "image/*" : "image/*,application/pdf"}
+                    capture={doc.isSelfie ? "user" : undefined}
                     onChange={(e) => handleFileUpload(e, doc.key)}
                     className="hidden" 
                     disabled={uploading[doc.key]}

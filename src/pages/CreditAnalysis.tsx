@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, Search, ShieldCheck, DollarSign, Loader2, 
   AlertCircle, CheckCircle2, User, Phone, MapPin, 
-  FileText, ExternalLink, ShieldAlert, Save, UserCheck, Smartphone, CheckSquare, Square, CreditCard, AlertTriangle
+  FileText, ExternalLink, ShieldAlert, Save, UserCheck, Smartphone, CheckSquare, Square, CreditCard, AlertTriangle, Trash2
 } from 'lucide-react';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useUI } from '../context/UIContext';
@@ -828,6 +828,132 @@ export default function CreditAnalysis() {
                       </p>
                     </div>
                   </div>
+                  {selectedCustomer.credit_status !== 'EM_ANALISE' && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await updateCustomer(selectedCustomer.id, {
+                            credit_status: 'EM_ANALISE',
+                            registration_status: 'PRE_CADASTRO',
+                            approved_for_purchase: false
+                          });
+                          showNotification('success', 'Análise de crédito reiniciada com sucesso!');
+                          setFormData(prev => ({
+                            ...prev,
+                            credit_status: 'EM_ANALISE',
+                            registration_status: 'PRE_CADASTRO',
+                            approved_for_purchase: false
+                          }));
+                        } catch (err) {
+                          showNotification('error', 'Falha ao reiniciar análise.');
+                        }
+                      }}
+                      className="bg-white/5 hover:bg-primary hover:text-on-primary border border-white/10 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all"
+                    >
+                      Nova Análise
+                    </button>
+                  )}
+                </div>
+
+                {/* Informações Pessoais & Documentação do Cliente */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 rounded-3xl p-5">
+                  <div className="space-y-4">
+                    <div>
+                      <span className="text-[9px] font-black text-primary uppercase tracking-widest block mb-2">Endereço Residencial</span>
+                      <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-xs space-y-1.5">
+                        <p className="text-white"><strong className="text-on-surface-variant uppercase text-[9px] tracking-wider block">Logradouro / Rua</strong> {selectedCustomer.address || '—'}, {selectedCustomer.address_number || '—'}</p>
+                        <p className="text-white"><strong className="text-on-surface-variant uppercase text-[9px] tracking-wider block">Bairro</strong> {selectedCustomer.neighborhood || '—'}</p>
+                        <p className="text-white"><strong className="text-on-surface-variant uppercase text-[9px] tracking-wider block">Cidade / UF</strong> {selectedCustomer.city || '—'} / {selectedCustomer.state || '—'}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[9px] font-black text-primary uppercase tracking-widest block mb-2">Contatos & Referências</span>
+                      <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-xs space-y-3">
+                        {selectedCustomer.parent_contact_phone && (
+                          <div>
+                            <span className="text-on-surface-variant uppercase text-[8px] tracking-wider block">Contato dos Pais</span>
+                            <span className="text-white font-bold font-mono">{formatPhone(selectedCustomer.parent_contact_phone)}</span>
+                          </div>
+                        )}
+                        {selectedCustomer.reference1_name && (
+                          <div>
+                            <span className="text-on-surface-variant uppercase text-[8px] tracking-wider block">Referência 1</span>
+                            <span className="text-white font-bold uppercase">{selectedCustomer.reference1_name}</span>
+                            {selectedCustomer.reference1_phone && (
+                              <span className="text-white/60 font-mono block mt-0.5">{formatPhone(selectedCustomer.reference1_phone)}</span>
+                            )}
+                          </div>
+                        )}
+                        {selectedCustomer.reference2_name && (
+                          <div>
+                            <span className="text-on-surface-variant uppercase text-[8px] tracking-wider block">Referência 2</span>
+                            <span className="text-white font-bold uppercase">{selectedCustomer.reference2_name}</span>
+                            {selectedCustomer.reference2_phone && (
+                              <span className="text-white/60 font-mono block mt-0.5">{formatPhone(selectedCustomer.reference2_phone)}</span>
+                            )}
+                          </div>
+                        )}
+                        {!selectedCustomer.parent_contact_phone && !selectedCustomer.reference1_name && !selectedCustomer.reference2_name && (
+                          <span className="text-on-surface-variant text-[11px]">Nenhuma referência cadastrada.</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <span className="text-[9px] font-black text-primary uppercase tracking-widest block">Comprovantes & Selfie</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'Identificação (CNH/RG)', url: selectedCustomer.document_id_url, key: 'document_id' },
+                        { label: 'Comp. Residência', url: selectedCustomer.document_address_url, key: 'document_address' },
+                        { label: 'Comp. Renda', url: selectedCustomer.document_income_url, key: 'document_income' },
+                        { label: 'Selfie de Segurança', url: selectedCustomer.self_photo_url, key: 'self_photo', isSelfie: true }
+                      ].map((doc) => {
+                        if (!doc.url) {
+                          return (
+                            <div key={doc.key} className="bg-white/5 border border-white/5 rounded-2xl p-3 flex flex-col items-center justify-center text-center opacity-40 h-28">
+                              <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider block">{doc.label}</span>
+                              <span className="text-[9px] mt-2 block">Não enviado</span>
+                            </div>
+                          );
+                        }
+
+                        const isPdf = doc.url.toLowerCase().endsWith('.pdf');
+
+                        return (
+                          <div key={doc.key} className="bg-white/5 border border-white/10 hover:border-primary/40 rounded-2xl p-3 flex flex-col items-center justify-between text-center transition-all h-28 group relative overflow-hidden">
+                            <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider block z-10">{doc.label}</span>
+                            
+                            {doc.isSelfie && !isPdf ? (
+                              <img 
+                                src={doc.url} 
+                                alt={doc.label} 
+                                className="w-12 h-12 rounded-full object-cover border border-white/15 my-1"
+                              />
+                            ) : isPdf ? (
+                              <FileText size={24} className="text-primary my-2" />
+                            ) : (
+                              <div 
+                                className="w-full h-10 rounded-lg bg-cover bg-center border border-white/10 my-1"
+                                style={{ backgroundImage: `url(${doc.url})` }}
+                              />
+                            )}
+
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="w-full bg-white/5 hover:bg-primary hover:text-on-primary rounded-xl py-1 text-[8px] font-black uppercase tracking-widest transition-all z-10 flex items-center justify-center gap-1 text-center"
+                            >
+                              <ExternalLink size={8} /> Abrir
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Seletores de Consulta com Custo Estimado */}
@@ -1027,7 +1153,7 @@ export default function CreditAnalysis() {
                             className="p-2 ml-2 text-on-surface-variant hover:text-error transition-colors rounded-xl hover:bg-white/5"
                             title="Excluir do histórico"
                           >
-                            <ShieldAlert size={15} className="text-error" />
+                            <Trash2 size={15} className="text-error" />
                           </button>
                         </div>
                       );
