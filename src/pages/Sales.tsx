@@ -1331,7 +1331,10 @@ export default function Sales() {
                     <td className="px-8 py-6">
                       <div>
                         <p className="text-sm font-black text-on-surface uppercase tracking-tight leading-none group-hover:text-white transition-colors">{sale.customer_name}</p>
-                        <p className="text-[9px] font-mono text-primary font-black uppercase tracking-widest mt-1 opacity-60">ID: {sale.id.split('-')[0]}</p>
+                        <div className="flex flex-col gap-0.5 mt-1 opacity-60">
+                          <p className="text-[9px] font-mono text-primary font-black uppercase tracking-widest">ID: {sale.id.split('-')[0]}</p>
+                          <p className="text-[9px] font-display text-on-surface-variant font-bold uppercase tracking-wider">Vend: {sale.seller_name}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">

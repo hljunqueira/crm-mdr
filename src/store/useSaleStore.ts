@@ -22,6 +22,7 @@ export interface Sale {
   status: 'completed' | 'processing' | 'overdue' | 'cancelled' | 'waiting_pickup';
   payment_type?: 'crediario' | 'card' | 'vista' | 'debit';
   seller_id?: string;
+  seller_name?: string;
   device_id?: string;
   is_trade_in?: boolean;
   trade_in_device_brand?: string;
@@ -71,6 +72,7 @@ export const useSaleStore = create<SaleState>()((set) => ({
         payment_type: s.payment_type || 'crediario',
         payment_method: s.payment_method || 'money',
         seller_id: s.seller_id,
+        seller_name: s.profiles?.full_name || 'Vendedor não informado',
         is_trade_in: !!s.is_trade_in,
         trade_in_device_brand: s.trade_in_device_brand || '',
         trade_in_device_model: s.trade_in_device_model || '',
