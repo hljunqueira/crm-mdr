@@ -94,7 +94,21 @@ export const useFinancialDashboardStore = create<FinancialDashboardState>()((set
     try {
       const res = await api.post(`/financial-dashboard/bills/${id}/pay`, { month, year, pay });
       set((state) => ({
-        bills: state.bills.map((b) => b.id === id ? { ...b, is_paid: res.paid } : b)
+        bills: state.bills.map((b) => {
+          if (b.id === id) {
+            const isPaid = res.paid;
+            const currentInstallment = b.current_installment || 1;
+            const remainingInstallments = isPaid
+              ? Math.max(0, b.total_installments - currentInstallment)
+              : Math.max(0, b.total_installments - currentInstallment + 1);
+            return {
+              ...b,
+              is_paid: isPaid,
+              remaining_installments: remainingInstallments
+            };
+          }
+          return b;
+        })
       }));
     } catch (error) {
       console.error('Error toggling bill payment:', error);

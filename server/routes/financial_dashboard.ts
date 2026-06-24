@@ -32,7 +32,13 @@ router.get("/bills", async (req, res) => {
       .map(bill => {
         const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
         const currentInstallment = elapsedMonths + 1;
-        const remainingInstallments = bill.total_installments - currentInstallment;
+        const isPaid = paidBillIds.has(bill.id);
+        
+        // If the current installment is paid, the remaining installments left to pay is total minus current
+        // If it is unpaid, it is total minus current + 1 (since the current one is still due)
+        const remainingInstallments = isPaid
+          ? Math.max(0, bill.total_installments - currentInstallment)
+          : Math.max(0, bill.total_installments - currentInstallment + 1);
 
         // Is it active in the selected month/year?
         const isActive = currentInstallment >= 1 && currentInstallment <= bill.total_installments;
@@ -42,7 +48,7 @@ router.get("/bills", async (req, res) => {
           current_installment: currentInstallment,
           remaining_installments: remainingInstallments,
           is_active: isActive,
-          is_paid: paidBillIds.has(bill.id)
+          is_paid: isPaid
         };
       })
       .filter(bill => bill.is_active);
