@@ -7,16 +7,63 @@ const router = Router();
 router.get("/", async (req, res) => {
   const { unit_id } = req.query;
   let query = supabase.from('customers').select('*');
-  
+
   if (unit_id && unit_id !== 'all') {
     query = query.eq('unit_id', unit_id);
   }
 
   const { data, error } = await query.order('name');
-  
+
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
+
+const EVOLUTION_URL = 'https://whatsapp.mdrinformaticaecelulares.com.br';
+const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
+
+async function notifyMaykonOfAnalysis(customer: any) {
+  try {
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('instance_name')
+      .eq('status', 'connected')
+      .limit(1);
+
+    const instance = channels && channels.length > 0 ? channels[0].instance_name : 'MDR';
+    const maykonPhone = '5548999035854';
+    const remoteJid = `${maykonPhone}@s.whatsapp.net`;
+    const url = `${EVOLUTION_URL}/message/sendText/${instance}`;
+
+    const text = `📢 *Novo Cadastro para Análise!*\n\n` +
+      `*Cliente:* ${customer.name}\n` +
+      `*CPF/CNPJ:* ${customer.cpf || 'Não informado'}\n` +
+      `*Telefone:* ${customer.phone || 'Não informado'}\n` +
+      `*Cidade/UF:* ${customer.city || 'Não informado'}/${customer.state || 'Não informado'}\n\n` +
+      `Por favor, acesse o painel administrativo para avaliar os documentos e realizar a análise de crédito.`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY
+      },
+      body: JSON.stringify({
+        number: remoteJid,
+        text: text,
+        linkPreview: true
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[Notify Maykon] Failed: ${response.status}`, errText);
+    } else {
+      console.log(`[Notify Maykon] Alert sent successfully for customer: ${customer.name}`);
+    }
+  } catch (error) {
+    console.error(`[Notify Maykon] Error:`, error);
+  }
+}
 
 // Create customer
 router.post("/", async (req, res) => {
@@ -55,6 +102,11 @@ router.post("/", async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ error: error.message });
+
+  if (data && data.credit_status === 'EM_ANALISE') {
+    notifyMaykonOfAnalysis(data);
+  }
+
   res.status(201).json(data);
 });
 
@@ -95,6 +147,13 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
+  // Fetch the existing customer state to check for changes in credit_status
+  const { data: oldCustomer } = await supabase
+    .from('customers')
+    .select('credit_status')
+    .eq('id', req.params.id)
+    .single();
+
   const { data, error } = await supabase
     .from('customers')
     .update(req.body)
@@ -103,6 +162,11 @@ router.patch("/:id", async (req, res) => {
     .single();
 
   if (error) return res.status(404).json({ error: error.message });
+
+  if (data && data.credit_status === 'EM_ANALISE' && oldCustomer?.credit_status !== 'EM_ANALISE') {
+    notifyMaykonOfAnalysis(data);
+  }
+
   res.json(data);
 });
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { deleteAsaasPayment } from "../services/asaasService.js";
+import { updateCollaboratorGoalProgress } from "../lib/goalsHelper.js";
 
 const router = Router();
 
@@ -382,6 +383,18 @@ router.post("/", async (req, res) => {
       }
     }
 
+    if (saleData && saleData.seller_id) {
+      try {
+        const saleDate = saleData.sale_date || saleData.created_at || new Date().toISOString();
+        const dateObj = new Date(saleDate.split('T')[0] + 'T12:00:00');
+        const m = dateObj.getMonth() + 1;
+        const y = dateObj.getFullYear();
+        await updateCollaboratorGoalProgress(saleData.seller_id, m, y);
+      } catch (err) {
+        console.error('Error updating goal progress on sale creation:', err);
+      }
+    }
+
     res.status(201).json(saleData);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -657,6 +670,28 @@ router.patch("/:id", async (req, res) => {
       }
     }
      
+    if (updatedSale) {
+      try {
+        const saleDate = updatedSale.sale_date || updatedSale.created_at || new Date().toISOString();
+        const dateObj = new Date(saleDate.split('T')[0] + 'T12:00:00');
+        const m = dateObj.getMonth() + 1;
+        const y = dateObj.getFullYear();
+        await updateCollaboratorGoalProgress(updatedSale.seller_id, m, y);
+
+        const oldSaleDate = oldSale.sale_date || oldSale.created_at;
+        if (oldSaleDate) {
+          const oldDateObj = new Date(oldSaleDate.split('T')[0] + 'T12:00:00');
+          const oldM = oldDateObj.getMonth() + 1;
+          const oldY = oldDateObj.getFullYear();
+          if (oldSale.seller_id !== updatedSale.seller_id || oldM !== m || oldY !== y) {
+            await updateCollaboratorGoalProgress(oldSale.seller_id, oldM, oldY);
+          }
+        }
+      } catch (err) {
+        console.error('Error updating goal progress on sale update:', err);
+      }
+    }
+
     res.json(updatedSale);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -842,6 +877,18 @@ router.delete("/:id", async (req, res) => {
 
     if (deleteError) {
       return res.status(500).json({ error: deleteError.message });
+    }
+
+    if (sale && sale.seller_id) {
+      try {
+        const saleDate = sale.sale_date || sale.created_at || new Date().toISOString();
+        const dateObj = new Date(saleDate.split('T')[0] + 'T12:00:00');
+        const m = dateObj.getMonth() + 1;
+        const y = dateObj.getFullYear();
+        await updateCollaboratorGoalProgress(sale.seller_id, m, y);
+      } catch (err) {
+        console.error('Error updating goal progress on sale delete:', err);
+      }
     }
 
     res.status(204).send();

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { updateCollaboratorGoalProgress } from "../lib/goalsHelper.js";
 
 const router = Router();
 
@@ -86,6 +87,19 @@ router.post("/", async (req, res) => {
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    if (data && data.responsible_technician_id) {
+      try {
+        const dateStr = data.delivered_at || data.created_at || new Date().toISOString();
+        const dateObj = new Date(dateStr.split('T')[0] + 'T12:00:00');
+        const m = dateObj.getMonth() + 1;
+        const y = dateObj.getFullYear();
+        await updateCollaboratorGoalProgress(data.responsible_technician_id, m, y);
+      } catch (err) {
+        console.error('Error updating goal progress on OS creation:', err);
+      }
+    }
+
     res.status(201).json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -100,7 +114,7 @@ router.patch("/:id", async (req, res) => {
     // 1. Get the current status and fields of the OS before update
     const { data: currentOs } = await supabase
       .from('service_orders')
-      .select('status, finalized_by_id, delivered_by_id, unit_id, os_number, labor_value, parts_value, device_brand, device_model')
+      .select('status, finalized_by_id, delivered_by_id, unit_id, os_number, labor_value, parts_value, device_brand, device_model, responsible_technician_id, delivered_at, created_at')
       .eq('id', req.params.id)
       .single();
 
@@ -158,6 +172,28 @@ router.patch("/:id", async (req, res) => {
       }
     }
 
+    if (updatedOs) {
+      try {
+        const dateStr = updatedOs.delivered_at || updatedOs.created_at || new Date().toISOString();
+        const dateObj = new Date(dateStr.split('T')[0] + 'T12:00:00');
+        const m = dateObj.getMonth() + 1;
+        const y = dateObj.getFullYear();
+        await updateCollaboratorGoalProgress(updatedOs.responsible_technician_id, m, y);
+
+        const oldDateStr = currentOs?.delivered_at || currentOs?.created_at;
+        if (oldDateStr) {
+          const oldDateObj = new Date(oldDateStr.split('T')[0] + 'T12:00:00');
+          const oldM = oldDateObj.getMonth() + 1;
+          const oldY = oldDateObj.getFullYear();
+          if (currentOs?.responsible_technician_id !== updatedOs.responsible_technician_id || oldM !== m || oldY !== y) {
+            await updateCollaboratorGoalProgress(currentOs?.responsible_technician_id, oldM, oldY);
+          }
+        }
+      } catch (err) {
+        console.error('Error updating goal progress on OS update:', err);
+      }
+    }
+
     res.json(updatedOs);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -167,12 +203,32 @@ router.patch("/:id", async (req, res) => {
 // Delete Service Order
 router.delete("/:id", async (req, res) => {
   try {
+    // 1. Fetch details before delete to recalculate goals
+    const { data: currentOs } = await supabase
+      .from('service_orders')
+      .select('responsible_technician_id, delivered_at, created_at')
+      .eq('id', req.params.id)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('service_orders')
       .delete()
       .eq('id', req.params.id);
 
     if (error) return res.status(500).json({ error: error.message });
+
+    if (currentOs && currentOs.responsible_technician_id) {
+      try {
+        const dateStr = currentOs.delivered_at || currentOs.created_at || new Date().toISOString();
+        const dateObj = new Date(dateStr.split('T')[0] + 'T12:00:00');
+        const m = dateObj.getMonth() + 1;
+        const y = dateObj.getFullYear();
+        await updateCollaboratorGoalProgress(currentOs.responsible_technician_id, m, y);
+      } catch (err) {
+        console.error('Error updating goal progress on OS deletion:', err);
+      }
+    }
+
     res.status(204).send();
   } catch (err: any) {
     res.status(500).json({ error: err.message });
