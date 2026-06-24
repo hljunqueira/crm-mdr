@@ -9,7 +9,10 @@ import { useLeadStore } from '../../store/useLeadStore';
 import { useInventoryStore } from '../../store/useInventoryStore';
 import { useKanbanStore } from '../../store/useKanbanStore';
 
+import { useAuthStore } from '../../store/useAuthStore';
+
 interface AppLayoutProps {
+  ReactNode?: any; // unused fallback but type remains in interface
   children: ReactNode;
 }
 
@@ -20,15 +23,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const fetchLeads = useLeadStore(state => state.fetchLeads);
   const fetchInventory = useInventoryStore(state => state.fetchInventory);
   const fetchKanban = useKanbanStore(state => state.fetchKanban);
+  const { profile, isLoading: isAuthLoading } = useAuthStore();
 
   useEffect(() => {
-    fetchCustomers();
-    fetchSales();
-    fetchInstallments();
-    fetchLeads();
-    fetchInventory();
-    fetchKanban();
-  }, []);
+    if (isAuthLoading) return;
+    const unitId = profile?.role === 'admin' ? undefined : (profile?.unit_id || undefined);
+    fetchCustomers(unitId);
+    fetchSales(unitId);
+    fetchInstallments(unitId);
+    fetchLeads(unitId);
+    fetchInventory(unitId);
+    fetchKanban(unitId);
+  }, [isAuthLoading, profile, fetchCustomers, fetchSales, fetchInstallments, fetchLeads, fetchInventory, fetchKanban]);
 
   const location = useLocation();
   const isChat = location.pathname === '/chat';
