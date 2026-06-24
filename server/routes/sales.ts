@@ -102,11 +102,44 @@ const syncDeviceLocks = async (sale: any) => {
         .delete()
         .eq('sale_id', sale.id)
         .filter('device_id', 'not.in', `(${idList})`);
-    } else {
+      
+      // Also delete any virtual lock where device_id is null since we have real devices
       await supabase
         .from('device_locks')
         .delete()
-        .eq('sale_id', sale.id);
+        .eq('sale_id', sale.id)
+        .is('device_id', null);
+    } else {
+      // If there are no real devices associated, ensure there is a single virtual lock (device_id is null)
+      const { data: existingNullLock } = await supabase
+        .from('device_locks')
+        .select('id')
+        .eq('sale_id', sale.id)
+        .is('device_id', null)
+        .maybeSingle();
+
+      if (!existingNullLock) {
+        const isIphone = (sale.device_model_manual || '').toLowerCase().includes('iphone') || 
+                         (sale.device_model_manual || '').toLowerCase().includes('apple');
+        const lockType = isIphone ? 'icloud' : 'android';
+
+        await supabase
+          .from('device_locks')
+          .insert({
+            device_id: null,
+            sale_id: sale.id,
+            lock_type: lockType,
+            icloud_locked: false,
+            mdm_locked: false
+          });
+      }
+
+      // Delete any locks for this sale where device_id is NOT null
+      await supabase
+        .from('device_locks')
+        .delete()
+        .eq('sale_id', sale.id)
+        .not('device_id', 'is', null);
     }
   } catch (err) {
     console.error(`[syncDeviceLocks] Error synchronizing device locks for sale ${sale.id}:`, err);
