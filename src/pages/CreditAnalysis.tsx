@@ -24,7 +24,7 @@ const parseDesiredDevices = (desired_device: string | undefined | null): any[] |
 };
 
 export default function CreditAnalysis() {
-  const { customers, fetchCustomers, updateCustomer } = useCustomerStore();
+  const { customers, fetchCustomers, updateCustomer, deleteCustomer } = useCustomerStore();
   const { showNotification } = useUI();
   const { profile } = useAuthStore();
   const { inventory, fetchInventory } = useInventoryStore();
@@ -45,6 +45,7 @@ export default function CreditAnalysis() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [deleteQueryId, setDeleteQueryId] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [deleteCustomerIdToConfirm, setDeleteCustomerIdToConfirm] = useState<string | null>(null);
   
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>('cadastro');
@@ -98,13 +99,11 @@ export default function CreditAnalysis() {
 
   const creditAnalysisCustomers = useMemo(() => {
     return customers.filter(c => {
-      return !!c.address || 
-             !!c.parent_contact_phone || 
-             !!c.reference1_name || 
-             !!c.document_id_url || 
-             !!c.desired_device ||
-             c.registration_status === 'PRE_CADASTRO' || 
-             c.credit_status === 'EM_ANALISE';
+      return c.registration_status === 'PRE_CADASTRO' || 
+             c.credit_status === 'EM_ANALISE' ||
+             c.credit_status === 'APROVADO' ||
+             c.credit_status === 'APROVADO_COM_ENTRADA' ||
+             c.credit_status === 'REPROVADO';
     });
   }, [customers]);
 
@@ -206,6 +205,20 @@ export default function CreditAnalysis() {
       showNotification('error', 'Erro ao excluir consulta');
     } finally {
       setDeleteQueryId(null);
+    }
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!deleteCustomerIdToConfirm) return;
+    try {
+      await deleteCustomer(deleteCustomerIdToConfirm);
+      showNotification('success', 'Cliente removido com sucesso!');
+      setSelectedCustomerId(null);
+    } catch (err) {
+      console.error('Delete customer error:', err);
+      showNotification('error', 'Erro ao excluir cliente');
+    } finally {
+      setDeleteCustomerIdToConfirm(null);
     }
   };
 
@@ -828,32 +841,64 @@ export default function CreditAnalysis() {
                       </p>
                     </div>
                   </div>
-                  {selectedCustomer.credit_status !== 'EM_ANALISE' && (
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={async () => {
                         try {
                           await updateCustomer(selectedCustomer.id, {
-                            credit_status: 'EM_ANALISE',
-                            registration_status: 'PRE_CADASTRO',
+                            credit_status: undefined,
+                            registration_status: 'APROVADO',
                             approved_for_purchase: false
                           });
-                          showNotification('success', 'Análise de crédito reiniciada com sucesso!');
-                          setFormData(prev => ({
-                            ...prev,
-                            credit_status: 'EM_ANALISE',
-                            registration_status: 'PRE_CADASTRO',
-                            approved_for_purchase: false
-                          }));
+                          showNotification('success', 'Cliente revertido para cadastro simples!');
+                          setSelectedCustomerId(null);
+                          await fetchCustomers();
                         } catch (err) {
-                          showNotification('error', 'Falha ao reiniciar análise.');
+                          showNotification('error', 'Falha ao reverter cliente.');
                         }
                       }}
-                      className="bg-white/5 hover:bg-primary hover:text-on-primary border border-white/10 rounded-2xl px-4 py-2 text-[9px] font-black uppercase tracking-widest transition-all"
+                      className="bg-white/5 hover:bg-amber-500 hover:text-black border border-white/10 rounded-2xl px-3.5 py-2 text-[9px] font-black uppercase tracking-widest transition-all"
+                      title="Remove da esteira de crédito mantendo como cliente comum"
                     >
-                      Nova Análise
+                      Voltar p/ Cadastro Simples
                     </button>
-                  )}
+
+                    {selectedCustomer.credit_status !== 'EM_ANALISE' && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await updateCustomer(selectedCustomer.id, {
+                              credit_status: 'EM_ANALISE',
+                              registration_status: 'PRE_CADASTRO',
+                              approved_for_purchase: false
+                            });
+                            showNotification('success', 'Análise de crédito reiniciada com sucesso!');
+                            setFormData(prev => ({
+                              ...prev,
+                              credit_status: 'EM_ANALISE',
+                              registration_status: 'PRE_CADASTRO',
+                              approved_for_purchase: false
+                            }));
+                          } catch (err) {
+                            showNotification('error', 'Falha ao reiniciar análise.');
+                          }
+                        }}
+                        className="bg-white/5 hover:bg-primary hover:text-on-primary border border-white/10 rounded-2xl px-3.5 py-2 text-[9px] font-black uppercase tracking-widest transition-all"
+                      >
+                        Nova Análise
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setDeleteCustomerIdToConfirm(selectedCustomer.id)}
+                      className="bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-2xl px-3.5 py-2 text-[9px] font-black uppercase tracking-widest transition-all text-red-400"
+                    >
+                      Excluir Cliente
+                    </button>
+                  </div>
                 </div>
 
                 {/* Informações Pessoais & Documentação do Cliente */}
@@ -1365,6 +1410,37 @@ export default function CreditAnalysis() {
                 className="flex-1 py-4 px-6 rounded-2xl bg-error text-on-error text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-error/20"
               >
                 Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação de Exclusão de Cliente */}
+      {deleteCustomerIdToConfirm && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-outline-variant/30 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-error">
+              <AlertTriangle size={28} />
+              <h3 className="text-md font-black uppercase tracking-wider">Confirmar Exclusão de Cliente</h3>
+            </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Você tem certeza que deseja excluir completamente este cliente do sistema? Esta ação é irreversível e removerá todas as vendas, parcelas e dados associados a ele.
+            </p>
+            <div className="flex gap-4 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteCustomerIdToConfirm(null)}
+                className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-on-surface hover:text-white transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCustomer}
+                className="flex-1 py-4 px-6 rounded-2xl bg-error text-on-error text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-error/20"
+              >
+                Sim, Excluir Cliente
               </button>
             </div>
           </div>
