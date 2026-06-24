@@ -65,8 +65,8 @@ router.post("/send-warning", async (req, res) => {
 
     const variables = {
       nome_cliente: (customer.name || "").trim().toUpperCase(),
-      parcela_atual: installment.number,
-      total_parcelas: installment.total,
+      parcela_atual: installment.installment_number,
+      total_parcelas: installment.total_installments,
       valor_parcela: valueStr,
       aparelho: (sale?.device_model_manual || "Aparelho Celular").replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase(),
       data_vencimento: formattedDueDate,
@@ -116,8 +116,8 @@ router.post("/send-warning", async (req, res) => {
       remoteJid: remoteJid,
       text: messageText,
       installment_id: installment.id,
-      installment_number: installment.number,
-      total_installments: installment.total,
+      installment_number: installment.installment_number,
+      total_installments: installment.total_installments,
       value: installment.value,
       due_date: installment.due_date,
       status: installment.status,
@@ -221,7 +221,7 @@ router.post("/send-statement", async (req, res) => {
         const dueDate = new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
         const valStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const device = inst.sales?.device_model_manual || "Celular";
-        messageText += `• Parcela ${inst.number}/${inst.total} (${device.replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase()}): *${valStr}* | Venc: *${dueDate}*\n`;
+        messageText += `• Parcela ${inst.installment_number}/${inst.total_installments} (${device.replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase()}): *${valStr}* | Venc: *${dueDate}*\n`;
       });
       messageText += `\n`;
     }
@@ -231,7 +231,7 @@ router.post("/send-statement", async (req, res) => {
       // Show up to 5 last paid installments to avoid message bloating
       paidInsts.slice(-5).forEach((inst) => {
         const valStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        messageText += `• Parcela ${inst.number}/${inst.total}: *${valStr}* - ✅ Pago\n`;
+        messageText += `• Parcela ${inst.installment_number}/${inst.total_installments}: *${valStr}* - ✅ Pago\n`;
       });
       messageText += `\n`;
     }
