@@ -15,7 +15,7 @@ export default function ScpManagement() {
   } = useScpStore();
   const { showNotification, showModal, hideModal } = useUI();
 
-  const [activePanelTab, setActivePanelTab] = useState<'lots' | 'withdrawals'>('lots');
+  const [activePanelTab, setActivePanelTab] = useState<'lots' | 'prime' | 'renda' | 'withdrawals'>('lots');
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newLot, setNewLot] = useState({ title: '', target_amount: 0, status: 'OPEN' as any });
@@ -53,6 +53,24 @@ export default function ScpManagement() {
   const [selectedQuotaId, setSelectedQuotaId] = useState('');
   const [contractUrl, setContractUrl] = useState('');
 
+  // States para Prime
+  const [primeDevices, setPrimeDevices] = useState<any[]>([]);
+  const [isLinkPrimeOpen, setIsLinkPrimeOpen] = useState(false);
+  const [selectedPrimeDeviceId, setSelectedPrimeDeviceId] = useState('');
+  const [primeInvestorId, setPrimeInvestorId] = useState('');
+  const [primeProfitShare, setPrimeProfitShare] = useState(60);
+  const [primeAdminFee, setPrimeAdminFee] = useState(10);
+
+  // States para Renda
+  const [rendaPurchases, setRendaPurchases] = useState<any[]>([]);
+  const [isSellReceivableOpen, setIsSellReceivableOpen] = useState(false);
+  const [availableSales, setAvailableSales] = useState<any[]>([]);
+  const [selectedSaleId, setSelectedSaleId] = useState('');
+  const [rendaInvestorId, setRendaInvestorId] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState<number | ''>('');
+  const [totalReceivableVal, setTotalReceivableVal] = useState<number | ''>('');
+  const [ownershipPercentage, setOwnershipPercentage] = useState(100);
+
   const fetchProfiles = async () => {
     const { data } = await supabase
       .from('profiles')
@@ -60,6 +78,44 @@ export default function ScpManagement() {
       .eq('active', true);
     if (data) {
       setInvestors(data.filter(u => u.role === 'investor' || u.role === 'admin'));
+    }
+  };
+
+  const fetchPrimeDevices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('devices')
+        .select('*, profiles:investor_id(full_name)')
+        .not('investor_id', 'is', null);
+      if (error) throw error;
+      setPrimeDevices(data || []);
+    } catch (err) {
+      console.error(err);
+      showNotification('error', 'Erro', 'Falha ao buscar aparelhos Prime.');
+    }
+  };
+
+  const fetchRendaPurchases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('receivable_purchases')
+        .select('*, profiles(full_name), sales(customer_name, total_value)');
+      if (error) throw error;
+      setRendaPurchases(data || []);
+    } catch (err) {
+      console.error(err);
+      showNotification('error', 'Erro', 'Falha ao buscar recebíveis comprados.');
+    }
+  };
+
+  const fetchAvailableSales = async () => {
+    try {
+      const res = await fetch('/api/scp/available-sales');
+      const data = await res.json();
+      setAvailableSales(data || []);
+    } catch (err) {
+      console.error(err);
+      showNotification('error', 'Erro', 'Falha ao buscar contratos de venda.');
     }
   };
 
@@ -72,6 +128,10 @@ export default function ScpManagement() {
   useEffect(() => {
     if (activePanelTab === 'withdrawals') {
       fetchWithdrawals();
+    } else if (activePanelTab === 'prime') {
+      fetchPrimeDevices();
+    } else if (activePanelTab === 'renda') {
+      fetchRendaPurchases();
     }
   }, [activePanelTab, fetchWithdrawals]);
 
@@ -82,22 +142,22 @@ export default function ScpManagement() {
         const { data: txs } = await supabase
           .from('wallet_transactions')
           .select('amount')
-          .eq('type', 'CREDIT');
+          .in('type', ['AMORTIZATION', 'PROFIT']);
         
          const { data: wds } = await supabase
            .from('withdrawal_requests')
            .select('amount')
            .eq('status', 'APPROVED');
-
+ 
          const { data: insts } = await supabase
            .from('installments')
            .select('value')
            .in('status', ['overdue', 'blocked']);
-
+ 
          const totalRep = txs ? txs.reduce((acc, t) => acc + Number(t.amount), 0) : 0;
          const totalWithdraw = wds ? wds.reduce((acc, w) => acc + Number(w.amount), 0) : 0;
          const totalInad = insts ? insts.reduce((acc, i) => acc + Number(i.value), 0) : 0;
-
+ 
          setAdminStats({
            totalRepasses: totalRep,
            totalWithdrawals: totalWithdraw,
@@ -107,10 +167,10 @@ export default function ScpManagement() {
         console.error('Error fetching admin SCP stats:', err);
       }
     };
-    if (activePanelTab === 'lots') {
+    if (activePanelTab === 'lots' || activePanelTab === 'prime' || activePanelTab === 'renda') {
       fetchAdminStats();
     }
-  }, [lots, activePanelTab]);
+  }, [lots, activePanelTab, primeDevices, rendaPurchases]);
 
   const fetchAvailableDevices = async () => {
     try {
@@ -184,6 +244,94 @@ export default function ScpManagement() {
       setSelectedDeviceIds([]);
     } catch (err) {
       showNotification('error', 'Erro', 'Falha ao vincular aparelhos.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLinkPrimeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPrimeDeviceId || !primeInvestorId) {
+      showNotification('error', 'Erro', 'Selecione o aparelho e o investidor.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/scp/devices/${selectedPrimeDeviceId}/link-investor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          investor_id: primeInvestorId,
+          prime_profit_share: primeProfitShare / 100,
+          prime_admin_fee: primeAdminFee / 100
+        })
+      });
+      if (!res.ok) throw new Error();
+      showNotification('success', 'Sucesso', 'Investidor Prime vinculado com sucesso!');
+      setIsLinkPrimeOpen(false);
+      setSelectedPrimeDeviceId('');
+      setPrimeInvestorId('');
+      fetchPrimeDevices();
+    } catch (err) {
+      showNotification('error', 'Erro', 'Falha ao vincular investidor Prime.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUnlinkPrime = async (deviceId: string) => {
+    showModal({
+      title: 'Desvincular Investidor Prime',
+      children: 'Deseja realmente desvincular o investidor deste aparelho? Ele não receberá repasses das próximas parcelas.',
+      type: 'danger',
+      confirmText: 'Desvincular',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/scp/devices/${deviceId}/link-investor`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ investor_id: null })
+          });
+          if (!res.ok) throw new Error();
+          showNotification('success', 'Sucesso', 'Investidor desvinculado com sucesso.');
+          fetchPrimeDevices();
+          hideModal();
+        } catch (err) {
+          showNotification('error', 'Erro', 'Falha ao desvincular investidor.');
+        }
+      }
+    });
+  };
+
+  const handleSellReceivableSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSaleId || !rendaInvestorId || !purchasePrice || !totalReceivableVal) {
+      showNotification('error', 'Erro', 'Preencha todos os campos obrigatórios.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/scp/receivables/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile_id: rendaInvestorId,
+          sale_id: selectedSaleId,
+          purchase_price: purchasePrice,
+          total_receivable: totalReceivableVal,
+          ownership_percentage: ownershipPercentage / 100
+        })
+      });
+      if (!res.ok) throw new Error();
+      showNotification('success', 'Sucesso', 'Recebível vendido com sucesso!');
+      setIsSellReceivableOpen(false);
+      setSelectedSaleId('');
+      setRendaInvestorId('');
+      setPurchasePrice('');
+      setTotalReceivableVal('');
+      fetchRendaPurchases();
+    } catch (err) {
+      showNotification('error', 'Erro', 'Falha ao vender recebível.');
     } finally {
       setIsSubmitting(false);
     }
@@ -355,7 +503,7 @@ export default function ScpManagement() {
         </div>
         <div className="flex items-center gap-3">
           {/* Alternador de abas */}
-          <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5 mr-2">
+          <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5 mr-2 flex-wrap gap-1">
             <button
               onClick={() => setActivePanelTab('lots')}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
@@ -364,7 +512,27 @@ export default function ScpManagement() {
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Lotes SCP
+              Lotes SCP (Legado)
+            </button>
+            <button
+              onClick={() => setActivePanelTab('prime')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activePanelTab === 'prime' 
+                  ? 'bg-emerald-500 text-black shadow-md' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Prime (Estoque)
+            </button>
+            <button
+              onClick={() => setActivePanelTab('renda')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activePanelTab === 'renda' 
+                  ? 'bg-emerald-500 text-black shadow-md' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Renda (Recebíveis)
             </button>
             <button
               onClick={() => setActivePanelTab('withdrawals')}
@@ -391,13 +559,41 @@ export default function ScpManagement() {
             Novo Investidor
           </button>
 
-          <button
-            onClick={() => setIsCreateOpen(true)}
-            className="px-4 py-3 bg-primary hover:bg-primary/80 text-on-primary font-black uppercase text-[10px] tracking-wider rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <PlusCircle size={14} />
-            Novo Lote
-          </button>
+          {activePanelTab === 'lots' && (
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="px-4 py-3 bg-primary hover:bg-primary/80 text-on-primary font-black uppercase text-[10px] tracking-wider rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <PlusCircle size={14} />
+              Novo Lote
+            </button>
+          )}
+
+          {activePanelTab === 'prime' && (
+            <button
+              onClick={() => {
+                fetchAvailableDevices();
+                setIsLinkPrimeOpen(true);
+              }}
+              className="px-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-[10px] tracking-wider rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <PlusCircle size={14} />
+              Vincular Prime
+            </button>
+          )}
+
+          {activePanelTab === 'renda' && (
+            <button
+              onClick={() => {
+                fetchAvailableSales();
+                setIsSellReceivableOpen(true);
+              }}
+              className="px-4 py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-black uppercase text-[10px] tracking-wider rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <PlusCircle size={14} />
+              Vender Recebível
+            </button>
+          )}
         </div>
       </div>
 
@@ -592,6 +788,115 @@ export default function ScpManagement() {
             )}
           </div>
         </>
+      ) : activePanelTab === 'prime' ? (
+        /* Aba Prime (Estoque) */
+        <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Celulares Vinculados (Prime)</h3>
+          </div>
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <Loader2 className="animate-spin text-emerald-400" size={24} />
+              <span className="text-xs text-zinc-500">Buscando celulares...</span>
+            </div>
+          ) : primeDevices.length === 0 ? (
+            <div className="text-center py-12 text-zinc-500 text-xs">Nenhum aparelho associado a investidores Prime no momento.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                    <th className="py-4 px-4">Aparelho</th>
+                    <th className="py-4 px-4">IMEI</th>
+                    <th className="py-4 px-4">Investidor Prime</th>
+                    <th className="py-4 px-4 text-center">Part. Lucro</th>
+                    <th className="py-4 px-4 text-center">Taxa Adm</th>
+                    <th className="py-4 px-4">Preço Custo</th>
+                    <th className="py-4 px-4">Status</th>
+                    <th className="py-4 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {primeDevices.map((d) => (
+                    <tr key={d.id} className="hover:bg-zinc-800/10 transition-colors">
+                      <td className="py-4 px-4 font-bold text-white">{d.brand} {d.model}</td>
+                      <td className="py-4 px-4 font-mono text-zinc-400 select-all">{d.imei || '-'}</td>
+                      <td className="py-4 px-4 text-zinc-300 font-semibold">{d.profiles?.full_name || 'Investidor'}</td>
+                      <td className="py-4 px-4 text-center font-bold text-indigo-400">{(Number(d.prime_profit_share || 0.60) * 100).toFixed(0)}%</td>
+                      <td className="py-4 px-4 text-center text-zinc-400">{(Number(d.prime_admin_fee || 0.10) * 100).toFixed(0)}%</td>
+                      <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                          d.status === 'sold' 
+                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {d.status === 'sold' ? 'Vendido' : 'Disponível'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <button
+                          onClick={() => handleUnlinkPrime(d.id)}
+                          className="p-1 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 rounded-lg transition-colors border-0 bg-transparent cursor-pointer"
+                          title="Desvincular Investidor"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : activePanelTab === 'renda' ? (
+        /* Aba Renda (Recebíveis) */
+        <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Recebíveis Vendidos (Renda)</h3>
+          </div>
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <Loader2 className="animate-spin text-emerald-400" size={24} />
+              <span className="text-xs text-zinc-500">Buscando recebíveis...</span>
+            </div>
+          ) : rendaPurchases.length === 0 ? (
+            <div className="text-center py-12 text-zinc-500 text-xs">Nenhum recebível vendido a investidores Renda até o momento.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                    <th className="py-4 px-4">Cliente / Contrato</th>
+                    <th className="py-4 px-4">Investidor Renda</th>
+                    <th className="py-4 px-4">Preço Pago (À Vista)</th>
+                    <th className="py-4 px-4">Recebível Nominal</th>
+                    <th className="py-4 px-4 text-center">Fração Comprada</th>
+                    <th className="py-4 px-4">Data Aquisição</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {rendaPurchases.map((r) => (
+                    <tr key={r.id} className="hover:bg-zinc-800/10 transition-colors">
+                      <td className="py-4 px-4">
+                        <span className="font-bold text-white block">{r.sales?.customer_name || 'Contrato'}</span>
+                        <span className="text-[10px] text-zinc-500">ID Venda: #{r.sale_id.slice(0, 8)}</span>
+                      </td>
+                      <td className="py-4 px-4 text-zinc-300 font-semibold">{r.profiles?.full_name || 'Investidor'}</td>
+                      <td className="py-4 px-4 font-bold text-indigo-400">R$ {Number(r.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(r.total_receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 text-center font-black text-white">{(Number(r.ownership_percentage || 1) * 100).toFixed(0)}%</td>
+                      <td className="py-4 px-4 text-zinc-500">{new Date(r.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       ) : (
         /* Aba de Resgates Pix */
         <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
@@ -666,7 +971,8 @@ export default function ScpManagement() {
             </div>
           )}
         </div>
-      )}
+      )
+}
 
       {/* Modal: Novo Lote */}
       {isCreateOpen && (
@@ -976,6 +1282,218 @@ export default function ScpManagement() {
                 className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
               >
                 {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Salvar Contrato'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Vincular Celular a Investidor Prime */}
+      {isLinkPrimeOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleLinkPrimeSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
+            <button 
+              type="button"
+              onClick={() => setIsLinkPrimeOpen(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celular Prime</h3>
+            <p className="text-xs text-zinc-400">
+              Associe um smartphone livre em estoque diretamente a um Investidor Prime.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Aparelho</label>
+              <select
+                required
+                value={selectedPrimeDeviceId}
+                onChange={(e) => setSelectedPrimeDeviceId(e.target.value)}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+              >
+                <option value="" disabled className="bg-[#121214]">-- Escolha o Aparelho --</option>
+                {availableDevices.map((d) => (
+                  <option key={d.id} value={d.id} className="bg-[#121214]">
+                    {d.brand} {d.model} - IMEI: {d.imei || 'N/A'} (Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Investidor</label>
+              <select
+                required
+                value={primeInvestorId}
+                onChange={(e) => setPrimeInvestorId(e.target.value)}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+              >
+                <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
+                {investors.map((inv) => (
+                  <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (%)</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={100}
+                  value={primeProfitShare}
+                  onChange={(e) => setPrimeProfitShare(parseInt(e.target.value))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Taxa Adm (%)</label>
+                <input
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={primeAdminFee}
+                  onChange={(e) => setPrimeAdminFee(parseInt(e.target.value))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsLinkPrimeOpen(false)}
+                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+              >
+                {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Vínculo'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Vender Recebíveis de Contrato (Renda) */}
+      {isSellReceivableOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleSellReceivableSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
+            <button 
+              type="button"
+              onClick={() => setIsSellReceivableOpen(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vender Recebíveis</h3>
+            <p className="text-xs text-zinc-400">
+              Venda os recebíveis de um contrato de venda ativo para um Investidor Renda.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Contrato</label>
+              <select
+                required
+                value={selectedSaleId}
+                onChange={(e) => {
+                  const saleId = e.target.value;
+                  setSelectedSaleId(saleId);
+                  const selectedSale = availableSales.find(s => s.id === saleId);
+                  if (selectedSale) {
+                    setTotalReceivableVal(Number(selectedSale.total_value));
+                  }
+                }}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+              >
+                <option value="" disabled className="bg-[#121214]">-- Escolha o Contrato --</option>
+                {availableSales.map((s) => (
+                  <option key={s.id} value={s.id} className="bg-[#121214]">
+                    {s.customer_name} - {s.device ? `${s.device.brand} ${s.device.model}` : 'Celular'} (Valor: R$ {Number(s.total_value).toLocaleString('pt-BR')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Investidor Renda</label>
+              <select
+                required
+                value={rendaInvestorId}
+                onChange={(e) => setRendaInvestorId(e.target.value)}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+              >
+                <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
+                {investors.map((inv) => (
+                  <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Preço Compra (À Vista)</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  placeholder="Preço pago"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Valor Nominal Receber</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  placeholder="Valor total"
+                  value={totalReceivableVal}
+                  onChange={(e) => setTotalReceivableVal(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Porcentagem Adquirida (%)</label>
+              <input
+                type="number"
+                required
+                min={1}
+                max={100}
+                value={ownershipPercentage}
+                onChange={(e) => setOwnershipPercentage(parseInt(e.target.value))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsSellReceivableOpen(false)}
+                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 py-3.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+              >
+                {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Venda'}
               </button>
             </div>
           </form>

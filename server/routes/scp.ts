@@ -249,12 +249,12 @@ router.post("/quotas", async (req, res) => {
     const { profile_id, lot_id, amount_invested, ownership_percentage, interest_sharing_percentage } = req.body;
     const { data, error } = await supabase
       .from("investor_quotas")
-      .insert({ 
-        profile_id, 
-        lot_id, 
-        amount_invested, 
-        ownership_percentage, 
-        interest_sharing_percentage: interest_sharing_percentage !== undefined ? interest_sharing_percentage : 0.20 
+      .insert({
+        profile_id,
+        lot_id,
+        amount_invested,
+        ownership_percentage,
+        interest_sharing_percentage: interest_sharing_percentage !== undefined ? interest_sharing_percentage : 0.20
       })
       .select()
       .single();
@@ -336,13 +336,10 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
     if (txsErr) throw txsErr;
 
-    const credits = (allTransactions || []).filter(t => t.type === "CREDIT");
-    const capitalRecovered = credits.reduce((acc, t) => acc + Number(t.capital_portion || 0), 0);
-    const interestReceived = credits.reduce((acc, t) => acc + Number(t.interest_portion || 0), 0);
+    const credits = (allTransactions || []).filter(t => t.type === "AMORTIZATION" || t.type === "PROFIT");
+    const capitalRecovered = credits.filter(t => t.type === "AMORTIZATION").reduce((acc, t) => acc + Number(t.amount || 0), 0);
+    const interestReceived = credits.filter(t => t.type === "PROFIT").reduce((acc, t) => acc + Number(t.amount || 0), 0);
     const totalReceived = capitalRecovered + interestReceived;
-    const capitalInvested = (quotas || []).reduce((acc, q) => acc + Number(q.amount_invested || 0), 0);
-
-    const roi = capitalInvested > 0 ? (interestReceived / capitalInvested) * 100 : 0;
 
     // 4. Calculate monthly receipts history
     const monthlyHistoryMap: Record<string, { month: string; amount: number }> = {};
@@ -361,19 +358,22 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       .map(k => monthlyHistoryMap[k]);
 
     // 5. Gather detailed products (smartphones) metrics and list
-    const myProducts: any[] = [];
     let activeDevicesCount = 0;
     let paidDevicesCount = 0;
     let defaultedDevicesCount = 0;
 
+    const myProducts: any[] = [];
     const lotsList = [];
 
+    // LEGACY LOTS METRICS
+    let legacyCapitalInvested = 0;
     if (quotas) {
       for (const q of quotas) {
         if (!q.lot) continue;
         const lot: any = q.lot;
         const lotTarget = Number(lot.target_amount || q.amount_invested || 1);
         const ownershipFraction = Number(q.amount_invested) / lotTarget;
+        legacyCapitalInvested += Number(q.amount_invested || 0);
 
         // Fetch devices in this lot
         const { data: devices } = await supabase
@@ -388,7 +388,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
         if (devices && devices.length > 0) {
           const deviceIds = devices.map(d => d.id);
-          
+
           // Get sales for these devices
           const { data: sales } = await supabase
             .from("sales")
@@ -411,11 +411,10 @@ router.get("/dashboard/:profile_id", async (req, res) => {
               const isOverdue = insts ? insts.some(i => i.status === "overdue" || i.status === "blocked") : false;
 
               // Calculate device-specific capital returned and interest received
-              const devTxIds = insts ? insts.map(i => i.id) : [];
-              const devTxs = credits.filter(t => t.installment_id && devTxIds.includes(t.installment_id));
-              
-              const devCapReturned = devTxs.reduce((sum, t) => sum + Number(t.capital_portion || 0), 0);
-              const devIntReceived = devTxs.reduce((sum, t) => sum + Number(t.interest_portion || 0), 0);
+              const devTxs = credits.filter(t => t.description && t.description.includes(`Lote: ${lot.title}`));
+
+              const devCapReturned = devTxs.filter(t => t.type === "AMORTIZATION").reduce((sum, t) => sum + Number(t.amount || 0), 0) * ownershipFraction;
+              const devIntReceived = devTxs.filter(t => t.type === "PROFIT").reduce((sum, t) => sum + Number(t.amount || 0), 0) * ownershipFraction;
 
               let devStatus = "ativo";
               if (paidInst === totalInst) {
@@ -437,7 +436,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 capitalReturned: Number(devCapReturned.toFixed(2)),
                 interestReceived: Number(devIntReceived.toFixed(2)),
                 totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
-                remainingValue: Number((q.amount_invested * ownershipFraction - devCapReturned).toFixed(2)), // Remaining capital portion
+                remainingValue: Number((q.amount_invested * ownershipFraction - devCapReturned).toFixed(2)),
                 status: devStatus
               });
             } else {
@@ -454,6 +453,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 remainingValue: Number((Number(dev.cost_price || 0) * ownershipFraction).toFixed(2)),
                 status: "estoque"
               });
+              activeDevicesCount++;
             }
           }
 
@@ -492,6 +492,156 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       }
     }
 
+    // 6. PRIME PORTFOLIO (Estoque Próprio)
+    const { data: primeDevices, error: primeErr } = await supabase
+      .from("devices")
+      .select("id, brand, model, imei, status, cost_price, prime_profit_share, prime_admin_fee")
+      .eq("investor_id", profile_id);
+
+    if (primeErr) throw primeErr;
+
+    let primeCapitalInvested = 0;
+    const primeProductsList = [];
+
+    for (const dev of (primeDevices || [])) {
+      primeCapitalInvested += Number(dev.cost_price || 0);
+
+      const { data: sales } = await supabase
+        .from("sales")
+        .select("id, customer_name, total_value")
+        .eq("device_id", dev.id)
+        .neq("status", "cancelled")
+        .maybeSingle();
+
+      if (sales) {
+        const { data: insts } = await supabase
+          .from("installments")
+          .select("id, status, value, paid_value, installment_number")
+          .eq("sale_id", sales.id)
+          .neq("status", "cancelled");
+
+        const totalInst = insts ? insts.length : 1;
+        const paidInst = insts ? insts.filter(i => i.status === "paid").length : 0;
+        const isOverdue = insts ? insts.some(i => i.status === "overdue" || i.status === "blocked") : false;
+
+        const devTxs = credits.filter(t => t.description && t.description.includes(`Celular #${dev.id}`));
+        const devCapReturned = devTxs.filter(t => t.type === "AMORTIZATION").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        const devIntReceived = devTxs.filter(t => t.type === "PROFIT").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        let devStatus = "ativo";
+        if (paidInst === totalInst) {
+          devStatus = "quitado";
+          paidDevicesCount++;
+        } else if (isOverdue) {
+          devStatus = "inadimplente";
+          defaultedDevicesCount++;
+        } else {
+          activeDevicesCount++;
+        }
+
+        primeProductsList.push({
+          id: dev.id,
+          model: `${dev.brand} ${dev.model}`,
+          imei: dev.imei,
+          client: sales.customer_name || "Cliente",
+          installments: `${paidInst}/${totalInst}`,
+          capitalReturned: Number(devCapReturned.toFixed(2)),
+          interestReceived: Number(devIntReceived.toFixed(2)),
+          totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
+          remainingValue: Number((Number(dev.cost_price || 0) - devCapReturned).toFixed(2)),
+          status: devStatus
+        });
+      } else {
+        primeProductsList.push({
+          id: dev.id,
+          model: `${dev.brand} ${dev.model}`,
+          imei: dev.imei,
+          client: "-",
+          installments: "-",
+          capitalReturned: 0,
+          interestReceived: 0,
+          totalReceived: 0,
+          remainingValue: Number(Number(dev.cost_price || 0).toFixed(2)),
+          status: "estoque"
+        });
+        activeDevicesCount++;
+      }
+    }
+
+    // 7. RENDA PORTFOLIO (Compra de Recebíveis)
+    const { data: rendaPurchases, error: rendaErr } = await supabase
+      .from("receivable_purchases")
+      .select(`
+        *,
+        sale:sales (
+          id,
+          customer_name,
+          total_value,
+          device:devices (brand, model, imei)
+        )
+      `)
+      .eq("profile_id", profile_id);
+
+    if (rendaErr) throw rendaErr;
+
+    let rendaCapitalInvested = 0;
+    let totalRendaReceivable = 0;
+    let totalRendaFuture = 0;
+    let totalRendaOverdue = 0;
+    const rendaPurchasesList = [];
+
+    for (const pur of (rendaPurchases || [])) {
+      rendaCapitalInvested += Number(pur.purchase_price || 0);
+      totalRendaReceivable += Number(pur.total_receivable || 0) * Number(pur.ownership_percentage || 1);
+
+      const { data: insts } = await supabase
+        .from("installments")
+        .select("id, status, value, due_date")
+        .eq("sale_id", pur.sale_id)
+        .neq("status", "cancelled");
+
+      let purchasePaidValue = 0;
+      let purchaseOverdueValue = 0;
+
+      if (insts) {
+        for (const inst of insts) {
+          const shareValue = Number(inst.value) * Number(pur.ownership_percentage || 1);
+          if (inst.status === "paid") {
+            purchasePaidValue += shareValue;
+          } else {
+            totalRendaFuture += shareValue;
+            if (inst.status === "overdue" || inst.status === "blocked" || new Date(inst.due_date) < new Date()) {
+              totalRendaOverdue += shareValue;
+              purchaseOverdueValue += shareValue;
+            }
+          }
+        }
+      }
+
+      const clientName = pur.sale ? (pur.sale as any).customer_name : "Contrato";
+      const devInfo = pur.sale && (pur.sale as any).device
+        ? `${(pur.sale as any).device.brand} ${(pur.sale as any).device.model}`
+        : "Aparelho";
+
+      rendaPurchasesList.push({
+        id: pur.id,
+        saleId: pur.sale_id,
+        client: clientName,
+        device: devInfo,
+        purchasePrice: Number(pur.purchase_price),
+        totalReceivable: Number(pur.total_receivable) * Number(pur.ownership_percentage || 1),
+        ownershipPercentage: Number(pur.ownership_percentage) * 100,
+        paidValue: Number(purchasePaidValue.toFixed(2)),
+        overdueValue: Number(purchaseOverdueValue.toFixed(2)),
+        status: purchaseOverdueValue > 0 ? "atrasado" : (totalRendaFuture === 0 ? "quitado" : "em dia"),
+        createdAt: pur.created_at
+      });
+    }
+
+    const capitalInvested = legacyCapitalInvested + primeCapitalInvested + rendaCapitalInvested;
+    const roi = capitalInvested > 0 ? (interestReceived / capitalInvested) * 100 : 0;
+    const delinquencyRate = totalRendaReceivable > 0 ? (totalRendaOverdue / totalRendaReceivable) * 100 : 0;
+
     res.json({
       wallet: {
         balance: Number(walletData.balance),
@@ -506,13 +656,18 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         defaultedDevicesCount
       },
       lots: lotsList,
-      products: myProducts,
-      transactions: (allTransactions || []).slice(0, 15).map((t: any) => ({
+      products: [...myProducts, ...primeProductsList],
+      renda: {
+        purchases: rendaPurchasesList,
+        totalReceivable: totalRendaReceivable,
+        totalFuture: totalRendaFuture,
+        totalOverdue: totalRendaOverdue,
+        delinquencyRate: Number(delinquencyRate.toFixed(2))
+      },
+      transactions: (allTransactions || []).slice(0, 30).map((t: any) => ({
         id: t.id,
         type: t.type,
         amount: Number(t.amount),
-        capitalPortion: Number(t.capital_portion || 0),
-        interestPortion: Number(t.interest_portion || 0),
         description: t.description || "",
         date: new Date(t.created_at).toLocaleDateString("pt-BR", {
           day: "2-digit",
@@ -697,6 +852,7 @@ router.get("/available-devices", async (req, res) => {
       .select("id, model, brand, imei, sale_price, cost_price")
       .eq("status", "available")
       .is("lot_id", null)
+      .is("investor_id", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -826,6 +982,142 @@ router.delete("/quotas/:id", async (req, res) => {
     if (dError) throw dError;
 
     res.json({ success: true, message: "Cotista removido com sucesso!" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 16. PATCH /api/scp/devices/:id/link-investor — Vincular aparelho a investidor Prime
+router.patch("/devices/:id/link-investor", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { investor_id, prime_profit_share, prime_admin_fee } = req.body;
+
+    const { data: device, error: devError } = await supabase
+      .from("devices")
+      .update({
+        investor_id: investor_id || null,
+        prime_profit_share: prime_profit_share !== undefined ? Number(prime_profit_share) : 0.6000,
+        prime_admin_fee: prime_admin_fee !== undefined ? Number(prime_admin_fee) : 0.1000
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (devError) throw devError;
+
+    // Se vinculou um investidor, podemos atualizar seus recebíveis futuros estimativos (preço de custo)
+    if (investor_id) {
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("*")
+        .eq("profile_id", investor_id)
+        .maybeSingle();
+
+      const cost = Number(device.cost_price || 0);
+
+      if (wallet) {
+        await supabase
+          .from("wallets")
+          .update({
+            future_receipts: Number(wallet.future_receipts || 0) + cost
+          })
+          .eq("id", wallet.id);
+      } else {
+        await supabase
+          .from("wallets")
+          .insert({
+            profile_id: investor_id,
+            balance: 0,
+            future_receipts: cost
+          });
+      }
+    }
+
+    res.json({ success: true, device });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 17. GET /api/scp/available-sales — Listar contratos de venda disponíveis para vender recebíveis
+router.get("/available-sales", async (req, res) => {
+  try {
+    // Buscar vendas ativas que ainda não foram compradas por investidores
+    const { data: purchased } = await supabase
+      .from("receivable_purchases")
+      .select("sale_id");
+
+    const purchasedIds = (purchased || []).map(p => p.sale_id);
+
+    let query = supabase
+      .from("sales")
+      .select("id, customer_name, total_value, created_at, device:devices(brand, model, imei)")
+      .neq("status", "cancelled");
+
+    if (purchasedIds.length > 0) {
+      query = query.not("id", "in", `(${purchasedIds.join(",")})`);
+    }
+
+    const { data: sales, error } = await query.order("created_at", { ascending: false });
+    if (error) throw error;
+
+    res.json(sales || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18. POST /api/scp/receivables/sell — Vender recebíveis de contrato para investidor Renda
+router.post("/receivables/sell", async (req, res) => {
+  try {
+    const { profile_id, sale_id, purchase_price, total_receivable, ownership_percentage } = req.body;
+
+    if (!profile_id || !sale_id || !purchase_price || !total_receivable) {
+      return res.status(400).json({ error: "Parâmetros obrigatórios ausentes." });
+    }
+
+    const { data: purchase, error: purError } = await supabase
+      .from("receivable_purchases")
+      .insert({
+        profile_id,
+        sale_id,
+        purchase_price: Number(purchase_price),
+        total_receivable: Number(total_receivable),
+        ownership_percentage: ownership_percentage !== undefined ? Number(ownership_percentage) : 1.0000
+      })
+      .select()
+      .single();
+
+    if (purError) throw purError;
+
+    // Atualiza o saldo de recebíveis futuros na carteira do investidor
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("profile_id", profile_id)
+      .maybeSingle();
+
+    const futureAmt = Number(total_receivable) * (ownership_percentage !== undefined ? Number(ownership_percentage) : 1.0000);
+
+    if (wallet) {
+      await supabase
+        .from("wallets")
+        .update({
+          future_receipts: Number(wallet.future_receipts || 0) + futureAmt
+        })
+        .eq("id", wallet.id);
+    } else {
+      await supabase
+        .from("wallets")
+        .insert({
+          profile_id,
+          balance: 0,
+          future_receipts: futureAmt
+        });
+    }
+
+    res.status(201).json({ success: true, purchase });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

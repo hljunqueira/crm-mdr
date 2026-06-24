@@ -69,6 +69,14 @@ export default function InvestorDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyHistory, setMonthlyHistory] = useState<any[]>([]);
 
+  const [renda, setRenda] = useState({
+    purchases: [] as any[],
+    totalReceivable: 0,
+    totalFuture: 0,
+    totalOverdue: 0,
+    delinquencyRate: 0
+  });
+
   // Estados do Modal de Resgate
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -77,8 +85,6 @@ export default function InvestorDashboard() {
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false);
   const [withdrawalSuccess, setWithdrawalSuccess] = useState('');
   const [withdrawalError, setWithdrawalError] = useState('');
-
-
 
   // Estados do Simulador de Investimento
   const [selectedLotIdForSim, setSelectedLotIdForSim] = useState<string>('');
@@ -125,6 +131,9 @@ export default function InvestorDashboard() {
       setProducts(data.products || []);
       setTransactions(data.transactions);
       setMonthlyHistory(data.monthlyHistory || []);
+      if (data.renda) {
+        setRenda(data.renda);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Erro ao conectar ao servidor. Tente novamente mais tarde.');
@@ -137,6 +146,26 @@ export default function InvestorDashboard() {
     localStorage.removeItem('partners_token');
     localStorage.removeItem('partners_profile');
     window.location.href = '/login';
+  };
+
+  const exportToCSV = () => {
+    if (transactions.length === 0) return;
+    const headers = ['Descricao', 'Data', 'Tipo', 'Valor'];
+    const rows = transactions.map(t => [
+      `"${t.description.replace(/"/g, '""')}"`,
+      t.date,
+      t.type,
+      t.amount.toString()
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `extrato_parceiro_${profile?.id || 'investidor'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleRequestWithdrawal = async (e: React.FormEvent) => {
@@ -293,7 +322,7 @@ export default function InvestorDashboard() {
             )}
 
             {/* Wallet & Health Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${renda && renda.purchases && renda.purchases.length > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6`}>
               
               {/* Card: Saldo Disponível */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
@@ -336,7 +365,7 @@ export default function InvestorDashboard() {
                   </span>
                   <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <Calendar size={14} className="text-indigo-400" />
-                    Valor aportado nos lotes SCP
+                    Valor aportado SCP
                   </p>
                 </div>
                 <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
@@ -368,6 +397,34 @@ export default function InvestorDashboard() {
                   <span className="font-bold text-emerald-400">R$ {wallet.totalReceived.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
+
+              {/* Card: Modelo Renda (Condicional) */}
+              {renda && renda.purchases && renda.purchases.length > 0 && (
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-[#4338ca]/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+                  <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Modelo Renda</span>
+                    <div className="h-10 w-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                      <TrendingUp size={18} />
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-3xl font-extrabold tracking-tight text-indigo-400">
+                      R$ {renda.totalFuture.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
+                      <Info size={14} className="text-indigo-400" />
+                      Recebíveis futuros da carteira
+                    </p>
+                  </div>
+                  <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                    <span>Inadimplência Renda:</span>
+                    <span className={`font-bold ${renda.delinquencyRate > 10 ? 'text-rose-400' : 'text-zinc-300'}`}>
+                      {renda.delinquencyRate.toFixed(1)}% (R$ {renda.totalOverdue.toLocaleString('pt-BR')})
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Card: ROI & Saúde */}
               <div className="relative overflow-hidden bg-[#18181b] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
@@ -650,11 +707,63 @@ export default function InvestorDashboard() {
               )}
             </section>
 
+            {/* Renda Purchases Table */}
+            {renda && renda.purchases && renda.purchases.length > 0 && (
+              <section className="space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                  <TrendingUp size={14} className="text-indigo-500" /> Meus Contratos Renda (Recebíveis)
+                </h3>
+
+                <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                        <th className="py-4 px-6">Contrato</th>
+                        <th className="py-4 px-6">Data de Aquisição</th>
+                        <th className="py-4 px-6 text-right">Preço de Compra</th>
+                        <th className="py-4 px-6 text-right">Valor Nominal Total</th>
+                        <th className="py-4 px-6 text-center">Fração Adquirida</th>
+                        <th className="py-4 px-6 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/40">
+                      {renda.purchases.map((purchase: any) => (
+                        <tr key={purchase.id} className="hover:bg-zinc-800/10 transition-colors">
+                          <td className="py-4 px-6">
+                            <span className="font-bold text-white block">Venda #{purchase.sale_id}</span>
+                            <span className="text-[10px] text-zinc-500 font-medium">Cliente: {purchase.sales?.customer_name || 'Desconhecido'}</span>
+                          </td>
+                          <td className="py-4 px-6 text-zinc-400 font-medium">{new Date(purchase.created_at).toLocaleDateString('pt-BR')}</td>
+                          <td className="py-4 px-6 text-right font-mono text-zinc-300">R$ {Number(purchase.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {Number(purchase.total_receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-center font-mono text-zinc-300">{(Number(purchase.ownership_percentage) * 100).toFixed(0)}%</td>
+                          <td className="py-4 px-6 text-center">
+                            <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                              Adquirido
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
             {/* Transaction History */}
             <section className="space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
-                <Activity size={14} className="text-emerald-500" /> Extrato Recente da Carteira
-              </h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                  <Activity size={14} className="text-emerald-500" /> Extrato Recente da Carteira
+                </h3>
+                <button
+                  onClick={exportToCSV}
+                  className="px-3 py-1.5 bg-[#18181b] hover:bg-zinc-850 border border-zinc-800 text-zinc-300 hover:text-white rounded-xl transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText size={12} />
+                  Exportar CSV
+                </button>
+              </div>
 
               {transactions.length === 0 ? (
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-12 text-center text-zinc-500">
