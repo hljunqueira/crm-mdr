@@ -17,7 +17,7 @@ supabase.mdrinformaticaecelulares.com.br {
 
     # Liberação total de CORS para evitar novos erros de headers
     header {
-        Access-Control-Allow-Origin https://mdrinformaticaecelulares.com.br
+        Access-Control-Allow-Origin {header.Origin}
         Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         Access-Control-Allow-Headers "*"
         Access-Control-Expose-Headers "*"

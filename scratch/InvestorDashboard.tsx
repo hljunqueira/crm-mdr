@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  Wallet, TrendingUp, AlertCircle, ShieldCheck, 
+import {
+  Wallet, TrendingUp, AlertCircle, ShieldCheck,
   Activity, ArrowDownLeft, ArrowUpRight, BarChart3, Package, Calendar
 } from 'lucide-react';
 
@@ -30,72 +30,12 @@ export default function InvestorDashboard() {
     futureReceipts: 18200.00
   });
 
-  const [lots, setLots] = useState<InvestedLot[]>([
-    {
-      id: '1',
-      title: 'Lote Smartphone Alpha 20x',
-      amountInvested: 15000.00,
-      ownershipPercentage: 15.0,
-      totalProducts: 20,
-      soldProducts: 16,
-      healthRate: 94.5,
-      status: 'IN_SALES'
-    },
-    {
-      id: '2',
-      title: 'Lote iPhone 15 Premium 10x',
-      amountInvested: 25000.00,
-      ownershipPercentage: 25.0,
-      totalProducts: 10,
-      soldProducts: 4,
-      healthRate: 100.0,
-      status: 'IN_SALES'
-    },
-    {
-      id: '3',
-      title: 'Lote Xiaomi Mid-Range 30x',
-      amountInvested: 8000.00,
-      ownershipPercentage: 8.0,
-      totalProducts: 30,
-      soldProducts: 30,
-      healthRate: 88.2,
-      status: 'CLOSED'
-    }
-  ]);
+  const [lots, setLots] = useState([] as InvestedLot[]);
 
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: '101',
-      type: 'PROFIT',
-      amount: 145.50,
-      description: 'Lucro de Venda Ref: Parcela 2/6 - iPhone 15 Pro Max',
-      date: '22 Jun 2026'
-    },
-    {
-      id: '102',
-      type: 'AMORTIZATION',
-      amount: 320.00,
-      description: 'Amortização Ref: Parcela 2/6 - iPhone 15 Pro Max',
-      date: '22 Jun 2026'
-    },
-    {
-      id: '103',
-      type: 'WITHDRAWAL',
-      amount: 1500.00,
-      description: 'Saque solicitado para conta bancária cadastrada',
-      date: '18 Jun 2026'
-    },
-    {
-      id: '104',
-      type: 'PROFIT',
-      amount: 98.40,
-      description: 'Lucro de Venda Ref: Parcela 1/3 - Samsung Galaxy S24',
-      date: '15 Jun 2026'
-    }
-  ]);
+  const [transactions, setTransactions] = useState([] as Transaction[]);
 
   // Cálculo de Saúde Geral da Carteira (média ponderada baseada nos lotes)
-  const averageHealth = (lots.reduce((acc, lot) => acc + lot.healthRate, 0) / lots.length).toFixed(1);
+  const averageHealth = (lots.reduce((acc: number, lot: InvestedLot) => acc + lot.healthRate, 0) / lots.length).toFixed(1);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-[#fafafa] font-sans antialiased selection:bg-emerald-500 selection:text-black">
@@ -118,10 +58,10 @@ export default function InvestorDashboard() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-8 py-10 space-y-10">
-        
+
         {/* Wallet & Health Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* Card: Saldo Disponível */}
           <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
             <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
@@ -228,18 +168,17 @@ export default function InvestorDashboard() {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {lots.map((lot) => {
+            {lots.map((lot: InvestedLot) => {
               const salesProgress = (lot.soldProducts / lot.totalProducts) * 100;
               return (
                 <div key={lot.id} className="bg-[#121214] border border-zinc-800 hover:border-zinc-700 transition-all rounded-3xl p-6 flex flex-col justify-between shadow-lg">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <h4 className="font-bold text-sm tracking-tight text-white">{lot.title}</h4>
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black tracking-widest ${
-                        lot.status === 'IN_SALES' 
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-black tracking-widest ${lot.status === 'IN_SALES'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                        }`}>
                         {lot.status}
                       </span>
                     </div>
@@ -291,28 +230,26 @@ export default function InvestorDashboard() {
 
           <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
             <div className="divide-y divide-zinc-800/60">
-              {transactions.map((tx) => (
+              {transactions.map((tx: Transaction) => (
                 <div key={tx.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-zinc-800/20 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      tx.type === 'PROFIT' 
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                        : tx.type === 'AMORTIZATION'
-                          ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                    }`}>
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'PROFIT'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : tx.type === 'AMORTIZATION'
+                        ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      }`}>
                       {tx.type === 'WITHDRAWAL' ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
                     </div>
                     <div>
                       <span className="text-xs font-bold text-white block">{tx.description}</span>
                       <span className="text-[10px] text-zinc-400 flex items-center gap-1.5 mt-1">
-                        <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase ${
-                          tx.type === 'PROFIT' 
-                            ? 'bg-emerald-500/10 text-emerald-400' 
-                            : tx.type === 'AMORTIZATION'
-                              ? 'bg-indigo-500/10 text-indigo-400'
-                              : 'bg-rose-500/10 text-rose-400'
-                        }`}>
+                        <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-black uppercase ${tx.type === 'PROFIT'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : tx.type === 'AMORTIZATION'
+                            ? 'bg-indigo-500/10 text-indigo-400'
+                            : 'bg-rose-500/10 text-rose-400'
+                          }`}>
                           {tx.type}
                         </span>
                         • {tx.date}
@@ -320,9 +257,8 @@ export default function InvestorDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className={`text-sm font-extrabold tracking-tight ${
-                      tx.type === 'WITHDRAWAL' ? 'text-rose-400' : 'text-emerald-400'
-                    }`}>
+                    <span className={`text-sm font-extrabold tracking-tight ${tx.type === 'WITHDRAWAL' ? 'text-rose-400' : 'text-emerald-400'
+                      }`}>
                       {tx.type === 'WITHDRAWAL' ? '-' : '+'} R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>

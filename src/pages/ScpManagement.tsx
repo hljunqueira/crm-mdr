@@ -99,7 +99,7 @@ export default function ScpManagement() {
     try {
       const { data, error } = await supabase
         .from('receivable_purchases')
-        .select('*, profiles(full_name), sales(customer_name, total_value)');
+        .select('*, profiles(full_name), sales(customer:customers(name), total_value)');
       if (error) throw error;
       setRendaPurchases(data || []);
     } catch (err) {
@@ -363,7 +363,7 @@ export default function ScpManagement() {
           </p>
         </div>
       ),
-      type: 'info',
+      type: 'primary',
       confirmText: 'Aprovar e Liquidar',
       onConfirm: async () => {
         try {
@@ -882,7 +882,7 @@ export default function ScpManagement() {
                   {rendaPurchases.map((r) => (
                     <tr key={r.id} className="hover:bg-zinc-800/10 transition-colors">
                       <td className="py-4 px-4">
-                        <span className="font-bold text-white block">{r.sales?.customer_name || 'Contrato'}</span>
+                        <span className="font-bold text-white block">{r.sales?.customer?.name || 'Contrato'}</span>
                         <span className="text-[10px] text-zinc-500">ID Venda: #{r.sale_id.slice(0, 8)}</span>
                       </td>
                       <td className="py-4 px-4 text-zinc-300 font-semibold">{r.profiles?.full_name || 'Investidor'}</td>

@@ -124,7 +124,7 @@ export default function OsSidebar({
                       Téc: {os.profiles?.full_name || 'Não designado'}
                     </span>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-end gap-1 shrink-0">
                     <select
                       value={os.status}
                       onClick={(e) => e.stopPropagation()}
@@ -146,7 +146,7 @@ export default function OsSidebar({
                       <option value="canceled" className="bg-[#121214] text-red-500">❌ Cancelado</option>
                     </select>
                     {os.outsourced_orders && os.outsourced_orders.length > 0 && (
-                      <span className="text-[7.5px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest text-center">
+                      <span className="text-[7.5px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest text-center whitespace-nowrap">
                         Terceirizada
                       </span>
                     )}

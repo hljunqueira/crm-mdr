@@ -392,7 +392,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           // Get sales for these devices
           const { data: sales } = await supabase
             .from("sales")
-            .select("id, device_id, customer_name, installments")
+            .select("id, device_id, customer:customers(name), installments")
             .in("device_id", deviceIds)
             .neq("status", "cancelled");
 
@@ -431,7 +431,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 id: dev.id,
                 model: `${dev.brand} ${dev.model}`,
                 imei: dev.imei,
-                client: devSale.customer_name || "Cliente",
+                client: (devSale as any).customer?.name || "Cliente",
                 installments: `${paidInst}/${totalInst}`,
                 capitalReturned: Number(devCapReturned.toFixed(2)),
                 interestReceived: Number(devIntReceived.toFixed(2)),
@@ -508,7 +508,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
       const { data: sales } = await supabase
         .from("sales")
-        .select("id, customer_name, total_value")
+        .select("id, customer:customers(name), total_value")
         .eq("device_id", dev.id)
         .neq("status", "cancelled")
         .maybeSingle();
@@ -543,7 +543,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           id: dev.id,
           model: `${dev.brand} ${dev.model}`,
           imei: dev.imei,
-          client: sales.customer_name || "Cliente",
+          client: (sales as any).customer?.name || "Cliente",
           installments: `${paidInst}/${totalInst}`,
           capitalReturned: Number(devCapReturned.toFixed(2)),
           interestReceived: Number(devIntReceived.toFixed(2)),
@@ -575,8 +575,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         *,
         sale:sales (
           id,
-          customer_name,
           total_value,
+          customer:customers (name),
           device:devices (brand, model, imei)
         )
       `)
@@ -618,7 +618,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         }
       }
 
-      const clientName = pur.sale ? (pur.sale as any).customer_name : "Contrato";
+      const clientName = pur.sale && (pur.sale as any).customer ? (pur.sale as any).customer.name : "Contrato";
       const devInfo = pur.sale && (pur.sale as any).device
         ? `${(pur.sale as any).device.brand} ${(pur.sale as any).device.model}`
         : "Aparelho";
@@ -1052,7 +1052,7 @@ router.get("/available-sales", async (req, res) => {
 
     let query = supabase
       .from("sales")
-      .select("id, customer_name, total_value, created_at, device:devices(brand, model, imei)")
+      .select("id, customer:customers(name), total_value, created_at, device:devices(brand, model, imei)")
       .neq("status", "cancelled");
 
     if (purchasedIds.length > 0) {
@@ -1062,7 +1062,12 @@ router.get("/available-sales", async (req, res) => {
     const { data: sales, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
-    res.json(sales || []);
+    const mappedSales = (sales || []).map((s: any) => ({
+      ...s,
+      customer_name: s.customer?.name || "Cliente"
+    }));
+
+    res.json(mappedSales || []);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
