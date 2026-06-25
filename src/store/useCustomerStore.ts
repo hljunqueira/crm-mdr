@@ -34,6 +34,7 @@ export interface Customer {
   responsible_analyst_id?: string;
   status: 'active' | 'overdue' | 'blocked';
   last_payment?: string;
+  is_simulation?: boolean;
   created_at?: string;
 }
 

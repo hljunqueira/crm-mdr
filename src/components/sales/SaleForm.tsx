@@ -1479,6 +1479,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       return;
     }
 
+    if (selectedCustomer && selectedCustomer.is_simulation) {
+      showNotification('warning', 'Apenas Simulação', 'Este é um cliente de simulação. Não é possível concluir e registrar vendas reais para ele.');
+      return;
+    }
+
     if (formData.payment_type === 'crediario') {
       const hasCpf = selectedCustomer?.cpf && selectedCustomer.cpf.replace(/\D/g, '').length >= 11;
       if (!hasCpf) {
@@ -1821,6 +1826,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                               <span className="font-bold text-white">{c.name}</span>
                               {c.cpf && <span className="text-[10px] text-on-surface-variant font-mono ml-2">({c.cpf})</span>}
                               {isBlocked && <span className="text-[9px] text-red-400 font-bold uppercase ml-2 tracking-wider">(Bloqueado)</span>}
+                              {c.is_simulation && <span className="text-[9px] text-amber-400 font-bold uppercase ml-2 tracking-wider">(Simulação)</span>}
                             </div>
                             <span className="text-[10px] font-black uppercase text-primary tracking-wider">{c.classification}</span>
                           </button>

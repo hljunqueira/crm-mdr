@@ -180,11 +180,22 @@ router.get("/", async (req, res) => {
   res.json(data);
 });
 
-// Create sale
 router.post("/", async (req, res) => {
-  const { store_id, seller_id, is_trade_in, trade_in_device_imei, trade_in_device_brand, trade_in_device_model, trade_in_valuation, trade_in_sale_price_estimate } = req.body;
+  const { store_id, seller_id, customer_id, is_trade_in, trade_in_device_imei, trade_in_device_brand, trade_in_device_model, trade_in_valuation, trade_in_sale_price_estimate } = req.body;
   if (!store_id) {
     return res.status(400).json({ error: "O campo store_id (unidade) é obrigatório." });
+  }
+
+  if (customer_id) {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('is_simulation')
+      .eq('id', customer_id)
+      .maybeSingle();
+
+    if (customer && customer.is_simulation) {
+      return res.status(400).json({ error: "Este é um cliente de simulação. Vendas reais não são permitidas para este cadastro." });
+    }
   }
 
   // Check if cashier shift is open for this unit
