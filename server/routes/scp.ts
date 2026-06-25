@@ -1043,6 +1043,122 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
   }
 });
 
+// 16b. POST /api/scp/devices/link-prime-bulk — Vincular celulares em lote a investidor Prime
+router.post("/devices/link-prime-bulk", async (req, res) => {
+  try {
+    const { investor_id, device_template_id, imeis, prime_profit_share, prime_admin_fee } = req.body;
+
+    if (!investor_id || !device_template_id || !Array.isArray(imeis) || imeis.length === 0) {
+      return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
+    }
+
+    // 1. Buscar o aparelho modelo base/template
+    const { data: template, error: tempError } = await supabase
+      .from("devices")
+      .select("*")
+      .eq("id", device_template_id)
+      .single();
+
+    if (tempError || !template) {
+      return res.status(404).json({ error: "Modelo de aparelho base não encontrado." });
+    }
+
+    const share = prime_profit_share !== undefined ? Number(prime_profit_share) / 100 : 0.6000;
+    const fee = prime_admin_fee !== undefined ? Number(prime_admin_fee) / 100 : 0.1000;
+    const costPrice = Number(template.cost_price || 0);
+
+    let linkedCount = 0;
+    let createdCount = 0;
+    let totalCostCredited = 0;
+
+    for (const rawImei of imeis) {
+      const imei = String(rawImei).trim();
+      if (!imei) continue;
+
+      // Verificar se já existe um dispositivo cadastrado com este IMEI
+      const { data: existingDevice } = await supabase
+        .from("devices")
+        .select("id, investor_id, status")
+        .eq("imei", imei)
+        .maybeSingle();
+
+      if (existingDevice) {
+        // Apenas vincula se ainda não pertencer a outro investidor e estiver disponível
+        if (!existingDevice.investor_id && existingDevice.status === "available") {
+          await supabase
+            .from("devices")
+            .update({
+              investor_id,
+              prime_profit_share: share,
+              prime_admin_fee: fee
+            })
+            .eq("id", existingDevice.id);
+          
+          linkedCount++;
+          totalCostCredited += costPrice;
+        }
+      } else {
+        // Criar um novo aparelho físico sob patrocínio/compra financeira do investidor
+        await supabase
+          .from("devices")
+          .insert({
+            store_id: template.store_id,
+            brand: template.brand,
+            model: template.model,
+            condition: template.condition || "new",
+            cost_price: costPrice,
+            sale_price: Number(template.sale_price || 0),
+            stock_quantity: 1,
+            status: "available",
+            imei: imei,
+            investor_id: investor_id,
+            prime_profit_share: share,
+            prime_admin_fee: fee
+          });
+        
+        createdCount++;
+        totalCostCredited += costPrice;
+      }
+    }
+
+    // 2. Atualizar recebíveis futuros na carteira do investidor
+    if (totalCostCredited > 0) {
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("*")
+        .eq("profile_id", investor_id)
+        .maybeSingle();
+
+      if (wallet) {
+        await supabase
+          .from("wallets")
+          .update({
+            future_receipts: Number(wallet.future_receipts || 0) + totalCostCredited
+          })
+          .eq("id", wallet.id);
+      } else {
+        await supabase
+          .from("wallets")
+          .insert({
+            profile_id: investor_id,
+            balance: 0,
+            future_receipts: totalCostCredited
+          });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Processamento em lote concluído com sucesso. Vinculados: ${linkedCount}, Criados: ${createdCount}.`,
+      linkedCount,
+      createdCount,
+      totalCostCredited
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 17. GET /api/scp/available-sales — Listar contratos de venda disponíveis para vender recebíveis
 router.get("/available-sales", async (req, res) => {
   try {

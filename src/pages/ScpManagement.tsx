@@ -60,6 +60,7 @@ export default function ScpManagement() {
   const [primeInvestorId, setPrimeInvestorId] = useState('');
   const [primeProfitShare, setPrimeProfitShare] = useState(60);
   const [primeAdminFee, setPrimeAdminFee] = useState(10);
+  const [primeImeisInput, setPrimeImeisInput] = useState('');
 
   // States para Renda
   const [rendaPurchases, setRendaPurchases] = useState<any[]>([]);
@@ -251,29 +252,34 @@ export default function ScpManagement() {
 
   const handleLinkPrimeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPrimeDeviceId || !primeInvestorId) {
-      showNotification('error', 'Erro', 'Selecione o aparelho e o investidor.');
+    const imeis = primeImeisInput.split('\n').map(i => i.trim()).filter(Boolean);
+    if (!selectedPrimeDeviceId || !primeInvestorId || imeis.length === 0) {
+      showNotification('error', 'Erro', 'Selecione o aparelho, o investidor e insira pelo menos 1 IMEI.');
       return;
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/scp/devices/${selectedPrimeDeviceId}/link-investor`, {
-        method: 'PATCH',
+      const res = await fetch('/api/scp/devices/link-prime-bulk', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           investor_id: primeInvestorId,
-          prime_profit_share: primeProfitShare / 100,
-          prime_admin_fee: primeAdminFee / 100
+          device_template_id: selectedPrimeDeviceId,
+          imeis: imeis,
+          prime_profit_share: primeProfitShare,
+          prime_admin_fee: primeAdminFee
         })
       });
-      if (!res.ok) throw new Error();
-      showNotification('success', 'Sucesso', 'Investidor Prime vinculado com sucesso!');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao vincular aparelhos Prime.');
+      showNotification('success', 'Sucesso', data.message || 'Investidor Prime vinculado com sucesso!');
       setIsLinkPrimeOpen(false);
       setSelectedPrimeDeviceId('');
       setPrimeInvestorId('');
+      setPrimeImeisInput('');
       fetchPrimeDevices();
-    } catch (err) {
-      showNotification('error', 'Erro', 'Falha ao vincular investidor Prime.');
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.message || 'Falha ao vincular investidor Prime.');
     } finally {
       setIsSubmitting(false);
     }
@@ -959,30 +965,30 @@ export default function ScpManagement() {
               <X size={18} />
             </button>
 
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celular Prime</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celulares Prime (Em Lote)</h3>
             <p className="text-xs text-zinc-400">
-              Associe um smartphone livre em estoque diretamente a um Investidor Prime.
+              Associe múltiplos celulares a um Investidor Prime informando o aparelho de referência e a lista de IMEIs.
             </p>
 
             <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Aparelho</label>
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Aparelho de Referência (Custo/Venda)</label>
               <select
                 required
                 value={selectedPrimeDeviceId}
                 onChange={(e) => setSelectedPrimeDeviceId(e.target.value)}
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
               >
-                <option value="" disabled className="bg-[#121214]">-- Escolha o Aparelho --</option>
+                <option value="" disabled className="bg-[#121214]">-- Escolha o Modelo Base --</option>
                 {availableDevices.map((d) => (
                   <option key={d.id} value={d.id} className="bg-[#121214]">
-                    {d.brand} {d.model} - IMEI: {d.imei || 'N/A'} (Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR')})
+                    {d.brand} {d.model} {d.imei ? `(IMEI: ${d.imei})` : '(Modelo Geral/Sem IMEI)'} - Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR')}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Investidor</label>
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Investidor Prime</label>
               <select
                 required
                 value={primeInvestorId}
@@ -1021,6 +1027,19 @@ export default function ScpManagement() {
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">IMEIs dos Aparelhos (Um por linha)</label>
+              <textarea
+                required
+                rows={4}
+                placeholder="Cole os IMEIs aqui&#10;Ex:&#10;358901234567890&#10;358901234567891"
+                value={primeImeisInput}
+                onChange={(e) => setPrimeImeisInput(e.target.value)}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all font-mono custom-scrollbar resize-none"
+              />
+              <p className="text-[10px] text-zinc-500 font-medium">Quantidade identificada: {primeImeisInput.split('\n').map(i => i.trim()).filter(Boolean).length} aparelho(s)</p>
             </div>
 
             <div className="flex gap-2 pt-4">

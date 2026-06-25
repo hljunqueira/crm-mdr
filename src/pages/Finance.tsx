@@ -1188,7 +1188,7 @@ export default function Finance() {
   const handleRevertPayment = (item: Installment) => {
     showModal({
       title: 'Confirmar Estorno de Pagamento',
-      type: 'warning',
+      type: 'danger',
       children: (
         <div className="space-y-4">
           <p className="text-sm">Tem certeza de que deseja estornar o pagamento da parcela <span className="text-white font-black">{item.number}/{item.total}</span> de <span className="text-white font-black">{item.customer_name}</span>?</p>
@@ -1662,6 +1662,15 @@ export default function Finance() {
                                                   className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
                                                 >
                                                   <Printer size={13} />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  disabled={sendingWa === inst.id}
+                                                  onClick={() => handleWhatsApp(inst)}
+                                                  title="Enviar Comprovante via WhatsApp"
+                                                  className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/20 cursor-pointer disabled:opacity-50"
+                                                >
+                                                  {sendingWa === inst.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                                                 </button>
                                               </>
                                             )}

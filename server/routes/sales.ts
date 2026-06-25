@@ -230,6 +230,21 @@ router.post("/", async (req, res) => {
       }
     });
 
+    // Vincular venda ao dispositivo fisico correto caso o IMEI bipado/digitado seja encontrado
+    const imeiManual = String(req.body.imei_manual || '').trim();
+    if (imeiManual && imeiManual.toUpperCase() !== 'N/A' && imeiManual !== '0000000') {
+      const { data: specDevice } = await supabase
+        .from('devices')
+        .select('id')
+        .eq('imei', imeiManual)
+        .eq('status', 'available')
+        .maybeSingle();
+
+      if (specDevice) {
+        cleanSaleBody['device_id'] = specDevice.id;
+      }
+    }
+
     // 2. Insert Sale
     const { data: saleData, error: saleError } = await supabase
       .from('sales')
@@ -889,7 +904,8 @@ router.delete("/:id", async (req, res) => {
     const installmentIds = saleInstallments?.map((inst: any) => inst.id) || [];
     let txQuery = supabase.from('cash_transactions').select('*');
     if (installmentIds.length > 0) {
-      txQuery = txQuery.or(`sale_id.eq.${req.params.id},installment_id.in.(${installmentIds.join(',')})`);
+      const formattedIds = installmentIds.map(id => `"${id}"`).join(',');
+      txQuery = txQuery.or(`sale_id.eq.${req.params.id},installment_id.in.(${formattedIds})`);
     } else {
       txQuery = txQuery.eq('sale_id', req.params.id);
     }

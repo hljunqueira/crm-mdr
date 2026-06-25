@@ -52,6 +52,8 @@ router.post("/send-warning", async (req, res) => {
     // 1.5. Compile the customized billing message template if available
     const DEFAULT_BILLING_REMINDER_TEMPLATE = `🔔 *Lembrete de Vencimento - {nome_loja}*\n\nOlá, {nome_cliente}! Tudo bem? 😊\n\nPassando para lembrar que a sua parcela *{parcela_atual}/{total_parcelas}* está próxima do vencimento:\n\n📱 *Aparelho:* {aparelho}\n💵 *Valor:* *{valor_parcela}*\n📅 *Vencimento:* *{data_vencimento}*\n\n🔗 *Link de Pagamento (Boleto/PIX):* {link_pagamento}\n\nPara sua comodidade, você pode realizar o pagamento pelo link acima, via *PIX* ou diretamente em nossa loja física. \n\n⚠️ *Atenção:* O pagamento em dia evita multas adicionais ou bloqueios no dispositivo.\n\nSe você já efetuou o pagamento, por favor desconsidere esta mensagem.\n\nAgradecemos a sua parceria! 🤝\n*{nome_loja}*`;
 
+    const DEFAULT_PAYMENT_CONFIRMED_TEMPLATE = `✅ *Confirmação de Pagamento - {nome_loja}*\n\nOlá, {nome_cliente}! Tudo bem? 😊\n\nConfirmamos o recebimento do pagamento da sua parcela *{parcela_atual}/{total_parcelas}*:\n\n📱 *Aparelho:* {aparelho}\n💵 *Valor Pago:* *{valor_parcela}*\n📅 *Data do Recebimento:* *{data_pagamento}*\n\nAgradecemos pela preferência e pela pontualidade! 🤝\n\nSe precisar de algo, estamos à disposição. 😊`;
+
     const fillTemplate = (template: string, vars: Record<string, string | number>) => {
       let text = template;
       for (const [key, value] of Object.entries(vars)) {
@@ -62,6 +64,7 @@ router.post("/send-warning", async (req, res) => {
 
     const valueStr = Number(installment.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const formattedDueDate = new Date(installment.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
+    const formattedPaymentDate = installment.payment_date ? new Date(installment.payment_date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
 
     const variables = {
       nome_cliente: (customer.name || "").trim().toUpperCase(),
@@ -70,6 +73,7 @@ router.post("/send-warning", async (req, res) => {
       valor_parcela: valueStr,
       aparelho: (sale?.device_model_manual || "Aparelho Celular").replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase(),
       data_vencimento: formattedDueDate,
+      data_pagamento: formattedPaymentDate,
       nome_loja: (store?.name || "MDR Celulares").trim(),
       telefone_loja: store?.phone || "",
       link_pagamento: installment.asaas_invoice_url || ""
@@ -83,7 +87,7 @@ router.post("/send-warning", async (req, res) => {
     } else if (installment.status === 'pending') {
       templateText = store?.billing_reminder_pre_due_template || templateText;
     } else if (installment.status === 'paid') {
-      templateText = store?.billing_reminder_payment_confirmed_template || templateText;
+      templateText = store?.billing_reminder_payment_confirmed_template || DEFAULT_PAYMENT_CONFIRMED_TEMPLATE;
     }
 
     if (!installment.asaas_invoice_url) {
