@@ -601,7 +601,7 @@ export default function ScpManagement() {
                     <th className="py-4 px-4">Investidor Prime</th>
                     <th className="py-4 px-4 text-center">Part. Lucro</th>
                     <th className="py-4 px-4 text-center">Taxa Adm</th>
-                    <th className="py-4 px-4">Preço Custo</th>
+                    <th className="py-4 px-4">Preço Venda</th>
                     <th className="py-4 px-4">Status</th>
                     <th className="py-4 px-4 text-right">Ações</th>
                   </tr>
@@ -614,7 +614,7 @@ export default function ScpManagement() {
                       <td className="py-4 px-4 text-zinc-300 font-semibold">{d.profiles?.full_name || 'Investidor'}</td>
                       <td className="py-4 px-4 text-center font-bold text-indigo-400">{(Number(d.prime_profit_share || 0.60) * 100).toFixed(0)}%</td>
                       <td className="py-4 px-4 text-center text-zinc-400">{(Number(d.prime_admin_fee || 0.10) * 100).toFixed(0)}%</td>
-                      <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(d.sale_price || d.cost_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 px-4">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                           d.status === 'sold' 

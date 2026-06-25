@@ -493,9 +493,10 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     }
 
     // 6. PRIME PORTFOLIO (Estoque Próprio)
+    // 6. PRIME PORTFOLIO (Estoque Próprio)
     const { data: primeDevices, error: primeErr } = await supabase
       .from("devices")
-      .select("id, brand, model, imei, status, cost_price, prime_profit_share, prime_admin_fee")
+      .select("id, brand, model, imei, status, cost_price, sale_price, prime_profit_share, prime_admin_fee")
       .eq("investor_id", profile_id);
 
     if (primeErr) throw primeErr;
@@ -668,6 +669,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         id: t.id,
         type: t.type,
         amount: Number(t.amount),
+        capitalPortion: Number(t.capital_portion || 0),
+        interestPortion: Number(t.interest_portion || 0),
         description: t.description || "",
         date: new Date(t.created_at).toLocaleDateString("pt-BR", {
           day: "2-digit",

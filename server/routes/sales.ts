@@ -864,7 +864,7 @@ router.delete("/:id", async (req, res) => {
     // 4. Cancel/Delete Asaas payments associated with the installments of this sale
     const { data: saleInstallments } = await supabase
       .from('installments')
-      .select('asaas_payment_id')
+      .select('id, asaas_payment_id')
       .eq('sale_id', req.params.id);
 
     if (saleInstallments && saleInstallments.length > 0) {
@@ -885,11 +885,15 @@ router.delete("/:id", async (req, res) => {
       .delete()
       .ilike('notes', `%${sale.id}%`);
 
-    // 4.5 Revert cash transactions associated with this sale
-    const { data: transactions } = await supabase
-      .from('cash_transactions')
-      .select('*')
-      .eq('sale_id', req.params.id);
+    // 4.5 Revert cash transactions associated with this sale or its installments
+    const installmentIds = saleInstallments?.map((inst: any) => inst.id) || [];
+    let txQuery = supabase.from('cash_transactions').select('*');
+    if (installmentIds.length > 0) {
+      txQuery = txQuery.or(`sale_id.eq.${req.params.id},installment_id.in.(${installmentIds.join(',')})`);
+    } else {
+      txQuery = txQuery.eq('sale_id', req.params.id);
+    }
+    const { data: transactions } = await txQuery;
        
     if (transactions && transactions.length > 0) {
       for (const tx of transactions) {
@@ -917,7 +921,8 @@ router.delete("/:id", async (req, res) => {
       }
       
       // Delete transactions
-      await supabase.from('cash_transactions').delete().eq('sale_id', req.params.id);
+      const txIds = transactions.map((tx: any) => tx.id);
+      await supabase.from('cash_transactions').delete().in('id', txIds);
     }
 
     // 5. Finally delete the sale (which cascades to delete installments)
