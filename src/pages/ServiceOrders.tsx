@@ -12,7 +12,7 @@ import { useInventoryStore } from '../store/useInventoryStore';
 import { usePartnerStore } from '../store/usePartnerStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
-import { useUnitStore } from '../store/useUnitStore';
+import { useUnitStore, Unit } from '../store/useUnitStore';
 import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore } from '../store/useCashStore';
 import { formatCPF, formatPhone, printElement, validateCPF, validateCNPJ } from '../lib/utils';
@@ -504,7 +504,8 @@ export default function ServiceOrders() {
         credit_limit: 0,
         credit_status: 'APROVADO',
         registration_status: 'APROVADO',
-        approved_for_purchase: true
+        approved_for_purchase: true,
+        unit_id: profile?.unit_id || undefined
       });
 
       await fetchCustomers(profile?.unit_id || undefined);
@@ -1167,12 +1168,12 @@ export default function ServiceOrders() {
 
   const osUnit = useMemo(() => {
     if (!currentServiceOrder) return null;
-    return units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
+    return (units.find(u => u.id === currentServiceOrder.unit_id) || units[0] || {
       name: 'MDR Informática & Celulares',
       address: 'Rua Principal, 1234 - Centro',
       phone: '(11) 99999-9999',
       print_mode: 'thermal' as const
-    };
+    }) as Unit;
   }, [currentServiceOrder, units]);
 
   const getPrintStyles = (format: 'thermal' | 'a4') => {
@@ -2256,10 +2257,10 @@ export default function ServiceOrders() {
         </button>
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        
+
         {/* COLUNA 1: FILA DE ORDENS DE SERVIÇO */}
         <div className={cn("w-full xl:col-span-3", activeMobileTab === 'queue' ? 'block' : 'hidden xl:block')}>
-          <OsSidebar 
+          <OsSidebar
             filteredOs={filteredOs}
             selectedOsId={selectedOsId}
             setSelectedOsId={(id) => {

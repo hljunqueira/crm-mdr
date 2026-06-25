@@ -238,7 +238,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         status: 'active',
         classification: 'A_VISTA',
         credit_limit: 0,
-        notes: 'Cadastrado rapidamente na venda.'
+        notes: 'Cadastrado rapidamente na venda.',
+        unit_id: finalUnitId || undefined
       });
 
       if (newCustomer) {
@@ -403,13 +404,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             .select('*')
             .eq('sale_id', initialData.id)
             .order('installment_number', { ascending: true });
-          
+
           if (insts && !error) {
             setOriginalInstallments(insts);
-            
+
             const dueDates = insts.map(i => i.due_date);
             const instValues = insts.map(i => Number(i.value));
-            
+
             setCustomDueDates(dueDates);
             setCustomInstallmentValues(instValues);
             setIsEditingLoaded(true);
@@ -1728,6 +1729,41 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           </div>
         )}
 
+        {/* Seletor do Tipo de Venda */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
+          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('general');
+                setSelectedDevices([]);
+                setApplyAutoDiscount(false);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Vendas Em Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSaleType('cellphone');
+                setSelectedDevices([]);
+                setApplyAutoDiscount(false);
+              }}
+              className={cn(
+                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
+              )}
+            >
+              Crediário Loja
+            </button>
+          </div>
+        </div>
+
         {/* Customer Section */}
         <div className="space-y-2">
           <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Cliente</label>
@@ -1879,41 +1915,6 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* Seletor do Tipo de Venda */}
-          <div className="md:col-span-2 space-y-2">
-            <label className="text-[10px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Tipo de Venda</label>
-            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full">
-              <button
-                type="button"
-                onClick={() => {
-                  setSaleType('general');
-                  setSelectedDevices([]);
-                  setApplyAutoDiscount(false);
-                }}
-                className={cn(
-                  "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                Vendas Em Geral
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSaleType('cellphone');
-                  setSelectedDevices([]);
-                  setApplyAutoDiscount(false);
-                }}
-                className={cn(
-                  "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
-                )}
-              >
-                Crediário Loja
-              </button>
-            </div>
-          </div>
 
           {/* Campo de Busca de Estoque com Botão de Adição Rápida */}
           <div className="md:col-span-2 space-y-2">
