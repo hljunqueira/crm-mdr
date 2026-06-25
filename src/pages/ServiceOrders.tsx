@@ -485,7 +485,7 @@ export default function ServiceOrders() {
           return;
         }
 
-        const existing = customers.find(c => c.cpf.replace(/\D/g, '') === cleanCpf);
+        const existing = customers.find(c => c.cpf && c.cpf.replace(/\D/g, '') === cleanCpf);
         if (existing) {
           showNotification('error', 'Erro', `Já existe um cliente cadastrado com este ${quickCustomer.type === 'PF' ? 'CPF' : 'CNPJ'}.`);
           setIsLoadingQuickCustomer(false);
@@ -514,8 +514,8 @@ export default function ServiceOrders() {
       // Find the created customer. If cleanCpf was provided, search by it. Otherwise, match by name and phone.
       const createdCustomer = useCustomerStore.getState().customers.find(
         c => cleanCpf
-          ? c.cpf.replace(/\D/g, '') === cleanCpf
-          : (c.name === quickCustomer.name && c.phone.replace(/\D/g, '') === cleanPhone)
+          ? (c.cpf && c.cpf.replace(/\D/g, '') === cleanCpf)
+          : (c.name === quickCustomer.name && c.phone && c.phone.replace(/\D/g, '') === cleanPhone)
       );
 
       if (createdCustomer) {
@@ -527,8 +527,8 @@ export default function ServiceOrders() {
 
       setQuickCustomer({ name: '', type: 'PF', cpf: '', phone: '' });
       setIsQuickCustomerOpen(false);
-    } catch (error) {
-      showNotification('error', 'Erro', error?.response?.data?.message || 'Falha ao cadastrar cliente.');
+    } catch (error: any) {
+      showNotification('error', 'Erro', error?.message || 'Falha ao cadastrar cliente.');
     } finally {
       setIsLoadingQuickCustomer(false);
     }
