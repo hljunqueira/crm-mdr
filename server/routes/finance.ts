@@ -136,6 +136,18 @@ router.post("/installments", async (req, res) => {
       .select();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // Trigger SCP payout for any installment that is inserted as already paid!
+    if (data && Array.isArray(data)) {
+      for (const inst of data) {
+        if (inst.status === 'paid') {
+          processScpInstallmentPayout(inst.id, Number(inst.value)).catch(err => {
+            console.error("[SCP Payout Trigger Error] Failed to run scp payout on insert:", err);
+          });
+        }
+      }
+    }
+
     res.status(201).json(data);
   } catch (err: any) {
     console.error("Erro no fluxo do Asaas em POST /installments:", err);

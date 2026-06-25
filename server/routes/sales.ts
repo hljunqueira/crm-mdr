@@ -411,6 +411,20 @@ router.post("/", async (req, res) => {
       }
     }
 
+    if (saleData && saleData.device_id && req.body.imei_manual) {
+      try {
+        const cleanImei = String(req.body.imei_manual).trim();
+        if (cleanImei && cleanImei.toUpperCase() !== 'N/A' && cleanImei !== '0000000') {
+          await supabase
+            .from('devices')
+            .update({ imei: cleanImei })
+            .eq('id', saleData.device_id);
+        }
+      } catch (deviceUpdateErr) {
+        console.error('Error updating device IMEI on sale creation:', deviceUpdateErr);
+      }
+    }
+
     res.status(201).json(saleData);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -623,6 +637,20 @@ router.patch("/:id", async (req, res) => {
       .single();
        
     if (updateError) return res.status(500).json({ error: updateError.message });
+
+    if (updatedSale && updatedSale.device_id && req.body.imei_manual) {
+      try {
+        const cleanImei = String(req.body.imei_manual).trim();
+        if (cleanImei && cleanImei.toUpperCase() !== 'N/A' && cleanImei !== '0000000') {
+          await supabase
+            .from('devices')
+            .update({ imei: cleanImei })
+            .eq('id', updatedSale.device_id);
+        }
+      } catch (deviceUpdateErr) {
+        console.error('Error updating device IMEI on sale update:', deviceUpdateErr);
+      }
+    }
 
     // Sincronização de Bloqueios Automática (device_locks)
     await syncDeviceLocks(updatedSale);

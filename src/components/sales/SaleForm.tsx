@@ -912,7 +912,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const firstDue = new Date(formData.first_due_date + 'T12:00:00');
     const diffMs = firstDue.getTime() - today.getTime();
     const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    const graceDays = resolvedUnit?.grace_period_days ?? 30;
+    const graceDays = (resolvedUnit as any)?.grace_period_days ?? 30;
     const extraDays = Math.max(0, diffDays - graceDays);
     if (extraDays === 0) return 0;
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
@@ -1164,6 +1164,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   const executeSubmit = async (sellerId: string) => {
     try {
+      const totalInstCount = isCashLike ? 1 : (formData.installments + (formData.down_payment > 0 ? 1 : 0));
+
       // Build accessories string for DB and append metadata
       let accessoriesStr = selectedAccessories.length > 0
         ? selectedAccessories.map(a => `${a.model} (${a.type === 'brinde' ? 'Brinde' : `Venda R$${a.price.toFixed(2)}`})`).join(', ')
@@ -1202,7 +1204,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           down_payment: isCashLike ? finalValue : formData.down_payment,
           service_fee: feeValue,
           original_price: formData.total_value,
-          installments: isCashLike ? 0 : formData.installments,
+          installments: totalInstCount,
           date: initialData.date || new Date().toLocaleDateString('en-CA'),
           device_color: formData.device_color,
           accessories: accessoriesStr,
@@ -1219,20 +1221,53 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
         // Clear and re-save installments preserving payment statuses
         await supabase.from('installments').delete().eq('sale_id', initialData.id);
-        if (formData.installments > 0) {
-          const installmentsToCreate = generatedInstallments.map((inst) => {
-            const matchedOriginal = originalInstallments.find(orig => orig.installment_number === inst.number);
-            return {
+        const installmentsToCreate = [];
+
+        if (formData.down_payment > 0) {
+          const matchedOriginal = originalInstallments.find(orig => orig.installment_number === 1);
+          installmentsToCreate.push({
+            unit_id: finalUnitId,
+            sale_id: initialData.id,
+            customer_id: formData.customer_id,
+            number: 1,
+            total: totalInstCount,
+            value: formData.down_payment,
+            due_date: new Date().toLocaleDateString('en-CA'),
+            status: matchedOriginal ? matchedOriginal.status : 'paid'
+          });
+        }
+
+        if (isCashLike) {
+          const matchedOriginal = originalInstallments.find(orig => orig.installment_number === 1);
+          installmentsToCreate.push({
+            unit_id: finalUnitId,
+            sale_id: initialData.id,
+            customer_id: formData.customer_id,
+            number: 1,
+            total: 1,
+            value: finalValue,
+            due_date: new Date().toLocaleDateString('en-CA'),
+            status: matchedOriginal ? matchedOriginal.status : 'paid'
+          });
+        } else if (formData.installments > 0) {
+          const startNum = formData.down_payment > 0 ? 2 : 1;
+          generatedInstallments.forEach((inst, index) => {
+            const currentNum = startNum + index;
+            const matchedOriginal = originalInstallments.find(orig => orig.installment_number === currentNum);
+            installmentsToCreate.push({
               unit_id: finalUnitId,
               sale_id: initialData.id,
               customer_id: formData.customer_id,
-              number: inst.number,
-              total: inst.total,
+              number: currentNum,
+              total: totalInstCount,
               value: inst.value,
               due_date: inst.dueDate,
               status: matchedOriginal ? matchedOriginal.status : 'pending'
-            };
+            });
           });
+        }
+
+        if (installmentsToCreate.length > 0) {
           await addInstallments(installmentsToCreate);
         }
 
@@ -1250,7 +1285,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           down_payment: isCashLike ? finalValue : formData.down_payment,
           service_fee: feeValue,
           original_price: formData.total_value,
-          installments: isCashLike ? 0 : formData.installments,
+          installments: totalInstCount,
           date: new Date().toLocaleDateString('en-CA'),
           device_color: formData.device_color,
           accessories: accessoriesStr,
@@ -1292,18 +1327,50 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
         }
 
         // Create installments
-        if (newSale?.id && formData.installments > 0) {
-          const installmentsToCreate = generatedInstallments.map(inst => ({
+        const newSaleInstallments = [];
+
+        if (formData.down_payment > 0) {
+          newSaleInstallments.push({
             unit_id: finalUnitId,
             sale_id: newSale.id,
             customer_id: formData.customer_id,
-            number: inst.number,
-            total: inst.total,
-            value: inst.value,
-            due_date: inst.dueDate,
-            status: 'pending' as const
-          }));
-          const createdInsts = await addInstallments(installmentsToCreate);
+            number: 1,
+            total: totalInstCount,
+            value: formData.down_payment,
+            due_date: new Date().toLocaleDateString('en-CA'),
+            status: 'paid' as const
+          });
+        }
+
+        if (isCashLike) {
+          newSaleInstallments.push({
+            unit_id: finalUnitId,
+            sale_id: newSale.id,
+            customer_id: formData.customer_id,
+            number: 1,
+            total: 1,
+            value: finalValue,
+            due_date: new Date().toLocaleDateString('en-CA'),
+            status: 'paid' as const
+          });
+        } else if (formData.installments > 0) {
+          const startNum = formData.down_payment > 0 ? 2 : 1;
+          generatedInstallments.forEach((inst, index) => {
+            newSaleInstallments.push({
+              unit_id: finalUnitId,
+              sale_id: newSale.id,
+              customer_id: formData.customer_id,
+              number: startNum + index,
+              total: totalInstCount,
+              value: inst.value,
+              due_date: inst.dueDate,
+              status: 'pending' as const
+            });
+          });
+        }
+
+        if (newSale?.id && newSaleInstallments.length > 0) {
+          const createdInsts = await addInstallments(newSaleInstallments);
           if (createdInsts) {
             setCreatedInstallments(createdInsts);
           }
@@ -2558,7 +2625,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 <div>
                   <p className="text-amber-400 font-black uppercase tracking-wider">Juro de Carência Aplicado</p>
                   <p className="text-on-surface-variant mt-0.5">
-                    Vencimento estendido além de {resolvedUnit?.grace_period_days ?? 30} dias — juro pro-rata de{' '}
+                    Vencimento estendido além de {(resolvedUnit as any)?.grace_period_days ?? 30} dias — juro pro-rata de{' '}
                     <strong className="text-amber-400">
                       R$ {gracePeriodInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </strong>{' '}
