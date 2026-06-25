@@ -46,7 +46,7 @@ export default function PartnersLogin() {
       // 2. Buscar perfil correspondente no banco para validar o papel (role)
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, role')
+        .select('id, role, full_name')
         .eq('id', data.user.id)
         .single();
 
@@ -63,7 +63,7 @@ export default function PartnersLogin() {
 
       // 4. Salvar dados de sessão específicos para a área de parceiros
       localStorage.setItem('partners_token', data.session.access_token);
-      localStorage.setItem('partners_profile', JSON.stringify({ id: profile.id, role: profile.role }));
+      localStorage.setItem('partners_profile', JSON.stringify({ id: profile.id, role: profile.role, full_name: profile.full_name }));
       window.location.href = '/dashboard';
 
     } catch (err: any) {
@@ -144,13 +144,13 @@ export default function PartnersLogin() {
       // Obter o perfil do banco
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, role')
+        .select('id, role, full_name')
         .eq('id', authData.user.id)
         .single();
 
       if (profile && (profile.role === 'investor' || profile.role === 'admin')) {
         localStorage.setItem('partners_token', authData.session.access_token);
-        localStorage.setItem('partners_profile', JSON.stringify({ id: profile.id, role: profile.role }));
+        localStorage.setItem('partners_profile', JSON.stringify({ id: profile.id, role: profile.role, full_name: profile.full_name }));
         window.location.href = '/dashboard';
       } else {
         await supabase.auth.signOut();

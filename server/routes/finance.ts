@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import crypto from "crypto";
 import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix } from "../services/asaasService.js";
 import { processScpInstallmentPayout } from "./scp_payout_trigger.js";
+import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
@@ -619,23 +620,31 @@ router.post("/installments/:id/notify", async (req, res) => {
       return res.status(404).json({ error: "Parcela ou Cliente inválido para cobrança" });
     }
 
-    // 2. Get connected WhatsApp channel
-    const { data: channels } = await supabase
+    // 2. Get connected WhatsApp channel (try filtering by unit/store first)
+    const unitId = inst.sales.store_id || inst.sales.customers.unit_id;
+    let { data: channels } = await supabase
       .from('automation_channels')
       .select('*')
       .eq('status', 'connected')
+      .eq('unit_id', unitId)
       .limit(1);
+
+    if (!channels || channels.length === 0) {
+      // Fallback to any connected channel
+      const { data: fallbackChannels } = await supabase
+        .from('automation_channels')
+        .select('*')
+        .eq('status', 'connected')
+        .limit(1);
+      channels = fallbackChannels;
+    }
 
     if (!channels || channels.length === 0) {
       return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado para disparar cobranças" });
     }
 
     const instance = channels[0].instance_name;
-    let cleanPhone = inst.sales.customers.phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      cleanPhone = `55${cleanPhone}`;
-    }
-    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const remoteJid = formatWhatsAppJid(inst.sales.customers.phone);
 
     const valueStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const formattedDueDate = new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR');

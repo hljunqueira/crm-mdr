@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase.js';
+import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
@@ -468,11 +469,8 @@ router.post('/pre-login', async (req, res) => {
     const instanceName = channels && channels.length > 0 ? channels[0].instance_name : 'mdr';
 
     // 9. Enviar via n8n webhook
-    let cleanPhone = profile.phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      cleanPhone = `55${cleanPhone}`;
-    }
-    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const cleanPhone = profile.phone.replace(/\D/g, '');
+    const remoteJid = formatWhatsAppJid(profile.phone);
     const messageText = `*MDR Informática & Celulares* 🔐\n\nOlá, ${profile.full_name}!\nSeu código de segurança para acessar o painel é:\n\n*${code}*\n\nEste código é válido por 5 minutos. Não compartilhe com ninguém.`;
 
     const n8nUrl = process.env.N8N_2FA_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/auth-2fa`;
@@ -647,11 +645,8 @@ router.post('/forgot-password', async (req, res) => {
 
     const instanceName = channels && channels.length > 0 ? channels[0].instance_name : 'mdr';
 
-    let cleanPhone = profile.phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      cleanPhone = `55${cleanPhone}`;
-    }
-    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const cleanPhone = profile.phone.replace(/\D/g, '');
+    const remoteJid = formatWhatsAppJid(profile.phone);
     const messageText = `*MDR Informática & Celulares* 🔑\n\nOlá, ${profile.full_name}!\nVocê solicitou a recuperação de acesso ao painel administrativo (CRM).\nSeu código de segurança para redefinir sua senha é:\n\n*${code}*\n\nEste código é válido por 5 minutos. Não compartilhe com ninguém.`;
 
     const n8nUrl = process.env.N8N_2FA_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/auth-2fa`;

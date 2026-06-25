@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { updateCollaboratorGoalProgress } from "../lib/goalsHelper.js";
+import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
@@ -297,23 +298,30 @@ router.post("/:id/notify", async (req, res) => {
       .eq('id', os.unit_id)
       .single();
 
-    // Get an active WhatsApp automation channel
-    const { data: channels } = await supabase
+    // Try to get channel for OS unit first
+    let { data: channels } = await supabase
       .from('automation_channels')
       .select('*')
       .eq('status', 'connected')
+      .eq('unit_id', os.unit_id)
       .limit(1);
+
+    if (!channels || channels.length === 0) {
+      // Fallback
+      const { data: fallbackChannels } = await supabase
+        .from('automation_channels')
+        .select('*')
+        .eq('status', 'connected')
+        .limit(1);
+      channels = fallbackChannels;
+    }
 
     if (!channels || channels.length === 0) {
       return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado no momento." });
     }
 
     const instance = channels[0].instance_name;
-    let cleanPhone = os.customers.phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      cleanPhone = `55${cleanPhone}`;
-    }
-    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const remoteJid = formatWhatsAppJid(os.customers.phone);
 
     const numberStr = String(os.os_number).padStart(4, '0');
     const laborStr = Number(os.labor_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

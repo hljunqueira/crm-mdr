@@ -550,7 +550,7 @@ export default function Reports() {
   }, [filteredServiceOrders]);
 
   const collaboratorData = useMemo(() => {
-    let cols = usersList.filter(u => u.role !== 'admin' && !u.full_name.toLowerCase().includes('terminal'));
+    let cols = usersList.filter(u => u.role !== 'admin' && u.role !== 'investor' && !u.full_name.toLowerCase().includes('terminal'));
     
     // Filter by store if not "all"
     if (selectedUnitId !== 'all') {

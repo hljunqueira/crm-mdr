@@ -48,7 +48,7 @@ interface Product {
 }
 
 export default function InvestorDashboard() {
-  const [profile, setProfile] = useState<{ id: string; role: string } | null>(null);
+  const [profile, setProfile] = useState<{ id: string; role: string; full_name?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'investor' | 'admin'>('investor');
@@ -72,6 +72,7 @@ export default function InvestorDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyHistory, setMonthlyHistory] = useState<any[]>([]);
   const [monthlyForecast, setMonthlyForecast] = useState<any[]>([]);
+  const [upcomingPayments, setUpcomingPayments] = useState<any[]>([]);
   const [chartView, setChartView] = useState<'history' | 'forecast'>('history');
 
   const [renda, setRenda] = useState({
@@ -94,6 +95,12 @@ export default function InvestorDashboard() {
   // Estados do Simulador de Investimento
   const [selectedLotIdForSim, setSelectedLotIdForSim] = useState<string>('');
   const [simVal, setSimVal] = useState(10000);
+  const [simTab, setSimTab] = useState<'aporte' | 'venda'>('aporte');
+  const [simCostPrice, setSimCostPrice] = useState<number | ''>(1000);
+  const [simSalePrice, setSimSalePrice] = useState<number | ''>(1890);
+  const [simSaleType, setSimSaleType] = useState<'vista' | 'prazo'>('prazo');
+  const [simInterestRate, setSimInterestRate] = useState<number>(0.08); // 8%
+  const [simProfitShare, setSimProfitShare] = useState<number | ''>(60);
 
   // Estados do Modal do Contrato de Risco
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
@@ -137,6 +144,7 @@ export default function InvestorDashboard() {
       setTransactions(data.transactions);
       setMonthlyHistory(data.monthlyHistory || []);
       setMonthlyForecast(data.monthlyForecast || []);
+      setUpcomingPayments(data.upcomingPayments || []);
       if (data.renda) {
         setRenda(data.renda);
       }
@@ -240,7 +248,35 @@ export default function InvestorDashboard() {
   const simTotalProjectedReturn = simVal + simInvShareInterest;
   const simMonthlyReturn = simTotalProjectedReturn / 12;
 
+  // Cálculos do simulador de venda de aparelho
+  const costPriceVal = Number(simCostPrice) || 0;
+  const salePriceVal = Number(simSalePrice) || 0;
+  const profitShareVal = Number(simProfitShare) || 0;
+  const adminFeeVal = 10; // Taxa de administração fixa em 10%
+  
+  let simSaleTotal = salePriceVal;
+  let simSaleGrossProfit = 0;
+  let simSaleNetProfit = 0;
+  let simSaleInvestorProfit = 0;
+  let simSaleAmortization = 0;
+  let simSaleTotalPayout = 0;
 
+  if (simSaleType === 'vista') {
+    simSaleTotal = salePriceVal;
+    simSaleGrossProfit = Math.max(0, salePriceVal - costPriceVal);
+    simSaleNetProfit = simSaleGrossProfit * (1 - adminFeeVal / 100);
+    simSaleInvestorProfit = simSaleNetProfit * (profitShareVal / 100);
+    simSaleAmortization = costPriceVal;
+    simSaleTotalPayout = simSaleAmortization + simSaleInvestorProfit;
+  } else {
+    // A Prazo 12x com juros
+    simSaleTotal = salePriceVal * (1 + simInterestRate * 12);
+    simSaleGrossProfit = Math.max(0, simSaleTotal - salePriceVal); // Juros gerados
+    simSaleNetProfit = simSaleGrossProfit * (1 - adminFeeVal / 100);
+    simSaleInvestorProfit = simSaleNetProfit * (profitShareVal / 100);
+    simSaleAmortization = salePriceVal; // Preço original à vista retorna como amortização
+    simSaleTotalPayout = simSaleAmortization + simSaleInvestorProfit;
+  }
 
   if (loading) {
     return (
@@ -293,7 +329,7 @@ export default function InvestorDashboard() {
           <div className="flex items-center gap-2 border-r border-[#27272a] pr-4 mr-1">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-xs font-semibold text-zinc-300">
-              {profile?.role === 'admin' ? 'Administrador' : 'Investidor'}
+              {profile?.full_name ? profile.full_name : (profile?.role === 'admin' ? 'Administrador' : 'Investidor')}
             </span>
           </div>
           <button 
@@ -328,7 +364,7 @@ export default function InvestorDashboard() {
             )}
 
             {/* Wallet & Health Grid */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-${renda && renda.purchases && renda.purchases.length > 0 ? '6' : '5'} gap-6`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${renda && renda.purchases && renda.purchases.length > 0 ? '5' : '4'} gap-6`}>
               
               {/* Card: Saldo Disponível */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
@@ -377,30 +413,6 @@ export default function InvestorDashboard() {
                 <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
                   <span>Recebido de volta:</span>
                   <span className="font-bold text-zinc-300">R$ {wallet.capitalRecovered.toLocaleString('pt-BR')}</span>
-                </div>
-              </div>
-
-              {/* Card: Juros Recebidos */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
-                <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Participação nos Juros</span>
-                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                    <ArrowDownLeft size={18} />
-                  </div>
-                </div>
-                <div>
-                  <span className="text-3xl font-extrabold tracking-tight text-emerald-400">
-                    R$ {wallet.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                  <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
-                    <Info size={14} className="text-emerald-400" />
-                    Lucros obtidos dos financiamentos
-                  </p>
-                </div>
-                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
-                  <span>Total Recebido (Cap+Juros):</span>
-                  <span className="font-bold text-emerald-400">R$ {wallet.totalReceived.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
 
@@ -557,71 +569,205 @@ export default function InvestorDashboard() {
                 )}
               </div>
 
-              {/* Simulador de Rentabilidade (Preconfigurado pelo Admin) */}
+              {/* Simulador de Rentabilidade */}
               <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-4 shadow-xl flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4 flex items-center gap-2">
-                    <Calculator size={16} className="text-emerald-500" /> Simulador de Rentabilidade
-                  </h3>
-                  
-                  {lots.length > 0 ? (
-                    <div className="space-y-4">
-                      {/* Seletor de Lote */}
-                      <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Selecione o Lote</label>
-                        <select
-                          value={selectedLotIdForSim}
-                          onChange={(e) => setSelectedLotIdForSim(e.target.value)}
-                          className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors"
-                        >
-                          {lots.map((l) => (
-                            <option key={l.quotaId} value={l.quotaId} className="bg-[#121214]">
-                              {l.title} ({l.interestSharingPercentage}% de juros)
-                            </option>
-                          ))}
-                        </select>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                      <Calculator size={16} className="text-emerald-500" /> Simulador
+                    </h3>
+                    
+                    {/* Selector de Abas do Simulador */}
+                    <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setSimTab('aporte')}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          simTab === 'aporte' 
+                            ? 'bg-emerald-500 text-black shadow-md' 
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Aporte
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSimTab('venda')}
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          simTab === 'venda' 
+                            ? 'bg-[#4f46e5] text-white shadow-md' 
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        Venda
+                      </button>
+                    </div>
+                  </div>
+
+                  {simTab === 'aporte' ? (
+                    lots.length > 0 ? (
+                      <div className="space-y-4">
+                        {/* Seletor de Lote */}
+                        <div className="space-y-1">
+                          <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Selecione o Lote</label>
+                          <select
+                            value={selectedLotIdForSim}
+                            onChange={(e) => setSelectedLotIdForSim(e.target.value)}
+                            className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors"
+                          >
+                            {lots.map((l) => (
+                              <option key={l.quotaId} value={l.quotaId} className="bg-[#121214]">
+                                {l.title} ({l.interestSharingPercentage}% de juros)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Slider de Aporte */}
+                        <div>
+                          <div className="flex justify-between text-xs mb-1.5">
+                            <span className="text-zinc-400">Aporte Estimado</span>
+                            <span className="font-mono font-bold text-white">R$ {simVal.toLocaleString('pt-BR')}</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="1000"
+                            max="100000"
+                            step="1000"
+                            value={simVal}
+                            onChange={(e) => setSimVal(parseInt(e.target.value))}
+                            className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Resultado Simulado */}
+                        <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 mt-6 space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-400">Devolução de Capital:</span>
+                            <span className="font-mono text-zinc-200">R$ {simVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-400">Lucro de Juros Simulado:</span>
+                            <span className="font-mono text-emerald-400">R$ {simInvShareInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between text-xs border-t border-zinc-800/80 pt-2 font-bold">
+                            <span className="text-white">Retorno Estimado Total:</span>
+                            <span className="font-mono text-emerald-400">R$ {simTotalProjectedReturn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                        
+                        <p className="text-[9px] text-zinc-500 italic mt-3 block text-center">
+                          * Simulação em 12 parcelas de R$ {simMonthlyReturn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-zinc-500 text-xs">
+                        Não há lotes ativos para simulação de rentabilidade.
+                      </div>
+                    )
+                  ) : (
+                    /* Simular Venda de Celular */
+                    <div className="space-y-3.5">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Custo (R$)</label>
+                          <input 
+                            type="number"
+                            step="any"
+                            value={simCostPrice}
+                            onChange={(e) => setSimCostPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors font-mono"
+                            placeholder="Ex: 1000"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Venda À Vista (R$)</label>
+                          <input 
+                            type="number"
+                            step="any"
+                            value={simSalePrice}
+                            onChange={(e) => setSimSalePrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors font-mono"
+                            placeholder="Ex: 1890"
+                          />
+                        </div>
                       </div>
 
-                      {/* Slider de Aporte */}
-                      <div>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-zinc-400">Aporte Estimado</span>
-                          <span className="font-mono font-bold text-white">R$ {simVal.toLocaleString('pt-BR')}</span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Tipo de Venda</label>
+                          <select
+                            value={simSaleType}
+                            onChange={(e) => setSimSaleType(e.target.value as any)}
+                            className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors"
+                          >
+                            <option value="vista" className="bg-[#121214]">À Vista</option>
+                            <option value="prazo" className="bg-[#121214]">A Prazo (12x)</option>
+                          </select>
                         </div>
+
+                        {simSaleType === 'prazo' ? (
+                          <div className="space-y-1">
+                            <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Taxa de Juros</label>
+                            <select
+                              value={simInterestRate}
+                              onChange={(e) => setSimInterestRate(parseFloat(e.target.value))}
+                              className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors"
+                            >
+                              <option value="0.05" className="bg-[#121214]">5% a.m.</option>
+                              <option value="0.08" className="bg-[#121214]">8% a.m.</option>
+                              <option value="0.12" className="bg-[#121214]">12% a.m.</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="space-y-1 opacity-50">
+                            <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Taxa de Juros</label>
+                            <select disabled className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none cursor-not-allowed">
+                              <option className="bg-[#121214]">N/A (À Vista)</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Sua Participação no Lucro (%)</label>
                         <input 
-                          type="range"
-                          min="1000"
-                          max="100000"
-                          step="1000"
-                          value={simVal}
-                          onChange={(e) => setSimVal(parseInt(e.target.value))}
-                          className="w-full accent-emerald-500 bg-zinc-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          type="number"
+                          step="any"
+                          value={simProfitShare}
+                          onChange={(e) => setSimProfitShare(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                          className="w-full bg-[#18181b] border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-zinc-700 transition-colors font-mono"
+                          placeholder="Ex: 60"
                         />
                       </div>
 
-                      {/* Resultado Simulado */}
-                      <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 mt-6 space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-400">Devolução de Capital:</span>
-                          <span className="font-mono text-zinc-200">R$ {simVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      {/* Resultado Simulado Venda */}
+                      <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-3.5 space-y-1.5 text-[10px] text-zinc-400">
+                        <div className="flex justify-between">
+                          <span>Valor Total de Venda:</span>
+                          <span className="font-bold text-white">R$ {simSaleTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-400">Lucro de Juros Simulado:</span>
-                          <span className="font-mono text-emerald-400">R$ {simInvShareInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <div className="flex justify-between">
+                          <span>{simSaleType === 'vista' ? 'Lucro Bruto (Markup):' : 'Lucro de Juros (Bruto):'}</span>
+                          <span className="font-bold text-white">R$ {simSaleGrossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex justify-between text-xs border-t border-zinc-800/80 pt-2 font-bold">
-                          <span className="text-white">Retorno Estimado Total:</span>
-                          <span className="font-mono text-emerald-400">R$ {simTotalProjectedReturn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <div className="flex justify-between border-b border-zinc-800/60 pb-1.5 mb-1.5">
+                          <span>Lucro Líquido (Pós Taxa Adm 10%):</span>
+                          <span className="font-bold text-white">R$ {simSaleNetProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Seu Repasse de Lucro:</span>
+                          <span className="font-bold text-emerald-400">R$ {simSaleInvestorProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({Number(simProfitShare || 0)}%)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Amortização (Retorno de Capital):</span>
+                          <span className="font-bold text-zinc-300 font-mono">R$ {simSaleAmortization.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-zinc-800/60 pt-1.5 mt-1.5 text-[11px] font-black text-emerald-400">
+                          <span>Retorno Total Estimado:</span>
+                          <span className="font-mono">R$ {simSaleTotalPayout.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                       </div>
-                      
-                      <p className="text-[9px] text-zinc-500 italic mt-3 block text-center">
-                        * Simulação em 12 parcelas de R$ {simMonthlyReturn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-zinc-500 text-xs">
-                      Não há lotes ativos para simulação de rentabilidade.
                     </div>
                   )}
                 </div>
@@ -814,6 +960,62 @@ export default function InvestorDashboard() {
                 </div>
               </section>
             )}
+
+            {/* Previsão dos Próximos Pagamentos */}
+            <section className="space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                <Calendar size={14} className="text-emerald-500" /> Previsão dos Próximos Pagamentos
+              </h3>
+
+              {upcomingPayments.length === 0 ? (
+                <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-12 text-center text-zinc-500">
+                  Nenhum repasse agendado ou pendente de recebimento.
+                </div>
+              ) : (
+                <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                        <th className="py-4 px-6">Aparelho / Lote</th>
+                        <th className="py-4 px-6">Cliente</th>
+                        <th className="py-4 px-6 text-center">Data de Vencimento</th>
+                        <th className="py-4 px-6 text-center">Parcela</th>
+                        <th className="py-4 px-6 text-right">Valor Previsto</th>
+                        <th className="py-4 px-6 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/40">
+                      {upcomingPayments
+                        .slice()
+                        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                        .slice(0, 15)
+                        .map((up) => (
+                          <tr key={up.id} className="hover:bg-zinc-800/10 transition-colors">
+                            <td className="py-4 px-6 font-bold text-white">{up.description}</td>
+                            <td className="py-4 px-6 text-zinc-300">{up.client}</td>
+                            <td className="py-4 px-6 text-center font-mono text-zinc-400">
+                              {new Date(up.dueDate).toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="py-4 px-6 text-center font-mono text-zinc-400">{up.installmentNumber}</td>
+                            <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">
+                              R$ {up.expectedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                                up.status === 'overdue' || up.status === 'blocked'
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  : 'bg-zinc-850 text-zinc-400 border border-zinc-700/60'
+                              }`}>
+                                {up.status === 'overdue' || up.status === 'blocked' ? 'Atrasado' : 'Pendente'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
 
             {/* Transaction History */}
             <section className="space-y-4">

@@ -10,6 +10,7 @@ import { formatCPF, formatPhone, validateCPF, validateCNPJ, cn } from '../../lib
 import { supabase } from '../../lib/supabase';
 import { useInventoryStore } from '../../store/useInventoryStore';
 import { useUnitStore } from '../../store/useUnitStore';
+import { formatWhatsAppJid } from '../../utils/phone';
 
 interface CustomerFormProps {
   initialData?: Customer;
@@ -152,11 +153,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       }
 
       const instance = channels[0].instance_name;
-      let finalPhone = cleanPhone;
-      if (!finalPhone.startsWith('55')) {
-        finalPhone = '55' + finalPhone;
-      }
-      const remoteJid = `${finalPhone}@s.whatsapp.net`;
+      const remoteJid = formatWhatsAppJid(cleanPhone);
 
       const origin = window.location.origin;
       const registrationLink = `${origin}/cadastro?phone=${cleanPhone}`;
@@ -355,7 +352,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
       const instance = channels[0].instance_name;
       const cleanPhone = selectedAnalyst.phone.replace(/\D/g, '');
-      const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+      const remoteJid = formatWhatsAppJid(selectedAnalyst.phone);
 
       const messageText = `📢 *NOVO PRÉ-CADASTRO RECEBIDO*\n\n` +
         `Olá *${selectedAnalyst.full_name || 'Analista'}*!\n\n` +

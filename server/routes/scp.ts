@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import fetch from "node-fetch";
+import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
@@ -91,11 +92,7 @@ router.post("/auth/request-otp", async (req, res) => {
     const instanceName = channels && channels.length > 0 ? channels[0].instance_name : "mdr";
 
     // Formata o JID remoto de destino
-    let finalPhone = cleanPhone;
-    if (!finalPhone.startsWith("55")) {
-      finalPhone = `55${finalPhone}`;
-    }
-    const remoteJid = `${finalPhone}@s.whatsapp.net`;
+    const remoteJid = formatWhatsAppJid(cleanPhone);
     const messageText = `*PARCEIROS MDR* 🔐\n\nOlá, ${profile.full_name}!\nSeu código de acesso temporário para o portal de investimentos é:\n\n*${code}*\n\nEste código expira em 5 minutos. Não compartilhe com terceiros.`;
 
     const n8nUrl = process.env.N8N_2FA_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/auth-2fa`;
@@ -112,7 +109,7 @@ router.post("/auth/request-otp", async (req, res) => {
           instanceName,
           remoteJid,
           text: messageText,
-          phone: finalPhone,
+          phone: cleanPhone,
           code,
           name: profile.full_name
         })
@@ -357,12 +354,13 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       .sort()
       .map(k => monthlyHistoryMap[k]);
 
-    // 5. Gather detailed products (smartphones) metrics and list
+        // 5. Gather detailed products (smartphones) metrics and list
     let activeDevicesCount = 0;
     let paidDevicesCount = 0;
     let defaultedDevicesCount = 0;
     let projectedInterest = 0;
     const monthlyForecastMap: Record<string, { month: string; amount: number }> = {};
+    const upcomingPayments: any[] = [];
 
     const myProducts: any[] = [];
     const lotsList = [];
@@ -430,6 +428,18 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 const investorProfit = totalProfit * ownershipFraction;
                 projectedInterest += investorProfit;
 
+                const expectedValue = (totalAmortization * ownershipFraction) + investorProfit;
+                upcomingPayments.push({
+                  id: `${dev.id}-${inst.id}`,
+                  type: "LOTE",
+                  description: `${dev.brand} ${dev.model} (${lot.title})`,
+                  client: (devSale as any).customer?.name || "Cliente",
+                  dueDate: inst.due_date,
+                  installmentNumber: `${inst.installment_number}/${totalInst}`,
+                  expectedValue: Number(expectedValue.toFixed(2)),
+                  status: inst.status
+                });
+
                 // Add to monthly forecast
                 const date = new Date(inst.due_date);
                 const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -437,7 +447,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 if (!monthlyForecastMap[key]) {
                   monthlyForecastMap[key] = { month: label.toUpperCase(), amount: 0 };
                 }
-                monthlyForecastMap[key].amount += (totalAmortization * ownershipFraction) + investorProfit;
+                monthlyForecastMap[key].amount += expectedValue;
               });
 
               // Contract total profit & final value for the investor
@@ -542,7 +552,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
       const { data: sales } = await supabase
         .from("sales")
-        .select("id, customer:customers(name), total_value, original_price")
+        .select("id, customer:customers(name), total_value, original_price, payment_type")
         .eq("device_id", dev.id)
         .neq("status", "cancelled")
         .maybeSingle();
@@ -568,13 +578,31 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           const instValue = Number(inst.value);
           const saleTotal = Number(sales.total_value || 0);
           const saleOriginal = Number(sales.original_price || dev.cost_price || 0);
-          const amortization = saleTotal > 0 ? instValue * (saleOriginal / saleTotal) : 0;
+          const deviceCostPrice = Number(dev.cost_price || 0);
+          const isVistaOrCard = sales.payment_type === 'vista' || sales.payment_type === 'card';
+          
+          const amortization = saleTotal > 0 
+            ? instValue * ((isVistaOrCard ? deviceCostPrice : saleOriginal) / saleTotal)
+            : 0;
+            
           const totalProfit = instValue - amortization;
           const adminFee = Number(dev.prime_admin_fee ?? 0.10);
           const profitShare = Number(dev.prime_profit_share ?? 0.60);
           const netProfit = totalProfit * (1.0 - adminFee);
           const investorProfit = netProfit * profitShare;
+          const expectedValue = amortization + investorProfit;
           projectedInterest += investorProfit;
+
+          upcomingPayments.push({
+            id: `${dev.id}-${inst.id}`,
+            type: "PRIME",
+            description: `${dev.brand} ${dev.model}`,
+            client: (sales as any).customer?.name || "Cliente",
+            dueDate: inst.due_date,
+            installmentNumber: `${inst.installment_number}/${totalInst}`,
+            expectedValue: Number(expectedValue.toFixed(2)),
+            status: inst.status
+          });
 
           // Add to monthly forecast
           const date = new Date(inst.due_date);
@@ -583,7 +611,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           if (!monthlyForecastMap[key]) {
             monthlyForecastMap[key] = { month: label.toUpperCase(), amount: 0 };
           }
-          monthlyForecastMap[key].amount += amortization + investorProfit;
+          monthlyForecastMap[key].amount += expectedValue;
         });
 
         const saleTotal = Number(sales.total_value || 0);
@@ -667,9 +695,14 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
       const { data: insts } = await supabase
         .from("installments")
-        .select("id, status, value, due_date")
+        .select("id, status, value, due_date, installment_number")
         .eq("sale_id", pur.sale_id)
         .neq("status", "cancelled");
+
+      const clientName = pur.sale && (pur.sale as any).customer ? (pur.sale as any).customer.name : "Contrato";
+      const devInfo = pur.sale && (pur.sale as any).device
+        ? `${(pur.sale as any).device.brand} ${(pur.sale as any).device.model}`
+        : "Aparelho";
 
       let purchasePaidValue = 0;
       let purchaseOverdueValue = 0;
@@ -695,6 +728,17 @@ router.get("/dashboard/:profile_id", async (req, res) => {
             const investorProfit = totalPayout - investorAmortization;
             projectedInterest += investorProfit;
 
+            upcomingPayments.push({
+              id: `${pur.id}-${inst.id}`,
+              type: "RENDA",
+              description: `Recebível - ${devInfo}`,
+              client: clientName,
+              dueDate: inst.due_date,
+              installmentNumber: `${inst.installment_number}/${insts.length}`,
+              expectedValue: Number(shareValue.toFixed(2)),
+              status: inst.status
+            });
+
             // Add to monthly forecast
             const date = new Date(inst.due_date);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -706,11 +750,6 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           }
         }
       }
-
-      const clientName = pur.sale && (pur.sale as any).customer ? (pur.sale as any).customer.name : "Contrato";
-      const devInfo = pur.sale && (pur.sale as any).device
-        ? `${(pur.sale as any).device.brand} ${(pur.sale as any).device.model}`
-        : "Aparelho";
 
       const projectedTotalContract = Number(pur.total_receivable) * Number(pur.ownership_percentage || 1);
       const projectedTotalProfit = Math.max(0, projectedTotalContract - Number(pur.purchase_price));
@@ -742,6 +781,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         month: monthlyForecastMap[k].month,
         amount: Number(monthlyForecastMap[k].amount.toFixed(2))
       }));
+
+    const sortedUpcomingPayments = upcomingPayments.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
     res.json({
       wallet: {
@@ -780,7 +821,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         })
       })),
       monthlyHistory,
-      monthlyForecast
+      monthlyForecast,
+      upcomingPayments: sortedUpcomingPayments
     });
 
   } catch (error: any) {
@@ -1148,63 +1190,32 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 // 16b. POST /api/scp/devices/link-prime-bulk — Vincular celulares em lote a investidor Prime
 router.post("/devices/link-prime-bulk", async (req, res) => {
   try {
-    const { investor_id, device_template_id, imeis, prime_profit_share, prime_admin_fee } = req.body;
+    const { investor_id, device_ids, prime_profit_share, prime_admin_fee } = req.body;
 
-    if (!investor_id || !device_template_id || !Array.isArray(imeis) || imeis.length === 0) {
+    if (!investor_id || !Array.isArray(device_ids) || device_ids.length === 0) {
       return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
-    }
-
-    // 1. Buscar o aparelho modelo base/template
-    const { data: template, error: tempError } = await supabase
-      .from("devices")
-      .select("*")
-      .eq("id", device_template_id)
-      .single();
-
-    if (tempError || !template) {
-      return res.status(404).json({ error: "Modelo de aparelho base não encontrado." });
     }
 
     const share = prime_profit_share !== undefined ? Number(prime_profit_share) / 100 : 0.6000;
     const fee = prime_admin_fee !== undefined ? Number(prime_admin_fee) / 100 : 0.1000;
-    const costPrice = Number(template.cost_price || 0);
 
     let linkedCount = 0;
     let totalCostCredited = 0;
 
-    // Validar todos os IMEIs antes de processar
-    const invalidImeis: string[] = [];
-    const validDevicesToLink: any[] = [];
+    // Buscar os aparelhos para validar se estão disponíveis e calcular custo
+    const { data: devices, error: devErr } = await supabase
+      .from("devices")
+      .select("id, status, investor_id, cost_price")
+      .in("id", device_ids);
 
-    for (const rawImei of imeis) {
-      const imei = String(rawImei).trim();
-      if (!imei) continue;
-
-      const { data: existingDevice } = await supabase
-        .from("devices")
-        .select("id, brand, model, imei, status, investor_id, cost_price")
-        .eq("imei", imei)
-        .maybeSingle();
-
-      if (!existingDevice) {
-        invalidImeis.push(`${imei} (Não cadastrado no estoque)`);
-      } else if (existingDevice.investor_id) {
-        invalidImeis.push(`${imei} (Já vinculado a outro investidor)`);
-      } else if (existingDevice.status !== "available") {
-        invalidImeis.push(`${imei} (Não disponível - Status: ${existingDevice.status})`);
-      } else {
-        validDevicesToLink.push(existingDevice);
-      }
-    }
-
-    if (invalidImeis.length > 0) {
-      return res.status(400).json({
-        error: `Não foi possível vincular. Os seguintes IMEIs são inválidos: ${invalidImeis.join(", ")}`
-      });
+    if (devErr || !devices) {
+      return res.status(400).json({ error: "Erro ao carregar aparelhos para vinculação." });
     }
 
     // Vincular os aparelhos válidos
-    for (const dev of validDevicesToLink) {
+    for (const dev of devices) {
+      if (dev.investor_id) continue; // Pular se já tem investidor
+      
       await supabase
         .from("devices")
         .update({
@@ -1215,7 +1226,7 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
         .eq("id", dev.id);
 
       linkedCount++;
-      totalCostCredited += Number(dev.cost_price || costPrice);
+      totalCostCredited += Number(dev.cost_price || 0);
     }
 
     // 2. Atualizar recebíveis futuros na carteira do investidor
@@ -1246,9 +1257,8 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
 
     res.json({
       success: true,
-      message: `Processamento em lote concluído com sucesso. Vinculados: ${linkedCount}.`,
+      message: `Processamento concluído com sucesso. Vinculados: ${linkedCount}.`,
       linkedCount,
-      createdCount: 0,
       totalCostCredited
     });
   } catch (error: any) {

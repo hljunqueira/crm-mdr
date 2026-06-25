@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
@@ -96,23 +97,31 @@ router.post("/send-warning", async (req, res) => {
     }
     const messageText = fillTemplate(templateText, variables);
 
-    // 1.8. Get connected WhatsApp channel
-    const { data: channels } = await supabase
+    // 1.8. Get connected WhatsApp channel (try filtering by unit/store first)
+    const unitId = sale?.store_id || customer?.unit_id;
+    let { data: channels } = await supabase
       .from('automation_channels')
       .select('*')
       .eq('status', 'connected')
+      .eq('unit_id', unitId)
       .limit(1);
+
+    if (!channels || channels.length === 0) {
+      // Fallback to any connected channel
+      const { data: fallbackChannels } = await supabase
+        .from('automation_channels')
+        .select('*')
+        .eq('status', 'connected')
+        .limit(1);
+      channels = fallbackChannels;
+    }
 
     if (!channels || channels.length === 0) {
       return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado para disparar cobranças." });
     }
 
     const instance = channels[0].instance_name;
-    let cleanPhone = customer.phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      cleanPhone = `55${cleanPhone}`;
-    }
-    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const remoteJid = formatWhatsAppJid(customer.phone);
 
     // 2. n8n webhook payload
     const n8nPayload = {
@@ -242,23 +251,31 @@ router.post("/send-statement", async (req, res) => {
 
     messageText += `Caso necessite de atendimento ou queira efetuar o pagamento via PIX, responda a esta mensagem. Obrigado! 🙏`;
 
-    // 4. Get connected WhatsApp channel
-    const { data: channels } = await supabase
+    // 4. Get connected WhatsApp channel (try filtering by unit/store first)
+    const unitId = customer.unit_id || installments[0]?.sales?.store_id;
+    let { data: channels } = await supabase
       .from('automation_channels')
       .select('*')
       .eq('status', 'connected')
+      .eq('unit_id', unitId)
       .limit(1);
+
+    if (!channels || channels.length === 0) {
+      // Fallback to any connected channel
+      const { data: fallbackChannels } = await supabase
+        .from('automation_channels')
+        .select('*')
+        .eq('status', 'connected')
+        .limit(1);
+      channels = fallbackChannels;
+    }
 
     if (!channels || channels.length === 0) {
       return res.status(400).json({ error: "Nenhum canal do WhatsApp conectado para disparar o extrato." });
     }
 
     const instance = channels[0].instance_name;
-    let cleanPhone = customer.phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
-      cleanPhone = `55${cleanPhone}`;
-    }
-    const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+    const remoteJid = formatWhatsAppJid(customer.phone);
 
     // 5. Post to n8n webhook
     const n8nPayload = {

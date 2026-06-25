@@ -56,11 +56,26 @@ export default function ScpManagement() {
   // States para Prime
   const [primeDevices, setPrimeDevices] = useState<any[]>([]);
   const [isLinkPrimeOpen, setIsLinkPrimeOpen] = useState(false);
-  const [selectedPrimeDeviceId, setSelectedPrimeDeviceId] = useState('');
   const [primeInvestorId, setPrimeInvestorId] = useState('');
-  const [primeProfitShare, setPrimeProfitShare] = useState(60);
-  const [primeAdminFee, setPrimeAdminFee] = useState(10);
-  const [primeImeisInput, setPrimeImeisInput] = useState('');
+  const [primeProfitShare, setPrimeProfitShare] = useState<number | ''>(60);
+  const [primeAdminFee, setPrimeAdminFee] = useState<number | ''>(10);
+  const [selectedGroupKey, setSelectedGroupKey] = useState('');
+  const [primeQuantityInput, setPrimeQuantityInput] = useState<number | ''>(1);
+
+  // Group available devices by brand + model + cost + sale to show in dropdown
+  const groupedAvailableDevices = React.useMemo(() => {
+    const map = new Map<string, { brand: string; model: string; cost_price: number; sale_price: number; count: number; ids: string[] }>();
+    for (const d of availableDevices) {
+      const key = `${d.brand}|${d.model}|${d.cost_price}|${d.sale_price}`;
+      if (!map.has(key)) {
+        map.set(key, { brand: d.brand, model: d.model, cost_price: Number(d.cost_price), sale_price: Number(d.sale_price), count: 0, ids: [] });
+      }
+      const item = map.get(key)!;
+      item.count += 1;
+      item.ids.push(d.id);
+    }
+    return Array.from(map.values());
+  }, [availableDevices]);
 
   // States para Renda
   const [rendaPurchases, setRendaPurchases] = useState<any[]>([]);
@@ -252,11 +267,18 @@ export default function ScpManagement() {
 
   const handleLinkPrimeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const imeis = primeImeisInput.split('\n').map(i => i.trim()).filter(Boolean);
-    if (!selectedPrimeDeviceId || !primeInvestorId || imeis.length === 0) {
-      showNotification('error', 'Erro', 'Selecione o aparelho, o investidor e insira pelo menos 1 IMEI.');
+    const selectedGroup = groupedAvailableDevices.find(
+      g => `${g.brand}|${g.model}|${g.cost_price}|${g.sale_price}` === selectedGroupKey
+    );
+    const qty = Number(primeQuantityInput) || 0;
+
+    if (!selectedGroup || !primeInvestorId || qty <= 0) {
+      showNotification('error', 'Erro', 'Selecione o aparelho, o investidor e insira uma quantidade válida.');
       return;
     }
+
+    const deviceIds = selectedGroup.ids.slice(0, qty);
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/scp/devices/link-prime-bulk', {
@@ -264,19 +286,18 @@ export default function ScpManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           investor_id: primeInvestorId,
-          device_template_id: selectedPrimeDeviceId,
-          imeis: imeis,
-          prime_profit_share: primeProfitShare,
-          prime_admin_fee: primeAdminFee
+          device_ids: deviceIds,
+          prime_profit_share: primeProfitShare === '' ? 0 : primeProfitShare,
+          prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha ao vincular aparelhos Prime.');
       showNotification('success', 'Sucesso', data.message || 'Investidor Prime vinculado com sucesso!');
       setIsLinkPrimeOpen(false);
-      setSelectedPrimeDeviceId('');
+      setSelectedGroupKey('');
+      setPrimeQuantityInput(1);
       setPrimeInvestorId('');
-      setPrimeImeisInput('');
       fetchPrimeDevices();
     } catch (err: any) {
       showNotification('error', 'Erro', err.message || 'Falha ao vincular investidor Prime.');
@@ -500,12 +521,16 @@ export default function ScpManagement() {
   };
 
   // Calcs for Prime form
-  const selectedDeviceObj = availableDevices.find(d => d.id === selectedPrimeDeviceId);
-  const costPrice = selectedDeviceObj ? Number(selectedDeviceObj.cost_price || 0) : 0;
-  const salePrice = selectedDeviceObj ? Number(selectedDeviceObj.sale_price || 0) : 0;
+  const selectedGroup = groupedAvailableDevices.find(
+    g => `${g.brand}|${g.model}|${g.cost_price}|${g.sale_price}` === selectedGroupKey
+  );
+  const costPrice = selectedGroup ? selectedGroup.cost_price : 0;
+  const salePrice = selectedGroup ? selectedGroup.sale_price : 0;
   const grossProfit = Math.max(0, salePrice - costPrice);
-  const netProfit = grossProfit * (1.0 - (primeAdminFee / 100));
-  const estimatedProfitVal = netProfit * (primeProfitShare / 100);
+  const feePct = Number(primeAdminFee) || 0;
+  const sharePct = Number(primeProfitShare) || 0;
+  const netProfit = grossProfit * (1.0 - (feePct / 100));
+  const estimatedProfitVal = netProfit * (sharePct / 100);
 
   const handleProfitValChange = (valStr: string) => {
     const val = parseFloat(valStr);
@@ -513,7 +538,7 @@ export default function ScpManagement() {
       const pct = Math.min(100, Math.max(0, parseFloat(((val / netProfit) * 100).toFixed(2))));
       setPrimeProfitShare(pct);
     } else if (valStr === '') {
-      setPrimeProfitShare(0);
+      setPrimeProfitShare('');
     }
   };
 
@@ -983,23 +1008,26 @@ export default function ScpManagement() {
               <X size={18} />
             </button>
 
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celulares Prime (Em Lote)</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celulares Prime</h3>
             <p className="text-xs text-zinc-400">
-              Associe múltiplos celulares a um Investidor Prime informando o aparelho de referência e a lista de IMEIs.
+              Associe aparelhos em estoque diretamente a um Investidor Prime selecionando o modelo base e a quantidade desejada.
             </p>
 
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Aparelho de Referência (Custo/Venda)</label>
               <select
                 required
-                value={selectedPrimeDeviceId}
-                onChange={(e) => setSelectedPrimeDeviceId(e.target.value)}
+                value={selectedGroupKey}
+                onChange={(e) => {
+                  setSelectedGroupKey(e.target.value);
+                  setPrimeQuantityInput(1);
+                }}
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
               >
                 <option value="" disabled className="bg-[#121214]">-- Escolha o Modelo Base --</option>
-                {availableDevices.map((d) => (
-                  <option key={d.id} value={d.id} className="bg-[#121214]">
-                    {d.brand} {d.model} {d.imei ? `(IMEI: ${d.imei})` : '(Modelo Geral/Sem IMEI)'} - Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR')}
+                {groupedAvailableDevices.map((g, idx) => (
+                  <option key={idx} value={`${g.brand}|${g.model}|${g.cost_price}|${g.sale_price}`} className="bg-[#121214]">
+                    {g.brand} {g.model} - Custo: R$ {g.cost_price.toLocaleString('pt-BR')} ({g.count} em estoque)
                   </option>
                 ))}
               </select>
@@ -1030,7 +1058,7 @@ export default function ScpManagement() {
                   max={100}
                   step="any"
                   value={primeProfitShare}
-                  onChange={(e) => setPrimeProfitShare(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setPrimeProfitShare(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
@@ -1039,10 +1067,10 @@ export default function ScpManagement() {
                 <input
                   type="number"
                   step="any"
-                  disabled={!selectedPrimeDeviceId || netProfit <= 0}
-                  value={selectedPrimeDeviceId && netProfit > 0 ? (netProfit * (primeProfitShare / 100)).toFixed(2) : ''}
+                  disabled={!selectedGroupKey || netProfit <= 0}
+                  value={selectedGroupKey && netProfit > 0 ? (netProfit * ((Number(primeProfitShare) || 0) / 100)).toFixed(2) : ''}
                   onChange={(e) => handleProfitValChange(e.target.value)}
-                  placeholder={!selectedPrimeDeviceId ? "Escolha..." : "R$ 0,00"}
+                  placeholder={!selectedGroupKey ? "Escolha..." : "R$ 0,00"}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
                 />
               </div>
@@ -1054,13 +1082,13 @@ export default function ScpManagement() {
                   min={0}
                   max={100}
                   value={primeAdminFee}
-                  onChange={(e) => setPrimeAdminFee(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setPrimeAdminFee(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
             </div>
 
-            {selectedDeviceObj && (
+            {selectedGroup && (
               <div className="bg-white/[0.02] border border-zinc-800 p-3.5 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
                 <div className="flex justify-between">
                   <span>Preço de Venda (À Vista):</span>
@@ -1080,23 +1108,25 @@ export default function ScpManagement() {
                 </div>
                 <div className="flex justify-between border-t border-zinc-800/60 pt-1.5 mt-1.5 text-emerald-400">
                   <span>Repasse Estimado (Investidor):</span>
-                  <span className="font-extrabold">R$ {estimatedProfitVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({primeProfitShare.toFixed(1)}%)</span>
+                  <span className="font-extrabold">R$ {estimatedProfitVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({Number(primeProfitShare || 0).toFixed(1)}%)</span>
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">IMEIs dos Aparelhos (Um por linha)</label>
-              <textarea
-                required
-                rows={4}
-                placeholder="Cole os IMEIs aqui&#10;Ex:&#10;358901234567890&#10;358901234567891"
-                value={primeImeisInput}
-                onChange={(e) => setPrimeImeisInput(e.target.value)}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all font-mono custom-scrollbar resize-none"
-              />
-              <p className="text-[10px] text-zinc-500 font-medium">Quantidade identificada: {primeImeisInput.split('\n').map(i => i.trim()).filter(Boolean).length} aparelho(s)</p>
-            </div>
+            {selectedGroup && (
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Quantidade a Vincular (Máx: {selectedGroup.count})</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={selectedGroup.count}
+                  value={primeQuantityInput}
+                  onChange={(e) => setPrimeQuantityInput(e.target.value === '' ? '' : Math.min(selectedGroup.count, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+            )}
 
             <div className="flex gap-2 pt-4">
               <button
@@ -1108,8 +1138,8 @@ export default function ScpManagement() {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+                disabled={isSubmitting || !selectedGroupKey || (Number(primeQuantityInput) || 0) <= 0}
+                className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0 disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Vínculo'}
               </button>

@@ -11,6 +11,7 @@ import { formatCPF, formatPhone } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import { useInventoryStore } from '../store/useInventoryStore';
+import { formatWhatsAppJid } from '../utils/phone';
 
 const parseDesiredDevices = (desired_device: string | undefined | null): any[] | null => {
   if (!desired_device) return null;
@@ -398,7 +399,7 @@ export default function CreditAnalysis() {
 
       const instance = channels[0].instance_name;
       const cleanPhone = selectedAnalyst.phone.replace(/\D/g, '');
-      const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+      const remoteJid = formatWhatsAppJid(selectedAnalyst.phone);
 
       const limitStr = limit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       const statusLabel = status === 'APROVADO' ? '✅ APROVADO' :

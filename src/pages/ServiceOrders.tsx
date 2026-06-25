@@ -19,6 +19,7 @@ import { formatCPF, formatPhone, printElement, validateCPF, validateCNPJ } from 
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { formatWhatsAppJid } from '../utils/phone';
 
 // Import subcomponentes isolados
 import OsSidebar from '../components/layout/OsSidebar';
@@ -568,11 +569,7 @@ export default function ServiceOrders() {
       }
 
       const instance = channels[0].instance_name;
-      let finalPhone = cleanPhone;
-      if (!finalPhone.startsWith('55')) {
-        finalPhone = '55' + finalPhone;
-      }
-      const remoteJid = `${finalPhone}@s.whatsapp.net`;
+      const remoteJid = formatWhatsAppJid(cleanPhone);
 
       const origin = window.location.origin;
       const registrationLink = `${origin}/cadastro?phone=${cleanPhone}`;
