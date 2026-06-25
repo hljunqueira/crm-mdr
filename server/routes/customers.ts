@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { updateAsaasCustomer } from "../services/asaasService.js";
 
 const router = Router();
 
@@ -165,6 +166,19 @@ router.patch("/:id", async (req, res) => {
 
   if (data && data.credit_status === 'EM_ANALISE' && oldCustomer?.credit_status !== 'EM_ANALISE') {
     notifyMaykonOfAnalysis(data);
+  }
+
+  // Se o cliente tem cadastro no Asaas, atualiza lá também em segundo plano para manter o telefone sincronizado
+  if (data && data.asaas_customer_id) {
+    updateAsaasCustomer(data.asaas_customer_id, {
+      name: data.name,
+      cpfCnpj: data.cpf,
+      phone: data.phone,
+      email: data.email,
+      address: data.address
+    }).catch(err => {
+      console.error("[Asaas Sync] Erro ao sincronizar atualização de cliente:", err);
+    });
   }
 
   res.json(data);

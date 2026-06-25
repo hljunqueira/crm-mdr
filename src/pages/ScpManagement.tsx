@@ -499,6 +499,24 @@ export default function ScpManagement() {
     });
   };
 
+  // Calcs for Prime form
+  const selectedDeviceObj = availableDevices.find(d => d.id === selectedPrimeDeviceId);
+  const costPrice = selectedDeviceObj ? Number(selectedDeviceObj.cost_price || 0) : 0;
+  const salePrice = selectedDeviceObj ? Number(selectedDeviceObj.sale_price || 0) : 0;
+  const grossProfit = Math.max(0, salePrice - costPrice);
+  const netProfit = grossProfit * (1.0 - (primeAdminFee / 100));
+  const estimatedProfitVal = netProfit * (primeProfitShare / 100);
+
+  const handleProfitValChange = (valStr: string) => {
+    const val = parseFloat(valStr);
+    if (!isNaN(val) && netProfit > 0) {
+      const pct = Math.min(100, Math.max(0, parseFloat(((val / netProfit) * 100).toFixed(2))));
+      setPrimeProfitShare(pct);
+    } else if (valStr === '') {
+      setPrimeProfitShare(0);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -1002,17 +1020,30 @@ export default function ScpManagement() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (%)</label>
                 <input
                   type="number"
                   required
-                  min={1}
+                  min={0}
                   max={100}
+                  step="any"
                   value={primeProfitShare}
-                  onChange={(e) => setPrimeProfitShare(parseInt(e.target.value))}
+                  onChange={(e) => setPrimeProfitShare(parseFloat(e.target.value) || 0)}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (R$)</label>
+                <input
+                  type="number"
+                  step="any"
+                  disabled={!selectedPrimeDeviceId || netProfit <= 0}
+                  value={selectedPrimeDeviceId && netProfit > 0 ? (netProfit * (primeProfitShare / 100)).toFixed(2) : ''}
+                  onChange={(e) => handleProfitValChange(e.target.value)}
+                  placeholder={!selectedPrimeDeviceId ? "Escolha..." : "R$ 0,00"}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
                 />
               </div>
               <div className="space-y-2">
@@ -1023,11 +1054,36 @@ export default function ScpManagement() {
                   min={0}
                   max={100}
                   value={primeAdminFee}
-                  onChange={(e) => setPrimeAdminFee(parseInt(e.target.value))}
+                  onChange={(e) => setPrimeAdminFee(parseInt(e.target.value) || 0)}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                 />
               </div>
             </div>
+
+            {selectedDeviceObj && (
+              <div className="bg-white/[0.02] border border-zinc-800 p-3.5 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                <div className="flex justify-between">
+                  <span>Preço de Venda (À Vista):</span>
+                  <span className="font-bold text-white">R$ {salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Custo do Aparelho:</span>
+                  <span className="font-bold text-white">R$ {costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Margem Bruta (À Vista):</span>
+                  <span className="font-bold text-zinc-300">R$ {grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Lucro Líquido (Pós Taxa Adm):</span>
+                  <span className="font-bold text-zinc-300">R$ {netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between border-t border-zinc-800/60 pt-1.5 mt-1.5 text-emerald-400">
+                  <span>Repasse Estimado (Investidor):</span>
+                  <span className="font-extrabold">R$ {estimatedProfitVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({primeProfitShare.toFixed(1)}%)</span>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">IMEIs dos Aparelhos (Um por linha)</label>

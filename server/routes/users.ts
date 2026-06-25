@@ -335,7 +335,7 @@ router.get('/2fa/settings', async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-    
+
     const enabled = data?.value === 'true';
     res.json({ enabled });
   } catch (error: any) {
@@ -552,8 +552,8 @@ router.post('/verify-otp', async (req, res) => {
         .update({ attempts: nextAttempts })
         .eq('id', otp.id);
 
-      return res.status(400).json({ 
-        error: `Código incorreto. Você tem mais ${4 - nextAttempts} tentativa(s).` 
+      return res.status(400).json({
+        error: `Código incorreto. Você tem mais ${4 - nextAttempts} tentativa(s).`
       });
     }
 
@@ -582,7 +582,7 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(500).json({ error: 'Erro interno ao processar a solicitação.' });
     }
 
-    const targetUser = users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+    const targetUser = (users as any[]).find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
     if (!targetUser) {
       return res.status(404).json({ error: 'Nenhuma conta encontrada com este e-mail.' });
     }
@@ -599,8 +599,8 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     if (!profile.phone || !profile.phone.trim()) {
-      return res.status(400).json({ 
-        error: 'Esta conta não possui número de telefone cadastrado no perfil. Por favor, solicite a redefinição diretamente ao administrador.' 
+      return res.status(400).json({
+        error: 'Esta conta não possui número de telefone cadastrado no perfil. Por favor, solicite a redefinição diretamente ao administrador.'
       });
     }
 
@@ -733,8 +733,8 @@ router.post('/reset-password', async (req, res) => {
         .update({ attempts: nextAttempts })
         .eq('id', otp.id);
 
-      return res.status(400).json({ 
-        error: `Código incorreto. Você tem mais ${4 - nextAttempts} tentativa(s).` 
+      return res.status(400).json({
+        error: `Código incorreto. Você tem mais ${4 - nextAttempts} tentativa(s).`
       });
     }
 
@@ -744,7 +744,7 @@ router.post('/reset-password', async (req, res) => {
       return res.status(500).json({ error: 'Erro ao processar alteração da senha.' });
     }
 
-    const targetUser = users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+    const targetUser = (users as any[]).find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
     if (!targetUser) {
       return res.status(404).json({ error: 'Usuário não encontrado para redefinir senha.' });
     }

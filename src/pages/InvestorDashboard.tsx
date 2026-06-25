@@ -42,6 +42,8 @@ interface Product {
   interestReceived: number;
   totalReceived: number;
   remainingValue: number;
+  projectedTotalProfit?: number;
+  projectedTotalContract?: number;
   status: 'estoque' | 'ativo' | 'quitado' | 'inadimplente';
 }
 
@@ -61,13 +63,16 @@ export default function InvestorDashboard() {
     roi: 0,
     activeDevicesCount: 0,
     paidDevicesCount: 0,
-    defaultedDevicesCount: 0
+    defaultedDevicesCount: 0,
+    projectedInterest: 0
   });
 
   const [lots, setLots] = useState<InvestedLot[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyHistory, setMonthlyHistory] = useState<any[]>([]);
+  const [monthlyForecast, setMonthlyForecast] = useState<any[]>([]);
+  const [chartView, setChartView] = useState<'history' | 'forecast'>('history');
 
   const [renda, setRenda] = useState({
     purchases: [] as any[],
@@ -131,6 +136,7 @@ export default function InvestorDashboard() {
       setProducts(data.products || []);
       setTransactions(data.transactions);
       setMonthlyHistory(data.monthlyHistory || []);
+      setMonthlyForecast(data.monthlyForecast || []);
       if (data.renda) {
         setRenda(data.renda);
       }
@@ -322,7 +328,7 @@ export default function InvestorDashboard() {
             )}
 
             {/* Wallet & Health Grid */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${renda && renda.purchases && renda.purchases.length > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-${renda && renda.purchases && renda.purchases.length > 0 ? '6' : '5'} gap-6`}>
               
               {/* Card: Saldo Disponível */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
@@ -395,6 +401,32 @@ export default function InvestorDashboard() {
                 <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
                   <span>Total Recebido (Cap+Juros):</span>
                   <span className="font-bold text-emerald-400">R$ {wallet.totalReceived.toLocaleString('pt-BR')}</span>
+                </div>
+              </div>
+
+              {/* Card: Previsão de Lucro */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+                <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Previsão de Lucro</span>
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <Calculator size={18} />
+                  </div>
+                </div>
+                <div>
+                  <span className="text-3xl font-extrabold tracking-tight text-emerald-400">
+                    R$ {wallet.projectedInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
+                    <Info size={14} className="text-emerald-400" />
+                    Juros previstos de parcelas em aberto
+                  </p>
+                </div>
+                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                  <span>Recebíveis Totais:</span>
+                  <span className="font-bold text-zinc-300">
+                    R$ {(wallet.futureReceipts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
 
@@ -473,25 +505,52 @@ export default function InvestorDashboard() {
               
               {/* Gráfico "Meu Dinheiro Trabalhando" */}
               <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-8 shadow-xl">
-                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6 flex items-center gap-2">
-                  <BarChart3 size={16} className="text-emerald-500" /> Evolução Mensal - Meu Dinheiro Trabalhando
-                </h3>
-                {monthlyHistory.length === 0 ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                    <BarChart3 size={16} className="text-emerald-500" />
+                    {chartView === 'history' ? 'Evolução Mensal - Meu Dinheiro Trabalhando' : 'Previsão Mensal - Recebíveis Futuros'}
+                  </h3>
+                  <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5 self-start sm:self-auto">
+                    <button
+                      onClick={() => setChartView('history')}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        chartView === 'history' 
+                          ? 'bg-emerald-500 text-black shadow-md' 
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Realizado
+                    </button>
+                    <button
+                      onClick={() => setChartView('forecast')}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        chartView === 'forecast' 
+                          ? 'bg-indigo-500 text-white shadow-md' 
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Previsão
+                    </button>
+                  </div>
+                </div>
+                {(chartView === 'history' ? monthlyHistory : monthlyForecast).length === 0 ? (
                   <div className="h-64 flex items-center justify-center text-zinc-500 text-xs">
-                    Dados históricos indisponíveis ou sem repasses efetuados ainda.
+                    {chartView === 'history'
+                      ? 'Dados históricos indisponíveis ou sem repasses efetuados ainda.'
+                      : 'Sem previsão de recebimentos futuros para os lotes ativos.'}
                   </div>
                 ) : (
                   <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthlyHistory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <BarChart data={chartView === 'history' ? monthlyHistory : monthlyForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <XAxis dataKey="month" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                         <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                         <Tooltip 
                           contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
                           labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                          formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Repasse creditado']}
+                          formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, chartView === 'history' ? 'Repasse creditado' : 'Previsão de recebimento']}
                         />
-                        <Bar dataKey="amount" fill="#10b981" radius={[6, 6, 0, 0]} barSize={36} />
+                        <Bar dataKey="amount" fill={chartView === 'history' ? "#10b981" : "#6366f1"} radius={[6, 6, 0, 0]} barSize={36} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -660,7 +719,7 @@ export default function InvestorDashboard() {
                 </div>
               ) : (
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Aparelho</th>
@@ -670,6 +729,8 @@ export default function InvestorDashboard() {
                         <th className="py-4 px-6 text-right">Juros Recebidos</th>
                         <th className="py-4 px-6 text-right">Total Repassado</th>
                         <th className="py-4 px-6 text-right">Capital Restante</th>
+                        <th className="py-4 px-6 text-right">Total Contrato</th>
+                        <th className="py-4 px-6 text-right">Lucro Previsto</th>
                         <th className="py-4 px-6 text-center">Status</th>
                       </tr>
                     </thead>
@@ -686,6 +747,8 @@ export default function InvestorDashboard() {
                           <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {p.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-right font-mono font-bold text-emerald-400">R$ {p.totalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-right font-mono text-zinc-400">R$ {p.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-indigo-400">R$ {(p.projectedTotalContract || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {(p.projectedTotalProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-center">
                             <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
                               p.status === 'estoque' 
@@ -715,7 +778,7 @@ export default function InvestorDashboard() {
                 </h3>
 
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-[800px]">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Contrato</th>
@@ -723,6 +786,7 @@ export default function InvestorDashboard() {
                         <th className="py-4 px-6 text-right">Preço de Compra</th>
                         <th className="py-4 px-6 text-right">Valor Nominal Total</th>
                         <th className="py-4 px-6 text-center">Fração Adquirida</th>
+                        <th className="py-4 px-6 text-right">Lucro Previsto</th>
                         <th className="py-4 px-6 text-center">Status</th>
                       </tr>
                     </thead>
@@ -730,13 +794,14 @@ export default function InvestorDashboard() {
                       {renda.purchases.map((purchase: any) => (
                         <tr key={purchase.id} className="hover:bg-zinc-800/10 transition-colors">
                           <td className="py-4 px-6">
-                            <span className="font-bold text-white block">Venda #{purchase.sale_id}</span>
-                            <span className="text-[10px] text-zinc-500 font-medium">Cliente: {purchase.sales?.customer_name || 'Desconhecido'}</span>
+                            <span className="font-bold text-white block">Venda #{purchase.saleId}</span>
+                            <span className="text-[10px] text-zinc-500 font-medium">Cliente: {purchase.client}</span>
                           </td>
-                          <td className="py-4 px-6 text-zinc-400 font-medium">{new Date(purchase.created_at).toLocaleDateString('pt-BR')}</td>
-                          <td className="py-4 px-6 text-right font-mono text-zinc-300">R$ {Number(purchase.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {Number(purchase.total_receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-center font-mono text-zinc-300">{(Number(purchase.ownership_percentage) * 100).toFixed(0)}%</td>
+                          <td className="py-4 px-6 text-zinc-400 font-medium">{new Date(purchase.createdAt).toLocaleDateString('pt-BR')}</td>
+                          <td className="py-4 px-6 text-right font-mono text-zinc-300">R$ {Number(purchase.purchasePrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {Number(purchase.totalReceivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-center font-mono text-zinc-300">{(Number(purchase.ownershipPercentage)).toFixed(0)}%</td>
+                          <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {Number(purchase.projectedTotalProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-center">
                             <span className="px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                               Adquirido

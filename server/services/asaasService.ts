@@ -80,6 +80,43 @@ export async function getOrCreateAsaasCustomer(data: AsaasCustomerData): Promise
   return createdData.id;
 }
 
+export async function updateAsaasCustomer(asaasCustomerId: string, data: AsaasCustomerData): Promise<void> {
+  if (!ASAAS_API_KEY) {
+    throw new Error('ASAAS_API_KEY não está configurada no ambiente.');
+  }
+
+  const cleanPhone = data.phone ? data.phone.replace(/\D/g, '') : undefined;
+  const body: Record<string, any> = {
+    name: data.name,
+    email: data.email || undefined,
+  };
+
+  if (cleanPhone) {
+    body.mobilePhone = cleanPhone;
+  }
+
+  const url = `${ASAAS_URL}/customers/${asaasCustomerId}`;
+  try {
+    const res = await fetch(url, {
+      method: 'POST', // Asaas API uses POST /v3/customers/{id} to update
+      headers: {
+        'access_token': ASAAS_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const errorData: any = await res.json().catch(() => ({}));
+      console.error(`Erro ao atualizar cliente ${asaasCustomerId} no Asaas:`, errorData.errors?.[0]?.description || 'Erro desconhecido');
+    } else {
+      console.log(`Cliente ${asaasCustomerId} atualizado com sucesso no Asaas.`);
+    }
+  } catch (error) {
+    console.error('Erro ao chamar API do Asaas para atualizar cliente:', error);
+  }
+}
+
 export async function createAsaasPayment(data: AsaasPaymentData) {
   if (!ASAAS_API_KEY) {
     throw new Error('ASAAS_API_KEY não está configurada no ambiente.');

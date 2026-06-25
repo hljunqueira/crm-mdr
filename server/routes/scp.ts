@@ -361,6 +361,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     let activeDevicesCount = 0;
     let paidDevicesCount = 0;
     let defaultedDevicesCount = 0;
+    let projectedInterest = 0;
+    const monthlyForecastMap: Record<string, { month: string; amount: number }> = {};
 
     const myProducts: any[] = [];
     const lotsList = [];
@@ -392,7 +394,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           // Get sales for these devices
           const { data: sales } = await supabase
             .from("sales")
-            .select("id, device_id, customer:customers(name), installments")
+            .select("id, device_id, total_value, original_price, customer:customers(name), installments")
             .in("device_id", deviceIds)
             .neq("status", "cancelled");
 
@@ -402,7 +404,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
               // Fetch installments for this sale
               const { data: insts } = await supabase
                 .from("installments")
-                .select("id, status, value, paid_value, installment_number")
+                .select("id, status, value, paid_value, installment_number, due_date")
                 .eq("sale_id", devSale.id)
                 .neq("status", "cancelled");
 
@@ -415,6 +417,34 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
               const devCapReturned = devTxs.filter(t => t.type === "AMORTIZATION").reduce((sum, t) => sum + Number(t.amount || 0), 0) * ownershipFraction;
               const devIntReceived = devTxs.filter(t => t.type === "PROFIT").reduce((sum, t) => sum + Number(t.amount || 0), 0) * ownershipFraction;
+
+              // Calculate projected interest & monthly forecast for unpaid installments
+              const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
+              unpaidInsts.forEach(inst => {
+                const instValue = Number(inst.value);
+                const netValue = instValue * 0.90; // 10% operational fee
+                const saleTotal = Number(devSale.total_value || 0);
+                const costFraction = saleTotal > 0 ? Number(dev.cost_price || 0) / saleTotal : 0;
+                const totalAmortization = netValue * costFraction;
+                const totalProfit = netValue - totalAmortization;
+                const investorProfit = totalProfit * ownershipFraction;
+                projectedInterest += investorProfit;
+
+                // Add to monthly forecast
+                const date = new Date(inst.due_date);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                const label = date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+                if (!monthlyForecastMap[key]) {
+                  monthlyForecastMap[key] = { month: label.toUpperCase(), amount: 0 };
+                }
+                monthlyForecastMap[key].amount += (totalAmortization * ownershipFraction) + investorProfit;
+              });
+
+              // Contract total profit & final value for the investor
+              const saleTotal = Number(devSale.total_value || 0);
+              const projectedTotalContract = saleTotal * 0.90 * ownershipFraction;
+              const investorCapital = Number(dev.cost_price || 0) * ownershipFraction;
+              const projectedTotalProfit = Math.max(0, projectedTotalContract - investorCapital);
 
               let devStatus = "ativo";
               if (paidInst === totalInst) {
@@ -437,6 +467,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 interestReceived: Number(devIntReceived.toFixed(2)),
                 totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
                 remainingValue: Number((q.amount_invested * ownershipFraction - devCapReturned).toFixed(2)),
+                projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
+                projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
                 status: devStatus
               });
             } else {
@@ -451,6 +483,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 interestReceived: 0,
                 totalReceived: 0,
                 remainingValue: Number((Number(dev.cost_price || 0) * ownershipFraction).toFixed(2)),
+                projectedTotalProfit: 0,
+                projectedTotalContract: 0,
                 status: "estoque"
               });
               activeDevicesCount++;
@@ -487,12 +521,11 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           healthRate: lotHealthRate,
           status: lot.status,
           contractUrl: q.contract_url,
-          signedContractAt: q.signed_contract_at
+          signed_contract_at: q.signed_contract_at
         });
       }
     }
 
-    // 6. PRIME PORTFOLIO (Estoque Próprio)
     // 6. PRIME PORTFOLIO (Estoque Próprio)
     const { data: primeDevices, error: primeErr } = await supabase
       .from("devices")
@@ -509,7 +542,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
       const { data: sales } = await supabase
         .from("sales")
-        .select("id, customer:customers(name), total_value")
+        .select("id, customer:customers(name), total_value, original_price")
         .eq("device_id", dev.id)
         .neq("status", "cancelled")
         .maybeSingle();
@@ -517,7 +550,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       if (sales) {
         const { data: insts } = await supabase
           .from("installments")
-          .select("id, status, value, paid_value, installment_number")
+          .select("id, status, value, paid_value, installment_number, due_date")
           .eq("sale_id", sales.id)
           .neq("status", "cancelled");
 
@@ -528,6 +561,39 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         const devTxs = credits.filter(t => t.description && t.description.includes(`Celular #${dev.id}`));
         const devCapReturned = devTxs.filter(t => t.type === "AMORTIZATION").reduce((sum, t) => sum + Number(t.amount || 0), 0);
         const devIntReceived = devTxs.filter(t => t.type === "PROFIT").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+        // Calculate projected interest & monthly forecast for unpaid installments
+        const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
+        unpaidInsts.forEach(inst => {
+          const instValue = Number(inst.value);
+          const saleTotal = Number(sales.total_value || 0);
+          const saleOriginal = Number(sales.original_price || dev.cost_price || 0);
+          const amortization = saleTotal > 0 ? instValue * (saleOriginal / saleTotal) : 0;
+          const totalProfit = instValue - amortization;
+          const adminFee = Number(dev.prime_admin_fee ?? 0.10);
+          const profitShare = Number(dev.prime_profit_share ?? 0.60);
+          const netProfit = totalProfit * (1.0 - adminFee);
+          const investorProfit = netProfit * profitShare;
+          projectedInterest += investorProfit;
+
+          // Add to monthly forecast
+          const date = new Date(inst.due_date);
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const label = date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+          if (!monthlyForecastMap[key]) {
+            monthlyForecastMap[key] = { month: label.toUpperCase(), amount: 0 };
+          }
+          monthlyForecastMap[key].amount += amortization + investorProfit;
+        });
+
+        const saleTotal = Number(sales.total_value || 0);
+        const saleOriginal = Number(sales.original_price || dev.cost_price || 0);
+        const adminFee = Number(dev.prime_admin_fee ?? 0.10);
+        const profitShare = Number(dev.prime_profit_share ?? 0.60);
+        const totalProfit = saleTotal - saleOriginal;
+        const netProfit = totalProfit * (1.0 - adminFee);
+        const projectedTotalProfit = Math.max(0, netProfit * profitShare);
+        const projectedTotalContract = saleOriginal + projectedTotalProfit;
 
         let devStatus = "ativo";
         if (paidInst === totalInst) {
@@ -550,6 +616,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           interestReceived: Number(devIntReceived.toFixed(2)),
           totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
           remainingValue: Number((Number(dev.cost_price || 0) - devCapReturned).toFixed(2)),
+          projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
+          projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
           status: devStatus
         });
       } else {
@@ -563,6 +631,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           interestReceived: 0,
           totalReceived: 0,
           remainingValue: Number(Number(dev.cost_price || 0).toFixed(2)),
+          projectedTotalProfit: 0,
+          projectedTotalContract: 0,
           status: "estoque"
         });
         activeDevicesCount++;
@@ -615,6 +685,24 @@ router.get("/dashboard/:profile_id", async (req, res) => {
               totalRendaOverdue += shareValue;
               purchaseOverdueValue += shareValue;
             }
+
+            // Calculate projected interest for unpaid installments in Renda model
+            const instValue = Number(inst.value);
+            const totalPayout = instValue * Number(pur.ownership_percentage || 1);
+            const totalReceivable = Number(pur.total_receivable || 0);
+            const costFraction = totalReceivable > 0 ? Number(pur.purchase_price || 0) / totalReceivable : 0;
+            const investorAmortization = totalPayout * costFraction;
+            const investorProfit = totalPayout - investorAmortization;
+            projectedInterest += investorProfit;
+
+            // Add to monthly forecast
+            const date = new Date(inst.due_date);
+            const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const label = date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }).replace(".", "");
+            if (!monthlyForecastMap[key]) {
+              monthlyForecastMap[key] = { month: label.toUpperCase(), amount: 0 };
+            }
+            monthlyForecastMap[key].amount += shareValue;
           }
         }
       }
@@ -623,6 +711,9 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       const devInfo = pur.sale && (pur.sale as any).device
         ? `${(pur.sale as any).device.brand} ${(pur.sale as any).device.model}`
         : "Aparelho";
+
+      const projectedTotalContract = Number(pur.total_receivable) * Number(pur.ownership_percentage || 1);
+      const projectedTotalProfit = Math.max(0, projectedTotalContract - Number(pur.purchase_price));
 
       rendaPurchasesList.push({
         id: pur.id,
@@ -634,6 +725,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         ownershipPercentage: Number(pur.ownership_percentage) * 100,
         paidValue: Number(purchasePaidValue.toFixed(2)),
         overdueValue: Number(purchaseOverdueValue.toFixed(2)),
+        projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
+        projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
         status: purchaseOverdueValue > 0 ? "atrasado" : (totalRendaFuture === 0 ? "quitado" : "em dia"),
         createdAt: pur.created_at
       });
@@ -642,6 +735,13 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     const capitalInvested = legacyCapitalInvested + primeCapitalInvested + rendaCapitalInvested;
     const roi = capitalInvested > 0 ? (interestReceived / capitalInvested) * 100 : 0;
     const delinquencyRate = totalRendaReceivable > 0 ? (totalRendaOverdue / totalRendaReceivable) * 100 : 0;
+
+    const monthlyForecast = Object.keys(monthlyForecastMap)
+      .sort()
+      .map(k => ({
+        month: monthlyForecastMap[k].month,
+        amount: Number(monthlyForecastMap[k].amount.toFixed(2))
+      }));
 
     res.json({
       wallet: {
@@ -654,7 +754,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         roi,
         activeDevicesCount,
         paidDevicesCount,
-        defaultedDevicesCount
+        defaultedDevicesCount,
+        projectedInterest: Number(projectedInterest.toFixed(2))
       },
       lots: lotsList,
       products: [...myProducts, ...primeProductsList],
@@ -678,7 +779,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           year: "numeric"
         })
       })),
-      monthlyHistory
+      monthlyHistory,
+      monthlyForecast
     });
 
   } catch (error: any) {
@@ -1068,57 +1170,52 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
     const costPrice = Number(template.cost_price || 0);
 
     let linkedCount = 0;
-    let createdCount = 0;
     let totalCostCredited = 0;
+
+    // Validar todos os IMEIs antes de processar
+    const invalidImeis: string[] = [];
+    const validDevicesToLink: any[] = [];
 
     for (const rawImei of imeis) {
       const imei = String(rawImei).trim();
       if (!imei) continue;
 
-      // Verificar se já existe um dispositivo cadastrado com este IMEI
       const { data: existingDevice } = await supabase
         .from("devices")
-        .select("id, investor_id, status")
+        .select("id, brand, model, imei, status, investor_id, cost_price")
         .eq("imei", imei)
         .maybeSingle();
 
-      if (existingDevice) {
-        // Apenas vincula se ainda não pertencer a outro investidor e estiver disponível
-        if (!existingDevice.investor_id && existingDevice.status === "available") {
-          await supabase
-            .from("devices")
-            .update({
-              investor_id,
-              prime_profit_share: share,
-              prime_admin_fee: fee
-            })
-            .eq("id", existingDevice.id);
-          
-          linkedCount++;
-          totalCostCredited += costPrice;
-        }
+      if (!existingDevice) {
+        invalidImeis.push(`${imei} (Não cadastrado no estoque)`);
+      } else if (existingDevice.investor_id) {
+        invalidImeis.push(`${imei} (Já vinculado a outro investidor)`);
+      } else if (existingDevice.status !== "available") {
+        invalidImeis.push(`${imei} (Não disponível - Status: ${existingDevice.status})`);
       } else {
-        // Criar um novo aparelho físico sob patrocínio/compra financeira do investidor
-        await supabase
-          .from("devices")
-          .insert({
-            store_id: template.store_id,
-            brand: template.brand,
-            model: template.model,
-            condition: template.condition || "new",
-            cost_price: costPrice,
-            sale_price: Number(template.sale_price || 0),
-            stock_quantity: 1,
-            status: "available",
-            imei: imei,
-            investor_id: investor_id,
-            prime_profit_share: share,
-            prime_admin_fee: fee
-          });
-        
-        createdCount++;
-        totalCostCredited += costPrice;
+        validDevicesToLink.push(existingDevice);
       }
+    }
+
+    if (invalidImeis.length > 0) {
+      return res.status(400).json({
+        error: `Não foi possível vincular. Os seguintes IMEIs são inválidos: ${invalidImeis.join(", ")}`
+      });
+    }
+
+    // Vincular os aparelhos válidos
+    for (const dev of validDevicesToLink) {
+      await supabase
+        .from("devices")
+        .update({
+          investor_id,
+          prime_profit_share: share,
+          prime_admin_fee: fee
+        })
+        .eq("id", dev.id);
+
+      linkedCount++;
+      totalCostCredited += Number(dev.cost_price || costPrice);
     }
 
     // 2. Atualizar recebíveis futuros na carteira do investidor
@@ -1149,9 +1246,9 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
 
     res.json({
       success: true,
-      message: `Processamento em lote concluído com sucesso. Vinculados: ${linkedCount}, Criados: ${createdCount}.`,
+      message: `Processamento em lote concluído com sucesso. Vinculados: ${linkedCount}.`,
       linkedCount,
-      createdCount,
+      createdCount: 0,
       totalCostCredited
     });
   } catch (error: any) {
