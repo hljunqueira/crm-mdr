@@ -718,7 +718,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
   }, [formData.customer_id, fetchInstallments]);
 
   const availableDevices = useMemo(() =>
-    inventory.filter(item => ((item.stock_quantity || 0) > 0 || item.category === 'service') && item.status === 'available'),
+    inventory.filter(item => {
+      const isVirtualOrService = item.category === 'service' || 
+                                 item.category === 'other' || 
+                                 item.model.toLowerCase().includes('diversos') || 
+                                 item.brand.toLowerCase().includes('diversos');
+      return (isVirtualOrService || (item.stock_quantity || 0) > 0) && 
+             (isVirtualOrService || item.status === 'available');
+    }),
     [inventory]);
 
   const filteredDevices = useMemo(() => {
