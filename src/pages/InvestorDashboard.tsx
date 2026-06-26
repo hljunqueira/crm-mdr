@@ -271,10 +271,10 @@ export default function InvestorDashboard() {
   } else {
     // A Prazo 12x com juros
     simSaleTotal = salePriceVal * (1 + simInterestRate * 12);
-    simSaleGrossProfit = Math.max(0, simSaleTotal - salePriceVal); // Juros gerados
+    simSaleGrossProfit = Math.max(0, simSaleTotal - costPriceVal);
     simSaleNetProfit = simSaleGrossProfit * (1 - adminFeeVal / 100);
     simSaleInvestorProfit = simSaleNetProfit * (profitShareVal / 100);
-    simSaleAmortization = salePriceVal; // Preço original à vista retorna como amortização
+    simSaleAmortization = costPriceVal; // Retorna o capital investido (custo)
     simSaleTotalPayout = simSaleAmortization + simSaleInvestorProfit;
   }
 
@@ -767,6 +767,24 @@ export default function InvestorDashboard() {
                           <span>Retorno Total Estimado:</span>
                           <span className="font-mono">R$ {simSaleTotalPayout.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
+
+                        {simSaleType === 'prazo' && (
+                          <div className="border-t border-zinc-800/80 pt-2 mt-2 space-y-1 text-[9px] text-zinc-400 bg-black/20 p-2 rounded-xl border border-zinc-800/30">
+                            <span className="font-bold text-white uppercase tracking-wider block text-[8px] mb-1">Detalhamento por Parcela (12x)</span>
+                            <div className="flex justify-between">
+                              <span>Parcela de Capital (Amortização):</span>
+                              <span className="font-mono text-zinc-300">R$ {(simSaleAmortization / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Parcela de Juros (Repasse):</span>
+                              <span className="font-mono text-emerald-400">R$ {(simSaleInvestorProfit / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between border-t border-zinc-800/60 pt-1 mt-1 font-bold text-emerald-400">
+                              <span>Repasse Total por Parcela:</span>
+                              <span className="font-mono">R$ {(simSaleTotalPayout / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

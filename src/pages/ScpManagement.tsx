@@ -15,7 +15,10 @@ export default function ScpManagement() {
   } = useScpStore();
   const { showNotification, showModal, hideModal } = useUI();
 
-  const [activePanelTab, setActivePanelTab] = useState<'prime' | 'renda' | 'withdrawals'>('prime');
+  const [activePanelTab, setActivePanelTab] = useState<'prime' | 'renda' | 'withdrawals' | 'investors'>('prime');
+  const [deviceSearchQuery, setDeviceSearchQuery] = useState('');
+  const [allUsersList, setAllUsersList] = useState<any[]>([]);
+  const [isLoadingUsersList, setIsLoadingUsersList] = useState(false);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newLot, setNewLot] = useState({ title: '', target_amount: 0, status: 'OPEN' as any });
@@ -47,6 +50,7 @@ export default function ScpManagement() {
   const [isLinkDevicesOpen, setIsLinkDevicesOpen] = useState(false);
   const [availableDevices, setAvailableDevices] = useState<any[]>([]);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [primeSelectedDeviceIds, setPrimeSelectedDeviceIds] = useState<string[]>([]);
 
   // Estados para edição de contrato
   const [isContractUrlOpen, setIsContractUrlOpen] = useState(false);
@@ -62,20 +66,16 @@ export default function ScpManagement() {
   const [selectedGroupKey, setSelectedGroupKey] = useState('');
   const [primeQuantityInput, setPrimeQuantityInput] = useState<number | ''>(1);
 
-  // Group available devices by brand + model + cost + sale to show in dropdown
-  const groupedAvailableDevices = React.useMemo(() => {
-    const map = new Map<string, { brand: string; model: string; cost_price: number; sale_price: number; count: number; ids: string[] }>();
-    for (const d of availableDevices) {
-      const key = `${d.brand}|${d.model}|${d.cost_price}|${d.sale_price}`;
-      if (!map.has(key)) {
-        map.set(key, { brand: d.brand, model: d.model, cost_price: Number(d.cost_price), sale_price: Number(d.sale_price), count: 0, ids: [] });
-      }
-      const item = map.get(key)!;
-      item.count += 1;
-      item.ids.push(d.id);
-    }
-    return Array.from(map.values());
-  }, [availableDevices]);
+  // Filter available devices by search query
+  const filteredAvailableDevices = React.useMemo(() => {
+    if (!deviceSearchQuery) return availableDevices;
+    const q = deviceSearchQuery.toLowerCase();
+    return availableDevices.filter(d => 
+      (d.brand && d.brand.toLowerCase().includes(q)) ||
+      (d.model && d.model.toLowerCase().includes(q)) ||
+      (d.imei && d.imei.toLowerCase().includes(q))
+    );
+  }, [availableDevices, deviceSearchQuery]);
 
   // States para Renda
   const [rendaPurchases, setRendaPurchases] = useState<any[]>([]);
@@ -86,6 +86,7 @@ export default function ScpManagement() {
   const [purchasePrice, setPurchasePrice] = useState<number | ''>('');
   const [totalReceivableVal, setTotalReceivableVal] = useState<number | ''>('');
   const [ownershipPercentage, setOwnershipPercentage] = useState(100);
+  const [interestRateInput, setInterestRateInput] = useState<number | ''>('');
 
   const fetchProfiles = async () => {
     const { data } = await supabase
@@ -135,6 +136,20 @@ export default function ScpManagement() {
     }
   };
 
+  const fetchAllUsersList = async () => {
+    try {
+      setIsLoadingUsersList(true);
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      setAllUsersList(data.filter((u: any) => u.role === 'investor' || u.role === 'admin') || []);
+    } catch (err) {
+      console.error(err);
+      showNotification('error', 'Erro', 'Falha ao buscar lista de investidores.');
+    } finally {
+      setIsLoadingUsersList(false);
+    }
+  };
+
   // Load lots, investors and withdrawals
   useEffect(() => {
     fetchLots();
@@ -148,6 +163,8 @@ export default function ScpManagement() {
       fetchPrimeDevices();
     } else if (activePanelTab === 'renda') {
       fetchRendaPurchases();
+    } else if (activePanelTab === 'investors') {
+      fetchAllUsersList();
     }
   }, [activePanelTab, fetchWithdrawals]);
 
@@ -267,17 +284,11 @@ export default function ScpManagement() {
 
   const handleLinkPrimeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const selectedGroup = groupedAvailableDevices.find(
-      g => `${g.brand}|${g.model}|${g.cost_price}|${g.sale_price}` === selectedGroupKey
-    );
-    const qty = Number(primeQuantityInput) || 0;
 
-    if (!selectedGroup || !primeInvestorId || qty <= 0) {
-      showNotification('error', 'Erro', 'Selecione o aparelho, o investidor e insira uma quantidade válida.');
+    if (primeSelectedDeviceIds.length === 0 || !primeInvestorId) {
+      showNotification('error', 'Erro', 'Selecione pelo menos um aparelho e o investidor.');
       return;
     }
-
-    const deviceIds = selectedGroup.ids.slice(0, qty);
 
     setIsSubmitting(true);
     try {
@@ -286,7 +297,7 @@ export default function ScpManagement() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           investor_id: primeInvestorId,
-          device_ids: deviceIds,
+          device_ids: primeSelectedDeviceIds,
           prime_profit_share: primeProfitShare === '' ? 0 : primeProfitShare,
           prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee
         })
@@ -295,8 +306,7 @@ export default function ScpManagement() {
       if (!res.ok) throw new Error(data.error || 'Falha ao vincular aparelhos Prime.');
       showNotification('success', 'Sucesso', data.message || 'Investidor Prime vinculado com sucesso!');
       setIsLinkPrimeOpen(false);
-      setSelectedGroupKey('');
-      setPrimeQuantityInput(1);
+      setPrimeSelectedDeviceIds([]);
       setPrimeInvestorId('');
       fetchPrimeDevices();
     } catch (err: any) {
@@ -521,11 +531,9 @@ export default function ScpManagement() {
   };
 
   // Calcs for Prime form
-  const selectedGroup = groupedAvailableDevices.find(
-    g => `${g.brand}|${g.model}|${g.cost_price}|${g.sale_price}` === selectedGroupKey
-  );
-  const costPrice = selectedGroup ? selectedGroup.cost_price : 0;
-  const salePrice = selectedGroup ? selectedGroup.sale_price : 0;
+  const primeSelectedDevices = availableDevices.filter(d => primeSelectedDeviceIds.includes(d.id));
+  const costPrice = primeSelectedDevices.reduce((sum, d) => sum + Number(d.cost_price || 0), 0);
+  const salePrice = primeSelectedDevices.reduce((sum, d) => sum + Number(d.sale_price || 0), 0);
   const grossProfit = Math.max(0, salePrice - costPrice);
   const feePct = Number(primeAdminFee) || 0;
   const sharePct = Number(primeProfitShare) || 0;
@@ -587,6 +595,16 @@ export default function ScpManagement() {
                   {withdrawals.filter(w => w.status === 'PENDING').length}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setActivePanelTab('investors')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activePanelTab === 'investors' 
+                  ? 'bg-emerald-500 text-black shadow-md' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Investidores / Parceiros
             </button>
           </div>
 
@@ -735,7 +753,7 @@ export default function ScpManagement() {
             </div>
           )}
         </div>
-      ) : (
+      ) : activePanelTab === 'withdrawals' ? (
         /* Aba de Resgates Pix */
         <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
           <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6">Solicitações de Resgate Pix</h3>
@@ -802,6 +820,57 @@ export default function ScpManagement() {
                           </span>
                         )}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Aba de Investidores / Parceiros */
+        <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Parceiros Investidores Cadastrados</h3>
+          </div>
+
+          {isLoadingUsersList ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <Loader2 className="animate-spin text-emerald-400" size={24} />
+              <span className="text-xs text-zinc-500">Carregando lista de investidores...</span>
+            </div>
+          ) : allUsersList.length === 0 ? (
+            <div className="text-center py-12 text-zinc-500 text-xs">Nenhum parceiro investidor cadastrado no momento.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                    <th className="py-4 px-4">Nome Completo</th>
+                    <th className="py-4 px-4">E-mail</th>
+                    <th className="py-4 px-4">Telefone</th>
+                    <th className="py-4 px-4">Função (Role)</th>
+                    <th className="py-4 px-4 text-right">Saldo Disponível</th>
+                    <th className="py-4 px-4 text-right">Recebíveis Futuros</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {allUsersList.map((u) => (
+                    <tr key={u.id} className="hover:bg-zinc-800/10 transition-colors">
+                      <td className="py-4 px-4 font-bold text-white">{u.full_name}</td>
+                      <td className="py-4 px-4 text-zinc-400">{u.email}</td>
+                      <td className="py-4 px-4 text-zinc-400 font-mono">{u.phone || '-'}</td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                          u.role === 'admin' 
+                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                        }`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-right font-bold text-emerald-400">R$ {Number(u.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 text-right font-bold text-zinc-300">R$ {Number(u.future_receipts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -999,10 +1068,14 @@ export default function ScpManagement() {
       {/* Modal: Vincular Celular a Investidor Prime */}
       {isLinkPrimeOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleLinkPrimeSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
+          <form onSubmit={handleLinkPrimeSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-4xl rounded-3xl p-6 space-y-4 shadow-2xl relative max-h-[90vh] flex flex-col">
             <button 
               type="button"
-              onClick={() => setIsLinkPrimeOpen(false)}
+              onClick={() => {
+                setIsLinkPrimeOpen(false);
+                setPrimeSelectedDeviceIds([]);
+                setDeviceSearchQuery('');
+              }}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
             >
               <X size={18} />
@@ -1010,28 +1083,8 @@ export default function ScpManagement() {
 
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celulares Prime</h3>
             <p className="text-xs text-zinc-400">
-              Associe aparelhos em estoque diretamente a um Investidor Prime selecionando o modelo base e a quantidade desejada.
+              Associe aparelhos em estoque diretamente a um Investidor Prime selecionando-os por IMEI.
             </p>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Aparelho de Referência (Custo/Venda)</label>
-              <select
-                required
-                value={selectedGroupKey}
-                onChange={(e) => {
-                  setSelectedGroupKey(e.target.value);
-                  setPrimeQuantityInput(1);
-                }}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
-              >
-                <option value="" disabled className="bg-[#121214]">-- Escolha o Modelo Base --</option>
-                {groupedAvailableDevices.map((g, idx) => (
-                  <option key={idx} value={`${g.brand}|${g.model}|${g.cost_price}|${g.sale_price}`} className="bg-[#121214]">
-                    {g.brand} {g.model} - Custo: R$ {g.cost_price.toLocaleString('pt-BR')} ({g.count} em estoque)
-                  </option>
-                ))}
-              </select>
-            </div>
 
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Investidor Prime</label>
@@ -1046,6 +1099,48 @@ export default function ScpManagement() {
                   <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Filtrar Aparelhos</label>
+              <input
+                type="text"
+                placeholder="Pesquise por marca, modelo ou IMEI..."
+                value={deviceSearchQuery}
+                onChange={(e) => setDeviceSearchQuery(e.target.value)}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-[220px] border border-zinc-800/80 rounded-2xl p-3">
+              {filteredAvailableDevices.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500 text-xs">Nenhum aparelho disponível localizado.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {filteredAvailableDevices.map((d) => (
+                    <label key={d.id} className="flex items-center gap-3 p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={primeSelectedDeviceIds.includes(d.id)}
+                        onChange={() => {
+                          setPrimeSelectedDeviceIds(prev => 
+                            prev.includes(d.id) ? prev.filter(id => id !== d.id) : [...prev, d.id]
+                          );
+                        }}
+                        className="accent-emerald-500 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-bold text-white block truncate uppercase">{d.brand} {d.model}</span>
+                        <span className="text-[9px] text-zinc-500 font-mono block truncate">IMEI: {d.imei || 'N/A'}</span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] text-zinc-400 block font-mono">Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-[10px] text-emerald-400 font-bold block font-mono">Venda: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -1067,10 +1162,10 @@ export default function ScpManagement() {
                 <input
                   type="number"
                   step="any"
-                  disabled={!selectedGroupKey || netProfit <= 0}
-                  value={selectedGroupKey && netProfit > 0 ? (netProfit * ((Number(primeProfitShare) || 0) / 100)).toFixed(2) : ''}
+                  disabled={primeSelectedDeviceIds.length === 0 || netProfit <= 0}
+                  value={primeSelectedDeviceIds.length > 0 && netProfit > 0 ? (netProfit * ((Number(primeProfitShare) || 0) / 100)).toFixed(2) : ''}
                   onChange={(e) => handleProfitValChange(e.target.value)}
-                  placeholder={!selectedGroupKey ? "Escolha..." : "R$ 0,00"}
+                  placeholder={primeSelectedDeviceIds.length === 0 ? "Escolha..." : "R$ 0,00"}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
                 />
               </div>
@@ -1088,18 +1183,18 @@ export default function ScpManagement() {
               </div>
             </div>
 
-            {selectedGroup && (
-              <div className="bg-white/[0.02] border border-zinc-800 p-3.5 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+            {primeSelectedDeviceIds.length > 0 && (
+              <div className="bg-white/[0.02] border border-zinc-800 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400 shrink-0">
                 <div className="flex justify-between">
-                  <span>Preço de Venda (À Vista):</span>
+                  <span>Preço de Venda Total:</span>
                   <span className="font-bold text-white">R$ {salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Custo do Aparelho:</span>
+                  <span>Custo Total do Lote:</span>
                   <span className="font-bold text-white">R$ {costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Margem Bruta (À Vista):</span>
+                  <span>Margem Bruta Estimada:</span>
                   <span className="font-bold text-zinc-300">R$ {grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
@@ -1113,32 +1208,21 @@ export default function ScpManagement() {
               </div>
             )}
 
-            {selectedGroup && (
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Quantidade a Vincular (Máx: {selectedGroup.count})</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  max={selectedGroup.count}
-                  value={primeQuantityInput}
-                  onChange={(e) => setPrimeQuantityInput(e.target.value === '' ? '' : Math.min(selectedGroup.count, Math.max(1, parseInt(e.target.value) || 1)))}
-                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-4">
+            <div className="flex gap-2 pt-2 shrink-0">
               <button
                 type="button"
-                onClick={() => setIsLinkPrimeOpen(false)}
+                onClick={() => {
+                  setIsLinkPrimeOpen(false);
+                  setPrimeSelectedDeviceIds([]);
+                  setDeviceSearchQuery('');
+                }}
                 className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !selectedGroupKey || (Number(primeQuantityInput) || 0) <= 0}
+                disabled={isSubmitting || primeSelectedDeviceIds.length === 0 || !primeInvestorId}
                 className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0 disabled:opacity-50"
               >
                 {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Vínculo'}
@@ -1149,120 +1233,219 @@ export default function ScpManagement() {
       )}
 
       {/* Modal: Vender Recebíveis de Contrato (Renda) */}
-      {isSellReceivableOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleSellReceivableSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
-            <button 
-              type="button"
-              onClick={() => setIsSellReceivableOpen(false)}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+      {isSellReceivableOpen && (() => {
+        const selectedSale = availableSales.find(s => s.id === selectedSaleId);
+        const installments = selectedSale?.installments_count || 12;
+        const imei = selectedSale?.device?.imei || 'N/A';
+        const brandModel = selectedSale?.device ? `${selectedSale.device.brand} ${selectedSale.device.model}` : 'N/A';
+        const saleTotal = selectedSale ? Number(selectedSale.total_value) : 0;
+        const monthlyEstimate = totalReceivableVal ? (Number(totalReceivableVal) * (ownershipPercentage / 100)) / installments : 0;
 
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vender Recebíveis</h3>
-            <p className="text-xs text-zinc-400">
-              Venda os recebíveis de um contrato de venda ativo para um Investidor Renda.
-            </p>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Contrato</label>
-              <select
-                required
-                value={selectedSaleId}
-                onChange={(e) => {
-                  const saleId = e.target.value;
-                  setSelectedSaleId(saleId);
-                  const selectedSale = availableSales.find(s => s.id === saleId);
-                  if (selectedSale) {
-                    setTotalReceivableVal(Number(selectedSale.total_value));
-                  }
-                }}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-              >
-                <option value="" disabled className="bg-[#121214]">-- Escolha o Contrato --</option>
-                {availableSales.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-[#121214]">
-                    {s.customer_name} - {s.device ? `${s.device.brand} ${s.device.model}` : 'Celular'} (Valor: R$ {Number(s.total_value).toLocaleString('pt-BR')})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Investidor Renda</label>
-              <select
-                required
-                value={rendaInvestorId}
-                onChange={(e) => setRendaInvestorId(e.target.value)}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-              >
-                <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
-                {investors.map((inv) => (
-                  <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Preço Compra (À Vista)</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  placeholder="Preço pago"
-                  value={purchasePrice}
-                  onChange={(e) => setPurchasePrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Valor Nominal Receber</label>
-                <input
-                  type="number"
-                  required
-                  min={1}
-                  placeholder="Valor total"
-                  value={totalReceivableVal}
-                  onChange={(e) => setTotalReceivableVal(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Porcentagem Adquirida (%)</label>
-              <input
-                type="number"
-                required
-                min={1}
-                max={100}
-                value={ownershipPercentage}
-                onChange={(e) => setOwnershipPercentage(parseInt(e.target.value))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <button
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <form onSubmit={handleSellReceivableSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
+              <button 
                 type="button"
-                onClick={() => setIsSellReceivableOpen(false)}
-                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+                onClick={() => {
+                  setIsSellReceivableOpen(false);
+                  setSelectedSaleId('');
+                  setPurchasePrice('');
+                  setTotalReceivableVal('');
+                  setInterestRateInput('');
+                  setOwnershipPercentage(100);
+                }}
+                className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
               >
-                Cancelar
+                <X size={18} />
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 py-3.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
-              >
-                {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Venda'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vender Recebíveis</h3>
+              <p className="text-xs text-zinc-400">
+                Venda os recebíveis de um contrato de venda ativo para um Investidor Renda.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Contrato</label>
+                <select
+                  required
+                  value={selectedSaleId}
+                  onChange={(e) => {
+                    const saleId = e.target.value;
+                    setSelectedSaleId(saleId);
+                    const sSale = availableSales.find(s => s.id === saleId);
+                    if (sSale) {
+                      const sVal = Number(sSale.total_value);
+                      setTotalReceivableVal(sVal);
+                      setPurchasePrice(sVal);
+                      setInterestRateInput(0);
+                    }
+                  }}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                >
+                  <option value="" disabled className="bg-[#121214]">-- Escolha o Contrato --</option>
+                  {availableSales.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-[#121214]">
+                      {s.customer_name} - {s.device ? `${s.device.brand} ${s.device.model}` : 'Celular'} (Valor: R$ {Number(s.total_value).toLocaleString('pt-BR')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedSale && (
+                <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1 text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Equipamento Sold:</span>
+                    <span className="font-bold text-white">{brandModel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>IMEI do Equipamento:</span>
+                    <span className="font-mono font-bold text-white select-all">{imei}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Valor Original Venda:</span>
+                    <span className="font-bold text-white">R$ {saleTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Quantidade de Parcelas:</span>
+                    <span className="font-bold text-white">{installments}x</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Investidor Renda</label>
+                <select
+                  required
+                  value={rendaInvestorId}
+                  onChange={(e) => setRendaInvestorId(e.target.value)}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                >
+                  <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
+                  {investors.map((inv) => (
+                    <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Valor Nominal Receber</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    step="any"
+                    placeholder="Valor total"
+                    value={totalReceivableVal}
+                    onChange={(e) => {
+                      const recVal = parseFloat(e.target.value) || 0;
+                      setTotalReceivableVal(e.target.value === '' ? '' : recVal);
+                      if (interestRateInput !== '' && interestRateInput >= 0) {
+                        const price = recVal / (1 + (Number(interestRateInput) / 100));
+                        setPurchasePrice(parseFloat(price.toFixed(2)));
+                      }
+                    }}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Taxa de Juros / Retorno (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step="any"
+                    placeholder="Ex: 10"
+                    value={interestRateInput}
+                    onChange={(e) => {
+                      const rate = e.target.value === '' ? '' : parseFloat(e.target.value);
+                      setInterestRateInput(rate);
+                      if (rate !== '' && rate >= 0 && totalReceivableVal) {
+                        const price = Number(totalReceivableVal) / (1 + (rate / 100));
+                        setPurchasePrice(parseFloat(price.toFixed(2)));
+                      }
+                    }}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Desembolso Imediato (Preço Pago)</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    step="any"
+                    placeholder="Preço pago"
+                    value={purchasePrice}
+                    onChange={(e) => {
+                      const price = e.target.value === '' ? '' : parseFloat(e.target.value);
+                      setPurchasePrice(price);
+                      if (price !== '' && price > 0 && totalReceivableVal) {
+                        const rate = ((Number(totalReceivableVal) - price) / price) * 100;
+                        setInterestRateInput(parseFloat(rate.toFixed(2)));
+                      }
+                    }}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Porcentagem Adquirida (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={100}
+                    value={ownershipPercentage}
+                    onChange={(e) => setOwnershipPercentage(parseInt(e.target.value) || 100)}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              {selectedSale && totalReceivableVal !== '' && (
+                <div className="bg-indigo-500/5 border border-indigo-500/10 p-3 rounded-2xl text-[10px] space-y-1.5 text-indigo-300 shrink-0">
+                  <div className="flex justify-between font-bold">
+                    <span>Recebimento Mensal Estimado:</span>
+                    <span>R$ {monthlyEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <p className="text-[8px] text-zinc-500 leading-normal uppercase">
+                    * Estimado em {installments} parcelas mensais de R$ {(Number(totalReceivableVal) * (ownershipPercentage / 100) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSellReceivableOpen(false);
+                    setSelectedSaleId('');
+                    setPurchasePrice('');
+                    setTotalReceivableVal('');
+                    setInterestRateInput('');
+                    setOwnershipPercentage(100);
+                  }}
+                  className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !selectedSaleId || !rendaInvestorId}
+                  className="flex-1 py-3.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+                >
+                  {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Confirmar Venda'}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
     </div>
   );
 }

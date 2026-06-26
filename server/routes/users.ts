@@ -19,6 +19,11 @@ router.get('/', async (req, res) => {
       return res.status(400).json({ error: profError.message });
     }
 
+    // Buscar carteiras no banco
+    const { data: wallets } = await supabase
+      .from('wallets')
+      .select('profile_id, balance, future_receipts');
+
     // 2. Buscar e-mails do Supabase Auth (usando Admin SDK)
     let authUsers: any[] = [];
     try {
@@ -32,12 +37,15 @@ router.get('/', async (req, res) => {
       console.warn('[Users GET] Falha silenciosa no Auth SDK:', e);
     }
 
-    // 3. Mesclar e-mails
+    // 3. Mesclar e-mails e saldos
     const merged = profiles.map(profile => {
       const authUser = authUsers.find(u => u.id === profile.id);
+      const walletObj = wallets?.find(w => w.profile_id === profile.id);
       return {
         ...profile,
-        email: authUser?.email || 'N/A'
+        email: authUser?.email || 'N/A',
+        balance: walletObj ? Number(walletObj.balance) : 0,
+        future_receipts: walletObj ? Number(walletObj.future_receipts) : 0
       };
     });
 

@@ -1278,7 +1278,7 @@ router.get("/available-sales", async (req, res) => {
 
     let query = supabase
       .from("sales")
-      .select("id, customer:customers(name), total_value, created_at, device:devices(brand, model, imei)")
+      .select("id, customer:customers(name), total_value, created_at, installments_count, device:devices(brand, model, imei)")
       .neq("status", "cancelled");
 
     if (purchasedIds.length > 0) {

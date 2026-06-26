@@ -1,26 +1,33 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+import { supabase } from '../server/lib/supabase.js';
 
 async function run() {
-  console.log('Searching for customers in DB...');
+  const storeId = 'b2b1f71d-0471-49a1-b151-865ccc3cd627';
+  
+  // Fetch a few customers from this unit
   const { data: customers, error } = await supabase
     .from('customers')
     .select('*')
-    .ilike('name', '%tuanny%');
+    .eq('unit_id', storeId)
+    .order('created_at', { ascending: false })
+    .limit(10);
 
   if (error) {
-    console.error('Error:', error);
+    console.error("Error fetching customers:", error);
     return;
   }
 
-  console.log('Customers matching tuanny:', customers);
+  console.log(`Found ${customers.length} recent customers for Arthur's store:`);
+  customers.forEach(c => {
+    console.log(`- ID: ${c.id}, Name: ${c.name}, CPF: "${c.cpf}", Phone: "${c.phone}", Created: ${c.created_at}`);
+  });
+
+  // Let's count total customers for this store
+  const { count, error: countErr } = await supabase
+    .from('customers')
+    .select('*', { count: 'exact', head: true })
+    .eq('unit_id', storeId);
+
+  console.log("Total customers in store:", count);
 }
 
 run();
