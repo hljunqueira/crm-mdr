@@ -52,12 +52,6 @@ export default function CreditAnalysis() {
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>('cadastro');
 
-  // Estados do Simulador de Crédito
-  const [simAmountToFinance, setSimAmountToFinance] = useState<number | ''>('');
-  const [simDownPayment, setSimDownPayment] = useState<number | ''>('');
-  const [simInstallmentCount, setSimInstallmentCount] = useState<number>(12);
-  const [simRiskProfile, setSimRiskProfile] = useState<'BOM' | 'MEDIO' | 'RUIM'>('MEDIO');
-
   // Form States
   const [formData, setFormData] = useState({
     classification: 'MEDIO' as 'BOM' | 'MEDIO' | 'RUIM' | 'A_VISTA',
@@ -175,66 +169,7 @@ export default function CreditAnalysis() {
     }
   }, [selectedCustomer, profile?.id]);
 
-  // Atualiza os valores do simulador quando o cliente selecionado mudar
-  useEffect(() => {
-    if (selectedCustomer) {
-      const devices = parseDesiredDevices(selectedCustomer.desired_device);
-      const neededCreditVal = devices && devices.length > 0 ? dynamicNeededCredit : (selectedCustomer.needed_credit || 0);
-      setSimAmountToFinance(neededCreditVal || 0);
-      setSimDownPayment(selectedCustomer.suggested_down_payment || 0);
-      const riskClass = (selectedCustomer.classification || 'MEDIO').toUpperCase();
-      setSimRiskProfile(riskClass === 'BOM' || riskClass === 'MEDIO' || riskClass === 'RUIM' ? riskClass as any : 'MEDIO');
-      setSimInstallmentCount(12);
-    } else {
-      setSimAmountToFinance('');
-      setSimDownPayment('');
-      setSimRiskProfile('MEDIO');
-      setSimInstallmentCount(12);
-    }
-  }, [selectedCustomer, dynamicNeededCredit]);
 
-  // Cálculos das tabelas do simulador
-  const simCalculations = useMemo(() => {
-    const amount = Number(simAmountToFinance) || 0;
-    const down = Number(simDownPayment) || 0;
-    const financed = Math.max(0, amount - down);
-    const n = simInstallmentCount || 12;
-
-    const riskMultiplier = 
-      simRiskProfile === 'RUIM' ? 1.15 :
-      simRiskProfile === 'MEDIO' ? 1.05 : 1.00;
-
-    const calculatePMT = (financedAmount: number, rate: number, n: number) => {
-      if (financedAmount <= 0) return 0;
-      if (n <= 0) return 0;
-      if (rate <= 0) return financedAmount / n;
-      return financedAmount * (rate * Math.pow(1 + rate, n)) / (Math.pow(1 + rate, n) - 1);
-    };
-
-    // Tabelas: premium (5%), standard (8%), flex (12%)
-    const tables = [
-      { name: 'Tabela Premium', rate: 0.05, label: 'PREMIUM (5%)', color: 'text-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5' },
-      { name: 'Tabela Standard', rate: 0.08, label: 'STANDARD (8%)', color: 'text-sky-400', border: 'border-sky-500/20', bg: 'bg-sky-500/5' },
-      { name: 'Tabela Flex', rate: 0.12, label: 'FLEX (12%)', color: 'text-amber-400', border: 'border-amber-500/20', bg: 'bg-amber-500/5' }
-    ];
-
-    return tables.map(t => {
-      const finalRate = t.rate * riskMultiplier;
-      const basePMT = calculatePMT(financed, finalRate, n);
-      // Inclui a taxa de crediário de 1.99 padrão por parcela
-      const installmentValue = financed > 0 ? Number((basePMT + 1.99).toFixed(2)) : 0;
-      const totalPaid = installmentValue * n;
-      const totalInterest = Math.max(0, totalPaid - financed);
-
-      return {
-        ...t,
-        installmentValue,
-        totalPaid,
-        totalInterest,
-        financed
-      };
-    });
-  }, [simAmountToFinance, simDownPayment, simInstallmentCount, simRiskProfile]);
 
   const fetchQueryHistory = async (customerId: string) => {
     setIsLoadingHistory(true);
@@ -888,113 +823,7 @@ export default function CreditAnalysis() {
         {/* COLUNA 2 E 3: PAINEL DE ANÁLISE DETALHADA */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           
-          {/* Painel de Simulação Comparativa de Parcelas */}
-          <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
-            <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-              <Calculator size={16} className="text-primary" />
-              <span className="text-xs font-black text-primary uppercase tracking-widest block">Simulador de Parcelas (Comparativo)</span>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Valor do Aparelho (R$)</label>
-                <input 
-                  type="number"
-                  step="any"
-                  value={simAmountToFinance}
-                  onChange={(e) => setSimAmountToFinance(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 rounded-xl px-3 py-2 text-xs text-white outline-none transition-colors font-mono"
-                  placeholder="Ex: 1500"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Valor da Entrada (R$)</label>
-                <input 
-                  type="number"
-                  step="any"
-                  value={simDownPayment}
-                  onChange={(e) => setSimDownPayment(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 rounded-xl px-3 py-2 text-xs text-white outline-none transition-colors font-mono"
-                  placeholder="Ex: 300"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Nº de Parcelas</label>
-                <select
-                  value={simInstallmentCount}
-                  onChange={(e) => setSimInstallmentCount(parseInt(e.target.value))}
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 rounded-xl px-3 py-2 text-xs text-white outline-none transition-colors"
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18, 24].map(n => (
-                    <option key={n} value={n} className="bg-[#121214]">{n}x</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] uppercase tracking-wider text-on-surface-variant font-bold block pl-1">Perfil de Risco</label>
-                <select
-                  value={simRiskProfile}
-                  onChange={(e) => setSimRiskProfile(e.target.value as any)}
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 rounded-xl px-3 py-2 text-xs text-white outline-none transition-colors"
-                >
-                  <option value="BOM" className="bg-[#121214]">BOM (Juros normal)</option>
-                  <option value="MEDIO" className="bg-[#121214]">MEDIO (Juros +5%)</option>
-                  <option value="RUIM" className="bg-[#121214]">RUIM (Juros +15%)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Exibição Comparativa das Tabelas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-              {simCalculations.map((calc, idx) => (
-                <div key={idx} className={cn(
-                  "border rounded-3xl p-4 space-y-3 flex flex-col justify-between transition-all",
-                  calc.bg,
-                  calc.border
-                )}>
-                  <div>
-                    <div className="flex justify-between items-center border-b border-white/5 pb-2 mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-white">{calc.name}</span>
-                      <span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-white/5 font-mono", calc.color)}>
-                        {calc.label}
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-1 text-[11px] text-on-surface-variant">
-                      <div className="flex justify-between">
-                        <span>Financiado:</span>
-                        <span className="font-mono text-white">
-                          {calc.financed.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Juros:</span>
-                        <span className="font-mono text-white">
-                          {calc.totalInterest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-white/5 pt-1.5 mt-1.5">
-                        <span>Total Geral:</span>
-                        <span className="font-mono text-white font-bold">
-                          {calc.totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-black/20 border border-white/5 rounded-2xl p-3 text-center">
-                    <span className="text-[8px] font-black text-on-surface-variant uppercase tracking-widest block mb-1">Valor da Parcela</span>
-                    <h4 className={cn("text-lg font-black font-mono leading-none", calc.color)}>
-                      {simInstallmentCount}x de {calc.installmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </h4>
-                    <span className="text-[8px] text-on-surface-variant/70 block mt-1 font-mono uppercase">
-                      Com taxa de R$ 1,99 inclusa
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {!selectedCustomer ? (
             <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-8 h-[30vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">

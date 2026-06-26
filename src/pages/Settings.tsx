@@ -328,7 +328,8 @@ export default function Settings() {
         password: '',
         full_name: '',
         role: 'attendant',
-        store_id: ''
+        store_id: '',
+        phone: ''
       });
       fetchUsers();
     } catch (err: any) {
@@ -1561,6 +1562,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                                 { key: 'Dashboard', label: 'Dashboard' },
                                 { key: 'Relatórios', label: 'Relatórios' },
                                 { key: 'Leads', label: 'Leads' },
+                                { key: 'Simulador de Parcelas', label: 'Simulador de Parcelas' },
                                 { key: 'Clientes', label: 'Clientes' },
                                 { key: 'Vendas & Celulares', label: 'Vendas & Celulares' },
                                 { key: 'Análise de Crédito', label: 'Análise de Crédito' },

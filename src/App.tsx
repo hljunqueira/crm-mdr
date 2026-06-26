@@ -21,6 +21,7 @@ import Suppliers from './pages/Suppliers';
 import Partners from './pages/Partners';
 import Connections from './pages/Connections'; // Conexões multicanais
 import CreditAnalysis from './pages/CreditAnalysis';
+import Simulator from './pages/Simulator';
 import ServiceOrders from './pages/ServiceOrders';
 import OutsourcedOrders from './pages/OutsourcedOrders';
 import Fiscal from './pages/Fiscal';
@@ -73,6 +74,7 @@ export default function App() {
           {/* App protected routes */}
           <Route path="/dashboard" element={<PrivateRoute pageName="Dashboard"><AppLayout><Dashboard /></AppLayout></PrivateRoute>} />
           <Route path="/customers" element={<PrivateRoute pageName="Clientes"><AppLayout><Customers /></AppLayout></PrivateRoute>} />
+          <Route path="/simulator" element={<PrivateRoute pageName="Simulador de Parcelas"><AppLayout><Simulator /></AppLayout></PrivateRoute>} />
           <Route path="/credit-analysis" element={<PrivateRoute pageName="Análise de Crédito"><AppLayout><CreditAnalysis /></AppLayout></PrivateRoute>} />
           <Route path="/sales" element={<PrivateRoute pageName="Vendas & Celulares"><AppLayout><Sales /></AppLayout></PrivateRoute>} />
           <Route path="/service-orders" element={<PrivateRoute pageName="Assistência Técnica (OS)"><AppLayout><ServiceOrders /></AppLayout></PrivateRoute>} />

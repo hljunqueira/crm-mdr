@@ -13,6 +13,7 @@ const PAGE_ROUTES = [
   { name: 'Dashboard', path: '/dashboard' },
   { name: 'Relatórios', path: '/reports' },
   { name: 'Leads', path: '/leads' },
+  { name: 'Simulador de Parcelas', path: '/simulator' },
   { name: 'Clientes', path: '/customers' },
   { name: 'Vendas & Celulares', path: '/sales' },
   { name: 'Análise de Crédito', path: '/credit-analysis' },

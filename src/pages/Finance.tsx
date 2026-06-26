@@ -685,7 +685,12 @@ export default function Finance() {
         await updateBill(editingBill.id, billFormData);
         showNotification('success', 'Conta de cartão atualizada com sucesso!');
       } else {
-        await createBill({ ...billFormData, unit_id: selectedUnitId });
+        const targetUnitId = selectedUnitId === 'all' ? units[0]?.id : selectedUnitId;
+        if (!targetUnitId) {
+          showNotification('error', 'Erro', 'Selecione uma unidade para criar a conta.');
+          return;
+        }
+        await createBill({ ...billFormData, unit_id: targetUnitId });
         showNotification('success', 'Conta de cartão inserida com sucesso!');
       }
       setIsBillModalOpen(false);
@@ -759,8 +764,10 @@ export default function Finance() {
   useEffect(() => {
     if (selectedUnitId) {
       fetchInstallments(selectedUnitId);
-      fetchActiveShift(selectedUnitId);
-      fetchTransactions(selectedUnitId);
+      if (selectedUnitId !== 'all') {
+        fetchActiveShift(selectedUnitId);
+        fetchTransactions(selectedUnitId);
+      }
     }
   }, [selectedUnitId, fetchInstallments, fetchActiveShift, fetchTransactions]);
 
@@ -1070,7 +1077,7 @@ export default function Finance() {
           try {
             await markAsPaid(item.id, finalValueToPay, selectedMethod);
             showNotification('success', 'Pagamento Confirmado');
-            if (selectedUnitId) {
+            if (selectedUnitId && selectedUnitId !== 'all') {
               await fetchActiveShift(selectedUnitId);
               await fetchTransactions(selectedUnitId);
             }
@@ -1173,7 +1180,7 @@ export default function Finance() {
           showNotification('success', 'Parcelas Liquidadas com Sucesso');
           setSelectedInstIds(prev => prev.filter(id => !items.map(item => item.id).includes(id)));
           
-          if (selectedUnitId) {
+          if (selectedUnitId && selectedUnitId !== 'all') {
             await fetchActiveShift(selectedUnitId);
             await fetchTransactions(selectedUnitId);
           }
@@ -1202,7 +1209,7 @@ export default function Finance() {
         try {
           await revertPayment(item.id);
           showNotification('success', 'Pagamento Estornado', 'A parcela voltou ao estado pendente.');
-          if (selectedUnitId) {
+          if (selectedUnitId && selectedUnitId !== 'all') {
             await fetchActiveShift(selectedUnitId);
             await fetchTransactions(selectedUnitId);
           }
@@ -1286,6 +1293,9 @@ export default function Finance() {
                   backgroundPosition: 'right center',
                 }}
               >
+                {isAdmin && (
+                  <option value="all" className="bg-[#0f0f1a] text-white">Todas as Unidades</option>
+                )}
                 {units.map(u => (
                   <option key={u.id} value={u.id} className="bg-[#0f0f1a] text-white">{u.name}</option>
                 ))}

@@ -5,6 +5,7 @@ import {
   MessageCircle, 
   Settings, 
   Users,
+  Calculator,
   Smartphone,
   CreditCard,
   DollarSign,
@@ -71,6 +72,7 @@ export default function Sidebar() {
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Clientes', icon: Users, path: '/customers' },
         { name: 'Leads', icon: UserSearch, path: '/leads' },
+        { name: 'Simulador de Parcelas', icon: Calculator, path: '/simulator' },
       ]
     },
 
