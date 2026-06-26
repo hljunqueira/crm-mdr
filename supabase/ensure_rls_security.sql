@@ -1,3 +1,16 @@
+-- Remover as políticas anteriores se existirem
+DROP POLICY IF EXISTS "Allow users to read their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Allow admins full access to profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Allow users to read their own wallet" ON public.wallets;
+DROP POLICY IF EXISTS "Allow admins full access to wallets" ON public.wallets;
+DROP POLICY IF EXISTS "Allow users to read their own wallet transactions" ON public.wallet_transactions;
+DROP POLICY IF EXISTS "Allow admins full access to wallet transactions" ON public.wallet_transactions;
+DROP POLICY IF EXISTS "Allow users to read and insert their own withdrawal requests" ON public.withdrawal_requests;
+DROP POLICY IF EXISTS "Allow users to insert their own withdrawal requests" ON public.withdrawal_requests;
+DROP POLICY IF EXISTS "Allow admins full access to withdrawal requests" ON public.withdrawal_requests;
+DROP POLICY IF EXISTS "Allow users to read their own investor quotas" ON public.investor_quotas;
+DROP POLICY IF EXISTS "Allow admins full access to investor quotas" ON public.investor_quotas;
+
 -- Habilitar Row Level Security (RLS) nas tabelas críticas
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
@@ -5,7 +18,7 @@ ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.withdrawal_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.investor_quotas ENABLE ROW LEVEL SECURITY;
 
--- 1. Políticas para PROFILES
+-- 1. Políticas para PROFILES (Evitando recursão infinita usando auth.jwt() para checar role admin)
 CREATE POLICY "Allow users to read their own profile" 
 ON public.profiles FOR SELECT 
 USING (auth.uid() = id);
@@ -13,10 +26,7 @@ USING (auth.uid() = id);
 CREATE POLICY "Allow admins full access to profiles" 
 ON public.profiles FOR ALL 
 USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() AND role = 'admin'
-  )
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
 );
 
 -- 2. Políticas para WALLETS
@@ -27,10 +37,7 @@ USING (auth.uid() = profile_id);
 CREATE POLICY "Allow admins full access to wallets" 
 ON public.wallets FOR ALL 
 USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() AND role = 'admin'
-  )
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
 );
 
 -- 3. Políticas para WALLET_TRANSACTIONS
@@ -41,14 +48,11 @@ USING (auth.uid() = profile_id);
 CREATE POLICY "Allow admins full access to wallet transactions" 
 ON public.wallet_transactions FOR ALL 
 USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() AND role = 'admin'
-  )
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
 );
 
 -- 4. Políticas para WITHDRAWAL_REQUESTS
-CREATE POLICY "Allow users to read and insert their own withdrawal requests" 
+CREATE POLICY "Allow users to read their own withdrawal requests" 
 ON public.withdrawal_requests FOR SELECT 
 USING (auth.uid() = profile_id);
 
@@ -59,10 +63,7 @@ WITH CHECK (auth.uid() = profile_id);
 CREATE POLICY "Allow admins full access to withdrawal requests" 
 ON public.withdrawal_requests FOR ALL 
 USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() AND role = 'admin'
-  )
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
 );
 
 -- 5. Políticas para INVESTOR_QUOTAS
@@ -73,8 +74,5 @@ USING (auth.uid() = profile_id);
 CREATE POLICY "Allow admins full access to investor quotas" 
 ON public.investor_quotas FOR ALL 
 USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() AND role = 'admin'
-  )
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
 );
