@@ -4,6 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import cors from "cors";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 // Routes
 import customerRoutes from "./server/routes/customers.js";
@@ -37,6 +39,36 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Hardening de segurança com Helmet
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+  }));
+
+  // Rate Limiter Geral (500 requisições / 15 min)
+  const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 500,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: "Muitas requisições vindas deste IP. Tente novamente em 15 minutos." }
+  });
+  app.use(globalLimiter);
+
+  // Rate Limiter Rígido para rotas críticas (15 tentativas / 10 min)
+  const authLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 15,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: "Muitas tentativas de autenticação ou ações sensíveis a partir deste IP. Tente novamente em 10 minutos." }
+  });
+
+  app.use("/api/users/verify-password", authLimiter);
+  app.use("/api/users/verify-admin-password", authLimiter);
+  app.use("/api/scp/auth/request-otp", authLimiter);
+  app.use("/api/scp/withdraw", authLimiter);
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

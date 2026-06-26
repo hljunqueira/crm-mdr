@@ -33,6 +33,7 @@ import ScpManagement from './pages/ScpManagement';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
+import AdminSessionTimeout from './components/layout/AdminSessionTimeout';
 
 export default function App() {
   const initializeAuth = useAuthStore(state => state.initialize);
@@ -60,6 +61,7 @@ export default function App() {
   return (
     <Router>
       <UIProvider>
+        <AdminSessionTimeout />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Landing />} />
