@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Wallet, TrendingUp, AlertCircle, ShieldCheck, 
+import {
+  Wallet, TrendingUp, AlertCircle, ShieldCheck,
   Activity, ArrowDownLeft, ArrowUpRight, BarChart3, Package, Calendar,
   LogOut, Loader2, CheckCircle2, X, Info, Calculator, FileText
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import ScpManagement from './ScpManagement';
+import ContractPrint from '../components/sales/ContractPrint';
+import InvestorContractPrint from '../components/scp/InvestorContractPrint';
 
 interface InvestedLot {
   id: string;
@@ -44,6 +46,8 @@ interface Product {
   remainingValue: number;
   projectedTotalProfit?: number;
   projectedTotalContract?: number;
+  saleId?: string;
+  saleTotalValue?: number;
   status: 'estoque' | 'ativo' | 'quitado' | 'inadimplente';
 }
 
@@ -52,7 +56,7 @@ export default function InvestorDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'investor' | 'admin'>('investor');
-  
+
   const [wallet, setWallet] = useState({
     balance: 0,
     futureReceipts: 0,
@@ -105,10 +109,49 @@ export default function InvestorDashboard() {
   // Estados do Modal do Contrato de Risco
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
 
+  // Estados para visualização de contratos
+  const [selectedSaleForContract, setSelectedSaleForContract] = useState<any>(null);
+  const [investorContractData, setInvestorContractData] = useState<any>(null);
+  const [loadingContract, setLoadingContract] = useState(false);
+  const [isClientContractOpen, setIsClientContractOpen] = useState(false);
+  const [isInvestorContractOpen, setIsInvestorContractOpen] = useState(false);
+
+  const handleViewClientContract = async (saleId: string) => {
+    if (!saleId) return;
+    try {
+      setLoadingContract(true);
+      const res = await fetch(`/api/scp/sale-contract/${saleId}`);
+      if (!res.ok) throw new Error('Não foi possível carregar os dados do contrato.');
+      const data = await res.json();
+      setSelectedSaleForContract(data);
+      setIsClientContractOpen(true);
+    } catch (err: any) {
+      alert(err.message || 'Erro ao carregar contrato.');
+    } finally {
+      setLoadingContract(false);
+    }
+  };
+
+  const handleViewInvestorContract = async () => {
+    if (!profile?.id) return;
+    try {
+      setLoadingContract(true);
+      const res = await fetch(`/api/scp/investor-contract/${profile.id}`);
+      if (!res.ok) throw new Error('Não foi possível carregar os dados do contrato de SCP.');
+      const data = await res.json();
+      setInvestorContractData(data);
+      setIsInvestorContractOpen(true);
+    } catch (err: any) {
+      alert(err.message || 'Erro ao carregar contrato.');
+    } finally {
+      setLoadingContract(false);
+    }
+  };
+
   useEffect(() => {
     const storedProfile = localStorage.getItem('partners_profile');
     const storedToken = localStorage.getItem('partners_token');
-    
+
     if (!storedProfile || !storedToken) {
       window.location.href = '/login';
       return;
@@ -171,7 +214,7 @@ export default function InvestorDashboard() {
       t.type,
       t.amount.toString()
     ]);
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF"
       + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -221,7 +264,7 @@ export default function InvestorDashboard() {
       setWithdrawalSuccess('Solicitação de saque Pix enviada para aprovação do administrador!');
       setWithdrawAmount('');
       setPixKey('');
-      
+
       // Atualizar dados da tela
       fetchDashboardData(profile.id);
       setTimeout(() => {
@@ -235,7 +278,7 @@ export default function InvestorDashboard() {
     }
   };
 
-  const averageHealth = lots.length > 0 
+  const averageHealth = lots.length > 0
     ? (lots.reduce((acc, lot) => acc + lot.healthRate, 0) / lots.length).toFixed(1)
     : "100.0";
 
@@ -253,7 +296,7 @@ export default function InvestorDashboard() {
   const salePriceVal = Number(simSalePrice) || 0;
   const profitShareVal = Number(simProfitShare) || 0;
   const adminFeeVal = 10; // Taxa de administração fixa em 10%
-  
+
   let simSaleTotal = salePriceVal;
   let simSaleGrossProfit = 0;
   let simSaleNetProfit = 0;
@@ -305,21 +348,19 @@ export default function InvestorDashboard() {
             <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-0.5 mr-2">
               <button
                 onClick={() => setActiveTab('investor')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'investor' 
-                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/10' 
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'investor'
+                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/10'
                     : 'text-zinc-400 hover:text-white'
-                }`}
+                  }`}
               >
                 Investidor
               </button>
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  activeTab === 'admin' 
-                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/10' 
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === 'admin'
+                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/10'
                     : 'text-zinc-400 hover:text-white'
-                }`}
+                  }`}
               >
                 Gestão Admin
               </button>
@@ -332,7 +373,7 @@ export default function InvestorDashboard() {
               {profile?.full_name ? profile.full_name : (profile?.role === 'admin' ? 'Administrador' : 'Investidor')}
             </span>
           </div>
-          <button 
+          <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-rose-400 transition-colors bg-transparent border-0 cursor-pointer outline-none"
           >
@@ -354,8 +395,8 @@ export default function InvestorDashboard() {
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
                   {error}
                 </div>
-                <button 
-                  onClick={() => profile && fetchDashboardData(profile.id)} 
+                <button
+                  onClick={() => profile && fetchDashboardData(profile.id)}
                   className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 rounded-lg transition-all text-[10px] uppercase font-bold"
                 >
                   Tentar Novamente
@@ -365,7 +406,7 @@ export default function InvestorDashboard() {
 
             {/* Wallet & Health Grid */}
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${renda && renda.purchases && renda.purchases.length > 0 ? '5' : '4'} gap-6`}>
-              
+
               {/* Card: Saldo Disponível */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
@@ -384,7 +425,7 @@ export default function InvestorDashboard() {
                     Pronto para saque Pix
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsWithdrawalOpen(true)}
                   className="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 cursor-pointer border-0"
                 >
@@ -501,12 +542,21 @@ export default function InvestorDashboard() {
                       {wallet.activeDevicesCount} Ativos • {wallet.paidDevicesCount} Quitados • {wallet.defaultedDevicesCount} Inad.
                     </span>
                   </div>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsContractModalOpen(true)}
                     className="py-1.5 px-2.5 border border-zinc-850 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22]"
                   >
                     Termos de Riscos
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loadingContract}
+                    onClick={handleViewInvestorContract}
+                    className="py-1.5 px-2.5 border border-zinc-850 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22] flex items-center gap-1"
+                  >
+                    {loadingContract ? <Loader2 size={8} className="animate-spin" /> : <FileText size={8} />}
+                    Ver Contrato
                   </button>
                 </div>
               </div>
@@ -514,7 +564,7 @@ export default function InvestorDashboard() {
 
             {/* Layout Column: Evolution Chart & Investment Simulator */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
+
               {/* Gráfico "Meu Dinheiro Trabalhando" */}
               <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 lg:col-span-8 shadow-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -525,21 +575,19 @@ export default function InvestorDashboard() {
                   <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5 self-start sm:self-auto">
                     <button
                       onClick={() => setChartView('history')}
-                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        chartView === 'history' 
-                          ? 'bg-emerald-500 text-black shadow-md' 
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${chartView === 'history'
+                          ? 'bg-emerald-500 text-black shadow-md'
                           : 'text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       Realizado
                     </button>
                     <button
                       onClick={() => setChartView('forecast')}
-                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                        chartView === 'forecast' 
-                          ? 'bg-indigo-500 text-white shadow-md' 
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${chartView === 'forecast'
+                          ? 'bg-indigo-500 text-white shadow-md'
                           : 'text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       Previsão
                     </button>
@@ -557,7 +605,7 @@ export default function InvestorDashboard() {
                       <BarChart data={chartView === 'history' ? monthlyHistory : monthlyForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <XAxis dataKey="month" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
                         <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
-                        <Tooltip 
+                        <Tooltip
                           contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
                           labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                           formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, chartView === 'history' ? 'Repasse creditado' : 'Previsão de recebimento']}
@@ -576,28 +624,26 @@ export default function InvestorDashboard() {
                     <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
                       <Calculator size={16} className="text-emerald-500" /> Simulador
                     </h3>
-                    
+
                     {/* Selector de Abas do Simulador */}
                     <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5">
                       <button
                         type="button"
                         onClick={() => setSimTab('aporte')}
-                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                          simTab === 'aporte' 
-                            ? 'bg-emerald-500 text-black shadow-md' 
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${simTab === 'aporte'
+                            ? 'bg-emerald-500 text-black shadow-md'
                             : 'text-zinc-400 hover:text-white'
-                        }`}
+                          }`}
                       >
                         Aporte
                       </button>
                       <button
                         type="button"
                         onClick={() => setSimTab('venda')}
-                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                          simTab === 'venda' 
-                            ? 'bg-[#4f46e5] text-white shadow-md' 
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${simTab === 'venda'
+                            ? 'bg-[#4f46e5] text-white shadow-md'
                             : 'text-zinc-400 hover:text-white'
-                        }`}
+                          }`}
                       >
                         Venda
                       </button>
@@ -629,7 +675,7 @@ export default function InvestorDashboard() {
                             <span className="text-zinc-400">Aporte Estimado</span>
                             <span className="font-mono font-bold text-white">R$ {simVal.toLocaleString('pt-BR')}</span>
                           </div>
-                          <input 
+                          <input
                             type="range"
                             min="1000"
                             max="100000"
@@ -655,7 +701,7 @@ export default function InvestorDashboard() {
                             <span className="font-mono text-emerald-400">R$ {simTotalProjectedReturn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                           </div>
                         </div>
-                        
+
                         <p className="text-[9px] text-zinc-500 italic mt-3 block text-center">
                           * Simulação em 12 parcelas de R$ {simMonthlyReturn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}.
                         </p>
@@ -671,7 +717,7 @@ export default function InvestorDashboard() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Custo (R$)</label>
-                          <input 
+                          <input
                             type="number"
                             step="any"
                             value={simCostPrice}
@@ -682,7 +728,7 @@ export default function InvestorDashboard() {
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Venda À Vista (R$)</label>
-                          <input 
+                          <input
                             type="number"
                             step="any"
                             value={simSalePrice}
@@ -731,7 +777,7 @@ export default function InvestorDashboard() {
 
                       <div className="space-y-1">
                         <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold block">Sua Participação no Lucro (%)</label>
-                        <input 
+                        <input
                           type="number"
                           step="any"
                           value={simProfitShare}
@@ -811,11 +857,10 @@ export default function InvestorDashboard() {
                         <div>
                           <div className="flex justify-between items-start mb-4">
                             <h4 className="font-bold text-sm tracking-tight text-white">{lot.title}</h4>
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-black tracking-widest ${
-                              lot.status === 'IN_SALES' 
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black tracking-widest ${lot.status === 'IN_SALES'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                 : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                            }`}>
+                              }`}>
                               {lot.status}
                             </span>
                           </div>
@@ -854,9 +899,9 @@ export default function InvestorDashboard() {
                             <AlertCircle size={12} className="text-zinc-400" /> Saúde: <span className="font-bold text-white">{lot.healthRate}% em dia</span>
                           </span>
                           {lot.contractUrl && (
-                            <a 
-                              href={lot.contractUrl} 
-                              target="_blank" 
+                            <a
+                              href={lot.contractUrl}
+                              target="_blank"
                               rel="noopener noreferrer"
                               className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors uppercase tracking-wider"
                             >
@@ -893,9 +938,10 @@ export default function InvestorDashboard() {
                         <th className="py-4 px-6 text-right">Juros Recebidos</th>
                         <th className="py-4 px-6 text-right">Total Repassado</th>
                         <th className="py-4 px-6 text-right">Capital Restante</th>
-                        <th className="py-4 px-6 text-right">Total Contrato</th>
+                        <th className="py-4 px-6 text-right">Total Venda Cliente</th>
                         <th className="py-4 px-6 text-right">Lucro Previsto</th>
                         <th className="py-4 px-6 text-center">Status</th>
+                        <th className="py-4 px-6 text-center">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/40">
@@ -911,20 +957,31 @@ export default function InvestorDashboard() {
                           <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {p.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-right font-mono font-bold text-emerald-400">R$ {p.totalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-right font-mono text-zinc-400">R$ {p.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono text-indigo-400">R$ {(p.projectedTotalContract || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          <td className="py-4 px-6 text-right font-mono text-indigo-400">R$ {(p.saleTotalValue || p.projectedTotalContract || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {(p.projectedTotalProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           <td className="py-4 px-6 text-center">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                              p.status === 'estoque' 
-                                ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' 
+                            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${p.status === 'estoque'
+                                ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
                                 : p.status === 'quitado'
                                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                   : p.status === 'inadimplente'
                                     ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                                     : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                            }`}>
+                              }`}>
                               {p.status === 'estoque' ? 'Estoque' : p.status === 'quitado' ? 'Quitado' : p.status === 'inadimplente' ? 'Inadimplente' : 'Ativo'}
                             </span>
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            {p.saleId ? (
+                              <button
+                                onClick={() => handleViewClientContract(p.saleId!)}
+                                className="px-2 py-1 bg-zinc-850 hover:bg-zinc-750 text-emerald-400 hover:text-emerald-300 border border-zinc-800 hover:border-zinc-700 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                              >
+                                Ver Contrato
+                              </button>
+                            ) : (
+                              <span className="text-zinc-500">-</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -1019,11 +1076,10 @@ export default function InvestorDashboard() {
                               R$ {up.expectedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </td>
                             <td className="py-4 px-6 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                                up.status === 'overdue' || up.status === 'blocked'
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${up.status === 'overdue' || up.status === 'blocked'
                                   ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                                   : 'bg-zinc-850 text-zinc-400 border border-zinc-700/60'
-                              }`}>
+                                }`}>
                                 {up.status === 'overdue' || up.status === 'blocked' ? 'Atrasado' : 'Pendente'}
                               </span>
                             </td>
@@ -1070,11 +1126,10 @@ export default function InvestorDashboard() {
                       {transactions.map((tx) => (
                         <tr key={tx.id} className="hover:bg-zinc-800/10 transition-colors">
                           <td className="py-4 px-6 flex items-center gap-3">
-                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              tx.type === 'WITHDRAWAL' 
-                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${tx.type === 'WITHDRAWAL'
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                                 : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            }`}>
+                              }`}>
                               {tx.type === 'WITHDRAWAL' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
                             </div>
                             <span className="font-bold text-white">{tx.description}</span>
@@ -1086,9 +1141,8 @@ export default function InvestorDashboard() {
                           <td className="py-4 px-6 text-right font-mono text-emerald-400">
                             {tx.type === 'WITHDRAWAL' ? "-" : `R$ ${tx.interestPortion.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                           </td>
-                          <td className={`py-4 px-6 text-right font-mono font-extrabold ${
-                            tx.type === 'WITHDRAWAL' ? 'text-rose-400' : 'text-emerald-400'
-                          }`}>
+                          <td className={`py-4 px-6 text-right font-mono font-extrabold ${tx.type === 'WITHDRAWAL' ? 'text-rose-400' : 'text-emerald-400'
+                            }`}>
                             {tx.type === 'WITHDRAWAL' ? '-' : '+'} R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
@@ -1106,7 +1160,7 @@ export default function InvestorDashboard() {
       {isWithdrawalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleRequestWithdrawal} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
-            <button 
+            <button
               type="button"
               onClick={() => setIsWithdrawalOpen(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
@@ -1199,7 +1253,7 @@ export default function InvestorDashboard() {
       {isContractModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-zinc-800 w-full max-w-2xl rounded-3xl p-8 space-y-6 shadow-2xl relative max-h-[85vh] flex flex-col">
-            <button 
+            <button
               type="button"
               onClick={() => setIsContractModalOpen(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
@@ -1210,7 +1264,7 @@ export default function InvestorDashboard() {
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <FileText size={18} className="text-emerald-500" /> Regulamento de Investimento SCP
             </h3>
-            
+
             <div className="flex-1 overflow-y-auto text-xs text-zinc-400 space-y-4 pr-2 leading-relaxed font-sans">
               <section className="space-y-2 border-b border-zinc-800/50 pb-4">
                 <h4 className="font-bold text-zinc-200">1. Natureza do Aporte</h4>
@@ -1247,6 +1301,104 @@ export default function InvestorDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Visualizar Contrato de Venda do Cliente */}
+      {isClientContractOpen && selectedSaleForContract && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-[#121214] border border-zinc-850 w-full max-w-4xl mx-auto rounded-3xl p-6 shadow-2xl relative flex flex-col my-auto max-h-[90vh]">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-4 shrink-0">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <FileText size={18} className="text-emerald-500" /> Pré-visualização do Contrato de Venda
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-450 text-black font-extrabold uppercase tracking-widest text-[10px] rounded-xl transition-all cursor-pointer border-0 flex items-center gap-1.5"
+                >
+                  <FileText size={12} />
+                  Imprimir Contrato
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsClientContractOpen(false)}
+                  className="p-2 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-white rounded-2xl p-4 sm:p-8 border border-zinc-800 text-black shadow-inner">
+              <ContractPrint
+                sale={selectedSaleForContract.sale}
+                customer={selectedSaleForContract.customer}
+                unit={selectedSaleForContract.unit}
+                installments={selectedSaleForContract.installments}
+                isPreview={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Visualizar Contrato de SCP do Investidor */}
+      {isInvestorContractOpen && investorContractData && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-[#121214] border border-zinc-850 w-full max-w-4xl mx-auto rounded-3xl p-6 shadow-2xl relative flex flex-col my-auto max-h-[90vh]">
+            <div className="flex justify-between items-center border-b border-zinc-800 pb-4 mb-4 shrink-0">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <FileText size={18} className="text-emerald-500" /> Pré-visualização do Contrato SCP
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-450 text-black font-extrabold uppercase tracking-widest text-[10px] rounded-xl transition-all cursor-pointer border-0 flex items-center gap-1.5"
+                >
+                  <FileText size={12} />
+                  Imprimir Contrato
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setIsInvestorContractOpen(false)}
+                  className="p-2 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-white rounded-2xl p-4 sm:p-8 border border-zinc-800 text-black shadow-inner">
+              <InvestorContractPrint
+                profile={investorContractData.profile}
+                unit={investorContractData.unit}
+                quotas={investorContractData.quotas}
+                devices={investorContractData.devices}
+                isPreview={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Components */}
+      {selectedSaleForContract && (
+        <ContractPrint
+          sale={selectedSaleForContract.sale}
+          customer={selectedSaleForContract.customer}
+          unit={selectedSaleForContract.unit}
+          installments={selectedSaleForContract.installments}
+          isPreview={false}
+        />
+      )}
+      {investorContractData && (
+        <InvestorContractPrint
+          profile={investorContractData.profile}
+          unit={investorContractData.unit}
+          quotas={investorContractData.quotas}
+          devices={investorContractData.devices}
+          isPreview={false}
+        />
       )}
     </div>
   );

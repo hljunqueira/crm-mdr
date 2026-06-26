@@ -246,13 +246,39 @@ router.post("/", async (req, res) => {
     if (imeiManual && imeiManual.toUpperCase() !== 'N/A' && imeiManual !== '0000000') {
       const { data: specDevice } = await supabase
         .from('devices')
-        .select('id')
+        .select('id, investor_id')
         .eq('imei', imeiManual)
         .eq('status', 'available')
         .maybeSingle();
 
       if (specDevice) {
         cleanSaleBody['device_id'] = specDevice.id;
+      }
+    }
+
+    // Validar se o investidor é do tipo conservador e a venda é crediário
+    let targetDeviceId = cleanSaleBody['device_id'] || req.body.device_id;
+    if (targetDeviceId) {
+      const { data: devObj } = await supabase
+        .from('devices')
+        .select('investor_id')
+        .eq('id', targetDeviceId)
+        .maybeSingle();
+
+      if (devObj?.investor_id) {
+        const { data: investorProfile } = await supabase
+          .from('profiles')
+          .select('investor_profile')
+          .eq('id', devObj.investor_id)
+          .maybeSingle();
+
+        if (investorProfile?.investor_profile === 'conservador') {
+          if (req.body.payment_type === 'crediario') {
+            return res.status(400).json({ 
+              error: "Este aparelho pertence a um investidor conservador e só pode ser vendido à vista (não é permitido crediário)." 
+            });
+          }
+        }
       }
     }
 

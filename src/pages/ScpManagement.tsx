@@ -35,9 +35,20 @@ export default function ScpManagement() {
     full_name: '',
     email: '',
     password: '',
-    phone: ''
+    phone: '',
+    investor_profile: 'arrojado'
   });
   const [isSavingInvestor, setIsSavingInvestor] = useState(false);
+
+  // Edição de investidor
+  const [isEditInvestorOpen, setIsEditInvestorOpen] = useState(false);
+  const [editingInvestorId, setEditingInvestorId] = useState('');
+  const [editInvestorFormData, setEditInvestorFormData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    investor_profile: 'arrojado'
+  });
 
   // Estado para estatísticas administrativas consolidada
   const [adminStats, setAdminStats] = useState({
@@ -51,6 +62,7 @@ export default function ScpManagement() {
   const [availableDevices, setAvailableDevices] = useState<any[]>([]);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [primeSelectedDeviceIds, setPrimeSelectedDeviceIds] = useState<string[]>([]);
+  const [primeDeviceImeis, setPrimeDeviceImeis] = useState<Record<string, string>>({});
 
   // Estados para edição de contrato
   const [isContractUrlOpen, setIsContractUrlOpen] = useState(false);
@@ -95,7 +107,7 @@ export default function ScpManagement() {
       .select('id, full_name, role')
       .eq('active', true);
     if (data) {
-      setInvestors(data.filter(u => u.role === 'investor' || u.role === 'admin'));
+      setInvestors(data.filter(u => u.role === 'investor'));
     }
   };
 
@@ -142,7 +154,7 @@ export default function ScpManagement() {
       setIsLoadingUsersList(true);
       const res = await fetch('/api/users');
       const data = await res.json();
-      setAllUsersList(data.filter((u: any) => u.role === 'investor' || u.role === 'admin') || []);
+      setAllUsersList(data.filter((u: any) => u.role === 'investor') || []);
     } catch (err) {
       console.error(err);
       showNotification('error', 'Erro', 'Falha ao buscar lista de investidores.');
@@ -182,16 +194,16 @@ export default function ScpManagement() {
            .from('withdrawal_requests')
            .select('amount')
            .eq('status', 'APPROVED');
- 
+  
          const { data: insts } = await supabase
            .from('installments')
            .select('value')
            .in('status', ['overdue', 'blocked']);
- 
+  
          const totalRep = txs ? txs.reduce((acc, t) => acc + Number(t.amount), 0) : 0;
          const totalWithdraw = wds ? wds.reduce((acc, w) => acc + Number(w.amount), 0) : 0;
          const totalInad = insts ? insts.reduce((acc, i) => acc + Number(i.value), 0) : 0;
- 
+  
          setAdminStats({
            totalRepasses: totalRep,
            totalWithdrawals: totalWithdraw,
@@ -290,7 +302,6 @@ export default function ScpManagement() {
       showNotification('error', 'Erro', 'Selecione pelo menos um aparelho e o investidor.');
       return;
     }
-
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/scp/devices/link-prime-bulk', {
@@ -300,7 +311,8 @@ export default function ScpManagement() {
           investor_id: primeInvestorId,
           device_ids: primeSelectedDeviceIds,
           prime_profit_share: primeProfitShare === '' ? 0 : primeProfitShare,
-          prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee
+          prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee,
+          device_imeis: primeDeviceImeis
         })
       });
       const data = await res.json();
@@ -308,6 +320,7 @@ export default function ScpManagement() {
       showNotification('success', 'Sucesso', data.message || 'Investidor Prime vinculado com sucesso!');
       setIsLinkPrimeOpen(false);
       setPrimeSelectedDeviceIds([]);
+      setPrimeDeviceImeis({});
       setPrimeInvestorId('');
       fetchPrimeDevices();
     } catch (err: any) {
@@ -463,6 +476,7 @@ export default function ScpManagement() {
           password: investorFormData.password,
           phone: investorFormData.phone || null,
           role: 'investor',
+          investor_profile: investorFormData.investor_profile || 'arrojado',
           store_id: null
         })
       });
@@ -472,13 +486,92 @@ export default function ScpManagement() {
       }
       showNotification('success', 'Sucesso', 'Parceiro Investidor cadastrado com sucesso!');
       setIsCreateInvestorOpen(false);
-      setInvestorFormData({ full_name: '', email: '', password: '', phone: '' });
+      setInvestorFormData({ full_name: '', email: '', password: '', phone: '', investor_profile: 'arrojado' });
+      fetchAllUsersList();
       fetchProfiles();
     } catch (err: any) {
       showNotification('error', 'Erro', err.message || 'Falha ao cadastrar investidor.');
     } finally {
       setIsSavingInvestor(false);
     }
+  };
+
+  const handleEditInvestorClick = (u: any) => {
+    setEditingInvestorId(u.id);
+    setEditInvestorFormData({
+      full_name: u.full_name,
+      email: u.email,
+      phone: u.phone || '',
+      investor_profile: u.investor_profile || 'arrojado'
+    });
+    setIsEditInvestorOpen(true);
+  };
+
+  const handleEditInvestorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editInvestorFormData.full_name || !editInvestorFormData.email) {
+      showNotification('error', 'Erro', 'Nome e e-mail são obrigatórios.');
+      return;
+    }
+    setIsSavingInvestor(true);
+    try {
+      const res = await fetch(`/api/users/${editingInvestorId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: editInvestorFormData.full_name,
+          email: editInvestorFormData.email,
+          phone: editInvestorFormData.phone || null,
+          investor_profile: editInvestorFormData.investor_profile
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao atualizar investidor');
+      }
+      showNotification('success', 'Sucesso', 'Parceiro Investidor atualizado com sucesso!');
+      setIsEditInvestorOpen(false);
+      fetchAllUsersList();
+      fetchProfiles();
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.message || 'Falha ao atualizar investidor.');
+    } finally {
+      setIsSavingInvestor(false);
+    }
+  };
+
+  const handleDeleteInvestorClick = (id: string) => {
+    showModal({
+      title: 'Confirmar Exclusão de Investidor',
+      children: (
+        <div className="space-y-4 text-white text-xs">
+          <p className="text-sm font-semibold">Deseja realmente excluir este investidor permanentemente?</p>
+          <p className="text-[10px] text-zinc-400 leading-relaxed uppercase tracking-wider">
+            Esta ação excluirá o perfil do investidor e sua carteira. Esta ação NÃO pode ser desfeita.
+          </p>
+        </div>
+      ),
+      type: 'danger',
+      confirmText: 'Excluir Investidor',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/users/${id}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || 'Falha ao excluir investidor');
+          }
+          showNotification('success', 'Sucesso', 'Investidor excluído com sucesso!');
+          fetchAllUsersList();
+          fetchProfiles();
+          hideModal();
+        } catch (err: any) {
+          showNotification('error', 'Erro', err.message || 'Falha ao excluir investidor.');
+          hideModal();
+        }
+      }
+    });
   };
 
   const handleDeleteLot = (id: string, title: string) => {
@@ -858,9 +951,10 @@ export default function ScpManagement() {
                     <th className="py-4 px-4">Nome Completo</th>
                     <th className="py-4 px-4">E-mail</th>
                     <th className="py-4 px-4">Telefone</th>
-                    <th className="py-4 px-4">Função (Role)</th>
+                    <th className="py-4 px-4">Perfil</th>
                     <th className="py-4 px-4 text-right">Saldo Disponível</th>
                     <th className="py-4 px-4 text-right">Recebíveis Futuros</th>
+                    <th className="py-4 px-4 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/40">
@@ -871,15 +965,34 @@ export default function ScpManagement() {
                       <td className="py-4 px-4 text-zinc-400 font-mono">{u.phone || '-'}</td>
                       <td className="py-4 px-4">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                          u.role === 'admin' 
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
-                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          u.investor_profile === 'conservador' 
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         }`}>
-                          {u.role}
+                          {u.investor_profile === 'conservador' ? 'Sem Risco (Vista)' : 'Com Risco (Prazo)'}
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right font-bold text-emerald-400">R$ {Number(u.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 px-4 text-right font-bold text-zinc-300">R$ {Number(u.future_receipts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditInvestorClick(u)}
+                            className="px-2 py-1 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 font-bold rounded-lg text-[9px] uppercase tracking-wider cursor-pointer transition-all"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteInvestorClick(u.id)}
+                            className="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer border-0 bg-transparent"
+                            title="Excluir Investidor"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -942,6 +1055,18 @@ export default function ScpManagement() {
               />
             </div>
 
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Perfil do Investidor</label>
+              <select
+                value={investorFormData.investor_profile || 'arrojado'}
+                onChange={(e) => setInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              >
+                <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas a Prazo/Crediário)</option>
+                <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
+              </select>
+            </div>
+
             <div className="flex gap-2 pt-4">
               <button
                 type="button"
@@ -957,6 +1082,80 @@ export default function ScpManagement() {
               >
                 {isSavingInvestor ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Cadastrar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Editar Investidor */}
+      {isEditInvestorOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleEditInvestorSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Editar Investidor</h3>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nome Completo</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: João da Silva"
+                value={editInvestorFormData.full_name}
+                onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">E-mail</label>
+              <input
+                type="email"
+                required
+                placeholder="Ex: joao@investidor.com"
+                value={editInvestorFormData.email}
+                onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, email: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Telefone / WhatsApp</label>
+              <input
+                type="text"
+                placeholder="Ex: 48991234567"
+                value={editInvestorFormData.phone}
+                onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, phone: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Perfil do Investidor</label>
+              <select
+                value={editInvestorFormData.investor_profile || 'arrojado'}
+                onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              >
+                <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas a Prazo/Crediário)</option>
+                <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
+              </select>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <button
+                type="button"
+                onClick={() => setIsEditInvestorOpen(false)}
+                className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingInvestor}
+                className="flex-1 py-3.5 bg-primary hover:bg-primary/80 text-on-primary font-black uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+              >
+                {isSavingInvestor ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                Salvar Alterações
               </button>
             </div>
           </form>
@@ -1132,26 +1331,46 @@ export default function ScpManagement() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filteredAvailableDevices.map((d) => (
-                      <label key={d.id} className="flex items-center gap-3 p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all cursor-pointer">
-                        <input 
-                          type="checkbox"
-                          checked={primeSelectedDeviceIds.includes(d.id)}
-                          onChange={() => {
+                      <div key={d.id} className="flex flex-col p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all">
+                        <div 
+                          className="flex items-center gap-3 w-full cursor-pointer"
+                          onClick={() => {
                             setPrimeSelectedDeviceIds(prev => 
                               prev.includes(d.id) ? prev.filter(id => id !== d.id) : [...prev, d.id]
                             );
                           }}
-                          className="accent-emerald-500 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold text-white block truncate uppercase">{d.brand} {d.model}</span>
-                          <span className="text-[9px] text-zinc-500 font-mono block truncate">IMEI: {d.imei || 'N/A'}</span>
+                        >
+                          <input 
+                            type="checkbox"
+                            checked={primeSelectedDeviceIds.includes(d.id)}
+                            readOnly
+                            className="accent-emerald-500 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs font-bold text-white block truncate uppercase">{d.brand} {d.model}</span>
+                            <span className="text-[9px] text-zinc-500 font-mono block truncate">
+                              IMEI atual: {d.imei || 'Não informado'}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] text-emerald-400 font-bold block font-mono">À Vista: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-[10px] text-zinc-400 block font-mono">Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                          <span className="text-[10px] text-emerald-400 font-bold block font-mono">Venda: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      </label>
+
+                        {/* Input de IMEI dinâmico se o aparelho estiver selecionado */}
+                        {primeSelectedDeviceIds.includes(d.id) && (
+                          <div className="mt-2 pt-2 border-t border-white/5 w-full" onClick={(e) => e.stopPropagation()}>
+                            <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest block mb-1">Preencher/Alterar IMEI</label>
+                            <input
+                              type="text"
+                              placeholder="Digite o IMEI do aparelho..."
+                              value={primeDeviceImeis[d.id] !== undefined ? primeDeviceImeis[d.id] : (d.imei || '')}
+                              onChange={(e) => setPrimeDeviceImeis(prev => ({ ...prev, [d.id]: e.target.value }))}
+                              className="w-full bg-black/40 border border-zinc-800 focus:border-emerald-500 rounded-xl px-3 py-1.5 text-xs text-white outline-none transition-all font-mono"
+                            />
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -1218,20 +1437,8 @@ export default function ScpManagement() {
               {primeSelectedDeviceIds.length > 0 && (
                 <div className="bg-white/[0.02] border border-zinc-800 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
                   <div className="flex justify-between">
-                    <span>Preço de Venda Total:</span>
+                    <span>Valor Total Financiado (À Vista):</span>
                     <span className="font-bold text-white">R$ {salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Custo Total do Lote:</span>
-                    <span className="font-bold text-white">R$ {costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Margem Bruta Estimada:</span>
-                    <span className="font-bold text-zinc-300">R$ {grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Lucro Líquido (Pós Taxa Adm):</span>
-                    <span className="font-bold text-zinc-300">R$ {netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between border-t border-zinc-800/60 pt-1.5 mt-1.5 text-emerald-400">
                     <span>Repasse Estimado (Investidor):</span>
@@ -1248,6 +1455,7 @@ export default function ScpManagement() {
                 onClick={() => {
                   setIsLinkPrimeOpen(false);
                   setPrimeSelectedDeviceIds([]);
+                  setPrimeDeviceImeis({});
                   setDeviceSearchQuery('');
                 }}
                 className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"

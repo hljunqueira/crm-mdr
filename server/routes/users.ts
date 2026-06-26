@@ -59,7 +59,7 @@ router.get('/', async (req, res) => {
 // POST /api/users/create — Cadastrar novo funcionário de forma integrada
 router.post('/create', async (req, res) => {
   try {
-    const { email, password, full_name, role, store_id, phone } = req.body;
+    const { email, password, full_name, role, store_id, phone, investor_profile } = req.body;
 
     if (!email || !password || !full_name) {
       return res.status(400).json({ error: 'E-mail, senha e nome completo são obrigatórios.' });
@@ -92,6 +92,7 @@ router.post('/create', async (req, res) => {
         role: role || 'attendant',
         store_id: store_id || null,
         phone: phone || null,
+        investor_profile: investor_profile || null,
         active: true,
         updated_at: new Date().toISOString()
       })
@@ -122,7 +123,7 @@ router.post('/create', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, role, store_id, active, email, password, avatar_url, phone } = req.body;
+    const { full_name, role, store_id, active, email, password, avatar_url, phone, investor_profile } = req.body;
 
     console.log(`[Users API] Atualizando usuário: ${id}`);
 
@@ -136,6 +137,7 @@ router.put('/:id', async (req, res) => {
     if (active !== undefined) updateFields.active = active;
     if (avatar_url !== undefined) updateFields.avatar_url = avatar_url;
     if (phone !== undefined) updateFields.phone = phone;
+    if (investor_profile !== undefined) updateFields.investor_profile = investor_profile || null;
 
     const { error: profError } = await supabase
       .from('profiles')
@@ -173,6 +175,28 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     console.log(`[Users API] Removendo conta e perfil do ID: ${id}`);
+
+    // Verificar se o usuário possui cotas, dispositivos no SCP ou compras de recebíveis vinculados
+    const { count: quotasCount } = await supabase
+      .from('investor_quotas')
+      .select('id', { count: 'exact', head: true })
+      .eq('profile_id', id);
+
+    const { count: devicesCount } = await supabase
+      .from('devices')
+      .select('id', { count: 'exact', head: true })
+      .eq('investor_id', id);
+
+    const { count: purchasesCount } = await supabase
+      .from('receivable_purchases')
+      .select('id', { count: 'exact', head: true })
+      .eq('profile_id', id);
+
+    if ((quotasCount || 0) > 0 || (devicesCount || 0) > 0 || (purchasesCount || 0) > 0) {
+      return res.status(400).json({
+        error: 'Este investidor possui cotas de lotes, celulares Prime ou recebíveis vinculados no SCP. Remova todos os vínculos antes de excluí-lo.'
+      });
+    }
 
     // Remover da Auth deleta automaticamente o perfil da tabela "profiles" em cascata (ON DELETE CASCADE)
     const { error } = await supabase.auth.admin.deleteUser(id);

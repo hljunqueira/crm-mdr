@@ -479,6 +479,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 remainingValue: Number((q.amount_invested * ownershipFraction - devCapReturned).toFixed(2)),
                 projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
                 projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
+                saleTotalValue: saleTotal,
                 status: devStatus
               });
             } else {
@@ -495,6 +496,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 remainingValue: Number((Number(dev.cost_price || 0) * ownershipFraction).toFixed(2)),
                 projectedTotalProfit: 0,
                 projectedTotalContract: 0,
+                saleTotalValue: 0,
                 status: "estoque"
               });
               activeDevicesCount++;
@@ -548,7 +550,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     const primeProductsList = [];
 
     for (const dev of (primeDevices || [])) {
-      primeCapitalInvested += Number(dev.cost_price || 0);
+      const deviceSalePrice = Number(dev.sale_price || dev.cost_price || 0);
+      primeCapitalInvested += deviceSalePrice;
 
       const { data: sales } = await supabase
         .from("sales")
@@ -577,12 +580,9 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         unpaidInsts.forEach(inst => {
           const instValue = Number(inst.value);
           const saleTotal = Number(sales.total_value || 0);
-          const saleOriginal = Number(sales.original_price || dev.cost_price || 0);
-          const deviceCostPrice = Number(dev.cost_price || 0);
-          const isVistaOrCard = sales.payment_type === 'vista' || sales.payment_type === 'card';
           
           const amortization = saleTotal > 0 
-            ? instValue * ((isVistaOrCard ? deviceCostPrice : saleOriginal) / saleTotal)
+            ? instValue * (deviceSalePrice / saleTotal)
             : 0;
             
           const totalProfit = instValue - amortization;
@@ -615,13 +615,12 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         });
 
         const saleTotal = Number(sales.total_value || 0);
-        const saleOriginal = Number(sales.original_price || dev.cost_price || 0);
         const adminFee = Number(dev.prime_admin_fee ?? 0.10);
         const profitShare = Number(dev.prime_profit_share ?? 0.60);
-        const totalProfit = saleTotal - saleOriginal;
+        const totalProfit = saleTotal - deviceSalePrice;
         const netProfit = totalProfit * (1.0 - adminFee);
         const projectedTotalProfit = Math.max(0, netProfit * profitShare);
-        const projectedTotalContract = saleOriginal + projectedTotalProfit;
+        const projectedTotalContract = deviceSalePrice + projectedTotalProfit;
 
         let devStatus = "ativo";
         if (paidInst === totalInst) {
@@ -636,6 +635,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
         primeProductsList.push({
           id: dev.id,
+          saleId: sales.id,
           model: `${dev.brand} ${dev.model}`,
           imei: dev.imei,
           client: (sales as any).customer?.name || "Cliente",
@@ -643,14 +643,16 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           capitalReturned: Number(devCapReturned.toFixed(2)),
           interestReceived: Number(devIntReceived.toFixed(2)),
           totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
-          remainingValue: Number((Number(dev.cost_price || 0) - devCapReturned).toFixed(2)),
+          remainingValue: Number((deviceSalePrice - devCapReturned).toFixed(2)),
           projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
           projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
+          saleTotalValue: saleTotal,
           status: devStatus
         });
       } else {
         primeProductsList.push({
           id: dev.id,
+          saleId: null,
           model: `${dev.brand} ${dev.model}`,
           imei: dev.imei,
           client: "-",
@@ -658,9 +660,10 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           capitalReturned: 0,
           interestReceived: 0,
           totalReceived: 0,
-          remainingValue: Number(Number(dev.cost_price || 0).toFixed(2)),
+          remainingValue: deviceSalePrice,
           projectedTotalProfit: 0,
           projectedTotalContract: 0,
+          saleTotalValue: 0,
           status: "estoque"
         });
         activeDevicesCount++;
@@ -784,10 +787,25 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
     const sortedUpcomingPayments = upcomingPayments.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
+    // Sincronizar carteira no banco usando upsert
+    const calculatedFutureReceipts = sortedUpcomingPayments.reduce((sum, item) => sum + item.expectedValue, 0) + totalRendaFuture;
+    try {
+      await supabase
+        .from("wallets")
+        .upsert({
+          profile_id: profile_id,
+          future_receipts: Number(calculatedFutureReceipts.toFixed(2)),
+          balance: Number(walletData.balance || 0),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'profile_id' });
+    } catch (e) {
+      console.error("[syncWalletFutureReceipts] Error upserting wallet:", e);
+    }
+
     res.json({
       wallet: {
         balance: Number(walletData.balance),
-        futureReceipts: Number(walletData.future_receipts),
+        futureReceipts: Number(calculatedFutureReceipts.toFixed(2)),
         capitalInvested,
         capitalRecovered,
         interestReceived,
@@ -867,6 +885,90 @@ router.post("/withdraw", async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Disparar notificações de saque por WhatsApp (não-bloqueante)
+    (async () => {
+      try {
+        // 1. Obter perfil do investidor
+        const { data: investorProfile } = await supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .eq("id", profile_id)
+          .maybeSingle();
+
+        if (investorProfile) {
+          // Buscar canal ativo do WhatsApp
+          const { data: channels } = await supabase
+            .from("automation_channels")
+            .select("instance_name")
+            .eq("status", "connected")
+            .limit(1);
+
+          const instanceName = channels && channels.length > 0 ? channels[0].instance_name : "mdr";
+          const n8nUrl = process.env.N8N_SCP_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/scp-notification`;
+
+          // A. Notificar Investidor
+          if (investorProfile.phone) {
+            const cleanPhone = investorProfile.phone.replace(/\D/g, "");
+            if (cleanPhone) {
+              const targetPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+              const investorMessage = `*MDR PARCEIROS* 💰\n\nOlá, *${investorProfile.full_name}*!\nConfirmamos a sua solicitação de resgate:\n\n💵 *Valor:* R$ ${Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n🔑 *Chave Pix:* ${pix_key} (${pix_key_type})\n\n⏳ *Prazo de depósito:* O valor será creditado em sua conta em até *2 dias úteis*.\n\nAcompanhe o status no seu painel.`;
+
+              await fetch(n8nUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+                },
+                body: JSON.stringify({
+                  instanceName,
+                  remoteJid: `${targetPhone}@s.whatsapp.net`,
+                  text: investorMessage,
+                  phone: targetPhone,
+                  name: investorProfile.full_name
+                })
+              }).catch(e => console.error("[Withdrawal Notify Investor] Error:", e));
+            }
+          }
+
+          // B. Notificar Administradores
+          const { data: admins } = await supabase
+            .from("profiles")
+            .select("full_name, phone")
+            .eq("role", "admin");
+
+          if (admins && admins.length > 0) {
+            for (const admin of admins) {
+              if (admin.phone) {
+                const cleanAdminPhone = admin.phone.replace(/\D/g, "");
+                if (cleanAdminPhone) {
+                  const targetAdminPhone = cleanAdminPhone.startsWith("55") ? cleanAdminPhone : `55${cleanAdminPhone}`;
+                  const adminMessage = `*MDR GESTÃO SCP* ⚠️\n\nOlá, *${admin.full_name}*!\nUma nova solicitação de resgate Pix foi recebida:\n\n👤 *Investidor:* ${investorProfile.full_name}\n💵 *Valor:* R$ ${Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n🔑 *Chave Pix:* ${pix_key} (${pix_key_type})\n\nPor favor, acesse o painel administrativo para aprovar ou rejeitar.`;
+
+                  await fetch(n8nUrl, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+                    },
+                    body: JSON.stringify({
+                      instanceName,
+                      remoteJid: `${targetAdminPhone}@s.whatsapp.net`,
+                      text: adminMessage,
+                      phone: targetAdminPhone,
+                      name: admin.full_name
+                    })
+                  }).catch(e => console.error("[Withdrawal Notify Admin] Error:", e));
+                }
+              }
+            }
+          }
+        }
+      } catch (notifyErr) {
+        console.error("[Withdrawal Notification] Exception:", notifyErr);
+      }
+    })();
+
     res.status(201).json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -1190,7 +1292,7 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 // 16b. POST /api/scp/devices/link-prime-bulk — Vincular celulares em lote a investidor Prime
 router.post("/devices/link-prime-bulk", async (req, res) => {
   try {
-    const { investor_id, device_ids, prime_profit_share, prime_admin_fee } = req.body;
+    const { investor_id, device_ids, prime_profit_share, prime_admin_fee, device_imeis } = req.body;
 
     if (!investor_id || !Array.isArray(device_ids) || device_ids.length === 0) {
       return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
@@ -1216,13 +1318,20 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
     for (const dev of devices) {
       if (dev.investor_id) continue; // Pular se já tem investidor
       
+      const updateData: any = {
+        investor_id,
+        prime_profit_share: share,
+        prime_admin_fee: fee
+      };
+
+      const rawImei = device_imeis?.[dev.id];
+      if (rawImei !== undefined) {
+        updateData.imei = rawImei && rawImei.trim() !== "" ? rawImei.trim() : null;
+      }
+
       await supabase
         .from("devices")
-        .update({
-          investor_id,
-          prime_profit_share: share,
-          prime_admin_fee: fee
-        })
+        .update(updateData)
         .eq("id", dev.id);
 
       linkedCount++;
@@ -1349,6 +1458,135 @@ router.post("/receivables/sell", async (req, res) => {
     }
 
     res.status(201).json({ success: true, purchase });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 19. GET /api/scp/sale-contract/:saleId — Detalhes do contrato de venda do cliente
+router.get("/sale-contract/:saleId", async (req, res) => {
+  try {
+    const { saleId } = req.params;
+    
+    const { data: sale, error: saleError } = await supabase
+      .from("sales")
+      .select("*, customer:customers(*), device:devices(*)")
+      .eq("id", saleId)
+      .maybeSingle();
+
+    if (saleError) throw saleError;
+    if (!sale) return res.status(404).json({ error: "Venda não localizada." });
+
+    const { data: installments, error: instsError } = await supabase
+      .from("installments")
+      .select("*")
+      .eq("sale_id", saleId)
+      .neq("status", "cancelled")
+      .order("installment_number", { ascending: true });
+
+    if (instsError) throw instsError;
+
+    const { data: unit } = await supabase
+      .from("units")
+      .select("*")
+      .eq("id", sale.store_id || "")
+      .maybeSingle();
+
+    const defaultUnit = unit || { name: "MDR Informática", cnpj: "", address: "", phone: "", contract_terms: "", warranty_terms: "" };
+
+    res.json({
+      sale: {
+        id: sale.id,
+        device_model: sale.device_model_manual || (sale.device ? `${sale.device.brand} ${sale.device.model}` : "Aparelho"),
+        imei: sale.imei_manual || sale.device?.imei || "N/A",
+        total_value: Number(sale.total_value),
+        original_price: Number(sale.original_price || sale.total_value),
+        down_payment: Number(sale.down_payment || 0),
+        installments: Number(sale.installments_count || 12),
+        service_fee: Number(sale.service_fee || 0),
+        date: sale.sale_date || sale.created_at,
+        device_color: sale.device?.color || "N/A",
+        accessories: sale.accessories || "",
+        payment_type: sale.payment_type || "crediario",
+        is_trade_in: sale.is_trade_in || false,
+        trade_in_valuation: Number(sale.trade_in_valuation || 0),
+        trade_in_device_brand: sale.trade_in_device_brand || "",
+        trade_in_device_model: sale.trade_in_device_model || "",
+        trade_in_device_imei: sale.trade_in_device_imei || "",
+      },
+      customer: {
+        name: sale.customer?.name || "Cliente",
+        cpf: sale.customer?.cpf || "",
+        address: sale.customer?.address || "",
+        phone: sale.customer?.phone || "",
+      },
+      unit: defaultUnit,
+      installments: (installments || []).map(i => ({
+        id: i.id,
+        number: i.installment_number,
+        value: Number(i.value),
+        due_date: i.due_date,
+        status: i.status
+      }))
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 20. GET /api/scp/investor-contract/:profileId — Detalhes do contrato de parceria SCP
+router.get("/investor-contract/:profileId", async (req, res) => {
+  try {
+    const { profileId } = req.params;
+
+    const { data: profile, error: profError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", profileId)
+      .maybeSingle();
+
+    if (profError) throw profError;
+    if (!profile) return res.status(404).json({ error: "Perfil do investidor não localizado." });
+
+    const { data: quotas, error: quotasError } = await supabase
+      .from("investor_quotas")
+      .select("id, amount_invested, ownership_percentage, lot:lots(id, title, target_amount)")
+      .eq("profile_id", profileId);
+
+    if (quotasError) throw quotasError;
+
+    const { data: devices, error: devError } = await supabase
+      .from("devices")
+      .select("id, brand, model, imei, sale_price, status, cost_price")
+      .eq("investor_id", profileId);
+
+    if (devError) throw devError;
+
+    const { data: unit } = await supabase
+      .from("units")
+      .select("*")
+      .eq("id", profile.store_id || "")
+      .maybeSingle();
+
+    const defaultUnit = unit || { name: "MDR Informática", cnpj: "", address: "", phone: "", contract_terms: "", warranty_terms: "" };
+
+    res.json({
+      profile,
+      unit: defaultUnit,
+      quotas: (quotas || []).map(q => ({
+        id: q.id,
+        amountInvested: Number(q.amount_invested),
+        ownershipPercentage: Number(q.ownership_percentage) * 100,
+        lotTitle: (q.lot as any)?.title || "Lote"
+      })),
+      devices: (devices || []).map(d => ({
+        id: d.id,
+        model: `${d.brand} ${d.model}`,
+        imei: d.imei || "N/A",
+        salePrice: Number(d.sale_price || d.cost_price || 0),
+        status: d.status
+      }))
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
