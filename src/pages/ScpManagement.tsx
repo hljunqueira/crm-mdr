@@ -62,6 +62,7 @@ export default function ScpManagement() {
   const [isLinkPrimeOpen, setIsLinkPrimeOpen] = useState(false);
   const [primeInvestorId, setPrimeInvestorId] = useState('');
   const [primeProfitShare, setPrimeProfitShare] = useState<number | ''>(60);
+  const [primeProfitShareVal, setPrimeProfitShareVal] = useState<string>('');
   const [primeAdminFee, setPrimeAdminFee] = useState<number | ''>(10);
   const [selectedGroupKey, setSelectedGroupKey] = useState('');
   const [primeQuantityInput, setPrimeQuantityInput] = useState<number | ''>(1);
@@ -549,6 +550,14 @@ export default function ScpManagement() {
       setPrimeProfitShare('');
     }
   };
+
+  useEffect(() => {
+    if (netProfit > 0 && primeProfitShare !== '') {
+      setPrimeProfitShareVal((netProfit * (primeProfitShare / 100)).toFixed(2));
+    } else {
+      setPrimeProfitShareVal('');
+    }
+  }, [primeSelectedDeviceIds, primeAdminFee]);
 
   return (
     <div className="space-y-6">
@@ -1158,7 +1167,15 @@ export default function ScpManagement() {
                     max={100}
                     step="any"
                     value={primeProfitShare}
-                    onChange={(e) => setPrimeProfitShare(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    onChange={(e) => {
+                      const pctVal = e.target.value;
+                      setPrimeProfitShare(pctVal === '' ? '' : parseFloat(pctVal));
+                      if (pctVal === '' || isNaN(parseFloat(pctVal))) {
+                        setPrimeProfitShareVal('');
+                      } else {
+                        setPrimeProfitShareVal((netProfit * (parseFloat(pctVal) / 100)).toFixed(2));
+                      }
+                    }}
                     className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
                   />
                 </div>
@@ -1168,8 +1185,18 @@ export default function ScpManagement() {
                     type="number"
                     step="any"
                     disabled={primeSelectedDeviceIds.length === 0 || netProfit <= 0}
-                    value={primeSelectedDeviceIds.length > 0 && netProfit > 0 ? (netProfit * ((Number(primeProfitShare) || 0) / 100)).toFixed(2) : ''}
-                    onChange={(e) => handleProfitValChange(e.target.value)}
+                    value={primeProfitShareVal}
+                    onChange={(e) => {
+                      const valStr = e.target.value;
+                      setPrimeProfitShareVal(valStr);
+                      const val = parseFloat(valStr);
+                      if (!isNaN(val) && netProfit > 0) {
+                        const pct = Math.min(100, Math.max(0, parseFloat(((val / netProfit) * 100).toFixed(2))));
+                        setPrimeProfitShare(pct);
+                      } else if (valStr === '') {
+                        setPrimeProfitShare('');
+                      }
+                    }}
                     placeholder={primeSelectedDeviceIds.length === 0 ? "Escolha..." : "R$ 0,00"}
                     className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
                   />
