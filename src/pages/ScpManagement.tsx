@@ -1068,7 +1068,7 @@ export default function ScpManagement() {
       {/* Modal: Vincular Celular a Investidor Prime */}
       {isLinkPrimeOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleLinkPrimeSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-4xl rounded-3xl p-6 space-y-4 shadow-2xl relative max-h-[90vh] flex flex-col">
+          <form onSubmit={handleLinkPrimeSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-4xl rounded-3xl p-6 shadow-2xl relative max-h-[90vh] flex flex-col overflow-hidden">
             <button 
               type="button"
               onClick={() => {
@@ -1076,139 +1076,146 @@ export default function ScpManagement() {
                 setPrimeSelectedDeviceIds([]);
                 setDeviceSearchQuery('');
               }}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer z-10"
             >
               <X size={18} />
             </button>
 
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celulares Prime</h3>
-            <p className="text-xs text-zinc-400">
-              Associe aparelhos em estoque diretamente a um Investidor Prime selecionando-os por IMEI.
-            </p>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Investidor Prime</label>
-              <select
-                required
-                value={primeInvestorId}
-                onChange={(e) => setPrimeInvestorId(e.target.value)}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
-              >
-                <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
-                {investors.map((inv) => (
-                  <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
-                ))}
-              </select>
+            {/* Header (Fixo) */}
+            <div className="mb-4 pr-8 shrink-0">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Vincular Celulares Prime</h3>
+              <p className="text-xs text-zinc-400 mt-1">
+                Associe aparelhos em estoque diretamente a um Investidor Prime selecionando-os por IMEI.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Filtrar Aparelhos</label>
-              <input
-                type="text"
-                placeholder="Pesquise por marca, modelo ou IMEI..."
-                value={deviceSearchQuery}
-                onChange={(e) => setDeviceSearchQuery(e.target.value)}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto min-h-[220px] border border-zinc-800/80 rounded-2xl p-3">
-              {filteredAvailableDevices.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500 text-xs">Nenhum aparelho disponível localizado.</div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {filteredAvailableDevices.map((d) => (
-                    <label key={d.id} className="flex items-center gap-3 p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all cursor-pointer">
-                      <input 
-                        type="checkbox"
-                        checked={primeSelectedDeviceIds.includes(d.id)}
-                        onChange={() => {
-                          setPrimeSelectedDeviceIds(prev => 
-                            prev.includes(d.id) ? prev.filter(id => id !== d.id) : [...prev, d.id]
-                          );
-                        }}
-                        className="accent-emerald-500 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-white block truncate uppercase">{d.brand} {d.model}</span>
-                        <span className="text-[9px] text-zinc-500 font-mono block truncate">IMEI: {d.imei || 'N/A'}</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[10px] text-zinc-400 block font-mono">Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        <span className="text-[10px] text-emerald-400 font-bold block font-mono">Venda: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                    </label>
+            {/* Conteúdo rolável se ultrapassar 90vh */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Investidor Prime</label>
+                <select
+                  required
+                  value={primeInvestorId}
+                  onChange={(e) => setPrimeInvestorId(e.target.value)}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                >
+                  <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
+                  {investors.map((inv) => (
+                    <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Filtrar Aparelhos</label>
+                <input
+                  type="text"
+                  placeholder="Pesquise por marca, modelo ou IMEI..."
+                  value={deviceSearchQuery}
+                  onChange={(e) => setDeviceSearchQuery(e.target.value)}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                />
+              </div>
+
+              <div className="border border-zinc-800/80 rounded-2xl p-3 min-h-[200px] bg-black/10">
+                {filteredAvailableDevices.length === 0 ? (
+                  <div className="text-center py-8 text-zinc-500 text-xs">Nenhum aparelho disponível localizado.</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filteredAvailableDevices.map((d) => (
+                      <label key={d.id} className="flex items-center gap-3 p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all cursor-pointer">
+                        <input 
+                          type="checkbox"
+                          checked={primeSelectedDeviceIds.includes(d.id)}
+                          onChange={() => {
+                            setPrimeSelectedDeviceIds(prev => 
+                              prev.includes(d.id) ? prev.filter(id => id !== d.id) : [...prev, d.id]
+                            );
+                          }}
+                          className="accent-emerald-500 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-bold text-white block truncate uppercase">{d.brand} {d.model}</span>
+                          <span className="text-[9px] text-zinc-500 font-mono block truncate">IMEI: {d.imei || 'N/A'}</span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] text-zinc-400 block font-mono">Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-[10px] text-emerald-400 font-bold block font-mono">Venda: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    max={100}
+                    step="any"
+                    value={primeProfitShare}
+                    onChange={(e) => setPrimeProfitShare(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (R$)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    disabled={primeSelectedDeviceIds.length === 0 || netProfit <= 0}
+                    value={primeSelectedDeviceIds.length > 0 && netProfit > 0 ? (netProfit * ((Number(primeProfitShare) || 0) / 100)).toFixed(2) : ''}
+                    onChange={(e) => handleProfitValChange(e.target.value)}
+                    placeholder={primeSelectedDeviceIds.length === 0 ? "Escolha..." : "R$ 0,00"}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Taxa Adm (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    max={100}
+                    value={primeAdminFee}
+                    onChange={(e) => setPrimeAdminFee(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {primeSelectedDeviceIds.length > 0 && (
+                <div className="bg-white/[0.02] border border-zinc-800 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Preço de Venda Total:</span>
+                    <span className="font-bold text-white">R$ {salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Custo Total do Lote:</span>
+                    <span className="font-bold text-white">R$ {costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Margem Bruta Estimada:</span>
+                    <span className="font-bold text-zinc-300">R$ {grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Lucro Líquido (Pós Taxa Adm):</span>
+                    <span className="font-bold text-zinc-300">R$ {netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-zinc-800/60 pt-1.5 mt-1.5 text-emerald-400">
+                    <span>Repasse Estimado (Investidor):</span>
+                    <span className="font-extrabold">R$ {estimatedProfitVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({Number(primeProfitShare || 0).toFixed(1)}%)</span>
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (%)</label>
-                <input
-                  type="number"
-                  required
-                  min={0}
-                  max={100}
-                  step="any"
-                  value={primeProfitShare}
-                  onChange={(e) => setPrimeProfitShare(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (R$)</label>
-                <input
-                  type="number"
-                  step="any"
-                  disabled={primeSelectedDeviceIds.length === 0 || netProfit <= 0}
-                  value={primeSelectedDeviceIds.length > 0 && netProfit > 0 ? (netProfit * ((Number(primeProfitShare) || 0) / 100)).toFixed(2) : ''}
-                  onChange={(e) => handleProfitValChange(e.target.value)}
-                  placeholder={primeSelectedDeviceIds.length === 0 ? "Escolha..." : "R$ 0,00"}
-                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Taxa Adm (%)</label>
-                <input
-                  type="number"
-                  required
-                  min={0}
-                  max={100}
-                  value={primeAdminFee}
-                  onChange={(e) => setPrimeAdminFee(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {primeSelectedDeviceIds.length > 0 && (
-              <div className="bg-white/[0.02] border border-zinc-800 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400 shrink-0">
-                <div className="flex justify-between">
-                  <span>Preço de Venda Total:</span>
-                  <span className="font-bold text-white">R$ {salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Custo Total do Lote:</span>
-                  <span className="font-bold text-white">R$ {costPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Margem Bruta Estimada:</span>
-                  <span className="font-bold text-zinc-300">R$ {grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Lucro Líquido (Pós Taxa Adm):</span>
-                  <span className="font-bold text-zinc-300">R$ {netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between border-t border-zinc-800/60 pt-1.5 mt-1.5 text-emerald-400">
-                  <span>Repasse Estimado (Investidor):</span>
-                  <span className="font-extrabold">R$ {estimatedProfitVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({Number(primeProfitShare || 0).toFixed(1)}%)</span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2 shrink-0">
+            {/* Footer (Fixo com botões de ação) */}
+            <div className="flex gap-2 pt-4 border-t border-zinc-800/80 mt-4 shrink-0">
               <button
                 type="button"
                 onClick={() => {
