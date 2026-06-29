@@ -1098,8 +1098,9 @@ router.get("/available-devices", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("devices")
-      .select("id, model, brand, imei, sale_price, cost_price")
+      .select("id, model, brand, imei, sale_price, cost_price, stock_quantity, category")
       .eq("status", "available")
+      .eq("category", "smartphone")
       .is("lot_id", null)
       .is("investor_id", null)
       .order("created_at", { ascending: false });
@@ -1292,7 +1293,7 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 // 16b. POST /api/scp/devices/link-prime-bulk — Vincular celulares em lote a investidor Prime
 router.post("/devices/link-prime-bulk", async (req, res) => {
   try {
-    const { investor_id, device_ids, prime_profit_share, prime_admin_fee, device_imeis } = req.body;
+    const { investor_id, device_ids, device_quantities, prime_profit_share, prime_admin_fee, device_imeis } = req.body;
 
     if (!investor_id || !Array.isArray(device_ids) || device_ids.length === 0) {
       return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
@@ -1304,38 +1305,62 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
     let linkedCount = 0;
     let totalCostCredited = 0;
 
-    // Buscar os aparelhos para validar se estão disponíveis e calcular custo
+    // Buscar os aparelhos para validar se estão disponíveis e obter todos os atributos do pai
     const { data: devices, error: devErr } = await supabase
       .from("devices")
-      .select("id, status, investor_id, cost_price")
+      .select("*")
       .in("id", device_ids);
 
     if (devErr || !devices) {
       return res.status(400).json({ error: "Erro ao carregar aparelhos para vinculação." });
     }
 
-    // Vincular os aparelhos válidos
+    // Vincular os aparelhos desmembrando a quantidade do pai
     for (const dev of devices) {
       if (dev.investor_id) continue; // Pular se já tem investidor
-      
-      const updateData: any = {
-        investor_id,
-        prime_profit_share: share,
-        prime_admin_fee: fee
-      };
 
-      const rawImei = device_imeis?.[dev.id];
-      if (rawImei !== undefined) {
-        updateData.imei = rawImei && rawImei.trim() !== "" ? rawImei.trim() : null;
-      }
+      const qty = Number(device_quantities?.[dev.id] || 1);
+      const originalQty = Number(dev.stock_quantity || 1);
+      const newQty = Math.max(0, originalQty - qty);
 
+      // Atualizar a quantidade em estoque do pai
+      const parentStatus = newQty <= 0 ? 'sold' : dev.status;
       await supabase
         .from("devices")
-        .update(updateData)
+        .update({
+          stock_quantity: newQty,
+          status: parentStatus
+        })
         .eq("id", dev.id);
 
-      linkedCount++;
-      totalCostCredited += Number(dev.cost_price || 0);
+      // Inserir cada unidade desmembrada com quantidade = 1 e IMEI próprio
+      const imeis = device_imeis?.[dev.id] || [];
+      for (let i = 0; i < qty; i++) {
+        const { id, created_at, updated_at, ...copiedData } = dev;
+        
+        const newDeviceData = {
+          ...copiedData,
+          stock_quantity: 1,
+          status: "available",
+          investor_id,
+          prime_profit_share: share,
+          prime_admin_fee: fee,
+          imei: imeis[i] && imeis[i].trim() !== "" ? imeis[i].trim() : null,
+          lot_id: null
+        };
+
+        const { error: insertErr } = await supabase
+          .from("devices")
+          .insert([newDeviceData]);
+
+        if (insertErr) {
+          console.error("Erro ao criar dispositivo desmembrado:", insertErr);
+          throw insertErr;
+        }
+
+        linkedCount++;
+        totalCostCredited += Number(dev.cost_price || 0);
+      }
     }
 
     // 2. Atualizar recebíveis futuros na carteira do investidor

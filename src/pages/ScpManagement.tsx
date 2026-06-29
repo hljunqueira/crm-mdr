@@ -62,7 +62,8 @@ export default function ScpManagement() {
   const [availableDevices, setAvailableDevices] = useState<any[]>([]);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [primeSelectedDeviceIds, setPrimeSelectedDeviceIds] = useState<string[]>([]);
-  const [primeDeviceImeis, setPrimeDeviceImeis] = useState<Record<string, string>>({});
+  const [primeDeviceImeis, setPrimeDeviceImeis] = useState<Record<string, string[]>>({});
+  const [primeSelectedQuantities, setPrimeSelectedQuantities] = useState<Record<string, number>>({});
 
   // Estados para edição de contrato
   const [isContractUrlOpen, setIsContractUrlOpen] = useState(false);
@@ -302,6 +303,19 @@ export default function ScpManagement() {
       showNotification('error', 'Erro', 'Selecione pelo menos um aparelho e o investidor.');
       return;
     }
+
+    // Validar se todos os IMEIs foram preenchidos para as quantidades selecionadas
+    for (const devId of primeSelectedDeviceIds) {
+      const qty = primeSelectedQuantities[devId] || 1;
+      const imeis = primeDeviceImeis[devId] || [];
+      for (let i = 0; i < qty; i++) {
+        if (!imeis[i] || imeis[i].trim() === '') {
+          showNotification('error', 'Erro', 'Por favor, preencha todos os IMEIs correspondentes às quantidades selecionadas.');
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/scp/devices/link-prime-bulk', {
@@ -310,6 +324,7 @@ export default function ScpManagement() {
         body: JSON.stringify({
           investor_id: primeInvestorId,
           device_ids: primeSelectedDeviceIds,
+          device_quantities: primeSelectedQuantities,
           prime_profit_share: primeProfitShare === '' ? 0 : primeProfitShare,
           prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee,
           device_imeis: primeDeviceImeis
@@ -321,6 +336,7 @@ export default function ScpManagement() {
       setIsLinkPrimeOpen(false);
       setPrimeSelectedDeviceIds([]);
       setPrimeDeviceImeis({});
+      setPrimeSelectedQuantities({});
       setPrimeInvestorId('');
       fetchPrimeDevices();
     } catch (err: any) {
@@ -1282,6 +1298,8 @@ export default function ScpManagement() {
               onClick={() => {
                 setIsLinkPrimeOpen(false);
                 setPrimeSelectedDeviceIds([]);
+                setPrimeDeviceImeis({});
+                setPrimeSelectedQuantities({});
                 setDeviceSearchQuery('');
               }}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer z-10"
@@ -1335,9 +1353,16 @@ export default function ScpManagement() {
                         <div 
                           className="flex items-center gap-3 w-full cursor-pointer"
                           onClick={() => {
-                            setPrimeSelectedDeviceIds(prev => 
-                              prev.includes(d.id) ? prev.filter(id => id !== d.id) : [...prev, d.id]
-                            );
+                            setPrimeSelectedDeviceIds(prev => {
+                              const isSelected = prev.includes(d.id);
+                              if (isSelected) {
+                                return prev.filter(id => id !== d.id);
+                              } else {
+                                setPrimeSelectedQuantities(qPrev => ({ ...qPrev, [d.id]: 1 }));
+                                setPrimeDeviceImeis(iPrev => ({ ...iPrev, [d.id]: [d.imei || ''] }));
+                                return [...prev, d.id];
+                              }
+                            });
                           }}
                         >
                           <input 
@@ -1351,23 +1376,58 @@ export default function ScpManagement() {
                             <span className="text-[9px] text-zinc-500 font-mono block truncate">
                               IMEI atual: {d.imei || 'Não informado'}
                             </span>
+                            <span className="text-[9px] text-zinc-400 block mt-0.5">
+                              Estoque: {d.stock_quantity ?? 1} { (d.stock_quantity ?? 1) > 1 ? 'unidades' : 'unidade' }
+                            </span>
                           </div>
                           <div className="text-right shrink-0">
                             <span className="text-[10px] text-emerald-400 font-bold block font-mono">À Vista: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                           </div>
                         </div>
 
-                        {/* Input de IMEI dinâmico se o aparelho estiver selecionado */}
+                        {/* Seletor de quantidade e inputs de IMEI */}
                         {primeSelectedDeviceIds.includes(d.id) && (
-                          <div className="mt-2 pt-2 border-t border-white/5 w-full" onClick={(e) => e.stopPropagation()}>
-                            <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest block mb-1">Preencher/Alterar IMEI</label>
-                            <input
-                              type="text"
-                              placeholder="Digite o IMEI do aparelho..."
-                              value={primeDeviceImeis[d.id] !== undefined ? primeDeviceImeis[d.id] : (d.imei || '')}
-                              onChange={(e) => setPrimeDeviceImeis(prev => ({ ...prev, [d.id]: e.target.value }))}
-                              className="w-full bg-black/40 border border-zinc-800 focus:border-emerald-500 rounded-xl px-3 py-1.5 text-xs text-white outline-none transition-all font-mono"
-                            />
+                          <div className="mt-2 pt-2 border-t border-white/5 w-full space-y-2" onClick={(e) => e.stopPropagation()}>
+                            { (d.stock_quantity || 1) > 1 && (
+                              <div className="flex items-center justify-between">
+                                <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest block">Qtd a vincular (Max {d.stock_quantity})</label>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={d.stock_quantity}
+                                  value={primeSelectedQuantities[d.id] || 1}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, Math.min(d.stock_quantity || 1, parseInt(e.target.value) || 1));
+                                    setPrimeSelectedQuantities(prev => ({ ...prev, [d.id]: val }));
+                                    setPrimeDeviceImeis(prev => {
+                                      const currentList = prev[d.id] || [];
+                                      const newList = Array.from({ length: val }, (_, i) => currentList[i] || '');
+                                      return { ...prev, [d.id]: newList };
+                                    });
+                                  }}
+                                  className="w-16 bg-black/40 border border-zinc-800 focus:border-emerald-500 rounded-lg px-2 py-1 text-xs text-white text-center outline-none transition-all"
+                                />
+                              </div>
+                            )}
+
+                            <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest block mb-1">Preencher/Alterar IMEI(s)</label>
+                            {Array.from({ length: primeSelectedQuantities[d.id] || 1 }).map((_, idx) => (
+                              <input
+                                key={idx}
+                                type="text"
+                                placeholder={`IMEI da unidade ${idx + 1}...`}
+                                value={primeDeviceImeis[d.id]?.[idx] || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPrimeDeviceImeis(prev => {
+                                    const currentList = [...(prev[d.id] || [])];
+                                    currentList[idx] = val;
+                                    return { ...prev, [d.id]: currentList };
+                                  });
+                                }}
+                                className="w-full bg-black/40 border border-zinc-800 focus:border-emerald-500 rounded-xl px-3 py-1.5 text-xs text-white outline-none transition-all font-mono"
+                              />
+                            ))}
                           </div>
                         )}
                       </div>
