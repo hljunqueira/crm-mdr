@@ -169,8 +169,12 @@ export default function Inventory() {
       confirmText: 'Sim, Excluir',
       type: 'danger',
       onConfirm: async () => {
-        await deleteItem(id);
-        showNotification('success', 'Item Removido');
+        try {
+          await deleteItem(id);
+          showNotification('success', 'Item Removido');
+        } catch (err) {
+          showNotification('error', 'Erro ao Remover', 'Não foi possível excluir o item. Ele pode estar vinculado a vendas, cotas ou histórico de estoque.');
+        }
       }
     });
   };

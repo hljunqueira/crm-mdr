@@ -877,6 +877,25 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   const selectedCustomer = customers.find(c => c.id === formData.customer_id);
 
+  const hasCashOnlyDevice = useMemo(() => {
+    return selectedDevices.some(d => {
+      const invItem = inventory.find(i => i.id === d.id);
+      return invItem?.only_cash_sale === true;
+    });
+  }, [selectedDevices, inventory]);
+
+  useEffect(() => {
+    if (hasCashOnlyDevice && formData.payment_type !== 'vista' && formData.payment_type !== 'debit') {
+      setFormData(prev => ({
+        ...prev,
+        payment_type: 'vista',
+        installments: 0,
+        down_payment: 0
+      }));
+      showNotification('warning', 'Venda Restrita', 'Forma de parcelamento alterada para À Vista, pois este celular é de venda restrita.');
+    }
+  }, [hasCashOnlyDevice, formData.payment_type]);
+
   // MDR Coefficient Calculations
   const paymentType = (formData.payment_type || 'crediario') as 'crediario' | 'card' | 'vista' | 'debit';
   const isCashLike = paymentType === 'vista' || paymentType === 'debit';
@@ -2337,19 +2356,19 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               {saleType === 'general' ? (
                 <>
                   <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
-                  <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+                  <option value="card" disabled={hasCashOnlyDevice} className="bg-surface-container-high">Cartão de Crédito {hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}</option>
                   <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
                 </>
               ) : (
                 <>
                   <option
                     value="crediario"
-                    disabled={selectedCustomer?.classification === 'A_VISTA'}
+                    disabled={selectedCustomer?.classification === 'A_VISTA' || hasCashOnlyDevice}
                     className="bg-surface-container-high"
                   >
-                    Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : ''}
+                    Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}
                   </option>
-                  <option value="card" className="bg-surface-container-high">Cartão de Crédito</option>
+                  <option value="card" disabled={hasCashOnlyDevice} className="bg-surface-container-high">Cartão de Crédito {hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}</option>
                   <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
                   <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
                 </>
@@ -2360,6 +2379,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 <AlertCircle size={14} className="shrink-0" />
                 <span className="font-bold text-[10px] uppercase tracking-wider">
                   Aviso: Cliente classificado como 'Somente À Vista'. Vendas parceladas não permitidas (sujeito a análise de crédito).
+                </span>
+              </div>
+            )}
+            {hasCashOnlyDevice && (
+              <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl mt-1 animate-pulse">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider">
+                  Aviso: Este celular está configurado para Venda Somente à Vista. Parcelamento no crediário ou cartão de crédito não é permitido.
                 </span>
               </div>
             )}

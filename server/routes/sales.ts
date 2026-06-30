@@ -256,27 +256,37 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // Validar se o investidor é do tipo conservador e a venda é crediário
+    // Validar se o investidor é do tipo conservador e a venda é crediário, ou se é venda somente à vista
     let targetDeviceId = cleanSaleBody['device_id'] || req.body.device_id;
     if (targetDeviceId) {
       const { data: devObj } = await supabase
         .from('devices')
-        .select('investor_id')
+        .select('investor_id, only_cash_sale')
         .eq('id', targetDeviceId)
         .maybeSingle();
 
-      if (devObj?.investor_id) {
-        const { data: investorProfile } = await supabase
-          .from('profiles')
-          .select('investor_profile')
-          .eq('id', devObj.investor_id)
-          .maybeSingle();
-
-        if (investorProfile?.investor_profile === 'conservador') {
-          if (req.body.payment_type === 'crediario') {
-            return res.status(400).json({ 
-              error: "Este aparelho pertence a um investidor conservador e só pode ser vendido à vista (não é permitido crediário)." 
+      if (devObj) {
+        if (devObj.only_cash_sale) {
+          if (req.body.payment_type !== 'vista' && req.body.payment_type !== 'debit') {
+            return res.status(400).json({
+              error: "Este aparelho está configurado para venda somente à vista (não é permitido crediário ou cartão de crédito parcelado)."
             });
+          }
+        }
+
+        if (devObj.investor_id) {
+          const { data: investorProfile } = await supabase
+            .from('profiles')
+            .select('investor_profile')
+            .eq('id', devObj.investor_id)
+            .maybeSingle();
+
+          if (investorProfile?.investor_profile === 'conservador') {
+            if (req.body.payment_type === 'crediario') {
+              return res.status(400).json({ 
+                error: "Este aparelho pertence a um investidor conservador e só pode ser vendido à vista (não é permitido crediário)." 
+              });
+            }
           }
         }
       }

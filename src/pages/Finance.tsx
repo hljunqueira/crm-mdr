@@ -619,7 +619,7 @@ export default function Finance() {
   const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'payable_cards'>('receivables');
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  
+
   const { 
     bills, 
     forecast, 
@@ -630,6 +630,54 @@ export default function Finance() {
     toggleBillPayment, 
     saveForecast 
   } = useFinancialDashboardStore();
+
+  const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
+  const [showPaidBills, setShowPaidBills] = useState<boolean>(false);
+
+  const filteredBills = useMemo(() => {
+    return bills.filter(bill => {
+      const dayMatches = selectedDay === 'all' || bill.day === Number(selectedDay);
+      const paidMatches = showPaidBills ? true : !bill.is_paid;
+      return dayMatches && paidMatches;
+    });
+  }, [bills, selectedDay, showPaidBills]);
+
+  const dayOpenValue = useMemo(() => {
+    if (selectedDay === 'all') return 0;
+    return bills
+      .filter(b => b.day === Number(selectedDay) && !b.is_paid)
+      .reduce((sum, b) => sum + Number(b.value), 0);
+  }, [bills, selectedDay]);
+
+  const monthlyProjection = useMemo(() => {
+    const projection = [];
+    const now = new Date();
+    let currentMonth = now.getMonth() + 1;
+    let currentYear = now.getFullYear();
+
+    for (let i = 0; i < 12; i++) {
+      let totalForMonth = 0;
+      for (const bill of bills) {
+        const elapsedMonths = (currentYear - bill.start_year) * 12 + (currentMonth - bill.start_month);
+        const currentInstallment = elapsedMonths + 1;
+        if (currentInstallment >= 1 && currentInstallment <= bill.total_installments) {
+          totalForMonth += Number(bill.value);
+        }
+      }
+
+      projection.push({
+        monthLabel: new Date(currentYear, currentMonth - 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).toUpperCase(),
+        amount: totalForMonth
+      });
+
+      currentMonth++;
+      if (currentMonth > 12) {
+        currentMonth = 1;
+        currentYear++;
+      }
+    }
+    return projection;
+  }, [bills]);
 
   const [isBillModalOpen, setIsBillModalOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any | null>(null);
@@ -1732,6 +1780,32 @@ export default function Finance() {
                   ))}
                 </select>
               </div>
+
+              {/* Filtro de Dia */}
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5">
+                <Calendar size={16} className="text-primary shrink-0" />
+                <select
+                  value={selectedDay}
+                  onChange={(e) => setSelectedDay(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  className="bg-transparent text-xs text-white outline-none w-28 cursor-pointer font-display font-black uppercase tracking-wider"
+                >
+                  <option value="all" className="bg-[#0f0f1a] text-white">Todos os dias</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d} className="bg-[#0f0f1a] text-white">Dia {d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Toggle de Ocultar Pagos */}
+              <label className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 cursor-pointer hover:bg-white/[0.07] transition-all select-none">
+                <input
+                  type="checkbox"
+                  checked={showPaidBills}
+                  onChange={(e) => setShowPaidBills(e.target.checked)}
+                  className="rounded border-white/10 bg-white/5 text-primary focus:ring-0 cursor-pointer"
+                />
+                <span className="text-[10px] text-white uppercase tracking-widest font-black">Ver Pagas</span>
+              </label>
             </div>
 
             <button
@@ -1746,7 +1820,7 @@ export default function Finance() {
             <div className="xl:col-span-8 bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-white/5 pb-4">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest">
-                  Mensal Fixo - Cartão ({bills.length})
+                  Mensal Fixo - Cartão ({filteredBills.length})
                 </h3>
               </div>
 
@@ -1765,14 +1839,14 @@ export default function Finance() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {bills.length === 0 ? (
+                    {filteredBills.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-12 text-center text-xs text-on-surface-variant">
-                          Nenhuma conta de cartão ativa para o período selecionado.
+                          Nenhuma conta de cartão ativa para o período selecionado com os filtros atuais.
                         </td>
                       </tr>
                     ) : (
-                      bills.map((bill) => (
+                      filteredBills.map((bill) => (
                         <tr key={bill.id} className="hover:bg-white/[0.01] transition-all group">
                           <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
                           <td className="py-4 text-xs font-bold text-white uppercase">
@@ -1827,12 +1901,12 @@ export default function Finance() {
                 </table>
               </div>
 
-              <div className="pt-4 border-t border-white/5 flex flex-wrap justify-between text-xs font-bold text-white pl-4 pr-4">
-                <span>Contas Ativas: {bills.length}</span>
-                <div className="flex gap-6">
-                  <span>Pago: <span className="text-success font-mono">R$ {bills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
-                  <span>Restante: <span className="text-error font-mono">R$ {bills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
-                  <span>Total Mês: <span className="text-primary font-mono">R$ {bills.reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
+              <div className="pt-4 border-t border-white/5 flex flex-wrap justify-between text-[10px] font-bold text-white pl-4 pr-4 gap-2">
+                <span>Contas Exibidas: {filteredBills.length} / {bills.length}</span>
+                <div className="flex flex-wrap gap-4 sm:gap-6">
+                  <span>Pago (Exibido): <span className="text-success font-mono">R$ {filteredBills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
+                  <span>A Pagar (Exibido): <span className="text-error font-mono">R$ {filteredBills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
+                  <span>Total (Mês): <span className="text-primary font-mono">R$ {bills.reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></span>
                 </div>
               </div>
             </div>
@@ -1850,6 +1924,15 @@ export default function Finance() {
                       R$ {bills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
+
+                  {selectedDay !== 'all' && (
+                    <div className="bg-[#181824] border border-white/5 rounded-2xl p-4 mt-2 animate-in fade-in duration-300">
+                      <p className="text-[9px] text-primary uppercase tracking-widest font-black mb-1 opacity-70">A Pagar no Dia {selectedDay}</p>
+                      <p className="text-lg font-black text-white font-mono">
+                        R$ {dayOpenValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-4">
                     <div>
@@ -1939,6 +2022,23 @@ export default function Finance() {
                   >
                     Salvar Relatório & Previsões
                   </button>
+                </div>
+              </div>
+
+              {/* Widget de Previsão Mensal de Saídas */}
+              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
+                  Previsão Mensal de Saídas
+                </h3>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {monthlyProjection.map((proj, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b border-white/5 last:border-b-0">
+                      <span className="text-[10px] text-zinc-400 font-bold uppercase">{proj.monthLabel}</span>
+                      <span className="text-xs font-black text-white font-mono">
+                        R$ {proj.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

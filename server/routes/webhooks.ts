@@ -284,7 +284,7 @@ router.post('/asaas', async (req, res) => {
     if (installmentId) {
       const { data } = await supabase
         .from('installments')
-        .select('*, sales(*, customers(*))')
+        .select('*, sales(*, customers(*), devices(*))')
         .eq('id', installmentId)
         .maybeSingle();
       installment = data;
@@ -293,7 +293,7 @@ router.post('/asaas', async (req, res) => {
     if (!installment && payment.id) {
       const { data } = await supabase
         .from('installments')
-        .select('*, sales(*, customers(*))')
+        .select('*, sales(*, customers(*), devices(*))')
         .eq('asaas_payment_id', payment.id)
         .maybeSingle();
       installment = data;
@@ -321,7 +321,7 @@ router.post('/asaas', async (req, res) => {
           value: Number(payment.value)
         })
         .eq('id', installment.id)
-        .select('*, sales(*, customers(*))')
+        .select('*, sales(*, customers(*), devices(*))')
         .single();
 
       if (updateErr) {
@@ -388,54 +388,115 @@ router.post('/asaas', async (req, res) => {
             .eq('id', storeId)
             .maybeSingle();
 
-          const template = store?.billing_reminder_payment_confirmed_template;
-          if (template && template.trim()) {
-            const { data: channel } = await supabase
-              .from('automation_channels')
-              .select('*')
-              .eq('unit_id', storeId)
-              .eq('status', 'connected')
-              .limit(1)
-              .maybeSingle();
+          const { data: channel } = await supabase
+            .from('automation_channels')
+            .select('*')
+            .eq('unit_id', storeId)
+            .eq('status', 'connected')
+            .limit(1)
+            .maybeSingle();
 
-            if (channel && channel.instance_name) {
-              const customerPhone = updatedInst.sales?.customers?.phone;
-              if (customerPhone) {
-                let cleanPhone = customerPhone.replace(/\D/g, '');
-                if (!cleanPhone.startsWith('55')) {
-                  cleanPhone = '55' + cleanPhone;
-                }
-                const remoteJid = `${cleanPhone}@s.whatsapp.net`;
-
-                const customerName = updatedInst.sales?.customers?.name || 'Cliente';
-                const instVal = Number(updatedInst.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                const instNum = updatedInst.installment_number;
-
-                const messageText = template
-                  .replace(/{nome}/gi, customerName)
-                  .replace(/{valor}/gi, `R$ ${instVal}`)
-                  .replace(/{numero}/gi, String(instNum));
-
-                console.log(`[Asaas Webhook] Sending payment confirmation message to ${remoteJid} using instance ${channel.instance_name}`);
-                
-                const url = `${EVOLUTION_URL}/message/sendText/${channel.instance_name}`;
-                await fetch(url, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': EVOLUTION_API_KEY
-                  },
-                  body: JSON.stringify({
-                    number: remoteJid,
-                    options: { delay: 1200, presence: 'composing' },
-                    textMessage: { text: messageText }
-                  })
-                });
+          // 1. Envio para o Cliente
+          if (channel && channel.instance_name) {
+            const customerPhone = updatedInst.sales?.customers?.phone;
+            if (customerPhone) {
+              let cleanPhone = customerPhone.replace(/\D/g, '');
+              if (!cleanPhone.startsWith('55')) {
+                cleanPhone = '55' + cleanPhone;
               }
+              const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+
+              const customerName = updatedInst.sales?.customers?.name || 'Cliente';
+              const instVal = Number(updatedInst.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              const instNum = updatedInst.installment_number;
+
+              const template = store?.billing_reminder_payment_confirmed_template;
+              const templateToUse = (template && template.trim()) 
+                ? template 
+                : "Olá, {nome}! Recebemos o seu pagamento de {valor} referente à parcela {numero}. Muito obrigado pela preferência! 🙏";
+
+              const messageText = templateToUse
+                .replace(/{nome}/gi, customerName)
+                .replace(/{valor}/gi, `R$ ${instVal}`)
+                .replace(/{numero}/gi, String(instNum));
+
+              console.log(`[Asaas Webhook] Sending payment confirmation message to ${remoteJid} using instance ${channel.instance_name}`);
+              
+              const url = `${EVOLUTION_URL}/message/sendText/${channel.instance_name}`;
+              await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': EVOLUTION_API_KEY
+                },
+                body: JSON.stringify({
+                  number: remoteJid,
+                  options: { delay: 1200, presence: 'composing' },
+                  textMessage: { text: messageText }
+                })
+              });
+            }
+          }
+
+          // 2. Envio para o Maykon da Rosa (48999035854) - Vendas de Produtos
+          if (updatedInst.sales) {
+            // Buscar qualquer canal conectado para garantir o disparo se o da loja atual falhar
+            let activeChannel = channel;
+            if (!activeChannel || !activeChannel.instance_name || activeChannel.status !== 'connected') {
+              const { data: anyChannel } = await supabase
+                .from('automation_channels')
+                .select('*')
+                .eq('status', 'connected')
+                .limit(1)
+                .maybeSingle();
+              activeChannel = anyChannel;
+            }
+
+            if (activeChannel && activeChannel.instance_name) {
+              const maykonPhone = '5548999035854';
+              const maykonJid = `${maykonPhone}@s.whatsapp.net`;
+
+              const customerName = updatedInst.sales?.customers?.name || 'Cliente';
+              const instVal = Number(updatedInst.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              const instNum = updatedInst.installment_number;
+              const totalInsts = updatedInst.total_installments;
+              const paymentMethod = payment.billingType || 'PIX/Boleto';
+
+              // Construção do nome do produto com fallback
+              const deviceModel = updatedInst.sales?.devices?.model || updatedInst.sales?.device_model_manual;
+              const deviceBrand = updatedInst.sales?.devices?.brand;
+              const accessories = updatedInst.sales?.accessories;
+
+              let productName = 'Produto';
+              if (deviceBrand || deviceModel) {
+                productName = deviceBrand ? `${deviceBrand} ${deviceModel || ''}`.trim() : deviceModel;
+              } else if (accessories) {
+                productName = `Acessórios: ${accessories}`;
+              }
+
+              const notifyMaykonText = `*Notificação de Pagamento (Asaas)* 💰\n\nOlá, Maykon! Um pagamento foi recebido no Asaas para uma venda de produto:\n\n👤 *Cliente:* ${customerName}\n📱 *Produto:* ${productName}\n🔢 *Parcela:* ${instNum}/${totalInsts}\n💵 *Valor Pago:* R$ ${instVal}\n💳 *Forma:* ${paymentMethod}\n📅 *Data:* ${new Date().toLocaleDateString('pt-BR')}\n\nAcesse o painel para mais detalhes.`;
+
+              console.log(`[Asaas Webhook] Sending payment notification to Maykon using instance ${activeChannel.instance_name}`);
+
+              const url = `${EVOLUTION_URL}/message/sendText/${activeChannel.instance_name}`;
+              await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': EVOLUTION_API_KEY
+                },
+                body: JSON.stringify({
+                  number: maykonJid,
+                  options: { delay: 1000, presence: 'composing' },
+                  textMessage: { text: notifyMaykonText }
+                })
+              });
+            } else {
+              console.warn('[Asaas Webhook] No connected channel found in the database to notify Maykon da Rosa.');
             }
           }
         } catch (msgErr) {
-          console.error('[Asaas Webhook] Error sending payment confirmation WhatsApp notification:', msgErr);
+          console.error('[Asaas Webhook] Error sending payment notifications:', msgErr);
         }
       }
     }

@@ -142,13 +142,34 @@ router.patch("/:id", async (req, res) => {
 
 // Delete item
 router.delete("/:id", async (req, res) => {
-  const { error } = await supabase
-    .from('devices')
-    .delete()
-    .eq('id', req.params.id);
+  const { id } = req.params;
+  try {
+    // 1. Set device_id to null in inventory_logs to prevent FK constraint error
+    const { error: logsError } = await supabase
+      .from('inventory_logs')
+      .update({ device_id: null })
+      .eq('device_id', id);
+    if (logsError) throw logsError;
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(204).send();
+    // 2. Delete device_locks associated with the device
+    const { error: locksError } = await supabase
+      .from('device_locks')
+      .delete()
+      .eq('device_id', id);
+    if (locksError) throw locksError;
+
+    // 3. Delete from devices
+    const { error: deleteError } = await supabase
+      .from('devices')
+      .delete()
+      .eq('id', id);
+    if (deleteError) throw deleteError;
+
+    res.status(204).send();
+  } catch (err: any) {
+    console.error("[Inventory Delete] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

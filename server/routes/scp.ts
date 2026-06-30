@@ -1293,7 +1293,7 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 // 16b. POST /api/scp/devices/link-prime-bulk — Vincular celulares em lote a investidor Prime
 router.post("/devices/link-prime-bulk", async (req, res) => {
   try {
-    const { investor_id, device_ids, device_quantities, prime_profit_share, prime_admin_fee, device_imeis } = req.body;
+    const { investor_id, device_ids, device_quantities, prime_profit_share, prime_admin_fee, device_imeis, prime_valuation_type } = req.body;
 
     if (!investor_id || !Array.isArray(device_ids) || device_ids.length === 0) {
       return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
@@ -1346,7 +1346,8 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
           prime_profit_share: share,
           prime_admin_fee: fee,
           imei: imeis[i] && imeis[i].trim() !== "" ? imeis[i].trim() : null,
-          lot_id: null
+          lot_id: null,
+          prime_valuation_type: prime_valuation_type || 'sale'
         };
 
         const { error: insertErr } = await supabase
@@ -1617,5 +1618,117 @@ router.get("/investor-contract/:profileId", async (req, res) => {
   }
 });
 
+// 21. GET /api/scp/financeira-report — Relatório financeiro de rendimentos da Financeira (admin)
+router.get("/financeira-report", async (req, res) => {
+  try {
+    // 1. Fetch all paid installments (excluding cancelled/refunded sales)
+    const { data: insts, error: instsErr } = await supabase
+      .from("installments")
+      .select(`
+        id,
+        installment_number,
+        total_installments,
+        value,
+        payment_date,
+        sales (
+          id,
+          total_value,
+          original_price,
+          status,
+          customer:customers (name),
+          device:devices (id, brand, model, investor_id, prime_admin_fee, prime_profit_share, sale_price)
+        )
+      `)
+      .eq("status", "paid")
+      .order("payment_date", { ascending: false });
+
+    if (instsErr) throw instsErr;
+
+    // 2. Fetch all receivable purchases to check Renda model
+    const { data: purchases, error: purErr } = await supabase
+      .from("receivable_purchases")
+      .select("*");
+    if (purErr) throw purErr;
+
+    // 3. Fetch all wallet transactions for paid installments
+    const { data: wTxs, error: wTxsErr } = await supabase
+      .from("wallet_transactions")
+      .select("installment_id, amount, type");
+    if (wTxsErr) throw wTxsErr;
+
+    const reportRows: any[] = [];
+    let grandTotalPaid = 0;
+    let grandTotalRepassed = 0;
+    let grandTotalRetained = 0;
+
+    for (const inst of (insts || [])) {
+      const sale = inst.sales as any;
+      if (!sale) continue;
+
+      // Ignore cancelled or refunded sales
+      if (sale.status === 'cancelled' || sale.status === 'refunded') {
+        continue;
+      }
+
+      const device = sale.device;
+      const isPrime = device && device.investor_id !== null;
+      
+      const purchase = purchases?.find(p => p.sale_id === sale.id);
+      const isRenda = !!purchase;
+
+      if (!isPrime && !isRenda) {
+        // Not an SCP sale
+        continue;
+      }
+
+      // Customer paid value for this installment
+      const customerPaid = Number(inst.value);
+
+      // Total repassed to investor for this installment (sum of wallet transactions for this installment_id)
+      const txsForInst = wTxs?.filter(t => t.installment_id === inst.id) || [];
+      const repasse = txsForInst.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+      // Financeira retained amount
+      const retained = customerPaid - repasse;
+
+      let productName = 'Produto';
+      if (device) {
+        productName = device.brand ? `${device.brand} ${device.model || ''}`.trim() : device.model;
+      } else {
+        productName = 'Recebível (Renda)';
+      }
+
+      reportRows.push({
+        installmentId: inst.id,
+        paymentDate: inst.payment_date,
+        customerName: sale.customer?.name || 'Cliente',
+        productName,
+        installmentNumber: `${inst.installment_number}/${inst.total_installments}`,
+        customerPaid,
+        repasse,
+        retained,
+        type: isPrime ? 'PRIME' : 'RENDA'
+      });
+
+      grandTotalPaid += customerPaid;
+      grandTotalRepassed += repasse;
+      grandTotalRetained += retained;
+    }
+
+    res.json({
+      summary: {
+        totalPaid: Number(grandTotalPaid.toFixed(2)),
+        totalRepassed: Number(grandTotalRepassed.toFixed(2)),
+        totalRetained: Number(grandTotalRetained.toFixed(2))
+      },
+      rows: reportRows
+    });
+  } catch (err: any) {
+    console.error('[Financeira Report] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
+
 

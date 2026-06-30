@@ -36,6 +36,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     category: item?.category || 'smartphone',
     image_url: item?.image_url || '',
     show_on_landing: item?.show_on_landing || false,
+    only_cash_sale: item?.only_cash_sale || false,
     barcode: item?.barcode || '',
     supplier: item?.supplier || '',
     purchase_date: item?.purchase_date || new Date().toISOString().split('T')[0],
@@ -184,6 +185,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         category: formData.category,
         image_url: formData.image_url,
         show_on_landing: formData.show_on_landing,
+        only_cash_sale: formData.only_cash_sale,
         unit_id: formData.unit_id || profile?.unit_id || undefined,
         barcode: formData.barcode,
         supplier: formData.supplier || null,
@@ -594,6 +596,24 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
+
+            {formData.category === 'smartphone' && (
+              <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-center justify-between gap-4 mt-2">
+                <div className="space-y-0.5">
+                  <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block leading-none">💰 Somente Venda à Vista</span>
+                  <p className="text-[8px] text-on-surface-variant/70 leading-normal">Bloquear vendas a prazo / crediário para este celular.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={formData.only_cash_sale}
+                    onChange={(e) => setFormData({ ...formData, only_cash_sale: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+            )}
           </div>
         )}
       </div>

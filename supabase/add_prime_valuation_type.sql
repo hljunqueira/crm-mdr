@@ -1,4 +1,7 @@
--- 1. Drop old function and recreate to avoid owner mismatch error
+-- 1. Add column to devices if not exists
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS prime_valuation_type TEXT DEFAULT 'sale';
+
+-- 2. Drop old function and recreate to avoid owner mismatch error
 DROP FUNCTION IF EXISTS distribute_installment_payout() CASCADE;
 
 CREATE OR REPLACE FUNCTION distribute_installment_payout()
@@ -9,6 +12,9 @@ DECLARE
     v_sale_original_price DECIMAL(12,2);
     v_sale_payment_type TEXT;
     v_device_cost_price DECIMAL(12,2);
+    v_device_sale_price DECIMAL(12,2);
+    v_prime_valuation_type TEXT;
+    v_device_base_price DECIMAL(12,2);
     v_device_lot_id UUID;
     v_lot_title TEXT;
     
@@ -38,9 +44,16 @@ BEGIN
         FROM sales WHERE id = NEW.sale_id;
 
         IF v_sale_device_id IS NOT NULL THEN
-            SELECT cost_price, lot_id, investor_id, prime_profit_share, prime_admin_fee 
-            INTO v_device_cost_price, v_device_lot_id, v_investor_id, v_prime_profit_share, v_prime_admin_fee
+            SELECT cost_price, sale_price, lot_id, investor_id, prime_profit_share, prime_admin_fee, prime_valuation_type 
+            INTO v_device_cost_price, v_device_sale_price, v_device_lot_id, v_investor_id, v_prime_profit_share, v_prime_admin_fee, v_prime_valuation_type
             FROM devices WHERE id = v_sale_device_id;
+        END IF;
+
+        -- Determine the base price of the device for amortization
+        IF COALESCE(v_prime_valuation_type, 'sale') = 'cost' THEN
+            v_device_base_price := COALESCE(v_device_cost_price, 0);
+        ELSE
+            v_device_base_price := COALESCE(v_device_sale_price, v_device_cost_price, 0);
         END IF;
 
         -- 1. RENDA MODEL (Receivable Purchase)
@@ -98,9 +111,9 @@ BEGIN
             -- Differentiate calculations based on payment type:
             IF v_sale_payment_type = 'vista' OR v_sale_payment_type = 'card' THEN
                 -- A VISTA / CARTAO (Markup Profit share)
-                -- Amortização is the actual cost price of the device, scaled proportionally if partial payment
+                -- Amortização is the base price of the device, scaled proportionally if partial payment
                 IF COALESCE(v_sale_total_value, 0) > 0 THEN
-                    v_investor_amortization := NEW.value * (COALESCE(v_device_cost_price, 0) / v_sale_total_value);
+                    v_investor_amortization := NEW.value * (v_device_base_price / v_sale_total_value);
                 ELSE
                     v_investor_amortization := 0;
                 END IF;
@@ -108,7 +121,7 @@ BEGIN
                 -- CREDIARIO (Finance Interest profit share)
                 -- Amortização is the cash original price, scaled proportionally
                 IF COALESCE(v_sale_total_value, 0) > 0 THEN
-                    v_investor_amortization := NEW.value * (COALESCE(v_sale_original_price, v_device_cost_price, 0) / v_sale_total_value);
+                    v_investor_amortization := NEW.value * (COALESCE(v_sale_original_price, v_device_base_price, 0) / v_sale_total_value);
                 ELSE
                     v_investor_amortization := 0;
                 END IF;
@@ -236,7 +249,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 2. Bind the trigger to handle both UPDATE and DELETE events
+-- 3. Bind the trigger to handle both UPDATE and DELETE events
 DROP TRIGGER IF EXISTS trg_distribute_installment_payout ON installments;
 CREATE TRIGGER trg_distribute_installment_payout
 AFTER UPDATE OF status OR DELETE ON installments

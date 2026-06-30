@@ -15,10 +15,12 @@ export default function ScpManagement() {
   } = useScpStore();
   const { showNotification, showModal, hideModal } = useUI();
 
-  const [activePanelTab, setActivePanelTab] = useState<'prime' | 'renda' | 'withdrawals' | 'investors'>('prime');
+  const [activePanelTab, setActivePanelTab] = useState<'prime' | 'renda' | 'withdrawals' | 'investors' | 'financeira'>('prime');
   const [deviceSearchQuery, setDeviceSearchQuery] = useState('');
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
   const [isLoadingUsersList, setIsLoadingUsersList] = useState(false);
+  const [financeiraReport, setFinanceiraReport] = useState<any>(null);
+  const [isFinanceiraLoading, setIsFinanceiraLoading] = useState(false);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newLot, setNewLot] = useState({ title: '', target_amount: 0, status: 'OPEN' as any });
@@ -64,6 +66,7 @@ export default function ScpManagement() {
   const [primeSelectedDeviceIds, setPrimeSelectedDeviceIds] = useState<string[]>([]);
   const [primeDeviceImeis, setPrimeDeviceImeis] = useState<Record<string, string[]>>({});
   const [primeSelectedQuantities, setPrimeSelectedQuantities] = useState<Record<string, number>>({});
+  const [primeValuationType, setPrimeValuationType] = useState<'sale' | 'cost'>('sale');
 
   // Estados para edição de contrato
   const [isContractUrlOpen, setIsContractUrlOpen] = useState(false);
@@ -164,6 +167,21 @@ export default function ScpManagement() {
     }
   };
 
+  const fetchFinanceiraReport = async () => {
+    try {
+      setIsFinanceiraLoading(true);
+      const res = await fetch('/api/scp/financeira-report');
+      if (!res.ok) throw new Error('Falha ao buscar relatório');
+      const data = await res.json();
+      setFinanceiraReport(data);
+    } catch (err) {
+      console.error(err);
+      showNotification('error', 'Erro', 'Falha ao buscar relatório da financeira.');
+    } finally {
+      setIsFinanceiraLoading(false);
+    }
+  };
+
   // Load lots, investors and withdrawals
   useEffect(() => {
     fetchLots();
@@ -179,6 +197,8 @@ export default function ScpManagement() {
       fetchRendaPurchases();
     } else if (activePanelTab === 'investors') {
       fetchAllUsersList();
+    } else if (activePanelTab === 'financeira') {
+      fetchFinanceiraReport();
     }
   }, [activePanelTab, fetchWithdrawals]);
 
@@ -327,7 +347,8 @@ export default function ScpManagement() {
           device_quantities: primeSelectedQuantities,
           prime_profit_share: primeProfitShare === '' ? 0 : primeProfitShare,
           prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee,
-          device_imeis: primeDeviceImeis
+          device_imeis: primeDeviceImeis,
+          prime_valuation_type: primeValuationType
         })
       });
       const data = await res.json();
@@ -338,6 +359,7 @@ export default function ScpManagement() {
       setPrimeDeviceImeis({});
       setPrimeSelectedQuantities({});
       setPrimeInvestorId('');
+      setPrimeValuationType('sale');
       fetchPrimeDevices();
     } catch (err: any) {
       showNotification('error', 'Erro', err.message || 'Falha ao vincular investidor Prime.');
@@ -724,6 +746,16 @@ export default function ScpManagement() {
             >
               Investidores / Parceiros
             </button>
+            <button
+              onClick={() => setActivePanelTab('financeira')}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activePanelTab === 'financeira' 
+                  ? 'bg-emerald-500 text-black shadow-md' 
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Financeira (Rendimentos)
+            </button>
           </div>
 
           <button
@@ -945,7 +977,7 @@ export default function ScpManagement() {
             </div>
           )}
         </div>
-      ) : (
+      ) : activePanelTab === 'investors' ? (
         /* Aba de Investidores / Parceiros */
         <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
           <div className="flex justify-between items-center mb-6">
@@ -1013,6 +1045,102 @@ export default function ScpManagement() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Aba de Financeira */
+        <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6 space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Rendimentos da Financeira (Taxa Adm & Margem)</h3>
+          </div>
+
+          {isFinanceiraLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <Loader2 className="animate-spin text-emerald-400" size={24} />
+              <span className="text-xs text-zinc-500">Carregando relatório financeira...</span>
+            </div>
+          ) : !financeiraReport ? (
+            <div className="text-center py-12 text-zinc-500 text-xs">Nenhum dado disponível.</div>
+          ) : (
+            <div className="space-y-6">
+              {/* KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+                  <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-black block mb-1">Total Pago por Clientes</span>
+                  <span className="text-lg font-black text-white font-mono">
+                    R$ {Number(financeiraReport.summary.totalPaid).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+                  <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-black block mb-1">Total Repassado Investidores</span>
+                  <span className="text-lg font-black text-indigo-400 font-mono">
+                    R$ {Number(financeiraReport.summary.totalRepassed).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5">
+                  <span className="text-[9px] text-emerald-400 uppercase tracking-widest font-black block mb-1">Rendimento Líquido Financeira</span>
+                  <span className="text-lg font-black text-emerald-400 font-mono">
+                    R$ {Number(financeiraReport.summary.totalRetained).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tabela de Transações */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <th className="py-4 px-4">Data Pagamento</th>
+                      <th className="py-4 px-4">Cliente</th>
+                      <th className="py-4 px-4">Produto</th>
+                      <th className="py-4 px-4 text-center">Modelo</th>
+                      <th className="py-4 px-4 text-center">Parcela</th>
+                      <th className="py-4 px-4 text-right">Valor Pago</th>
+                      <th className="py-4 px-4 text-right">Repasse Investidor</th>
+                      <th className="py-4 px-4 text-right pr-4">Rendimento Financeira</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/40">
+                    {financeiraReport.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-zinc-500 text-xs">
+                          Nenhum rendimento registrado até o momento.
+                        </td>
+                      </tr>
+                    ) : (
+                      financeiraReport.rows.map((row: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-zinc-800/10 transition-colors">
+                          <td className="py-4 px-4 text-zinc-500">
+                            {row.paymentDate ? new Date(row.paymentDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}
+                          </td>
+                          <td className="py-4 px-4 font-bold text-white uppercase">{row.customerName}</td>
+                          <td className="py-4 px-4 text-zinc-300 uppercase">{row.productName}</td>
+                          <td className="py-4 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                              row.type === 'PRIME' 
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}>
+                              {row.type}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-center font-mono text-zinc-400">{row.installmentNumber}</td>
+                          <td className="py-4 px-4 text-right font-mono font-bold text-white">
+                            R$ {Number(row.customerPaid).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-4 px-4 text-right font-mono font-bold text-indigo-400">
+                            R$ {Number(row.repasse).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-4 px-4 text-right font-mono font-bold text-emerald-400 pr-4">
+                            R$ {Number(row.retained).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -1329,6 +1457,18 @@ export default function ScpManagement() {
                   {investors.map((inv) => (
                     <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
                   ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Valor de Aporte (Amortização)</label>
+                <select
+                  value={primeValuationType}
+                  onChange={(e) => setPrimeValuationType(e.target.value as any)}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                >
+                  <option value="sale" className="bg-[#121214]">Preço de Venda (Loja)</option>
+                  <option value="cost" className="bg-[#121214]">Preço de Custo (Compra)</option>
                 </select>
               </div>
 

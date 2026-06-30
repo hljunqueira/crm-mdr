@@ -5,6 +5,88 @@ import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
+// Auxiliar para recalcular recebíveis futuros dinamicamente e sem cache desatualizado
+async function recalculateFutureReceipts(profileId: string): Promise<number> {
+  try {
+    // 1. Aparelhos no modelo PRIME vinculados ao investidor
+    const { data: devices } = await supabase
+      .from("devices")
+      .select("id, sale_price, cost_price, prime_admin_fee, prime_profit_share, prime_valuation_type")
+      .eq("investor_id", profileId);
+
+    let totalPrimeFuture = 0;
+
+    for (const dev of (devices || [])) {
+      const deviceSalePrice = dev.prime_valuation_type === "cost"
+        ? Number(dev.cost_price || 0)
+        : Number(dev.sale_price || 0);
+      
+      const { data: sale } = await supabase
+        .from("sales")
+        .select("id, total_value")
+        .eq("device_id", dev.id)
+        .not("status", "in", '("cancelled","refunded")')
+        .maybeSingle();
+
+      if (sale) {
+        const { data: insts } = await supabase
+          .from("installments")
+          .select("id, status, value")
+          .eq("sale_id", sale.id)
+          .not("status", "in", '("cancelled")');
+
+        const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
+        for (const inst of unpaidInsts) {
+          const instValue = Number(inst.value);
+          const saleTotal = Number(sale.total_value || 0);
+          
+          const amortization = saleTotal > 0 
+            ? instValue * (deviceSalePrice / saleTotal)
+            : 0;
+            
+          const totalProfit = instValue - amortization;
+          const adminFee = Number(dev.prime_admin_fee ?? 0.10);
+          const profitShare = Number(dev.prime_profit_share ?? 0.60);
+          const netProfit = totalProfit * (1.0 - adminFee);
+          const investorProfit = netProfit * profitShare;
+          const expectedValue = amortization + investorProfit;
+
+          totalPrimeFuture += expectedValue;
+        }
+      }
+    }
+
+    // 2. Recebíveis comprados no modelo RENDA
+    const { data: purchases } = await supabase
+      .from("receivable_purchases")
+      .select("sale_id, total_receivable, purchase_price, ownership_percentage")
+      .eq("profile_id", profileId);
+
+    let totalRendaFuture = 0;
+
+    for (const pur of (purchases || [])) {
+      if (pur.sale_id) {
+        const { data: insts } = await supabase
+          .from("installments")
+          .select("id, status, value")
+          .eq("sale_id", pur.sale_id)
+          .not("status", "in", '("cancelled")');
+
+        const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
+        for (const inst of unpaidInsts) {
+          const shareValue = Number(inst.value) * Number(pur.ownership_percentage || 1);
+          totalRendaFuture += shareValue;
+        }
+      }
+    }
+
+    return Number((totalPrimeFuture + totalRendaFuture).toFixed(2));
+  } catch (err) {
+    console.error(`[recalculateFutureReceipts] Erro para o investidor ${profileId}:`, err);
+    return 0;
+  }
+}
+
 // GET /api/users — Listar todos os perfis e e-mails dos usuários
 router.get('/', async (req, res) => {
   try {
@@ -37,17 +119,36 @@ router.get('/', async (req, res) => {
       console.warn('[Users GET] Falha silenciosa no Auth SDK:', e);
     }
 
-    // 3. Mesclar e-mails e saldos
-    const merged = profiles.map(profile => {
+    // 3. Mesclar e-mails e saldos recalculados em tempo real
+    const merged = await Promise.all(profiles.map(async profile => {
       const authUser = authUsers.find(u => u.id === profile.id);
       const walletObj = wallets?.find(w => w.profile_id === profile.id);
+      
+      let futureReceipts = walletObj ? Number(walletObj.future_receipts) : 0;
+
+      if (profile.role === 'investor') {
+        futureReceipts = await recalculateFutureReceipts(profile.id);
+        
+        // Atualizar o banco de dados se houver divergência
+        if (walletObj && Number(walletObj.future_receipts) !== futureReceipts) {
+          try {
+            await supabase
+              .from('wallets')
+              .update({ future_receipts: futureReceipts, updated_at: new Date().toISOString() })
+              .eq('profile_id', profile.id);
+          } catch (dbErr) {
+            console.error('[Users GET] Erro ao atualizar cache de carteira:', dbErr);
+          }
+        }
+      }
+
       return {
         ...profile,
         email: authUser?.email || 'N/A',
         balance: walletObj ? Number(walletObj.balance) : 0,
-        future_receipts: walletObj ? Number(walletObj.future_receipts) : 0
+        future_receipts: futureReceipts
       };
-    });
+    }));
 
     res.json(merged);
   } catch (error: any) {

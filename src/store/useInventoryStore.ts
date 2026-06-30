@@ -19,6 +19,7 @@ export interface InventoryItem {
   category?: 'smartphone' | 'accessory_mobile' | 'accessory_it' | 'part' | 'service' | 'other';
   image_url?: string;
   show_on_landing?: boolean;
+  only_cash_sale?: boolean;
   barcode?: string;
   supplier?: string;
   purchase_date?: string;
@@ -178,6 +179,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       }));
     } catch (error) {
       console.error('Error deleting inventory item:', error);
+      throw error;
     }
   },
 }));
