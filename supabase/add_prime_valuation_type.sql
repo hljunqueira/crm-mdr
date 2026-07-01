@@ -56,6 +56,9 @@ BEGIN
             v_device_base_price := COALESCE(v_device_sale_price, v_device_cost_price, 0);
         END IF;
 
+        -- Safeguard: base price shouldn't exceed actual sale total value
+        v_device_base_price := LEAST(v_device_base_price, COALESCE(v_sale_total_value, 0));
+
         -- 1. RENDA MODEL (Receivable Purchase)
         SELECT * INTO r_purchase FROM receivable_purchases WHERE sale_id = NEW.sale_id LIMIT 1;
         IF r_purchase.id IS NOT NULL THEN
@@ -174,7 +177,7 @@ BEGIN
             
             v_net_value := NEW.value * (1.0 - 0.10); -- 10% legacy operational fee
             IF COALESCE(v_sale_total_value, 0) > 0 THEN
-                v_cost_fraction := COALESCE(v_device_cost_price, 0) / v_sale_total_value;
+                v_cost_fraction := LEAST(1.0, COALESCE(v_device_cost_price, 0) / v_sale_total_value);
             ELSE
                 v_cost_fraction := 0;
             END IF;

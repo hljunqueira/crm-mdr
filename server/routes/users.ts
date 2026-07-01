@@ -29,6 +29,12 @@ async function recalculateFutureReceipts(profileId: string): Promise<number> {
         .maybeSingle();
 
       if (sale) {
+        const saleTotal = Number(sale.total_value || 0);
+        // Trava para evitar amortização/lucro negativo em vendas com desconto
+        const cappedDeviceSalePrice = (saleTotal > 0 && deviceSalePrice > saleTotal)
+          ? saleTotal
+          : deviceSalePrice;
+
         const { data: insts } = await supabase
           .from("installments")
           .select("id, status, value")
@@ -38,10 +44,9 @@ async function recalculateFutureReceipts(profileId: string): Promise<number> {
         const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
         for (const inst of unpaidInsts) {
           const instValue = Number(inst.value);
-          const saleTotal = Number(sale.total_value || 0);
           
           const amortization = saleTotal > 0 
-            ? instValue * (deviceSalePrice / saleTotal)
+            ? instValue * (cappedDeviceSalePrice / saleTotal)
             : 0;
             
           const totalProfit = instValue - amortization;
@@ -53,6 +58,9 @@ async function recalculateFutureReceipts(profileId: string): Promise<number> {
 
           totalPrimeFuture += expectedValue;
         }
+      } else {
+        // Celulares ainda em estoque mantêm o valor de aporte nos recebíveis futuros
+        totalPrimeFuture += deviceSalePrice;
       }
     }
 

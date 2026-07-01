@@ -541,7 +541,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     // 6. PRIME PORTFOLIO (Estoque Próprio)
     const { data: primeDevices, error: primeErr } = await supabase
       .from("devices")
-      .select("id, brand, model, imei, status, cost_price, sale_price, prime_profit_share, prime_admin_fee")
+      .select("id, brand, model, imei, status, cost_price, sale_price, prime_profit_share, prime_admin_fee, prime_valuation_type")
       .eq("investor_id", profile_id);
 
     if (primeErr) throw primeErr;
@@ -550,7 +550,9 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     const primeProductsList = [];
 
     for (const dev of (primeDevices || [])) {
-      const deviceSalePrice = Number(dev.sale_price || dev.cost_price || 0);
+      const deviceSalePrice = dev.prime_valuation_type === "cost"
+        ? Number(dev.cost_price || 0)
+        : Number(dev.sale_price || dev.cost_price || 0);
       primeCapitalInvested += deviceSalePrice;
 
       const { data: sales } = await supabase
@@ -561,6 +563,12 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         .maybeSingle();
 
       if (sales) {
+        const saleTotal = Number(sales.total_value || 0);
+        // Trava para evitar amortização/lucro negativo em vendas com desconto
+        const cappedDeviceSalePrice = (saleTotal > 0 && deviceSalePrice > saleTotal)
+          ? saleTotal
+          : deviceSalePrice;
+
         const { data: insts } = await supabase
           .from("installments")
           .select("id, status, value, paid_value, installment_number, due_date")
@@ -579,10 +587,9 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
         unpaidInsts.forEach(inst => {
           const instValue = Number(inst.value);
-          const saleTotal = Number(sales.total_value || 0);
           
           const amortization = saleTotal > 0 
-            ? instValue * (deviceSalePrice / saleTotal)
+            ? instValue * (cappedDeviceSalePrice / saleTotal)
             : 0;
             
           const totalProfit = instValue - amortization;
@@ -614,13 +621,12 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           monthlyForecastMap[key].amount += expectedValue;
         });
 
-        const saleTotal = Number(sales.total_value || 0);
         const adminFee = Number(dev.prime_admin_fee ?? 0.10);
         const profitShare = Number(dev.prime_profit_share ?? 0.60);
-        const totalProfit = saleTotal - deviceSalePrice;
+        const totalProfit = saleTotal - cappedDeviceSalePrice;
         const netProfit = totalProfit * (1.0 - adminFee);
         const projectedTotalProfit = Math.max(0, netProfit * profitShare);
-        const projectedTotalContract = deviceSalePrice + projectedTotalProfit;
+        const projectedTotalContract = cappedDeviceSalePrice + projectedTotalProfit;
 
         let devStatus = "ativo";
         if (paidInst === totalInst) {
@@ -643,7 +649,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           capitalReturned: Number(devCapReturned.toFixed(2)),
           interestReceived: Number(devIntReceived.toFixed(2)),
           totalReceived: Number((devCapReturned + devIntReceived).toFixed(2)),
-          remainingValue: Number((deviceSalePrice - devCapReturned).toFixed(2)),
+          remainingValue: Number((cappedDeviceSalePrice - devCapReturned).toFixed(2)),
           projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
           projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
           saleTotalValue: saleTotal,
@@ -1360,7 +1366,10 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
         }
 
         linkedCount++;
-        totalCostCredited += Number(dev.cost_price || 0);
+        const deviceInvestedPrice = (prime_valuation_type === "cost")
+          ? Number(dev.cost_price || 0)
+          : Number(dev.sale_price || dev.cost_price || 0);
+        totalCostCredited += deviceInvestedPrice;
       }
     }
 
