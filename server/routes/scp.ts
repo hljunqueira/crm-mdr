@@ -1422,8 +1422,10 @@ router.get("/available-sales", async (req, res) => {
 
     let query = supabase
       .from("sales")
-      .select("id, customer:customers(name), total_value, created_at, installments_count, device:devices(brand, model, imei)")
-      .neq("status", "cancelled");
+      .select("id, customer:customers(name), total_value, created_at, installments_count, device:devices(brand, model, imei), installments(id, status, value)")
+      .neq("status", "cancelled")
+      .neq("status", "refunded")
+      .eq("payment_type", "crediario");
 
     if (purchasedIds.length > 0) {
       query = query.not("id", "in", `(${purchasedIds.join(",")})`);
@@ -1432,10 +1434,19 @@ router.get("/available-sales", async (req, res) => {
     const { data: sales, error } = await query.order("created_at", { ascending: false });
     if (error) throw error;
 
-    const mappedSales = (sales || []).map((s: any) => ({
-      ...s,
-      customer_name: s.customer?.name || "Cliente"
-    }));
+    const mappedSales = (sales || [])
+      .map((s: any) => {
+        const unpaidInsts = (s.installments || []).filter((i: any) => i.status !== 'paid' && i.status !== 'cancelled');
+        const unpaidCount = unpaidInsts.length;
+        const unpaidSum = unpaidInsts.reduce((sum: number, i: any) => sum + Number(i.value), 0);
+        return {
+          ...s,
+          customer_name: s.customer?.name || "Cliente",
+          unpaid_installments_count: unpaidCount,
+          remaining_receivable_value: unpaidSum
+        };
+      })
+      .filter((s: any) => s.unpaid_installments_count > 0);
 
     res.json(mappedSales || []);
   } catch (error: any) {

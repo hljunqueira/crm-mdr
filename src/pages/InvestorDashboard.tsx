@@ -1015,8 +1015,9 @@ export default function InvestorDashboard() {
                       {renda.purchases.map((purchase: any) => (
                         <tr key={purchase.id} className="hover:bg-zinc-800/10 transition-colors">
                           <td className="py-4 px-6">
-                            <span className="font-bold text-white block">Venda #{purchase.saleId}</span>
-                            <span className="text-[10px] text-zinc-500 font-medium">Cliente: {purchase.client}</span>
+                            <span className="font-bold text-white block">{purchase.device || 'Aparelho'}</span>
+                            <span className="text-[10px] text-zinc-400 block font-medium">Cliente: {purchase.client}</span>
+                            <span className="text-[9px] text-zinc-500 block font-mono">ID Venda: #{purchase.saleId.slice(0, 8)}</span>
                           </td>
                           <td className="py-4 px-6 text-zinc-400 font-medium">{new Date(purchase.createdAt).toLocaleDateString('pt-BR')}</td>
                           <td className="py-4 px-6 text-right font-mono text-zinc-300">R$ {Number(purchase.purchasePrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>

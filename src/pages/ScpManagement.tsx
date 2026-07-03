@@ -133,7 +133,7 @@ export default function ScpManagement() {
     try {
       const { data, error } = await supabase
         .from('receivable_purchases')
-        .select('*, profiles(full_name), sales(customer:customers(name), total_value)');
+        .select('*, profiles(full_name), sales(customer:customers(name), total_value, device:devices(brand, model, imei))');
       if (error) throw error;
       setRendaPurchases(data || []);
     } catch (err) {
@@ -876,7 +876,7 @@ export default function ScpManagement() {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
-                    <th className="py-4 px-4">Cliente / Contrato</th>
+                    <th className="py-4 px-4">Aparelho / Contrato</th>
                     <th className="py-4 px-4">Investidor Renda</th>
                     <th className="py-4 px-4">Preço Pago (À Vista)</th>
                     <th className="py-4 px-4">Recebível Nominal</th>
@@ -888,8 +888,18 @@ export default function ScpManagement() {
                   {rendaPurchases.map((r) => (
                     <tr key={r.id} className="hover:bg-zinc-800/10 transition-colors">
                       <td className="py-4 px-4">
-                        <span className="font-bold text-white block">{r.sales?.customer?.name || 'Contrato'}</span>
-                        <span className="text-[10px] text-zinc-500">ID Venda: #{r.sale_id.slice(0, 8)}</span>
+                        <span className="font-bold text-white block">
+                          {r.sales?.device ? `${r.sales.device.brand} ${r.sales.device.model}` : 'Aparelho'}
+                        </span>
+                        <span className="text-[11px] text-zinc-400 block font-medium">
+                          Cliente: {r.sales?.customer?.name || 'Contrato'}
+                        </span>
+                        {r.sales?.device?.imei && (
+                          <span className="text-[10px] text-zinc-500 font-mono block">
+                            IMEI: {r.sales.device.imei}
+                          </span>
+                        )}
+                        <span className="text-[9px] text-zinc-500 block font-mono">ID Venda: #{r.sale_id.slice(0, 8)}</span>
                       </td>
                       <td className="py-4 px-4 text-zinc-300 font-semibold">{r.profiles?.full_name || 'Investidor'}</td>
                       <td className="py-4 px-4 font-bold text-indigo-400">R$ {Number(r.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -1677,10 +1687,10 @@ export default function ScpManagement() {
       {/* Modal: Vender Recebíveis de Contrato (Renda) */}
       {isSellReceivableOpen && (() => {
         const selectedSale = availableSales.find(s => s.id === selectedSaleId);
-        const installments = selectedSale?.installments_count || 12;
+        const installments = selectedSale ? (selectedSale.unpaid_installments_count ?? selectedSale.installments_count) : 12;
         const imei = selectedSale?.device?.imei || 'N/A';
         const brandModel = selectedSale?.device ? `${selectedSale.device.brand} ${selectedSale.device.model}` : 'N/A';
-        const saleTotal = selectedSale ? Number(selectedSale.total_value) : 0;
+        const saleTotal = selectedSale ? Number(selectedSale.remaining_receivable_value ?? selectedSale.total_value) : 0;
         const monthlyEstimate = totalReceivableVal ? (Number(totalReceivableVal) * (ownershipPercentage / 100)) / installments : 0;
 
         return (
@@ -1716,7 +1726,7 @@ export default function ScpManagement() {
                     setSelectedSaleId(saleId);
                     const sSale = availableSales.find(s => s.id === saleId);
                     if (sSale) {
-                      const sVal = Number(sSale.total_value);
+                      const sVal = Number(sSale.remaining_receivable_value ?? sSale.total_value);
                       setTotalReceivableVal(sVal);
                       setPurchasePrice(sVal);
                       setInterestRateInput(0);
@@ -1727,7 +1737,7 @@ export default function ScpManagement() {
                   <option value="" disabled className="bg-[#121214]">-- Escolha o Contrato --</option>
                   {availableSales.map((s) => (
                     <option key={s.id} value={s.id} className="bg-[#121214]">
-                      {s.customer_name} - {s.device ? `${s.device.brand} ${s.device.model}` : 'Celular'} (Valor: R$ {Number(s.total_value).toLocaleString('pt-BR')})
+                      {s.customer_name} - {s.device ? `${s.device.brand} ${s.device.model}` : 'Celular'} (Restante: R$ {Number(s.remaining_receivable_value ?? s.total_value).toLocaleString('pt-BR')} | {s.unpaid_installments_count ?? s.installments_count}x)
                     </option>
                   ))}
                 </select>
@@ -1736,7 +1746,7 @@ export default function ScpManagement() {
               {selectedSale && (
                 <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1 text-zinc-400">
                   <div className="flex justify-between">
-                    <span>Equipamento Sold:</span>
+                    <span>Equipamento:</span>
                     <span className="font-bold text-white">{brandModel}</span>
                   </div>
                   <div className="flex justify-between">
@@ -1744,11 +1754,17 @@ export default function ScpManagement() {
                     <span className="font-mono font-bold text-white select-all">{imei}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Valor Original Venda:</span>
-                    <span className="font-bold text-white">R$ {saleTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span>Valor Original da Venda:</span>
+                    <span className="font-bold text-white">R$ {Number(selectedSale.total_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
+                  {selectedSale.unpaid_installments_count !== undefined && (
+                    <div className="flex justify-between text-indigo-400">
+                      <span>Valor Restante (Em Aberto):</span>
+                      <span className="font-extrabold">R$ {Number(selectedSale.remaining_receivable_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span>Quantidade de Parcelas:</span>
+                    <span>Parcelas Restantes:</span>
                     <span className="font-bold text-white">{installments}x</span>
                   </div>
                 </div>
