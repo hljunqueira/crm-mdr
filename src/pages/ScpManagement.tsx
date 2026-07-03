@@ -1400,9 +1400,9 @@ export default function ScpManagement() {
                 onChange={(e) => setInvestorFormData(prev => ({ ...prev, manual_category: e.target.value }))}
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
               >
-                <option value="Bronze" className="bg-[#121214]">🥉 Bronze</option>
-                <option value="Prata" className="bg-[#121214]">🥈 Prata</option>
-                <option value="Ouro" className="bg-[#121214]">🏆 Ouro</option>
+                <option value="Bronze" className="bg-[#121214]">🥉 Bronze (2.0% a.m.)</option>
+                <option value="Prata" className="bg-[#121214]">🥈 Prata (2.3% a.m.)</option>
+                <option value="Ouro" className="bg-[#121214]">🏆 Ouro (2.6% a.m.)</option>
               </select>
             </div>
 
@@ -1488,9 +1488,9 @@ export default function ScpManagement() {
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
               >
                 <option value="auto" className="bg-[#121214]">Automático (Baseado no valor investido)</option>
-                <option value="Bronze" className="bg-[#121214]">🥉 Bronze</option>
-                <option value="Prata" className="bg-[#121214]">🥈 Prata</option>
-                <option value="Ouro" className="bg-[#121214]">🏆 Ouro</option>
+                <option value="Bronze" className="bg-[#121214]">🥉 Bronze (2.0% a.m.)</option>
+                <option value="Prata" className="bg-[#121214]">🥈 Prata (2.3% a.m.)</option>
+                <option value="Ouro" className="bg-[#121214]">🏆 Ouro (2.6% a.m.)</option>
               </select>
             </div>
 
