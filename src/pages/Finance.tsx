@@ -296,6 +296,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
 }
 
 interface CustomerGroup {
+  id: string;
   customerId: string;
   customerName: string;
   totalValue: number;
@@ -772,7 +773,7 @@ export default function Finance() {
       showNotification('error', 'Erro', 'Falha ao salvar as previsões financeiras.');
     }
   };
-  const [expandedCustomerId, setExpandedCustomerId] = useState<string | null>(null);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [pixModalItem, setPixModalItem] = useState<Installment | null | undefined>(undefined); // undefined = closed
   const [sendingWa, setSendingWa] = useState<string | null>(null);
 
@@ -938,6 +939,7 @@ export default function Finance() {
 
       if (!groups[groupKey]) {
         groups[groupKey] = {
+          id: groupKey,
           customerId: custId,
           customerName: custName,
           totalValue: 0,
@@ -1096,8 +1098,8 @@ export default function Finance() {
   const totalPaid = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
   const totalOverdue = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'overdue' || i.status === 'blocked').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
 
-  const toggleExpand = (customerId: string) => {
-    setExpandedCustomerId(prev => prev === customerId ? null : customerId);
+  const toggleExpand = (groupId: string) => {
+    setExpandedGroupId(prev => prev === groupId ? null : groupId);
   };
 
   const handlePayment = (item: Installment) => {
@@ -1493,13 +1495,13 @@ export default function Finance() {
               </div>
             ) : (
               filteredGroups.map(group => {
-                const isExpanded = expandedCustomerId === group.customerId;
+                const isExpanded = expandedGroupId === group.id;
                 const paidPercent = group.totalCount > 0 ? (group.paidCount / group.totalCount) * 100 : 0;
 
                 return (
-                  <div key={group.customerId} className="bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
+                  <div key={group.id} className="bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
                     <div
-                      onClick={() => toggleExpand(group.customerId)}
+                      onClick={() => toggleExpand(group.id)}
                       className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
                     >
                       <div className="flex items-center gap-4">
