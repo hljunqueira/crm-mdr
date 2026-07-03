@@ -926,11 +926,18 @@ export default function Finance() {
     const groups: { [key: string]: CustomerGroup } = {};
 
     installments.forEach(inst => {
+      const groupKey = inst.sale_id || inst.customer_id || 'unknown';
       const custId = inst.customer_id || 'unknown';
-      const custName = inst.customer_name || 'Cliente Sem Nome';
+      let custName = inst.customer_name || 'Cliente Sem Nome';
 
-      if (!groups[custId]) {
-        groups[custId] = {
+      if (inst.sale_id) {
+        const shortSaleId = inst.sale_id.slice(0, 8);
+        const deviceLabel = inst.device_model ? ` - ${inst.device_model}` : '';
+        custName = `${custName}${deviceLabel} (#${shortSaleId})`;
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
           customerId: custId,
           customerName: custName,
           totalValue: 0,
@@ -944,7 +951,7 @@ export default function Finance() {
         };
       }
 
-      const group = groups[custId];
+      const group = groups[groupKey];
       group.installments.push(inst);
       group.totalValue += inst.value;
       group.totalCount += 1;

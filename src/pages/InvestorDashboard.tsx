@@ -4,7 +4,7 @@ import {
   Activity, ArrowDownLeft, ArrowUpRight, BarChart3, Package, Calendar,
   LogOut, Loader2, CheckCircle2, X, Info, Calculator, FileText
 } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area } from 'recharts';
 import ScpManagement from './ScpManagement';
 import ContractPrint from '../components/sales/ContractPrint';
 import InvestorContractPrint from '../components/scp/InvestorContractPrint';
@@ -77,7 +77,16 @@ export default function InvestorDashboard() {
   const [monthlyHistory, setMonthlyHistory] = useState<any[]>([]);
   const [monthlyForecast, setMonthlyForecast] = useState<any[]>([]);
   const [upcomingPayments, setUpcomingPayments] = useState<any[]>([]);
-  const [chartView, setChartView] = useState<'history' | 'forecast'>('history');
+  const [chartView, setChartView] = useState<'history' | 'forecast' | 'evolution'>('history');
+  const [fintechCategory, setFintechCategory] = useState({
+    totalInvested: 0,
+    category: 'bronze',
+    rate: 2.0,
+    isCustomRate: false,
+    autoReinvest: false,
+    benefits: [] as string[]
+  });
+  const [fintechEvolution, setFintechEvolution] = useState<any[]>([]);
 
   const [renda, setRenda] = useState({
     purchases: [] as any[],
@@ -95,6 +104,18 @@ export default function InvestorDashboard() {
   const [submittingWithdrawal, setSubmittingWithdrawal] = useState(false);
   const [withdrawalSuccess, setWithdrawalSuccess] = useState('');
   const [withdrawalError, setWithdrawalError] = useState('');
+
+  // Estados para Solicitação de Compra de Recebíveis
+  const [isBuyReceivableOpen, setIsBuyReceivableOpen] = useState(false);
+  const [availableSales, setAvailableSales] = useState<any[]>([]);
+  const [selectedSaleId, setSelectedSaleId] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState<number | ''>('');
+  const [totalReceivableVal, setTotalReceivableVal] = useState<number | ''>('');
+  const [interestRateInput, setInterestRateInput] = useState<number | ''>(40);
+  const [ownershipPercentage, setOwnershipPercentage] = useState(100);
+  const [isSubmittingPurchase, setIsSubmittingPurchase] = useState(false);
+  const [purchaseError, setPurchaseError] = useState('');
+  const [purchaseSuccess, setPurchaseSuccess] = useState('');
 
   // Estados do Simulador de Investimento
   const [selectedLotIdForSim, setSelectedLotIdForSim] = useState<string>('');
@@ -120,6 +141,9 @@ export default function InvestorDashboard() {
     if (!saleId) return;
     try {
       setLoadingContract(true);
+      // Registra visualização de contrato no log do servidor
+      await fetch(`/api/scp/fintech/contracts/sale/${saleId}/view?userId=${profile?.id}`);
+      
       const res = await fetch(`/api/scp/sale-contract/${saleId}`);
       if (!res.ok) throw new Error('Não foi possível carregar os dados do contrato.');
       const data = await res.json();
@@ -136,6 +160,17 @@ export default function InvestorDashboard() {
     if (!profile?.id) return;
     try {
       setLoadingContract(true);
+      // Registra visualização de contrato de parceria no log do servidor
+      await fetch('/api/scp/fintech/audit-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: profile.id,
+          action: 'partnership_contract_view',
+          details: { profile_id: profile.id }
+        })
+      });
+
       const res = await fetch(`/api/scp/investor-contract/${profile.id}`);
       if (!res.ok) throw new Error('Não foi possível carregar os dados do contrato de SCP.');
       const data = await res.json();
@@ -161,6 +196,7 @@ export default function InvestorDashboard() {
       const parsed = JSON.parse(storedProfile);
       setProfile(parsed);
       fetchDashboardData(parsed.id);
+      fetchAvailableSales();
     } catch (err) {
       window.location.href = '/login';
     }
@@ -191,6 +227,22 @@ export default function InvestorDashboard() {
       if (data.renda) {
         setRenda(data.renda);
       }
+
+      // Buscar categorização e evolução da plataforma fintech
+      try {
+        const catRes = await fetch(`/api/scp/fintech/categories/${profileId}`);
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          setFintechCategory(catData);
+        }
+        const evoRes = await fetch(`/api/scp/fintech/investor/evolution/${profileId}`);
+        if (evoRes.ok) {
+          const evoData = await evoRes.json();
+          setFintechEvolution(evoData);
+        }
+      } catch (catErr) {
+        console.error('Error fetching fintech data:', catErr);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Erro ao conectar ao servidor. Tente novamente mais tarde.');
@@ -203,6 +255,52 @@ export default function InvestorDashboard() {
     localStorage.removeItem('partners_token');
     localStorage.removeItem('partners_profile');
     window.location.href = '/login';
+  };
+
+  const fetchAvailableSales = async () => {
+    try {
+      const res = await fetch('/api/scp/available-sales');
+      const data = await res.json();
+      setAvailableSales(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRequestPurchaseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile?.id || !selectedSaleId || !purchasePrice || !totalReceivableVal) {
+      setPurchaseError('Preencha todos os campos obrigatórios.');
+      return;
+    }
+    setIsSubmittingPurchase(true);
+    setPurchaseError('');
+    setPurchaseSuccess('');
+    try {
+      const res = await fetch('/api/scp/receivables/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile_id: profile.id,
+          sale_id: selectedSaleId,
+          purchase_price: purchasePrice,
+          total_receivable: totalReceivableVal,
+          ownership_percentage: ownershipPercentage / 100
+        })
+      });
+      if (!res.ok) throw new Error();
+      setPurchaseSuccess('Solicitação de compra enviada com sucesso! Aguarde a aprovação do administrador.');
+      setSelectedSaleId('');
+      setPurchasePrice('');
+      setTotalReceivableVal('');
+      setInterestRateInput(40);
+      setOwnershipPercentage(100);
+      fetchDashboardData(profile.id);
+    } catch (err) {
+      setPurchaseError('Falha ao enviar solicitação de compra.');
+    } finally {
+      setIsSubmittingPurchase(false);
+    }
   };
 
   const exportToCSV = () => {
@@ -405,7 +503,7 @@ export default function InvestorDashboard() {
             )}
 
             {/* Wallet & Health Grid */}
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${renda && renda.purchases && renda.purchases.length > 0 ? '5' : '4'} gap-6`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
 
               {/* Card: Saldo Disponível */}
               <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
@@ -430,6 +528,12 @@ export default function InvestorDashboard() {
                   className="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 cursor-pointer border-0"
                 >
                   Solicitar Resgate
+                </button>
+                <button
+                  onClick={() => setIsBuyReceivableOpen(true)}
+                  className="w-full mt-2 py-3 bg-white/5 hover:bg-white/10 text-white font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all hover:scale-[1.02] active:scale-95 border border-white/10 cursor-pointer"
+                >
+                  Comprar Recebíveis
                 </button>
               </div>
 
@@ -535,28 +639,82 @@ export default function InvestorDashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="h-[38px] flex items-center justify-between text-[9px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3 leading-tight gap-2">
+                <div className="flex flex-col gap-2.5 mt-4 border-t border-zinc-800/60 pt-3 text-[10px]">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[8px] uppercase tracking-wider text-zinc-500">Aparelhos no lote:</span>
                     <span className="font-bold text-white">
                       {wallet.activeDevicesCount} Ativos • {wallet.paidDevicesCount} Quitados • {wallet.defaultedDevicesCount} Inad.
                     </span>
                   </div>
+                  <div className="flex gap-2 w-full mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsContractModalOpen(true)}
+                      className="flex-1 py-2.5 border border-zinc-800 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22] text-center"
+                    >
+                      Termos de Riscos
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loadingContract}
+                      onClick={handleViewInvestorContract}
+                      className="flex-1 py-2.5 border border-zinc-800 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22] flex items-center justify-center gap-1"
+                    >
+                      {loadingContract ? <Loader2 size={8} className="animate-spin" /> : <FileText size={8} />}
+                      Ver Contrato
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card: Categoria & Taxa de Retorno */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+                <div className="absolute top-0 right-0 h-40 w-40 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Categoria & Taxa</span>
+                  <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <ShieldCheck size={18} />
+                  </div>
+                </div>
+                <div>
+                  <span className={`text-xl font-black uppercase tracking-tight flex items-center gap-1.5 ${
+                    fintechCategory.category === 'gold' ? 'text-amber-400' :
+                    fintechCategory.category === 'silver' ? 'text-zinc-300' : 'text-amber-700'
+                  }`}>
+                    {fintechCategory.category === 'gold' ? '🏆 Ouro' :
+                     fintechCategory.category === 'silver' ? '🥈 Prata' : '🥉 Bronze'}
+                  </span>
+                  <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
+                    <TrendingUp size={14} className="text-amber-500" />
+                    Retorno: {fintechCategory.rate.toFixed(1)}% a.m.
+                  </p>
+                </div>
+                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                  <span className="text-[9px]">Reinvestir:</span>
                   <button
-                    type="button"
-                    onClick={() => setIsContractModalOpen(true)}
-                    className="py-1.5 px-2.5 border border-zinc-850 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22]"
+                    onClick={async () => {
+                      const newReinvest = !fintechCategory.autoReinvest;
+                      try {
+                        const res = await fetch(`/api/scp/fintech/investor-settings/${profile?.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            customInterestRate: fintechCategory.isCustomRate ? fintechCategory.rate : null,
+                            autoReinvest: newReinvest
+                          })
+                        });
+                        if (res.ok) {
+                          setFintechCategory(prev => ({ ...prev, autoReinvest: newReinvest }));
+                        }
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border-0 cursor-pointer ${
+                      fintechCategory.autoReinvest ? 'bg-emerald-500/20 text-emerald-400 font-bold' : 'bg-zinc-800 text-zinc-500 font-bold'
+                    }`}
                   >
-                    Termos de Riscos
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loadingContract}
-                    onClick={handleViewInvestorContract}
-                    className="py-1.5 px-2.5 border border-zinc-850 hover:border-zinc-700 hover:text-white text-zinc-400 text-[8px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer bg-[#1e1e22] flex items-center gap-1"
-                  >
-                    {loadingContract ? <Loader2 size={8} className="animate-spin" /> : <FileText size={8} />}
-                    Ver Contrato
+                    {fintechCategory.autoReinvest ? 'ATIVO' : 'INATIVO'}
                   </button>
                 </div>
               </div>
@@ -570,7 +728,7 @@ export default function InvestorDashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
                     <BarChart3 size={16} className="text-emerald-500" />
-                    {chartView === 'history' ? 'Evolução Mensal - Meu Dinheiro Trabalhando' : 'Previsão Mensal - Recebíveis Futuros'}
+                    {chartView === 'history' ? 'Rendimentos Mensais - Realizado' : chartView === 'evolution' ? 'Evolução Patrimonial - Ativos Acumulados' : 'Previsão Mensal - Recebíveis Futuros'}
                   </h3>
                   <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5 self-start sm:self-auto">
                     <button
@@ -580,7 +738,16 @@ export default function InvestorDashboard() {
                           : 'text-zinc-400 hover:text-white'
                         }`}
                     >
-                      Realizado
+                      Rendimentos
+                    </button>
+                    <button
+                      onClick={() => setChartView('evolution')}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${chartView === 'evolution'
+                          ? 'bg-amber-500 text-black shadow-md'
+                          : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      Patrimônio
                     </button>
                     <button
                       onClick={() => setChartView('forecast')}
@@ -593,25 +760,46 @@ export default function InvestorDashboard() {
                     </button>
                   </div>
                 </div>
-                {(chartView === 'history' ? monthlyHistory : monthlyForecast).length === 0 ? (
+                {(chartView === 'history' ? monthlyHistory : chartView === 'evolution' ? fintechEvolution : monthlyForecast).length === 0 ? (
                   <div className="h-64 flex items-center justify-center text-zinc-500 text-xs">
                     {chartView === 'history'
                       ? 'Dados históricos indisponíveis ou sem repasses efetuados ainda.'
+                      : chartView === 'evolution'
+                      ? 'Histórico de evolução patrimonial indisponível.'
                       : 'Sem previsão de recebimentos futuros para os lotes ativos.'}
                   </div>
                 ) : (
                   <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartView === 'history' ? monthlyHistory : monthlyForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <XAxis dataKey="month" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
-                          labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                          formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, chartView === 'history' ? 'Repasse creditado' : 'Previsão de recebimento']}
-                        />
-                        <Bar dataKey="amount" fill={chartView === 'history' ? "#10b981" : "#6366f1"} radius={[6, 6, 0, 0]} barSize={36} />
-                      </BarChart>
+                      {chartView === 'evolution' ? (
+                        <AreaChart data={fintechEvolution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4}/>
+                              <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis dataKey="month" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
+                            labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                            formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Aportes Ativos']}
+                          />
+                          <Area type="monotone" dataKey="patrimonio" stroke="#f59e0b" fillOpacity={1} fill="url(#colorPatrimonio)" strokeWidth={2.5} />
+                        </AreaChart>
+                      ) : (
+                        <BarChart data={chartView === 'history' ? monthlyHistory : monthlyForecast} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <XAxis dataKey="month" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
+                            labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                            formatter={(value) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, chartView === 'history' ? 'Repasse creditado' : 'Previsão de recebimento']}
+                          />
+                          <Bar dataKey="amount" fill={chartView === 'history' ? "#10b981" : "#6366f1"} radius={[6, 6, 0, 0]} barSize={36} />
+                        </BarChart>
+                      )}
                     </ResponsiveContainer>
                   </div>
                 )}
@@ -1249,6 +1437,189 @@ export default function InvestorDashboard() {
           </form>
         </div>
       )}
+
+      {/* Modal: Comprar Recebíveis */}
+      {isBuyReceivableOpen && (() => {
+        const selectedSale = availableSales.find(s => s.id === selectedSaleId);
+        const unpaidCount = selectedSale ? (selectedSale.unpaid_installments_count ?? selectedSale.installments_count) : 12;
+        const saleTotal = selectedSale ? Number(selectedSale.remaining_receivable_value ?? selectedSale.total_value) : 0;
+        const fractionValue = saleTotal * (ownershipPercentage / 100);
+        const calculatedPrice = interestRateInput !== '' && Number(interestRateInput) >= 0 
+          ? fractionValue / (1 + (Number(interestRateInput) / 100))
+          : fractionValue;
+        const monthlyPayout = fractionValue / unpaidCount;
+        const estimatedProfit = fractionValue - calculatedPrice;
+
+        return (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <form onSubmit={handleRequestPurchaseSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBuyReceivableOpen(false);
+                  setSelectedSaleId('');
+                  setPurchasePrice('');
+                  setTotalReceivableVal('');
+                  setInterestRateInput(40);
+                  setOwnershipPercentage(100);
+                  setPurchaseError('');
+                  setPurchaseSuccess('');
+                }}
+                className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider pr-6">Adquirir Recebíveis</h3>
+              <p className="text-xs text-zinc-400">
+                Selecione um contrato disponível para adquirir uma fração de seus recebíveis futuros.
+              </p>
+
+              {purchaseError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl">
+                  {purchaseError}
+                </div>
+              )}
+
+              {purchaseSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  {purchaseSuccess}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Selecione o Contrato</label>
+                <select
+                  required
+                  value={selectedSaleId}
+                  onChange={(e) => {
+                    const saleId = e.target.value;
+                    setSelectedSaleId(saleId);
+                    const sSale = availableSales.find(s => s.id === saleId);
+                    if (sSale) {
+                      const sVal = Number(sSale.remaining_receivable_value ?? sSale.total_value);
+                      setTotalReceivableVal(sVal);
+                      const price = sVal / (1 + (Number(interestRateInput || 40) / 100));
+                      setPurchasePrice(parseFloat(price.toFixed(2)));
+                    }
+                  }}
+                  className="w-full bg-[#18181b] border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                >
+                  <option value="" disabled className="bg-[#121214]">-- Escolha o Contrato --</option>
+                  {availableSales.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-[#121214]">
+                      {s.customer_name} - {s.device ? `${s.device.brand} ${s.device.model}` : 'Celular'} ({s.unpaid_installments_count ?? s.installments_count}x de R$ {(Number(s.remaining_receivable_value ?? s.total_value) / (s.unpaid_installments_count ?? s.installments_count)).toLocaleString('pt-BR', { maximumFractionDigits: 2 })})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedSale && (
+                <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Equipamento:</span>
+                    <span className="font-bold text-white">{selectedSale.device ? `${selectedSale.device.brand} ${selectedSale.device.model}` : 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Valor em Aberto:</span>
+                    <span className="font-bold text-white">R$ {saleTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Parcelas a Receber:</span>
+                    <span className="font-bold text-white">{unpaidCount}x</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Porcentagem Adquirida (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    max={100}
+                    value={ownershipPercentage}
+                    onChange={(e) => {
+                      const pct = Math.max(1, Math.min(100, parseInt(e.target.value) || 100));
+                      setOwnershipPercentage(pct);
+                      if (totalReceivableVal) {
+                        const price = (Number(totalReceivableVal) * (pct / 100)) / (1 + (Number(interestRateInput || 40) / 100));
+                        setPurchasePrice(parseFloat(price.toFixed(2)));
+                      }
+                    }}
+                    className="w-full bg-[#18181b] border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Retorno Almejado (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step="any"
+                    value={interestRateInput}
+                    onChange={(e) => {
+                      const rate = e.target.value === '' ? '' : parseFloat(e.target.value);
+                      setInterestRateInput(rate);
+                      if (rate !== '' && rate >= 0 && totalReceivableVal) {
+                        const price = (Number(totalReceivableVal) * (ownershipPercentage / 100)) / (1 + (rate / 100));
+                        setPurchasePrice(parseFloat(price.toFixed(2)));
+                      }
+                    }}
+                    className="w-full bg-[#18181b] border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              {selectedSale && totalReceivableVal !== '' && (
+                <div className="bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-2xl text-[10px] space-y-1.5 text-emerald-300">
+                  <div className="flex justify-between font-bold">
+                    <span>Desembolso Imediato (À Vista):</span>
+                    <span>R$ {calculatedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between font-bold">
+                    <span>Recebimento Mensal Estimado:</span>
+                    <span>R$ {monthlyPayout.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t border-zinc-800/60 pt-1.5 mt-1.5 text-indigo-300">
+                    <span>Lucro Total Estimado:</span>
+                    <span>R$ {estimatedProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsBuyReceivableOpen(false);
+                    setSelectedSaleId('');
+                    setPurchasePrice('');
+                    setTotalReceivableVal('');
+                    setInterestRateInput(40);
+                    setOwnershipPercentage(100);
+                    setPurchaseError('');
+                    setPurchaseSuccess('');
+                  }}
+                  className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPurchase || !selectedSaleId}
+                  className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-450 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0 disabled:opacity-50"
+                >
+                  {isSubmittingPurchase ? <Loader2 size={12} className="animate-spin" /> : 'Solicitar Compra'}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
 
       {/* Modal: Termos de Riscos e Compromisso */}
       {isContractModalOpen && (

@@ -1003,6 +1003,28 @@ export default function Sales() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
   const isAdmin = profile?.role === 'admin';
   const activeUnitFilter = isAdmin ? selectedUnitId : (profile?.unit_id || 'all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+
+  const availableMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    sales.forEach(s => {
+      const dateStr = s.date || s.created_at;
+      if (dateStr && dateStr.length >= 7) {
+        monthsSet.add(dateStr.slice(0, 7)); // 'YYYY-MM'
+      }
+    });
+    return Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+  }, [sales]);
+
+  const formatMonthLabel = (yyyyMm: string) => {
+    const [year, month] = yyyyMm.split('-');
+    const monthsNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const mIdx = parseInt(month, 10) - 1;
+    return `${monthsNames[mIdx]} de ${year}`;
+  };
 
   const { showNotification, showModal, hideModal } = useUI();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
@@ -1050,21 +1072,48 @@ export default function Sales() {
   }, [profile?.unit_id, profile?.role, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits, fetchActiveShift]);
 
   const salesForMetrics = useMemo(() => {
-    return sales.filter(s => activeUnitFilter === 'all' || s.unit_id === activeUnitFilter);
-  }, [sales, activeUnitFilter]);
+    return sales.filter(s => {
+      const matchesUnit = activeUnitFilter === 'all' || s.unit_id === activeUnitFilter;
+      if (!matchesUnit) return false;
+      const dateStr = s.date || s.created_at;
+      if (selectedMonth !== 'all' && dateStr) {
+        if (!dateStr.startsWith(selectedMonth)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [sales, activeUnitFilter, selectedMonth]);
 
   const volumeBreakdown = useMemo(() => {
     if (!isAdmin || units.length === 0) return null;
     return units.map(u => {
-      const val = sales.filter(s => s.unit_id === u.id).reduce((acc, s) => acc + s.total_value, 0);
+      const val = sales.filter(s => {
+        const matchesUnit = s.unit_id === u.id;
+        if (!matchesUnit) return false;
+        const dateStr = s.date || s.created_at;
+        if (selectedMonth !== 'all' && dateStr) {
+          if (!dateStr.startsWith(selectedMonth)) {
+            return false;
+          }
+        }
+        return true;
+      }).reduce((acc, s) => acc + s.total_value, 0);
       const shortName = u.name.toUpperCase().includes('GAIVOTA') ? 'Gaivota' : u.name.toUpperCase().includes('ARROIO') ? 'Arroio' : u.name;
       return `${shortName}: R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
     }).join(' • ');
-  }, [sales, units, isAdmin]);
+  }, [sales, units, isAdmin, selectedMonth]);
 
   const filteredSales = sales.filter(s => {
     const matchesUnit = activeUnitFilter === 'all' || s.unit_id === activeUnitFilter;
     if (!matchesUnit) return false;
+
+    const dateStr = s.date || s.created_at;
+    if (selectedMonth !== 'all' && dateStr) {
+      if (!dateStr.startsWith(selectedMonth)) {
+        return false;
+      }
+    }
 
     const matchesSearch = (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       s.device_model.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1277,6 +1326,25 @@ export default function Sales() {
               className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
             />
           </div>
+          {/* Filtro por Mês */}
+          <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-[180px] w-full md:w-auto">
+            <span className="text-primary shrink-0">📅</span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-8 font-display font-black uppercase tracking-wider"
+              style={{
+                backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right center',
+              }}
+            >
+              <option value="all" className="bg-[#0f0f1a] text-white">Todos os Meses</option>
+              {availableMonths.map(m => (
+                <option key={m} value={m} className="bg-[#0f0f1a] text-white">{formatMonthLabel(m)}</option>
+              ))}
+            </select>
+          </div>
           {isAdmin && units.length > 0 && (
             <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-[200px] w-full md:w-auto">
               <span className="text-primary shrink-0">🏪</span>
@@ -1335,7 +1403,12 @@ export default function Sales() {
                         <p className="text-sm font-black text-on-surface uppercase tracking-tight leading-none group-hover:text-white transition-colors">{sale.customer_name}</p>
                         <div className="flex flex-col gap-0.5 mt-1 opacity-60">
                           <p className="text-[9px] font-mono text-primary font-black uppercase tracking-widest">ID: {sale.id.split('-')[0]}</p>
-                          <p className="text-[9px] font-display text-on-surface-variant font-bold uppercase tracking-wider">Vend: {sale.seller_name}</p>
+                          <p className="text-[9px] font-display text-on-surface-variant font-bold uppercase tracking-wider">Vendedor: {sale.seller_name}</p>
+                          {sale.date && (
+                            <p className="text-[9px] font-mono text-zinc-400 font-bold uppercase tracking-wider">
+                              Data: {new Date(sale.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

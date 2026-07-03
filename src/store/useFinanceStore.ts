@@ -24,6 +24,7 @@ export interface Installment {
   paid_value?: number;
   discount_value?: number;
   interest_value?: number;
+  device_model?: string;
 }
 
 interface FinanceState {
@@ -67,7 +68,8 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         asaas_sync_status: i.asaas_sync_status,
         paid_value: i.paid_value ? Number(i.paid_value) : undefined,
         discount_value: i.discount_value ? Number(i.discount_value) : 0,
-        interest_value: i.interest_value ? Number(i.interest_value) : 0
+        interest_value: i.interest_value ? Number(i.interest_value) : 0,
+        device_model: i.sales?.device_model_manual || undefined
       }));
 
       set({ installments: mapped });

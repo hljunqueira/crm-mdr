@@ -735,10 +735,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                                  item.category === 'other' || 
                                  item.model.toLowerCase().includes('diversos') || 
                                  item.brand.toLowerCase().includes('diversos');
+
+      if (formData.payment_type === 'crediario' && item.only_cash_sale === true) {
+        return false;
+      }
+
       return (isVirtualOrService || (item.stock_quantity || 0) > 0) && 
              (isVirtualOrService || item.status === 'available');
     }),
-    [inventory]);
+    [inventory, formData.payment_type]);
 
   const filteredDevices = useMemo(() => {
     const search = deviceSearch.toLowerCase();

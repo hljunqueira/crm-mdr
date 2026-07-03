@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Building, Package, DollarSign, Users, PlusCircle, Check, Loader2,
   TrendingUp, BarChart3, ArrowDownLeft, ShieldCheck, Link2, X, Trash2
 } from 'lucide-react';
@@ -8,7 +8,7 @@ import { useUI } from '../context/UIContext';
 import { supabase } from '../lib/supabase';
 
 export default function ScpManagement() {
-  const { 
+  const {
     lots, fetchLots, createLot, addQuota, isLoading,
     withdrawals, fetchWithdrawals, approveWithdrawal, rejectWithdrawal,
     linkDevices, updateContractUrl, deleteLot, deleteQuota
@@ -38,7 +38,8 @@ export default function ScpManagement() {
     email: '',
     password: '',
     phone: '',
-    investor_profile: 'arrojado'
+    investor_profile: 'arrojado',
+    manual_category: 'Bronze'
   });
   const [isSavingInvestor, setIsSavingInvestor] = useState(false);
 
@@ -49,7 +50,10 @@ export default function ScpManagement() {
     full_name: '',
     email: '',
     phone: '',
-    investor_profile: 'arrojado'
+    investor_profile: 'arrojado',
+    custom_interest_rate: '',
+    auto_reinvest: false,
+    manual_category: 'auto'
   });
 
   // Estado para estatísticas administrativas consolidada
@@ -87,7 +91,7 @@ export default function ScpManagement() {
   const filteredAvailableDevices = React.useMemo(() => {
     if (!deviceSearchQuery) return availableDevices;
     const q = deviceSearchQuery.toLowerCase();
-    return availableDevices.filter(d => 
+    return availableDevices.filter(d =>
       (d.brand && d.brand.toLowerCase().includes(q)) ||
       (d.model && d.model.toLowerCase().includes(q)) ||
       (d.imei && d.imei.toLowerCase().includes(q))
@@ -106,12 +110,12 @@ export default function ScpManagement() {
   const [interestRateInput, setInterestRateInput] = useState<number | ''>('');
 
   const fetchProfiles = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, role')
-      .eq('active', true);
-    if (data) {
-      setInvestors(data.filter(u => u.role === 'investor'));
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      setInvestors(data.filter((u: any) => u.role === 'investor') || []);
+    } catch (err) {
+      console.error('Error fetching investors:', err);
     }
   };
 
@@ -129,11 +133,27 @@ export default function ScpManagement() {
     }
   };
 
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
+  const fetchPendingRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('receivable_purchases')
+        .select('*, profiles(full_name), sales(customer:customers(name), total_value, device:devices(brand, model, imei))')
+        .eq('status', 'pending');
+      if (error) throw error;
+      setPendingRequests(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const fetchRendaPurchases = async () => {
     try {
       const { data, error } = await supabase
         .from('receivable_purchases')
-        .select('*, profiles(full_name), sales(customer:customers(name), total_value, device:devices(brand, model, imei))');
+        .select('*, profiles(full_name), sales(customer:customers(name), total_value, device:devices(brand, model, imei))')
+        .eq('status', 'approved');
       if (error) throw error;
       setRendaPurchases(data || []);
     } catch (err) {
@@ -195,6 +215,7 @@ export default function ScpManagement() {
       fetchPrimeDevices();
     } else if (activePanelTab === 'renda') {
       fetchRendaPurchases();
+      fetchPendingRequests();
     } else if (activePanelTab === 'investors') {
       fetchAllUsersList();
     } else if (activePanelTab === 'financeira') {
@@ -210,26 +231,26 @@ export default function ScpManagement() {
           .from('wallet_transactions')
           .select('amount')
           .in('type', ['AMORTIZATION', 'PROFIT']);
-        
-         const { data: wds } = await supabase
-           .from('withdrawal_requests')
-           .select('amount')
-           .eq('status', 'APPROVED');
-  
-         const { data: insts } = await supabase
-           .from('installments')
-           .select('value')
-           .in('status', ['overdue', 'blocked']);
-  
-         const totalRep = txs ? txs.reduce((acc, t) => acc + Number(t.amount), 0) : 0;
-         const totalWithdraw = wds ? wds.reduce((acc, w) => acc + Number(w.amount), 0) : 0;
-         const totalInad = insts ? insts.reduce((acc, i) => acc + Number(i.value), 0) : 0;
-  
-         setAdminStats({
-           totalRepasses: totalRep,
-           totalWithdrawals: totalWithdraw,
-           totalInadimplencia: totalInad
-         });
+
+        const { data: wds } = await supabase
+          .from('withdrawal_requests')
+          .select('amount')
+          .eq('status', 'APPROVED');
+
+        const { data: insts } = await supabase
+          .from('installments')
+          .select('value')
+          .in('status', ['overdue', 'blocked']);
+
+        const totalRep = txs ? txs.reduce((acc, t) => acc + Number(t.amount), 0) : 0;
+        const totalWithdraw = wds ? wds.reduce((acc, w) => acc + Number(w.amount), 0) : 0;
+        const totalInad = insts ? insts.reduce((acc, i) => acc + Number(i.value), 0) : 0;
+
+        setAdminStats({
+          totalRepasses: totalRep,
+          totalWithdrawals: totalWithdraw,
+          totalInadimplencia: totalInad
+        });
       } catch (err) {
         console.error('Error fetching admin SCP stats:', err);
       }
@@ -426,6 +447,49 @@ export default function ScpManagement() {
     }
   };
 
+  const handleApproveRendaPurchase = async (id: string) => {
+    try {
+      const res = await fetch(`/api/scp/receivables/${id}/approve`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      showNotification('success', 'Sucesso', 'Solicitação de compra aprovada com sucesso.');
+      fetchRendaPurchases();
+      fetchPendingRequests();
+    } catch (err) {
+      showNotification('error', 'Erro', 'Falha ao aprovar solicitação.');
+    }
+  };
+
+  const handleRejectRendaPurchase = async (id: string) => {
+    try {
+      const res = await fetch(`/api/scp/receivables/${id}/reject`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      showNotification('success', 'Sucesso', 'Solicitação de compra rejeitada.');
+      fetchPendingRequests();
+    } catch (err) {
+      showNotification('error', 'Erro', 'Falha ao rejeitar solicitação.');
+    }
+  };
+
+  const handleDeleteRendaPurchase = async (id: string) => {
+    showModal({
+      title: 'Estornar Compra de Recebível',
+      children: 'Deseja realmente estornar esta compra de recebíveis? O saldo de recebíveis futuros do investidor será recalculado.',
+      type: 'danger',
+      confirmText: 'Estornar',
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/scp/receivables/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error();
+          showNotification('success', 'Sucesso', 'Compra estornada com sucesso.');
+          fetchRendaPurchases();
+          hideModal();
+        } catch (err) {
+          showNotification('error', 'Erro', 'Falha ao estornar compra.');
+        }
+      }
+    });
+  };
+
   const handleUpdateContractSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -492,7 +556,7 @@ export default function ScpManagement() {
   };
 
   const toggleDeviceSelection = (id: string) => {
-    setSelectedDeviceIds(prev => 
+    setSelectedDeviceIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
@@ -522,9 +586,24 @@ export default function ScpManagement() {
       if (!res.ok) {
         throw new Error(data.error || 'Falha ao criar investidor');
       }
+
+      // Salvar a categoria manual no perfil do investidor recém-criado
+      const createdUserId = data.user?.id;
+      if (createdUserId) {
+        await fetch(`/api/scp/fintech/investor-settings/${createdUserId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customInterestRate: null,
+            autoReinvest: false,
+            manualCategory: investorFormData.manual_category
+          })
+        });
+      }
+
       showNotification('success', 'Sucesso', 'Parceiro Investidor cadastrado com sucesso!');
       setIsCreateInvestorOpen(false);
-      setInvestorFormData({ full_name: '', email: '', password: '', phone: '', investor_profile: 'arrojado' });
+      setInvestorFormData({ full_name: '', email: '', password: '', phone: '', investor_profile: 'arrojado', manual_category: 'Bronze' });
       fetchAllUsersList();
       fetchProfiles();
     } catch (err: any) {
@@ -540,7 +619,10 @@ export default function ScpManagement() {
       full_name: u.full_name,
       email: u.email,
       phone: u.phone || '',
-      investor_profile: u.investor_profile || 'arrojado'
+      investor_profile: u.investor_profile || 'arrojado',
+      custom_interest_rate: u.custom_interest_rate !== null && u.custom_interest_rate !== undefined ? u.custom_interest_rate.toString() : '',
+      auto_reinvest: !!u.auto_reinvest,
+      manual_category: u.manual_category || 'auto'
     });
     setIsEditInvestorOpen(true);
   };
@@ -567,6 +649,21 @@ export default function ScpManagement() {
       if (!res.ok) {
         throw new Error(data.error || 'Falha ao atualizar investidor');
       }
+
+      const rateVal = editInvestorFormData.custom_interest_rate === '' ? null : Number(editInvestorFormData.custom_interest_rate);
+      const settingsRes = await fetch(`/api/scp/fintech/investor-settings/${editingInvestorId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customInterestRate: rateVal,
+          autoReinvest: editInvestorFormData.auto_reinvest,
+          manualCategory: editInvestorFormData.manual_category
+        })
+      });
+      if (!settingsRes.ok) {
+        throw new Error('Falha ao atualizar configurações de rentabilidade do parceiro.');
+      }
+
       showNotification('success', 'Sucesso', 'Parceiro Investidor atualizado com sucesso!');
       setIsEditInvestorOpen(false);
       fetchAllUsersList();
@@ -703,31 +800,28 @@ export default function ScpManagement() {
           <div className="flex bg-[#18181b] border border-zinc-800 rounded-xl p-0.5 mr-2 flex-wrap gap-1">
             <button
               onClick={() => setActivePanelTab('prime')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                activePanelTab === 'prime' 
-                  ? 'bg-emerald-500 text-black shadow-md' 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activePanelTab === 'prime'
+                  ? 'bg-emerald-500 text-black shadow-md'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               Prime (Estoque)
             </button>
             <button
               onClick={() => setActivePanelTab('renda')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                activePanelTab === 'renda' 
-                  ? 'bg-emerald-500 text-black shadow-md' 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activePanelTab === 'renda'
+                  ? 'bg-emerald-500 text-black shadow-md'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               Renda (Recebíveis)
             </button>
             <button
               onClick={() => setActivePanelTab('withdrawals')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer relative ${
-                activePanelTab === 'withdrawals' 
-                  ? 'bg-emerald-500 text-black shadow-md' 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer relative ${activePanelTab === 'withdrawals'
+                  ? 'bg-emerald-500 text-black shadow-md'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               Resgates Pix
               {withdrawals.filter(w => w.status === 'PENDING').length > 0 && (
@@ -738,21 +832,19 @@ export default function ScpManagement() {
             </button>
             <button
               onClick={() => setActivePanelTab('investors')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                activePanelTab === 'investors' 
-                  ? 'bg-emerald-500 text-black shadow-md' 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activePanelTab === 'investors'
+                  ? 'bg-emerald-500 text-black shadow-md'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               Investidores / Parceiros
             </button>
             <button
               onClick={() => setActivePanelTab('financeira')}
-              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                activePanelTab === 'financeira' 
-                  ? 'bg-emerald-500 text-black shadow-md' 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${activePanelTab === 'financeira'
+                  ? 'bg-emerald-500 text-black shadow-md'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               Financeira (Rendimentos)
             </button>
@@ -833,11 +925,10 @@ export default function ScpManagement() {
                       <td className="py-4 px-4 text-center text-zinc-400">{(Number(d.prime_admin_fee || 0.10) * 100).toFixed(0)}%</td>
                       <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(d.sale_price || d.cost_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                          d.status === 'sold' 
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${d.status === 'sold'
+                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        }`}>
+                          }`}>
                           {d.status === 'sold' ? 'Vendido' : 'Disponível'}
                         </span>
                       </td>
@@ -859,59 +950,125 @@ export default function ScpManagement() {
         </div>
       ) : activePanelTab === 'renda' ? (
         /* Aba Renda (Recebíveis) */
-        <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Recebíveis Vendidos (Renda)</h3>
+        <div className="space-y-6">
+          <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Recebíveis Vendidos (Renda)</h3>
+            </div>
+
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <Loader2 className="animate-spin text-emerald-400" size={24} />
+                <span className="text-xs text-zinc-500">Buscando recebíveis...</span>
+              </div>
+            ) : rendaPurchases.length === 0 ? (
+              <div className="text-center py-12 text-zinc-500 text-xs">Nenhum recebível vendido a investidores Renda até o momento.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <th className="py-4 px-4">Aparelho / Contrato</th>
+                      <th className="py-4 px-4">Investidor Renda</th>
+                      <th className="py-4 px-4">Preço Pago (À Vista)</th>
+                      <th className="py-4 px-4">Recebível Nominal</th>
+                      <th className="py-4 px-4 text-center">Fração Comprada</th>
+                      <th className="py-4 px-4">Data Aquisição</th>
+                      <th className="py-4 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/40">
+                    {rendaPurchases.map((r) => (
+                      <tr key={r.id} className="hover:bg-zinc-800/10 transition-colors">
+                        <td className="py-4 px-4">
+                          <span className="font-bold text-white block">
+                            {r.sales?.device ? `${r.sales.device.brand} ${r.sales.device.model}` : 'Aparelho'}
+                          </span>
+                          <span className="text-[11px] text-zinc-400 block font-medium">
+                            Cliente: {r.sales?.customer?.name || 'Contrato'}
+                          </span>
+                          {r.sales?.device?.imei && (
+                            <span className="text-[10px] text-zinc-500 font-mono block">
+                              IMEI: {r.sales.device.imei}
+                            </span>
+                          )}
+                          <span className="text-[9px] text-zinc-500 block font-mono">ID Venda: #{r.sale_id.slice(0, 8)}</span>
+                        </td>
+                        <td className="py-4 px-4 text-zinc-300 font-semibold">{r.profiles?.full_name || 'Investidor'}</td>
+                        <td className="py-4 px-4 font-bold text-indigo-400">R$ {Number(r.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(r.total_receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-4 px-4 text-center font-black text-white">{(Number(r.ownership_percentage || 1) * 100).toFixed(0)}%</td>
+                        <td className="py-4 px-4 text-zinc-500">{new Date(r.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="py-4 px-4 text-right">
+                          <button
+                            onClick={() => handleDeleteRendaPurchase(r.id)}
+                            className="p-1 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 rounded-lg transition-colors border-0 bg-transparent cursor-pointer"
+                            title="Estornar Recebível"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <Loader2 className="animate-spin text-emerald-400" size={24} />
-              <span className="text-xs text-zinc-500">Buscando recebíveis...</span>
-            </div>
-          ) : rendaPurchases.length === 0 ? (
-            <div className="text-center py-12 text-zinc-500 text-xs">Nenhum recebível vendido a investidores Renda até o momento.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
-                    <th className="py-4 px-4">Aparelho / Contrato</th>
-                    <th className="py-4 px-4">Investidor Renda</th>
-                    <th className="py-4 px-4">Preço Pago (À Vista)</th>
-                    <th className="py-4 px-4">Recebível Nominal</th>
-                    <th className="py-4 px-4 text-center">Fração Comprada</th>
-                    <th className="py-4 px-4">Data Aquisição</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/40">
-                  {rendaPurchases.map((r) => (
-                    <tr key={r.id} className="hover:bg-zinc-800/10 transition-colors">
-                      <td className="py-4 px-4">
-                        <span className="font-bold text-white block">
-                          {r.sales?.device ? `${r.sales.device.brand} ${r.sales.device.model}` : 'Aparelho'}
-                        </span>
-                        <span className="text-[11px] text-zinc-400 block font-medium">
-                          Cliente: {r.sales?.customer?.name || 'Contrato'}
-                        </span>
-                        {r.sales?.device?.imei && (
-                          <span className="text-[10px] text-zinc-500 font-mono block">
-                            IMEI: {r.sales.device.imei}
-                          </span>
-                        )}
-                        <span className="text-[9px] text-zinc-500 block font-mono">ID Venda: #{r.sale_id.slice(0, 8)}</span>
-                      </td>
-                      <td className="py-4 px-4 text-zinc-300 font-semibold">{r.profiles?.full_name || 'Investidor'}</td>
-                      <td className="py-4 px-4 font-bold text-indigo-400">R$ {Number(r.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(r.total_receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 px-4 text-center font-black text-white">{(Number(r.ownership_percentage || 1) * 100).toFixed(0)}%</td>
-                      <td className="py-4 px-4 text-zinc-500">{new Date(r.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+          <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-6">Solicitações de Compra Pendentes</h3>
+            {pendingRequests.length === 0 ? (
+              <div className="text-center py-6 text-zinc-500 text-xs">Nenhuma solicitação de compra pendente.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <th className="py-4 px-4">Aparelho / Contrato</th>
+                      <th className="py-4 px-4">Investidor</th>
+                      <th className="py-4 px-4">Preço Pago (À Vista)</th>
+                      <th className="py-4 px-4">Recebível Nominal</th>
+                      <th className="py-4 px-4 text-center">Fração</th>
+                      <th className="py-4 px-4 text-right">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/40">
+                    {pendingRequests.map((req) => (
+                      <tr key={req.id} className="hover:bg-zinc-800/10 transition-colors">
+                        <td className="py-4 px-4">
+                          <span className="font-bold text-white block">
+                            {req.sales?.device ? `${req.sales.device.brand} ${req.sales.device.model}` : 'Aparelho'}
+                          </span>
+                          <span className="text-[11px] text-zinc-400 block font-medium">
+                            Cliente: {req.sales?.customer?.name || 'Contrato'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-zinc-300 font-semibold">{req.profiles?.full_name || 'Investidor'}</td>
+                        <td className="py-4 px-4 font-bold text-indigo-400">R$ {Number(req.purchase_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(req.total_receivable).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        <td className="py-4 px-4 text-center font-black text-white">{(Number(req.ownership_percentage || 1) * 100).toFixed(0)}%</td>
+                        <td className="py-4 px-4 text-right space-x-2">
+                          <button
+                            onClick={() => handleApproveRendaPurchase(req.id)}
+                            className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase text-[9px] rounded-lg transition-all cursor-pointer border-0"
+                          >
+                            Aprovar
+                          </button>
+                          <button
+                            onClick={() => handleRejectRendaPurchase(req.id)}
+                            className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-extrabold uppercase text-[9px] rounded-lg transition-all cursor-pointer border-0"
+                          >
+                            Rejeitar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       ) : activePanelTab === 'withdrawals' ? (
         /* Aba de Resgates Pix */
@@ -948,13 +1105,12 @@ export default function ScpManagement() {
                       <td className="py-4 px-4 text-zinc-400 font-mono select-all">{w.pix_key}</td>
                       <td className="py-4 px-4 text-zinc-500">{new Date(w.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="py-4 px-4 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                          w.status === 'PENDING' 
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${w.status === 'PENDING'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             : w.status === 'APPROVED'
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                               : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        }`}>
+                          }`}>
                           {w.status === 'PENDING' ? 'Pendente' : w.status === 'APPROVED' ? 'Aprovado' : 'Rejeitado'}
                         </span>
                       </td>
@@ -1006,9 +1162,9 @@ export default function ScpManagement() {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
-                    <th className="py-4 px-4">Nome Completo</th>
+                    <th className="py-4 px-4">Nome / Categoria</th>
                     <th className="py-4 px-4">E-mail</th>
-                    <th className="py-4 px-4">Telefone</th>
+                    <th className="py-4 px-4">Parâmetros Juros</th>
                     <th className="py-4 px-4">Perfil</th>
                     <th className="py-4 px-4 text-right">Saldo Disponível</th>
                     <th className="py-4 px-4 text-right">Recebíveis Futuros</th>
@@ -1018,20 +1174,36 @@ export default function ScpManagement() {
                 <tbody className="divide-y divide-zinc-800/40">
                   {allUsersList.map((u) => (
                     <tr key={u.id} className="hover:bg-zinc-800/10 transition-colors">
-                      <td className="py-4 px-4 font-bold text-white">{u.full_name}</td>
-                      <td className="py-4 px-4 text-zinc-400">{u.email}</td>
-                      <td className="py-4 px-4 text-zinc-400 font-mono">{u.phone || '-'}</td>
                       <td className="py-4 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                          u.investor_profile === 'conservador' 
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                        <span className="font-bold text-white block">{u.full_name}</span>
+                        {u.investment_category && (
+                          <span className={`text-[8px] font-black uppercase tracking-wider block mt-0.5 ${u.investment_category === 'gold' ? 'text-amber-400' :
+                              u.investment_category === 'silver' ? 'text-zinc-300' : 'text-amber-700'
+                            }`}>
+                            {u.investment_category === 'gold' ? '🏆 Ouro' :
+                              u.investment_category === 'silver' ? '🥈 Prata' : '🥉 Bronze'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4 text-zinc-400">{u.email}</td>
+                      <td className="py-4 px-4 font-mono">
+                        <span className="text-zinc-300 block">
+                          Taxa: {u.custom_interest_rate !== null && u.custom_interest_rate !== undefined ? `${Number(u.custom_interest_rate).toFixed(1)}%` : 'Categoria'}
+                        </span>
+                        <span className="text-[9px] text-zinc-500 block">
+                          Reinvestir: {u.auto_reinvest ? 'Sim' : 'Não'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${u.investor_profile === 'conservador'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        }`}>
+                          }`}>
                           {u.investor_profile === 'conservador' ? 'Sem Risco (Vista)' : 'Com Risco (Prazo)'}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-right font-bold text-emerald-400">R$ {Number(u.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="py-4 px-4 text-right font-bold text-zinc-300">R$ {Number(u.future_receipts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 text-right font-bold text-emerald-400 font-mono">R$ {Number(u.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                      <td className="py-4 px-4 text-right font-bold text-zinc-300 font-mono">R$ {Number(u.future_receipts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 px-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -1127,11 +1299,10 @@ export default function ScpManagement() {
                           <td className="py-4 px-4 font-bold text-white uppercase">{row.customerName}</td>
                           <td className="py-4 px-4 text-zinc-300 uppercase">{row.productName}</td>
                           <td className="py-4 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                              row.type === 'PRIME' 
-                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' 
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${row.type === 'PRIME'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                 : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            }`}>
+                              }`}>
                               {row.type}
                             </span>
                           </td>
@@ -1161,7 +1332,7 @@ export default function ScpManagement() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleCreateInvestorSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Cadastrar Novo Investidor</h3>
-            
+
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nome Completo</label>
               <input
@@ -1221,6 +1392,20 @@ export default function ScpManagement() {
               </select>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Categorização (Categoria)</label>
+              <select
+                required
+                value={investorFormData.manual_category}
+                onChange={(e) => setInvestorFormData(prev => ({ ...prev, manual_category: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              >
+                <option value="Bronze" className="bg-[#121214]">🥉 Bronze</option>
+                <option value="Prata" className="bg-[#121214]">🥈 Prata</option>
+                <option value="Ouro" className="bg-[#121214]">🏆 Ouro</option>
+              </select>
+            </div>
+
             <div className="flex gap-2 pt-4">
               <button
                 type="button"
@@ -1247,7 +1432,7 @@ export default function ScpManagement() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleEditInvestorSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Editar Investidor</h3>
-            
+
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nome Completo</label>
               <input
@@ -1295,6 +1480,47 @@ export default function ScpManagement() {
               </select>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Categorização (Categoria)</label>
+              <select
+                value={editInvestorFormData.manual_category || 'auto'}
+                onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, manual_category: e.target.value }))}
+                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+              >
+                <option value="auto" className="bg-[#121214]">Automático (Baseado no valor investido)</option>
+                <option value="Bronze" className="bg-[#121214]">🥉 Bronze</option>
+                <option value="Prata" className="bg-[#121214]">🥈 Prata</option>
+                <option value="Ouro" className="bg-[#121214]">🏆 Ouro</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Taxa de Retorno Opcional (% a.m.)</label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Padrão da Categoria"
+                  value={editInvestorFormData.custom_interest_rate}
+                  onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, custom_interest_rate: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all font-mono"
+                />
+              </div>
+
+              <div className="space-y-2 flex flex-col justify-center pl-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1 mb-2">Reinvestimento Automático</label>
+                <label className="flex items-center gap-2.5 cursor-pointer text-xs text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={editInvestorFormData.auto_reinvest}
+                    onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, auto_reinvest: e.target.checked }))}
+                    className="accent-primary h-4 w-4"
+                  />
+                  <span>Ativar Automático</span>
+                </label>
+              </div>
+            </div>
+
             <div className="flex gap-2 pt-4">
               <button
                 type="button"
@@ -1320,7 +1546,7 @@ export default function ScpManagement() {
       {isLinkDevicesOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleLinkDevicesSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-lg rounded-3xl p-6 space-y-4 shadow-2xl relative max-h-[90vh] flex flex-col">
-            <button 
+            <button
               type="button"
               onClick={() => setIsLinkDevicesOpen(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
@@ -1339,7 +1565,7 @@ export default function ScpManagement() {
               ) : (
                 availableDevices.map((d) => (
                   <label key={d.id} className="flex items-center gap-3 p-3 hover:bg-zinc-800/20 rounded-xl transition-colors cursor-pointer">
-                    <input 
+                    <input
                       type="checkbox"
                       checked={selectedDeviceIds.includes(d.id)}
                       onChange={() => toggleDeviceSelection(d.id)}
@@ -1382,7 +1608,7 @@ export default function ScpManagement() {
       {isContractUrlOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleUpdateContractSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
-            <button 
+            <button
               type="button"
               onClick={() => setIsContractUrlOpen(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
@@ -1431,7 +1657,7 @@ export default function ScpManagement() {
       {isLinkPrimeOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form onSubmit={handleLinkPrimeSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-4xl rounded-3xl p-6 shadow-2xl relative max-h-[90vh] flex flex-col overflow-hidden">
-            <button 
+            <button
               type="button"
               onClick={() => {
                 setIsLinkPrimeOpen(false);
@@ -1500,7 +1726,7 @@ export default function ScpManagement() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filteredAvailableDevices.map((d) => (
                       <div key={d.id} className="flex flex-col p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all">
-                        <div 
+                        <div
                           className="flex items-center gap-3 w-full cursor-pointer"
                           onClick={() => {
                             setPrimeSelectedDeviceIds(prev => {
@@ -1515,7 +1741,7 @@ export default function ScpManagement() {
                             });
                           }}
                         >
-                          <input 
+                          <input
                             type="checkbox"
                             checked={primeSelectedDeviceIds.includes(d.id)}
                             readOnly
@@ -1527,18 +1753,22 @@ export default function ScpManagement() {
                               IMEI atual: {d.imei || 'Não informado'}
                             </span>
                             <span className="text-[9px] text-zinc-400 block mt-0.5">
-                              Estoque: {d.stock_quantity ?? 1} { (d.stock_quantity ?? 1) > 1 ? 'unidades' : 'unidade' }
+                              Estoque: {d.stock_quantity ?? 1} {(d.stock_quantity ?? 1) > 1 ? 'unidades' : 'unidade'}
                             </span>
                           </div>
                           <div className="text-right shrink-0">
-                            <span className="text-[10px] text-emerald-400 font-bold block font-mono">À Vista: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            {primeValuationType === 'cost' ? (
+                              <span className="text-[10px] text-indigo-400 font-bold block font-mono">Custo: R$ {Number(d.cost_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            ) : (
+                              <span className="text-[10px] text-emerald-400 font-bold block font-mono">À Vista: R$ {Number(d.sale_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            )}
                           </div>
                         </div>
 
                         {/* Seletor de quantidade e inputs de IMEI */}
                         {primeSelectedDeviceIds.includes(d.id) && (
                           <div className="mt-2 pt-2 border-t border-white/5 w-full space-y-2" onClick={(e) => e.stopPropagation()}>
-                            { (d.stock_quantity || 1) > 1 && (
+                            {(d.stock_quantity || 1) > 1 && (
                               <div className="flex items-center justify-between">
                                 <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest block">Qtd a vincular (Max {d.stock_quantity})</label>
                                 <input
@@ -1692,11 +1922,13 @@ export default function ScpManagement() {
         const brandModel = selectedSale?.device ? `${selectedSale.device.brand} ${selectedSale.device.model}` : 'N/A';
         const saleTotal = selectedSale ? Number(selectedSale.remaining_receivable_value ?? selectedSale.total_value) : 0;
         const monthlyEstimate = totalReceivableVal ? (Number(totalReceivableVal) * (ownershipPercentage / 100)) / installments : 0;
+        const totalAdquiridoVal = Number(totalReceivableVal || 0) * (ownershipPercentage / 100);
+        const lucroTotalEstimado = totalAdquiridoVal - (Number(purchasePrice) || 0);
 
         return (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <form onSubmit={handleSellReceivableSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl relative">
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setIsSellReceivableOpen(false);
@@ -1870,6 +2102,10 @@ export default function ScpManagement() {
                   <div className="flex justify-between font-bold">
                     <span>Recebimento Mensal Estimado:</span>
                     <span>R$ {monthlyEstimate.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-emerald-400 border-t border-zinc-800/60 pt-1.5 mt-1.5">
+                    <span>Lucro Total Estimado do Investidor:</span>
+                    <span>R$ {lucroTotalEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <p className="text-[8px] text-zinc-500 leading-normal uppercase">
                     * Estimado em {installments} parcelas mensais de R$ {(Number(totalReceivableVal) * (ownershipPercentage / 100) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.

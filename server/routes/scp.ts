@@ -193,6 +193,14 @@ router.post("/auth/verify-otp", async (req, res) => {
     // Sucesso, limpar OTP
     await supabase.from("auth_otps").delete().eq("id", otp.id);
 
+    // Inserir log de auditoria
+    await supabase.from("scp_audit_logs").insert({
+      user_id: profile.id,
+      action: "login",
+      details: { phone: cleanPhone },
+      ip_address: (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "127.0.0.1")
+    });
+
     // Retorna payload de login contendo o perfil
     res.json({
       success: true,
@@ -333,9 +341,17 @@ router.get("/dashboard/:profile_id", async (req, res) => {
 
     if (txsErr) throw txsErr;
 
-    const credits = (allTransactions || []).filter(t => t.type === "AMORTIZATION" || t.type === "PROFIT");
-    const capitalRecovered = credits.filter(t => t.type === "AMORTIZATION").reduce((acc, t) => acc + Number(t.amount || 0), 0);
-    const interestReceived = credits.filter(t => t.type === "PROFIT").reduce((acc, t) => acc + Number(t.amount || 0), 0);
+    const credits = (allTransactions || []).filter(t => t.type === "AMORTIZATION" || t.type === "PROFIT" || t.type === "CREDIT");
+    const capitalRecovered = credits.reduce((acc, t) => {
+      if (t.type === "AMORTIZATION") return acc + Number(t.amount || 0);
+      if (t.type === "CREDIT") return acc + Number(t.capital_portion || 0);
+      return acc;
+    }, 0);
+    const interestReceived = credits.reduce((acc, t) => {
+      if (t.type === "PROFIT") return acc + Number(t.amount || 0);
+      if (t.type === "CREDIT") return acc + Number(t.interest_portion || 0);
+      return acc;
+    }, 0);
     const totalReceived = capitalRecovered + interestReceived;
 
     // 4. Calculate monthly receipts history
@@ -688,7 +704,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           device:devices (brand, model, imei)
         )
       `)
-      .eq("profile_id", profile_id);
+      .eq("profile_id", profile_id)
+      .eq("status", "approved");
 
     if (rendaErr) throw rendaErr;
 
@@ -1249,6 +1266,12 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
     const { id } = req.params;
     const { investor_id, prime_profit_share, prime_admin_fee } = req.body;
 
+    const { data: oldDevice } = await supabase
+      .from("devices")
+      .select("investor_id, cost_price, sale_price, prime_valuation_type")
+      .eq("id", id)
+      .single();
+
     const { data: device, error: devError } = await supabase
       .from("devices")
       .update({
@@ -1262,7 +1285,29 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 
     if (devError) throw devError;
 
-    // Se vinculou um investidor, podemos atualizar seus recebíveis futuros estimativos (preço de custo)
+    // Se mudou ou desvinculou, subtrair do investidor antigo
+    if (oldDevice && oldDevice.investor_id && oldDevice.investor_id !== investor_id) {
+      const { data: oldWallet } = await supabase
+        .from("wallets")
+        .select("*")
+        .eq("profile_id", oldDevice.investor_id)
+        .maybeSingle();
+
+      const oldVal = oldDevice.prime_valuation_type === "cost"
+        ? Number(oldDevice.cost_price || 0)
+        : Number(oldDevice.sale_price || oldDevice.cost_price || 0);
+
+      if (oldWallet) {
+        await supabase
+          .from("wallets")
+          .update({
+            future_receipts: Math.max(0, Number(oldWallet.future_receipts || 0) - oldVal)
+          })
+          .eq("id", oldWallet.id);
+      }
+    }
+
+    // Se vinculou um investidor, podemos atualizar seus recebíveis futuros estimativos
     if (investor_id) {
       const { data: wallet } = await supabase
         .from("wallets")
@@ -1270,7 +1315,9 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
         .eq("profile_id", investor_id)
         .maybeSingle();
 
-      const cost = Number(device.cost_price || 0);
+      const cost = device.prime_valuation_type === "cost"
+        ? Number(device.cost_price || 0)
+        : Number(device.sale_price || device.cost_price || 0);
 
       if (wallet) {
         await supabase
@@ -1305,6 +1352,14 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
       return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
     }
 
+    const { data: investorProf } = await supabase
+      .from("profiles")
+      .select("investor_profile")
+      .eq("id", investor_id)
+      .maybeSingle();
+
+    const isConservador = investorProf?.investor_profile === "conservador";
+
     const share = prime_profit_share !== undefined ? Number(prime_profit_share) / 100 : 0.6000;
     const fee = prime_admin_fee !== undefined ? Number(prime_admin_fee) / 100 : 0.1000;
 
@@ -1321,55 +1376,111 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
       return res.status(400).json({ error: "Erro ao carregar aparelhos para vinculação." });
     }
 
-    // Vincular os aparelhos desmembrando a quantidade do pai
+    // Vincular os aparelhos
     for (const dev of devices) {
       if (dev.investor_id) continue; // Pular se já tem investidor
 
       const qty = Number(device_quantities?.[dev.id] || 1);
       const originalQty = Number(dev.stock_quantity || 1);
       const newQty = Math.max(0, originalQty - qty);
-
-      // Atualizar a quantidade em estoque do pai
-      const parentStatus = newQty <= 0 ? 'sold' : dev.status;
-      await supabase
-        .from("devices")
-        .update({
-          stock_quantity: newQty,
-          status: parentStatus
-        })
-        .eq("id", dev.id);
-
-      // Inserir cada unidade desmembrada com quantidade = 1 e IMEI próprio
       const imeis = device_imeis?.[dev.id] || [];
-      for (let i = 0; i < qty; i++) {
-        const { id, created_at, updated_at, ...copiedData } = dev;
-        
-        const newDeviceData = {
-          ...copiedData,
-          stock_quantity: 1,
-          status: "available",
-          investor_id,
-          prime_profit_share: share,
-          prime_admin_fee: fee,
-          imei: imeis[i] && imeis[i].trim() !== "" ? imeis[i].trim() : null,
-          lot_id: null,
-          prime_valuation_type: prime_valuation_type || 'sale'
-        };
 
-        const { error: insertErr } = await supabase
+      const deviceInvestedPrice = (prime_valuation_type === "cost")
+        ? Number(dev.cost_price || 0)
+        : Number(dev.sale_price || dev.cost_price || 0);
+
+      // Se quantidade original for 1, faz update in-place para evitar erro de IMEI duplicado
+      if (originalQty === 1) {
+        const { error: updateErr } = await supabase
           .from("devices")
-          .insert([newDeviceData]);
+          .update({
+            investor_id,
+            prime_profit_share: share,
+            prime_admin_fee: fee,
+            imei: imeis[0] && imeis[0].trim() !== "" ? imeis[0].trim() : dev.imei,
+            prime_valuation_type: prime_valuation_type || 'sale',
+            only_cash_sale: isConservador ? true : dev.only_cash_sale
+          })
+          .eq("id", dev.id);
 
-        if (insertErr) {
-          console.error("Erro ao criar dispositivo desmembrado:", insertErr);
-          throw insertErr;
-        }
+        if (updateErr) throw updateErr;
 
         linkedCount++;
-        const deviceInvestedPrice = (prime_valuation_type === "cost")
-          ? Number(dev.cost_price || 0)
-          : Number(dev.sale_price || dev.cost_price || 0);
         totalCostCredited += deviceInvestedPrice;
+      } else {
+        // Desmembrar normal (decrementar pai e inserir novos)
+        const parentStatus = newQty <= 0 ? 'sold' : dev.status;
+        const parentUpdate: any = {
+          stock_quantity: newQty,
+          status: parentStatus
+        };
+        // Se zerar o estoque do pai, renomeia o IMEI dele para liberar o constraint de IMEI único
+        if (newQty <= 0 && dev.imei) {
+          parentUpdate.imei = `${dev.imei}_sold`;
+        }
+
+        await supabase
+          .from("devices")
+          .update(parentUpdate)
+          .eq("id", dev.id);
+
+        for (let i = 0; i < qty; i++) {
+          const { id, created_at, updated_at, ...copiedData } = dev;
+          
+          const newDeviceData = {
+            ...copiedData,
+            stock_quantity: 1,
+            status: "available",
+            investor_id,
+            prime_profit_share: share,
+            prime_admin_fee: fee,
+            imei: imeis[i] && imeis[i].trim() !== "" ? imeis[i].trim() : null,
+            lot_id: null,
+            prime_valuation_type: prime_valuation_type || 'sale',
+            only_cash_sale: isConservador ? true : dev.only_cash_sale
+          };
+
+          const { error: insertErr } = await supabase
+            .from("devices")
+            .insert([newDeviceData]);
+
+          if (insertErr) {
+            console.error("Erro ao criar dispositivo desmembrado:", insertErr);
+            throw insertErr;
+          }
+
+          linkedCount++;
+          totalCostCredited += deviceInvestedPrice;
+        }
+      }
+      
+      // Retroactive Payout check:
+      // Se este celular já foi vendido anteriormente e já há parcelas pagas, creditamos retroativamente.
+      const { data: sales } = await supabase
+        .from("sales")
+        .select("id")
+        .eq("device_id", dev.id)
+        .neq("status", "cancelled")
+        .neq("status", "refunded");
+
+      if (sales && sales.length > 0) {
+        const saleId = sales[0].id;
+        const { data: paidInstallments } = await supabase
+          .from("installments")
+          .select("*")
+          .eq("sale_id", saleId)
+          .eq("status", "paid");
+
+        if (paidInstallments && paidInstallments.length > 0) {
+          const { processScpInstallmentPayout } = require("./scp_payout_trigger");
+          for (const inst of paidInstallments) {
+            try {
+              await processScpInstallmentPayout(inst);
+            } catch (err) {
+              console.error("Erro no repasse retroativo:", err);
+            }
+          }
+        }
       }
     }
 
@@ -1458,11 +1569,7 @@ router.get("/available-sales", async (req, res) => {
 router.post("/receivables/sell", async (req, res) => {
   try {
     const { profile_id, sale_id, purchase_price, total_receivable, ownership_percentage } = req.body;
-
-    if (!profile_id || !sale_id || !purchase_price || !total_receivable) {
-      return res.status(400).json({ error: "Parâmetros obrigatórios ausentes." });
-    }
-
+    // Explicita o status 'approved'
     const { data: purchase, error: purError } = await supabase
       .from("receivable_purchases")
       .insert({
@@ -1470,7 +1577,8 @@ router.post("/receivables/sell", async (req, res) => {
         sale_id,
         purchase_price: Number(purchase_price),
         total_receivable: Number(total_receivable),
-        ownership_percentage: ownership_percentage !== undefined ? Number(ownership_percentage) : 1.0000
+        ownership_percentage: ownership_percentage !== undefined ? Number(ownership_percentage) : 1.0000,
+        status: "approved"
       })
       .select()
       .single();
@@ -1497,13 +1605,181 @@ router.post("/receivables/sell", async (req, res) => {
       await supabase
         .from("wallets")
         .insert({
-          profile_id,
+          profile_id: profile_id,
           balance: 0,
           future_receipts: futureAmt
         });
     }
 
     res.status(201).json({ success: true, purchase });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18b. POST /api/scp/receivables/request — Solicitar compra de recebíveis (investidor)
+router.post("/receivables/request", async (req, res) => {
+  try {
+    const { profile_id, sale_id, purchase_price, total_receivable, ownership_percentage } = req.body;
+
+    if (!profile_id || !sale_id || !purchase_price || !total_receivable) {
+      return res.status(400).json({ error: "Parâmetros obrigatórios ausentes." });
+    }
+
+    const { data: purchase, error: purError } = await supabase
+      .from("receivable_purchases")
+      .insert({
+        profile_id,
+        sale_id,
+        purchase_price: Number(purchase_price),
+        total_receivable: Number(total_receivable),
+        ownership_percentage: ownership_percentage !== undefined ? Number(ownership_percentage) : 1.0000,
+        status: "pending"
+      })
+      .select()
+      .single();
+
+    if (purError) throw purError;
+    res.status(201).json({ success: true, purchase });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18c. POST /api/scp/receivables/:id/approve — Aprovar solicitação de compra (admin)
+router.post("/receivables/:id/approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: purchase, error: fetchErr } = await supabase
+      .from("receivable_purchases")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !purchase) {
+      return res.status(404).json({ error: "Solicitação não encontrada." });
+    }
+
+    if (purchase.status === "approved") {
+      return res.status(400).json({ error: "Esta solicitação já foi aprovada." });
+    }
+
+    const { error: upErr } = await supabase
+      .from("receivable_purchases")
+      .update({ status: "approved" })
+      .eq("id", id);
+
+    if (upErr) throw upErr;
+
+    // Calcular parcelas restantes não pagas
+    const { data: unpaidInstallments } = await supabase
+      .from("installments")
+      .select("value")
+      .eq("sale_id", purchase.sale_id)
+      .neq("status", "paid")
+      .neq("status", "cancelled");
+
+    const unpaidSum = (unpaidInstallments || []).reduce((sum, inst) => sum + Number(inst.value), 0);
+    const futureAmt = unpaidSum * Number(purchase.ownership_percentage || 1);
+
+    // Atualizar carteira do investidor
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("profile_id", purchase.profile_id)
+      .maybeSingle();
+
+    if (wallet) {
+      await supabase
+        .from("wallets")
+        .update({
+          future_receipts: Number(wallet.future_receipts || 0) + futureAmt
+        })
+        .eq("id", wallet.id);
+    } else {
+      await supabase
+        .from("wallets")
+        .insert({
+          profile_id: purchase.profile_id,
+          balance: 0,
+          future_receipts: futureAmt
+        });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18d. POST /api/scp/receivables/:id/reject — Rejeitar solicitação de compra (admin)
+router.post("/receivables/:id/reject", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase
+      .from("receivable_purchases")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18e. DELETE /api/scp/receivables/:id — Estornar/Deletar compra de recebíveis
+router.delete("/receivables/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: purchase, error: fetchErr } = await supabase
+      .from("receivable_purchases")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchErr || !purchase) {
+      return res.status(404).json({ error: "Compra de recebíveis não encontrada." });
+    }
+
+    // Se estiver aprovado, deduzir os recebíveis futuros da carteira
+    if (purchase.status === "approved") {
+      const { data: unpaidInstallments } = await supabase
+        .from("installments")
+        .select("value")
+        .eq("sale_id", purchase.sale_id)
+        .neq("status", "paid")
+        .neq("status", "cancelled");
+
+      const unpaidSum = (unpaidInstallments || []).reduce((sum, inst) => sum + Number(inst.value), 0);
+      const remainingAmt = unpaidSum * Number(purchase.ownership_percentage || 1);
+
+      const { data: wallet } = await supabase
+        .from("wallets")
+        .select("*")
+        .eq("profile_id", purchase.profile_id)
+        .maybeSingle();
+
+      if (wallet) {
+        await supabase
+          .from("wallets")
+          .update({
+            future_receipts: Math.max(0, Number(wallet.future_receipts || 0) - remainingAmt)
+          })
+          .eq("id", wallet.id);
+      }
+    }
+
+    // Excluir a compra do banco de dados
+    const { error: delErr } = await supabase
+      .from("receivable_purchases")
+      .delete()
+      .eq("id", id);
+
+    if (delErr) throw delErr;
+    res.json({ success: true, message: "Recebível estornado com sucesso!" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1667,7 +1943,8 @@ router.get("/financeira-report", async (req, res) => {
     // 2. Fetch all receivable purchases to check Renda model
     const { data: purchases, error: purErr } = await supabase
       .from("receivable_purchases")
-      .select("*");
+      .select("*")
+      .eq("status", "approved");
     if (purErr) throw purErr;
 
     // 3. Fetch all wallet transactions for paid installments
@@ -1745,6 +2022,278 @@ router.get("/financeira-report", async (req, res) => {
     });
   } catch (err: any) {
     console.error('[Financeira Report] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// RECEIVABLES PLATFORM / FINTECH ENDPOINTS
+// ==========================================
+
+// 22. POST /api/scp/fintech/audit-log — Gravar log de auditoria
+router.post("/fintech/audit-log", async (req, res) => {
+  try {
+    const { userId, action, details } = req.body;
+    if (!userId || !action) {
+      return res.status(400).json({ error: "userId e action são obrigatórios." });
+    }
+
+    await supabase.from("scp_audit_logs").insert({
+      user_id: userId,
+      action,
+      details: details || {},
+      ip_address: (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "127.0.0.1")
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 23. GET /api/scp/fintech/contracts/sale/:saleId/view — Detalhar contrato de venda com log de auditoria
+router.get("/fintech/contracts/sale/:saleId/view", async (req, res) => {
+  try {
+    const { saleId } = req.params;
+    const userId = req.query.userId as string;
+
+    const { data: sale } = await supabase
+      .from("sales")
+      .select("customer_name, device_model, contract_url")
+      .eq("id", saleId)
+      .single();
+
+    if (userId) {
+      await supabase.from("scp_audit_logs").insert({
+        user_id: userId,
+        action: "contract_view",
+        details: { sale_id: saleId, customer_name: sale?.customer_name, device: sale?.device_model },
+        ip_address: (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "127.0.0.1")
+      });
+    }
+
+    res.json({ url: sale?.contract_url || null });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 24. GET /api/scp/fintech/investor/evolution/:profileId — Evolução Patrimonial histórica por mês
+router.get("/fintech/investor/evolution/:profileId", async (req, res) => {
+  try {
+    const { profileId } = req.params;
+
+    const { data: purchases, error: purErr } = await supabase
+      .from("receivable_purchases")
+      .select("purchase_price, created_at")
+      .eq("profile_id", profileId)
+      .eq("status", "approved");
+
+    if (purErr) throw purErr;
+
+    const { data: quotas, error: quotErr } = await supabase
+      .from("investor_quotas")
+      .select("amount_invested, created_at")
+      .eq("profile_id", profileId);
+
+    if (quotErr) throw quotErr;
+
+    const history: { date: string; amount: number }[] = [];
+
+    (purchases || []).forEach(p => {
+      history.push({ date: p.created_at, amount: Number(p.purchase_price) });
+    });
+    (quotas || []).forEach(q => {
+      history.push({ date: q.created_at, amount: Number(q.amount_invested) });
+    });
+
+    history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const monthlyHoldings: { [key: string]: number } = {};
+    let cumulative = 0;
+
+    history.forEach(item => {
+      const monthKey = new Date(item.date).toISOString().slice(0, 7);
+      cumulative += item.amount;
+      monthlyHoldings[monthKey] = cumulative;
+    });
+
+    const result = Object.keys(monthlyHoldings).sort().map(month => {
+      const [year, m] = month.split('-');
+      const monthsNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return {
+        month: `${monthsNames[parseInt(m) - 1]}/${year.slice(2)}`,
+        patrimonio: Number(monthlyHoldings[month].toFixed(2))
+      };
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 25. GET /api/scp/fintech/inadimplencia — Taxa de inadimplência consolidada do portfólio
+router.get("/fintech/inadimplencia", async (req, res) => {
+  try {
+    const overdueLimit = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const { data: unpaidInstallments, error: instsErr } = await supabase
+      .from("installments")
+      .select("value, due_date, status, sale_id");
+
+    if (instsErr) throw instsErr;
+
+    const { data: purchases } = await supabase
+      .from("receivable_purchases")
+      .select("sale_id, ownership_percentage")
+      .eq("status", "approved");
+
+    let totalActiveReceivable = 0;
+    let totalOverdueReceivable = 0;
+
+    (unpaidInstallments || []).forEach(inst => {
+      const purchase = purchases?.find(p => p.sale_id === inst.sale_id);
+      if (!purchase) return;
+
+      const shareVal = Number(inst.value) * Number(purchase.ownership_percentage);
+
+      if (inst.status !== "paid" && inst.status !== "cancelled") {
+        totalActiveReceivable += shareVal;
+        if (inst.due_date < overdueLimit) {
+          totalOverdueReceivable += shareVal;
+        }
+      }
+    });
+
+    const rate = totalActiveReceivable > 0 ? (totalOverdueReceivable / totalActiveReceivable) * 100 : 0;
+
+    res.json({
+      rate: Number(rate.toFixed(2)),
+      totalActive: Number(totalActiveReceivable.toFixed(2)),
+      totalOverdue: Number(totalOverdueReceivable.toFixed(2))
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 26. GET /api/scp/fintech/categories/:profileId — Categoria e benefícios do parceiro investidor
+router.get("/fintech/categories/:profileId", async (req, res) => {
+  try {
+    const { profileId } = req.params;
+
+    const { data: purchases } = await supabase
+      .from("receivable_purchases")
+      .select("purchase_price")
+      .eq("profile_id", profileId)
+      .eq("status", "approved");
+
+    const { data: quotas } = await supabase
+      .from("investor_quotas")
+      .select("amount_invested")
+      .eq("profile_id", profileId);
+
+    const totalInvested = 
+      (purchases || []).reduce((sum, p) => sum + Number(p.purchase_price), 0) +
+      (quotas || []).reduce((sum, q) => sum + Number(q.amount_invested), 0);
+
+    const { data: rules } = await supabase
+      .from("scp_investment_rules")
+      .select("*")
+      .order("min_amount", { ascending: true });
+
+    let currentCategory = "Sem Categoria";
+    let defaultRate = 2.0;
+    let benefits: string[] = ["Acesso inicial às oportunidades"];
+
+    if (rules && rules.length > 0) {
+      for (const rule of rules) {
+        if (totalInvested >= Number(rule.min_amount) && (!rule.max_amount || totalInvested <= Number(rule.max_amount))) {
+          currentCategory = rule.category;
+          defaultRate = Number(rule.default_rate);
+          benefits = rule.benefits || [];
+          break;
+        }
+      }
+      const lastRule = rules[rules.length - 1];
+      if (totalInvested >= Number(lastRule.min_amount) && currentCategory === "Sem Categoria") {
+        currentCategory = lastRule.category;
+        defaultRate = Number(lastRule.default_rate);
+        benefits = lastRule.benefits || [];
+      }
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("custom_interest_rate, auto_reinvest, investment_category, manual_category")
+      .eq("id", profileId)
+      .single();
+
+    if (profile?.manual_category) {
+      currentCategory = profile.manual_category;
+      const matchedRule = rules?.find(r => r.category.toLowerCase() === currentCategory.toLowerCase());
+      if (matchedRule) {
+        defaultRate = Number(matchedRule.default_rate);
+        benefits = matchedRule.benefits || [];
+      }
+    }
+
+    if (profile && profile.investment_category !== currentCategory) {
+      await supabase
+        .from("profiles")
+        .update({ investment_category: currentCategory })
+        .eq("id", profileId);
+    }
+
+    res.json({
+      totalInvested,
+      category: currentCategory,
+      rate: profile?.custom_interest_rate ? Number(profile.custom_interest_rate) : defaultRate,
+      isCustomRate: !!profile?.custom_interest_rate,
+      autoReinvest: !!profile?.auto_reinvest,
+      manualCategory: profile?.manual_category || 'auto',
+      benefits
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 27. PUT /api/scp/fintech/investor-settings/:profileId — Salvar configurações de taxa de retorno, reinvestimento automático e categoria manual
+router.put("/fintech/investor-settings/:profileId", async (req, res) => {
+  try {
+    const { profileId } = req.params;
+    const { customInterestRate, autoReinvest, manualCategory } = req.body;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        custom_interest_rate: customInterestRate === "" || customInterestRate === null ? null : Number(customInterestRate),
+        auto_reinvest: !!autoReinvest,
+        manual_category: manualCategory === "auto" || manualCategory === "" || manualCategory === null ? null : manualCategory
+      })
+      .eq("id", profileId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 28. GET /api/scp/fintech/audit-logs — Listar logs de auditoria (para admin)
+router.get("/fintech/audit-logs", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("scp_audit_logs")
+      .select("*, profiles(full_name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });

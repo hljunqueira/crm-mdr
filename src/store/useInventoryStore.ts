@@ -61,6 +61,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         category: item.category || 'smartphone',
         image_url: item.image_url || '',
         show_on_landing: !!item.show_on_landing,
+        only_cash_sale: !!item.only_cash_sale,
         barcode: item.barcode || '',
         supplier: item.supplier || '',
         purchase_date: item.purchase_date || '',

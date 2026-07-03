@@ -888,44 +888,118 @@ router.delete("/:id", async (req, res) => {
       return res.status(404).json({ error: "Venda não encontrada" });
     }
 
-    // 2. Restore stock for main devices
+    // 2. Restore stock for main devices and revert IMEIs/investor balances
     const restoredDeviceIds = new Set<string>();
     if (sale.device_id) {
       const { data: device } = await supabase
         .from('devices')
-        .select('id, stock_quantity, category')
+        .select('*')
         .eq('id', sale.device_id)
         .maybeSingle();
 
       if (device && device.category !== 'service') {
         const newQty = (device.stock_quantity || 0) + 1;
+        const restoredImei = device.imei ? device.imei.replace(/_sold$/, '') : null;
         await supabase
           .from('devices')
-          .update({ stock_quantity: newQty, status: 'available' })
+          .update({ 
+            stock_quantity: newQty, 
+            status: 'available',
+            imei: restoredImei
+          })
           .eq('id', sale.device_id);
         restoredDeviceIds.add(device.id);
+
+        if (device.investor_id) {
+          const deviceValuation = Number(device.cost_price || 0);
+          const { data: wallet } = await supabase
+            .from('wallets')
+            .select('future_receipts')
+            .eq('profile_id', device.investor_id)
+            .maybeSingle();
+
+          if (wallet) {
+            const newFuture = Math.max(0, Number(wallet.future_receipts || 0) - deviceValuation);
+            await supabase
+              .from('wallets')
+              .update({ future_receipts: newFuture })
+              .eq('profile_id', device.investor_id);
+          }
+        }
       }
     }
     if (sale.imei_manual && sale.imei_manual !== 'N/A') {
       const imeis = sale.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
       for (const imei of imeis) {
         if (imei !== 'N/A' && imei !== '0000000') {
+          const cleanImei = imei.replace(/_sold$/, '');
           const { data: device } = await supabase
             .from('devices')
-            .select('id, stock_quantity, category')
-            .eq('imei', imei)
+            .select('*')
+            .or(`imei.eq."${cleanImei}",imei.eq."${cleanImei}_sold"`)
             .maybeSingle();
 
           if (device && device.category !== 'service' && !restoredDeviceIds.has(device.id)) {
             const newQty = (device.stock_quantity || 0) + 1;
+            const restoredImei = device.imei ? device.imei.replace(/_sold$/, '') : null;
             await supabase
               .from('devices')
-              .update({ stock_quantity: newQty, status: 'available' })
+              .update({ 
+                stock_quantity: newQty, 
+                status: 'available',
+                imei: restoredImei
+              })
               .eq('id', device.id);
             restoredDeviceIds.add(device.id);
+
+            if (device.investor_id) {
+              const deviceValuation = Number(device.cost_price || 0);
+              const { data: wallet } = await supabase
+                .from('wallets')
+                .select('future_receipts')
+                .eq('profile_id', device.investor_id)
+                .maybeSingle();
+
+              if (wallet) {
+                const newFuture = Math.max(0, Number(wallet.future_receipts || 0) - deviceValuation);
+                await supabase
+                  .from('wallets')
+                  .update({ future_receipts: newFuture })
+                  .eq('profile_id', device.investor_id);
+              }
+            }
           }
         }
       }
+    }
+
+    // 2.5 Clean up and deduct future_receipts for purchased receivables of this sale
+    const { data: purchases } = await supabase
+      .from('receivable_purchases')
+      .select('*')
+      .eq('sale_id', req.params.id)
+      .eq('status', 'approved');
+
+    if (purchases && purchases.length > 0) {
+      for (const pur of purchases) {
+        const { data: wallet } = await supabase
+          .from('wallets')
+          .select('future_receipts')
+          .eq('profile_id', pur.profile_id)
+          .maybeSingle();
+
+        if (wallet) {
+          const newFuture = Math.max(0, Number(wallet.future_receipts || 0) - Number(pur.total_receivable));
+          await supabase
+            .from('wallets')
+            .update({ future_receipts: newFuture })
+            .eq('profile_id', pur.profile_id);
+        }
+      }
+      await supabase
+        .from('receivable_purchases')
+        .delete()
+        .eq('sale_id', req.params.id);
     }
     if (sale.device_model_manual) {
       const parts = sale.device_model_manual.split('+').map(p => p.trim()).filter(Boolean);
