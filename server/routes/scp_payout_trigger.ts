@@ -33,6 +33,128 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
     const deviceId = sale.device_id;
     const totalInstallments = Number(sale.installments || 1);
 
+    // Verificar se há uma compra de recebível (Renda) aprovada para esta venda
+    const { data: purchase } = await supabase
+      .from("receivable_purchases")
+      .select("*")
+      .eq("sale_id", sale.id)
+      .eq("status", "approved")
+      .maybeSingle();
+
+    if (purchase) {
+      console.log(`[SCP Payout] Sale ${sale.id} has an approved receivable purchase. Processing Renda payout...`);
+      
+      const investorId = purchase.profile_id;
+      const { data: investorProfile } = await supabase
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("id", investorId)
+        .single();
+
+      const investorName = investorProfile?.full_name || "Investidor";
+      const investorPhone = investorProfile?.phone;
+
+      const pct = Number(purchase.ownership_percentage || 1.00);
+      const investorRepasse = Number((amountPaid * pct).toFixed(2));
+
+      if (investorRepasse > 0) {
+        // Verificar se transação já foi processada
+        const { data: existingTx } = await supabase
+          .from("wallet_transactions")
+          .select("id")
+          .eq("installment_id", installmentId)
+          .eq("profile_id", investorId)
+          .maybeSingle();
+
+        if (existingTx) {
+          console.log(`[SCP Payout] Renda transaction for installment ${installmentId} already exists. Skipping.`);
+          return;
+        }
+
+        // Atualizar carteira
+        const { data: wallet } = await supabase
+          .from("wallets")
+          .select("*")
+          .eq("profile_id", investorId)
+          .maybeSingle();
+
+        if (wallet) {
+          await supabase
+            .from("wallets")
+            .update({
+              balance: Number((Number(wallet.balance) + investorRepasse).toFixed(2)),
+              future_receipts: Math.max(0, Number((Number(wallet.future_receipts) - investorRepasse).toFixed(2))),
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", wallet.id);
+        } else {
+          await supabase
+            .from("wallets")
+            .insert({
+              profile_id: investorId,
+              balance: investorRepasse,
+              future_receipts: 0
+            });
+        }
+
+        // Registrar no extrato
+        const { error: txErr } = await supabase
+          .from("wallet_transactions")
+          .insert({
+            profile_id: investorId,
+            type: "CREDIT",
+            amount: investorRepasse,
+            capital_portion: investorRepasse,
+            interest_portion: 0,
+            installment_id: installmentId,
+            description: `Repasse Recebível Parcela #${installment.installment_number} de ${customerName}`
+          });
+
+        if (txErr) {
+          console.error(`[SCP Payout] Error inserting Renda transaction log:`, txErr);
+        } else {
+          console.log(`[SCP Payout] Successfully credited Renda R$ ${investorRepasse} to ${investorName}`);
+
+          if (investorPhone) {
+            const cleanPhone = investorPhone.replace(/\D/g, "");
+            if (cleanPhone) {
+              const targetPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+              const message = `*MDR PARCEIROS* 📈\n\nOlá, *${investorName}*!\nSeu dinheiro está trabalhando. Um novo repasse foi creditado na sua carteira (Recebível Renda):\n\n👤 *Cliente:* ${customerName}\n🔢 *Parcela:* ${installment.installment_number}/${totalInstallments}\n💵 *Crédito Recebido:* R$ ${investorRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\nAcesse seu painel em: mdrinformaticaecelulares.com.br/parceiros`;
+
+              const n8nUrl = process.env.N8N_SCP_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/scp-notification`;
+              try {
+                const { data: channels } = await supabase
+                  .from("automation_channels")
+                  .select("instance_name")
+                  .eq("status", "connected")
+                  .limit(1);
+
+                const instanceName = channels && channels.length > 0 ? channels[0].instance_name : "mdr";
+
+                await fetch(n8nUrl, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+                  },
+                  body: JSON.stringify({
+                    instanceName,
+                    remoteJid: `${targetPhone}@s.whatsapp.net`,
+                    text: message,
+                    phone: targetPhone,
+                    name: investorName
+                  })
+                });
+              } catch (notifyErr) {
+                console.error("[SCP Payout Notification] Failed to notify Renda investor via WhatsApp:", notifyErr);
+              }
+            }
+          }
+        }
+      }
+      return;
+    }
+
     if (!deviceId) {
       console.log(`[SCP Payout] Sale ${sale.id} has no associated device, ignoring.`);
       return;
