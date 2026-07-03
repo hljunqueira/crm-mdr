@@ -13,6 +13,8 @@ interface OsSidebarProps {
   osFilterTab: 'active' | 'canceled' | 'completed';
   setOsFilterTab: (tab: 'active' | 'canceled' | 'completed') => void;
   updateServiceOrder: (id: string, updates: any) => Promise<void>;
+  loggedInUnitId?: string;
+  userRole?: string;
 }
 
 export default function OsSidebar({
@@ -25,7 +27,9 @@ export default function OsSidebar({
   getStatusInfo,
   osFilterTab,
   setOsFilterTab,
-  updateServiceOrder
+  updateServiceOrder,
+  loggedInUnitId,
+  userRole
 }: OsSidebarProps) {
   return (
     <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
@@ -141,15 +145,32 @@ export default function OsSidebar({
                       <option value="awaiting_approval" className="bg-[#121214] text-amber-400">🟡 Aguardando Cliente</option>
                       <option value="in_progress" className="bg-[#121214] text-blue-400">🔵 Em Execução</option>
                       <option value="ready" className="bg-[#121214] text-green-400">🟢 Pronto</option>
-                      <option value="delivered" className="bg-[#121214] text-white">⚪ Entregue</option>
+                      {(!loggedInUnitId || os.unit_id === loggedInUnitId || userRole === 'admin') && (
+                        <option value="delivered" className="bg-[#121214] text-white">⚪ Entregue</option>
+                      )}
                       <option value="returned_no_fix" className="bg-[#121214] text-neutral-400">❔ Sem Conserto</option>
                       <option value="canceled" className="bg-[#121214] text-red-500">❌ Cancelado</option>
                     </select>
-                    {os.outsourced_orders && os.outsourced_orders.length > 0 && (
-                      <span className="text-[7.5px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest text-center whitespace-nowrap">
-                        Terceirizada
-                      </span>
-                    )}
+                    {os.outsourced_orders && os.outsourced_orders.length > 0 && (() => {
+                      const activeOutsource = os.outsourced_orders.find((o: any) => o.external_status === 'sent' || o.external_status === 'repairing');
+                      if (activeOutsource) {
+                        const isInternal = activeOutsource.partner_technician_name?.startsWith('INTERNAL_UNIT:');
+                        if (isInternal) {
+                          const shopParts = activeOutsource.partner_shop_name?.split(' ') || [];
+                          const shopShortName = shopParts[shopParts.length - 1] || 'Interno';
+                          return (
+                            <span className="text-[7.5px] font-black text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 uppercase tracking-widest text-center whitespace-nowrap">
+                              Lab: {shopShortName.toUpperCase()}
+                            </span>
+                          );
+                        }
+                      }
+                      return (
+                        <span className="text-[7.5px] font-black text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest text-center whitespace-nowrap">
+                          Terceirizada
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
 

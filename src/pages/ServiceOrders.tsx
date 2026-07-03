@@ -268,6 +268,7 @@ export default function ServiceOrders() {
   // Outsourcing State
   const [isOutsourceModalOpen, setIsOutsourceModalOpen] = useState(false);
   const [outsourcedInfo, setOutsourcedInfo] = useState<any | null>(null);
+  const [outsourceType, setOutsourceType] = useState<'external' | 'internal'>('external');
   const [outsourceForm, setOutsourceForm] = useState({
     partner_shop_name: '',
     partner_technician_name: '',
@@ -861,9 +862,16 @@ export default function ServiceOrders() {
 
   const handleUpdateServiceOrderStatus = async (osId: string, updates: Partial<ServiceOrder>) => {
     const targetStatus = updates.status;
+    const os = serviceOrders.find(o => o.id === osId);
+
+    if (os && profile && os.unit_id !== profile.unit_id && profile.role !== 'admin') {
+      if (targetStatus === 'delivered') {
+        showNotification('error', 'Esta OS pertence a outra unidade. A entrega e o faturamento devem ser feitos na loja de origem.');
+        return;
+      }
+    }
 
     if (targetStatus === 'delivered') {
-      const os = serviceOrders.find(o => o.id === osId);
       if (!os) {
         showNotification('error', 'OS não encontrada.');
         return;
@@ -2273,6 +2281,8 @@ export default function ServiceOrders() {
             osFilterTab={osFilterTab}
             setOsFilterTab={setOsFilterTab}
             updateServiceOrder={handleUpdateServiceOrderStatus}
+            loggedInUnitId={profile?.unit_id || undefined}
+            userRole={profile?.role || undefined}
           />
         </div>
 
@@ -2337,6 +2347,11 @@ export default function ServiceOrders() {
                       <h2 className="text-md font-black uppercase leading-tight">
                         OS #{String(currentServiceOrder.os_number).padStart(4, '0')} - {currentServiceOrder.device_brand === '-' && currentServiceOrder.device_model === '-' ? (currentServiceOrder.device_category === 'notebook' ? 'Notebook' : 'Computador PC') : `${currentServiceOrder.device_brand} ${currentServiceOrder.device_model}`}
                       </h2>
+                      {profile && currentServiceOrder.unit_id !== profile.unit_id && (
+                        <div className="inline-block bg-blue-500/10 border border-blue-500/25 text-blue-400 text-[8px] font-black uppercase px-2 py-0.5 rounded-lg tracking-wider mt-1 mb-0.5">
+                          OS Recebida via Terceirização (Laboratório)
+                        </div>
+                      )}
                       <p className="text-[10px] text-on-surface-variant font-mono uppercase mt-0.5">
                         N/S ou IMEI: {currentServiceOrder.device_serial_number || 'Sem número de série'}
                       </p>
@@ -2454,6 +2469,7 @@ export default function ServiceOrders() {
                             tracking_code: '',
                             notes: ''
                           });
+                          setOutsourceType('external');
                           setIsOutsourceModalOpen(true);
                         }
                       }}
@@ -2676,7 +2692,9 @@ export default function ServiceOrders() {
                       <option value="awaiting_approval">🟡 Aguardando Aprovação</option>
                       <option value="in_progress">🔵 Em Execução / Reparo</option>
                       <option value="ready">🟢 Pronto para Retirada</option>
-                      <option value="delivered">⚪ Entregue / Concluído</option>
+                      {(!profile || currentServiceOrder.unit_id === profile.unit_id || profile.role === 'admin') && (
+                        <option value="delivered">⚪ Entregue / Concluído</option>
+                      )}
                       <option value="returned_no_fix">❔ Devolvido Sem Conserto</option>
                       <option value="canceled">❌ Cancelado</option>
                     </select>
@@ -3690,9 +3708,61 @@ export default function ServiceOrders() {
             </div>
 
             <form onSubmit={handleOutsourceOS} className="space-y-4 text-xs">
+              {/* Tabs for Outsource Type */}
+              <div className="flex gap-4 border-b border-white/5 pb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOutsourceType('external');
+                    setOutsourceForm(prev => ({ ...prev, partner_shop_name: '', partner_technician_name: '' }));
+                  }}
+                  className={cn(
+                    "pb-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                    outsourceType === 'external' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant'
+                  )}
+                >
+                  Parceiro Externo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOutsourceType('internal');
+                    setOutsourceForm(prev => ({ ...prev, partner_shop_name: '', partner_technician_name: '' }));
+                  }}
+                  className={cn(
+                    "pb-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                    outsourceType === 'internal' ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant'
+                  )}
+                >
+                  Loja Interna (CRM)
+                </button>
+              </div>
+
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Laboratório / Loja Parceira *</label>
-                {!showQuickAddPartner ? (
+                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">
+                  {outsourceType === 'external' ? 'Laboratório / Loja Parceira *' : 'Loja Interna Destino *'}
+                </label>
+                {outsourceType === 'internal' ? (
+                  <select
+                    required
+                    value={outsourceForm.partner_shop_name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const selectedStore = units.find(u => u.name === val);
+                      setOutsourceForm(prev => ({
+                        ...prev,
+                        partner_shop_name: val,
+                        partner_technician_name: selectedStore ? `INTERNAL_UNIT:${selectedStore.id}` : ''
+                      }));
+                    }}
+                    className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none appearance-none"
+                  >
+                    <option value="" className="bg-[#121214] text-white">— Selecione a Loja Destino —</option>
+                    {units.filter(u => u.id !== (profile?.unit_id || selectedUnitId)).map(u => (
+                      <option key={u.id} value={u.name} className="bg-[#121214] text-white">{u.name}</option>
+                    ))}
+                  </select>
+                ) : !showQuickAddPartner ? (
                   <div className="flex gap-2">
                     <select
                       required
@@ -3758,16 +3828,18 @@ export default function ServiceOrders() {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Técnico Externo Responsável</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Carlos, Técnico Responsável"
-                  value={outsourceForm.partner_technician_name}
-                  onChange={(e) => setOutsourceForm(prev => ({ ...prev, partner_technician_name: e.target.value }))}
-                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none"
-                />
-              </div>
+              {outsourceType === 'external' && (
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Técnico Externo Responsável</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Carlos, Técnico Responsável"
+                    value={outsourceForm.partner_technician_name}
+                    onChange={(e) => setOutsourceForm(prev => ({ ...prev, partner_technician_name: e.target.value }))}
+                    className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 text-xs text-white focus:border-primary outline-none"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

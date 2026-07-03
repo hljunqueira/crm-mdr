@@ -12,6 +12,7 @@ interface ContractPrintProps {
     installments: number;
     service_fee?: number;
     date: string;
+    created_at?: string;
     device_color?: string;
     accessories?: string;
     payment_type?: string;
@@ -144,7 +145,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const valorCredito = totalWithFee;
 
   // Dates
-  const issueDateFormatted = formatPaymentDate(sale.date) || today;
+  const issueDateFormatted = formatPaymentDate(sale.created_at || sale.date) || today;
 
   const getInstallmentDates = () => {
     if (installments && installments.length > 0) {

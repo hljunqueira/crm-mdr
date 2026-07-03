@@ -11,6 +11,7 @@ interface SaleReceiptPrintProps {
     installments: number;
     service_fee?: number;
     date: string;
+    created_at?: string;
     device_color?: string;
     accessories?: string;
     payment_type?: string;
@@ -58,6 +59,18 @@ export default function SaleReceiptPrint({
 }: SaleReceiptPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
   const today = new Date().toLocaleDateString('pt-BR');
+  
+  const formatPaymentDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const cleanStr = dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`;
+      return new Date(cleanStr).toLocaleDateString('pt-BR');
+    } catch {
+      return '';
+    }
+  };
+
+  const saleDateFormatted = formatPaymentDate(sale.date || sale.created_at) || today;
   const basePrice = sale.original_price ?? sale.total_value;
   const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
   const financed = basePrice - sale.down_payment - tradeInVal;
@@ -101,7 +114,7 @@ export default function SaleReceiptPrint({
         <div className="header-center">
           <div className="receipt-title">NOTA DE VENDA</div>
           <div className="receipt-date" style={{ fontSize: '9px', marginTop: '2px' }}>
-            N° #{receiptNumber} | DATA: {today} {sellerName ? `| ATENDENTE: ${sellerName.toUpperCase()}` : ''}
+            N° #{receiptNumber} | DATA: {saleDateFormatted} {sellerName ? `| ATENDENTE: ${sellerName.toUpperCase()}` : ''}
           </div>
         </div>
 
@@ -376,7 +389,7 @@ export default function SaleReceiptPrint({
             <div className="metadata-table">
               <div className="meta-row">
                 <span className="meta-label">Data de Emissão:</span>
-                <span className="meta-value font-mono">{today}</span>
+                <span className="meta-value font-mono">{saleDateFormatted}</span>
               </div>
               {sellerName && (
                 <div className="meta-row">

@@ -5,6 +5,9 @@ import { updateCollaboratorGoalProgress } from "../lib/goalsHelper.js";
 
 const router = Router();
 
+const EVOLUTION_URL = process.env.EVOLUTION_API_URL || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'MDR_SECRET_TOKEN_2024';
+
 const validSalesColumns = [
   'store_id', 'customer_id', 'seller_id', 'device_id', 'device_model_manual', 
   'imei_manual', 'total_value', 'down_payment', 'installments_count', 
@@ -484,6 +487,69 @@ router.post("/", async (req, res) => {
         }
       } catch (deviceUpdateErr) {
         console.error('Error updating device IMEI on sale creation:', deviceUpdateErr);
+      }
+    }
+
+    if (saleData) {
+      try {
+        const { data: customerData } = await supabase
+          .from('customers')
+          .select('name, phone')
+          .eq('id', saleData.customer_id)
+          .maybeSingle();
+
+        const { data: storeData } = await supabase
+          .from('stores')
+          .select('name')
+          .eq('id', saleData.store_id)
+          .maybeSingle();
+
+        if (customerData && customerData.phone) {
+          const customerPhone = customerData.phone;
+          let cleanPhone = customerPhone.replace(/\D/g, '');
+          if (!cleanPhone.startsWith('55')) {
+            cleanPhone = '55' + cleanPhone;
+          }
+          const remoteJid = `${cleanPhone}@s.whatsapp.net`;
+          const customerName = customerData.name || 'Cliente';
+          const storeName = storeData?.name || 'MDR';
+
+          const valStr = Number(saleData.total_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          const productName = saleData.device_model_manual || 'Aparelho';
+
+          // Custom thank you message
+          const messageText = `Olá, ${customerName}! Muito obrigado pela compra do seu ${productName} na ${storeName}. Recebemos o seu pagamento/cadastro de ${valStr}. Agradecemos imensamente pela preferência! 🙏😊`;
+
+          // Buscar qualquer canal conectado para garantir o disparo
+          const { data: channels } = await supabase
+            .from('automation_channels')
+            .select('*')
+            .eq('status', 'connected')
+            .or(`unit_id.eq.${saleData.store_id}`)
+            .order('unit_id', { ascending: false });
+
+          const activeChannel = channels && channels.length > 0 ? channels[0] : null;
+
+          if (activeChannel && activeChannel.instance_name) {
+            console.log(`[Sale Notification] Sending purchase thank you message to ${remoteJid} using instance ${activeChannel.instance_name}`);
+            
+            const url = `${EVOLUTION_URL}/message/sendText/${activeChannel.instance_name}`;
+            await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': EVOLUTION_API_KEY
+              },
+              body: JSON.stringify({
+                number: remoteJid,
+                options: { delay: 1200, presence: 'composing' },
+                text: messageText
+              })
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.error('Error sending purchase thank you notification:', notifErr);
       }
     }
 

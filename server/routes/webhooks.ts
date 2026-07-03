@@ -396,8 +396,20 @@ router.post('/asaas', async (req, res) => {
             .limit(1)
             .maybeSingle();
 
+          // Buscar qualquer canal conectado para garantir o disparo se o da loja atual falhar
+          let activeChannelForCust = channel;
+          if (!activeChannelForCust || !activeChannelForCust.instance_name || activeChannelForCust.status !== 'connected') {
+            const { data: anyChannel } = await supabase
+              .from('automation_channels')
+              .select('*')
+              .eq('status', 'connected')
+              .limit(1)
+              .maybeSingle();
+            activeChannelForCust = anyChannel;
+          }
+
           // 1. Envio para o Cliente
-          if (channel && channel.instance_name) {
+          if (activeChannelForCust && activeChannelForCust.instance_name) {
             const customerPhone = updatedInst.sales?.customers?.phone;
             if (customerPhone) {
               let cleanPhone = customerPhone.replace(/\D/g, '');
@@ -420,9 +432,9 @@ router.post('/asaas', async (req, res) => {
                 .replace(/{valor}/gi, `R$ ${instVal}`)
                 .replace(/{numero}/gi, String(instNum));
 
-              console.log(`[Asaas Webhook] Sending payment confirmation message to ${remoteJid} using instance ${channel.instance_name}`);
+              console.log(`[Asaas Webhook] Sending payment confirmation message to ${remoteJid} using instance ${activeChannelForCust.instance_name}`);
               
-              const url = `${EVOLUTION_URL}/message/sendText/${channel.instance_name}`;
+              const url = `${EVOLUTION_URL}/message/sendText/${activeChannelForCust.instance_name}`;
               await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -432,7 +444,7 @@ router.post('/asaas', async (req, res) => {
                 body: JSON.stringify({
                   number: remoteJid,
                   options: { delay: 1200, presence: 'composing' },
-                  textMessage: { text: messageText }
+                  text: messageText
                 })
               });
             }
@@ -488,7 +500,7 @@ router.post('/asaas', async (req, res) => {
                 body: JSON.stringify({
                   number: maykonJid,
                   options: { delay: 1000, presence: 'composing' },
-                  textMessage: { text: notifyMaykonText }
+                  text: notifyMaykonText
                 })
               });
             } else {

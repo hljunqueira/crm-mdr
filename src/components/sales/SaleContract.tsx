@@ -13,6 +13,16 @@ interface SaleContractProps {
 
 export default function SaleContract({ sale, customer, installments }: SaleContractProps) {
   const today = new Date().toLocaleDateString('pt-BR');
+  const formatPaymentDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    try {
+      const cleanStr = dateStr.includes('T') ? dateStr : `${dateStr}T12:00:00`;
+      return new Date(cleanStr).toLocaleDateString('pt-BR');
+    } catch {
+      return '';
+    }
+  };
+  const saleDateFormatted = formatPaymentDate(sale.date || sale.created_at) || today;
   const { unit } = useUnitStore();
 
   const basePrice = sale.original_price ?? sale.total_value;
@@ -37,7 +47,8 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
 
   return (
     <div id="contract-print-area" className="p-8 text-black bg-white font-sans max-w-[800px] mx-auto text-xs leading-relaxed">
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         #contract-print-area table.ccb-table {
           width: 100%;
           border-collapse: collapse;
@@ -105,7 +116,7 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
       <div className="text-center mb-10 border-b-2 border-black pb-6">
         <h1 className="text-2xl font-bold uppercase text-black">Cédula de Compra e Venda a Prazo</h1>
         <p className="text-sm font-bold uppercase text-gray-700 tracking-wider">Com Cláusula de Reserva de Domínio</p>
-        <p className="text-xs font-mono mt-1">Data de Emissão: <strong>{today}</strong></p>
+        <p className="text-xs font-mono mt-1">Data da venda: <strong>{saleDateFormatted}</strong></p>
       </div>
 
       {/* Section 1: Credor Table */}

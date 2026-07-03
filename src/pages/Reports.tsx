@@ -395,6 +395,20 @@ export default function Reports() {
     return date.getFullYear() === targetY && (date.getMonth() + 1) === targetM;
   };
 
+  const getFormattedPeriodText = () => {
+    if (dateRange === 'week') return 'Esta Semana';
+    if (dateRange === 'month') return 'Este Mês';
+    if (dateRange === '30days') return 'Últimos 30 dias';
+    if (dateRange === 'year') return 'Este Ano';
+    if (dateRange === 'custom') {
+      const start = customStartDate ? formatPaymentDate(customStartDate) : 'Início';
+      const end = customEndDate ? formatPaymentDate(customEndDate) : 'Fim';
+      return `de ${start} a ${end}`;
+    }
+    return 'Todo o Período';
+  };
+
+
   const parseAccessories = (accStr: string) => {
     if (!accStr) return [];
     const cleanPart = accStr.split('|')[0] || '';
@@ -440,7 +454,7 @@ export default function Reports() {
     }> = [];
 
     // 1. Sales
-    const mSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && isDateInMonth(s.date));
+    const mSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && filterByDateRange(s.date));
     mSales.forEach(s => {
       const saleNum = s.id.split('-')[0].toUpperCase();
       
@@ -483,7 +497,7 @@ export default function Reports() {
     });
 
     // 2. Service Orders (Repairs)
-    const mServiceOrders = serviceOrders.filter(o => o.status === 'delivered' && filterByUnit(o.unit_id) && isDateInMonth(o.delivered_at || o.created_at));
+    const mServiceOrders = serviceOrders.filter(o => o.status === 'delivered' && filterByUnit(o.unit_id) && filterByDateRange(o.delivered_at || o.created_at));
     mServiceOrders.forEach(o => {
       const saleNum = `OS ${o.os_number}`;
       const code = `S-${o.os_number}`;
@@ -506,7 +520,7 @@ export default function Reports() {
     });
 
     return items;
-  }, [sales, serviceOrders, inventory, selectedMonth, selectedYear, selectedUnitId]);
+  }, [sales, serviceOrders, inventory, dateRange, customStartDate, customEndDate, selectedUnitId]);
 
   const totals = useMemo(() => {
     let totalCost = 0;
@@ -906,13 +920,17 @@ export default function Reports() {
     return inventory.reduce((sum, item) => sum + (Number(item.cost_price || 0) * (item.stock_quantity || 0)), 0);
   }, [inventory]);
 
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => filterByDateRange(t.created_at));
+  }, [transactions, dateRange, customStartDate, customEndDate]);
+
   const flowInflows = useMemo(() => {
-    return transactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [transactions]);
+    return filteredTransactions.filter(t => t.type === 'inflow').reduce((sum, t) => sum + Number(t.amount), 0);
+  }, [filteredTransactions]);
 
   const flowOutflows = useMemo(() => {
-    return transactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [transactions]);
+    return filteredTransactions.filter(t => t.type === 'outflow').reduce((sum, t) => sum + Number(t.amount), 0);
+  }, [filteredTransactions]);
 
   const netBalance = flowInflows - flowOutflows;
 
@@ -966,12 +984,12 @@ export default function Reports() {
   };
 
   const handleExportTransactionsCSV = () => {
-    if (transactions.length === 0) {
+    if (filteredTransactions.length === 0) {
       showNotification('error', 'Sem dados', 'Não há transações para exportar.');
       return;
     }
     const headers = ['Data/Hora', 'Tipo', 'Categoria', 'Descrição', 'Meio Pagto', 'Valor'];
-    const rows = transactions.map(tx => [
+    const rows = filteredTransactions.map(tx => [
       new Date(tx.created_at).toLocaleString('pt-BR'),
       tx.type === 'inflow' ? 'Entrada' : 'Saída',
       tx.category === 'installment' ? 'Contrato' :
@@ -1171,36 +1189,34 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* ─── TAB 1: OVERVIEW (VISÃO GERAL) ─────────────────────────────────── */}
-      {activeTab === 'overview' && (
-        <div className="space-y-8 animate-in fade-in duration-500">
-          
-          {/* Sub Filters Toolbar */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-              {/* Period Selector */}
-              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
-                <Calendar size={14} className="text-on-surface-variant" />
-                <select
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value as any)}
-                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right center',
-                  }}
-                >
-                  <option value="week" className="bg-[#0f0f1a]">Esta Semana</option>
-                  <option value="month" className="bg-[#0f0f1a]">Este Mês</option>
-                  <option value="30days" className="bg-[#0f0f1a]">Últimos 30 dias</option>
-                  <option value="year" className="bg-[#0f0f1a]">Este Ano</option>
-                  <option value="custom" className="bg-[#0f0f1a]">Período Personalizado</option>
-                  <option value="all" className="bg-[#0f0f1a]">Todo o Período</option>
-                </select>
-              </div>
+      {/* GLOBAL PERIOD & BRAND FILTERS (HIDDEN ON PRINT) */}
+      {['overview', 'fluxo_caixa', 'lucro_presumido', 'laboratorio', 'liquidacoes'].includes(activeTab) && (
+        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 print:hidden">
+          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+            {/* Period Selector */}
+            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
+              <Calendar size={14} className="text-on-surface-variant" />
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value as any)}
+                className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right center',
+                }}
+              >
+                <option value="week" className="bg-[#0f0f1a]">Esta Semana</option>
+                <option value="month" className="bg-[#0f0f1a]">Este Mês</option>
+                <option value="30days" className="bg-[#0f0f1a]">Últimos 30 dias</option>
+                <option value="year" className="bg-[#0f0f1a]">Este Ano</option>
+                <option value="custom" className="bg-[#0f0f1a]">Período Personalizado</option>
+                <option value="all" className="bg-[#0f0f1a]">Todo o Período</option>
+              </select>
+            </div>
 
-              {/* Brand Selector */}
+            {/* Brand Selector - Only for Overview & Laboratorio */}
+            {['overview', 'laboratorio'].includes(activeTab) && (
               <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[180px] flex-1 sm:flex-initial">
                 <Smartphone size={14} className="text-on-surface-variant" />
                 <select
@@ -1221,39 +1237,101 @@ export default function Reports() {
                   <option value="Outros" className="bg-[#0f0f1a]">Outros</option>
                 </select>
               </div>
-            </div>
-
-            {/* Custom Dates inputs (reactive) */}
-            <AnimatePresence>
-              {dateRange === 'custom' && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/5"
-                >
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
-                    <span className="text-[9px] font-black uppercase text-on-surface-variant">Início:</span>
-                    <input 
-                      type="date" 
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="bg-transparent outline-none text-white w-full cursor-pointer"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
-                    <span className="text-[9px] font-black uppercase text-on-surface-variant">Fim:</span>
-                    <input 
-                      type="date" 
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="bg-transparent outline-none text-white w-full cursor-pointer"
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            )}
           </div>
+
+          {/* Custom Dates inputs (reactive) */}
+          <AnimatePresence>
+            {dateRange === 'custom' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-2 lg:mt-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/5"
+              >
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
+                  <span className="text-[9px] font-black uppercase text-on-surface-variant">Início:</span>
+                  <input 
+                    type="date" 
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="bg-transparent outline-none text-white w-full cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
+                  <span className="text-[9px] font-black uppercase text-on-surface-variant">Fim:</span>
+                  <input 
+                    type="date" 
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="bg-transparent outline-none text-white w-full cursor-pointer"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* GLOBAL MONTH/YEAR SELECTOR FOR GOALS & CARDS (HIDDEN ON PRINT) */}
+      {['metas', 'controle_cartoes'].includes(activeTab) && (
+        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-wrap gap-4 print:hidden">
+          {/* Month Filter */}
+          <div className="flex flex-col gap-1.5 min-w-[150px]">
+            <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Mês</span>
+            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black uppercase"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right center',
+                }}
+              >
+                <option value={1} className="bg-[#0f0f1a]">Janeiro</option>
+                <option value={2} className="bg-[#0f0f1a]">Fevereiro</option>
+                <option value={3} className="bg-[#0f0f1a]">Março</option>
+                <option value={4} className="bg-[#0f0f1a]">Abril</option>
+                <option value={5} className="bg-[#0f0f1a]">Maio</option>
+                <option value={6} className="bg-[#0f0f1a]">Junho</option>
+                <option value={7} className="bg-[#0f0f1a]">Julho</option>
+                <option value={8} className="bg-[#0f0f1a]">Agosto</option>
+                <option value={9} className="bg-[#0f0f1a]">Setembro</option>
+                <option value={10} className="bg-[#0f0f1a]">Outubro</option>
+                <option value={11} className="bg-[#0f0f1a]">Novembro</option>
+                <option value={12} className="bg-[#0f0f1a]">Dezembro</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Year Filter */}
+          <div className="flex flex-col gap-1.5 min-w-[100px]">
+            <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Ano</span>
+            <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right center',
+                }}
+              >
+                {lucroPresumidoYears.map(y => (
+                  <option key={y} value={y} className="bg-[#0f0f1a]">{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TAB 1: OVERVIEW (VISÃO GERAL) ─────────────────────────────────── */}
+      {activeTab === 'overview' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
 
           {/* Stats KPIs Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -1551,12 +1629,12 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {transactions.length === 0 ? (
+                  {filteredTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={profile?.role === 'admin' ? 7 : 6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma movimentação lançada.</td>
+                      <td colSpan={profile?.role === 'admin' ? 7 : 6} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest">Nenhuma movimentação lançada no período.</td>
                     </tr>
                   ) : (
-                    transactions.map((tx) => (
+                    filteredTransactions.map((tx) => (
                       <tr key={tx.id} className="hover:bg-white/[0.01] transition-colors">
                         <td className="py-4 pl-4 text-[10px] font-mono text-on-surface-variant">
                           {new Date(tx.created_at).toLocaleString('pt-BR')}
@@ -1770,55 +1848,11 @@ export default function Reports() {
       {activeTab === 'lucro_presumido' && (
         <div className="space-y-8 animate-in fade-in duration-500">
           
-          {/* Controls (HIDDEN ON PRINT) */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-wrap gap-4 print:hidden">
-            {/* Month Filter */}
-            <div className="flex flex-col gap-1.5 min-w-[150px]">
-              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Mês</span>
-              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black uppercase"
-                >
-                  <option value={1} className="bg-[#0f0f1a]">Janeiro</option>
-                  <option value={2} className="bg-[#0f0f1a]">Fevereiro</option>
-                  <option value={3} className="bg-[#0f0f1a]">Março</option>
-                  <option value={4} className="bg-[#0f0f1a]">Abril</option>
-                  <option value={5} className="bg-[#0f0f1a]">Maio</option>
-                  <option value={6} className="bg-[#0f0f1a]">Junho</option>
-                  <option value={7} className="bg-[#0f0f1a]">Julho</option>
-                  <option value={8} className="bg-[#0f0f1a]">Agosto</option>
-                  <option value={9} className="bg-[#0f0f1a]">Setembro</option>
-                  <option value={10} className="bg-[#0f0f1a]">Outubro</option>
-                  <option value={11} className="bg-[#0f0f1a]">Novembro</option>
-                  <option value={12} className="bg-[#0f0f1a]">Dezembro</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Year Filter */}
-            <div className="flex flex-col gap-1.5 min-w-[100px]">
-              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Ano</span>
-              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black"
-                >
-                  {lucroPresumidoYears.map(y => (
-                    <option key={y} value={y} className="bg-[#0f0f1a]">{y}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
           {/* PRINT-ONLY TITLE (VISIBLE ON PRINT) */}
           <div className="hidden print:block border-b border-black pb-4 mb-4 text-black">
             <h1 className="text-2xl font-black uppercase">Lucro Presumido de Venda de Serviços/Itens Avulsos ou do Estoque</h1>
             <p className="text-[10px] text-gray-700 uppercase tracking-wider font-bold">
-              Referência: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')} | Período: Mês {selectedMonth} de {selectedYear}
+              Referência: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')} | Período: {getFormattedPeriodText()}
             </p>
           </div>
 

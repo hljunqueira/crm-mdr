@@ -9,14 +9,16 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 serve(async (req: Request) => {
   try {
     const today = new Date().toISOString().split('T')[0]
-    
-    // 1. Fetch installments due today or overdue
+
+    // 1. Fetch installments due today or overdue with correct relations
     const { data: installments, error: instError } = await supabase
       .from('installments')
       .select(`
         *,
-        customers (name, phone),
-        units (name, evolution_api_url, evolution_api_key, evolution_instance)
+        sales (
+          customer:customers (name, phone),
+          store:stores (name, evolution_api_url, evolution_api_key, evolution_instance)
+        )
       `)
       .in('status', ['pending', 'overdue'])
       .eq('due_date', today)
@@ -26,18 +28,20 @@ serve(async (req: Request) => {
     console.log(`Processing ${installments?.length} installments for ${today}`)
 
     for (const inst of installments || []) {
-      const { customers: customer, units: unit } = inst
-      
-      if (!customer?.phone || !unit?.evolution_api_url) continue
+      const sale = (inst as any).sales;
+      const customer = sale?.customer;
+      const store = sale?.store;
 
-      const message = `Olá ${customer.name}, lembramos que sua parcela da ${unit.name} no valor de R$ ${inst.value.toFixed(2)} vence hoje. Evite bloqueios e realize o pagamento via PIX.`
+      if (!customer?.phone || !store?.evolution_api_url || !store?.evolution_instance || !store?.evolution_api_key) continue
+
+      const message = `Olá ${customer.name}, lembramos que sua parcela da ${store.name} no valor de R$ ${inst.value.toFixed(2)} vence hoje. Evite bloqueios e realize o pagamento via PIX.`
 
       // 2. Send via Evolution API
-      const response = await fetch(`${unit.evolution_api_url}/message/sendText/${unit.evolution_instance}`, {
+      const response = await fetch(`${store.evolution_api_url}/message/sendText/${store.evolution_instance}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': unit.evolution_api_key
+          'apikey': store.evolution_api_key
         },
         body: JSON.stringify({
           number: customer.phone.replace(/\D/g, ''),

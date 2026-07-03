@@ -35,10 +35,23 @@ router.get("/", async (req, res) => {
     const { unit_id } = req.query;
     let query = supabase
       .from('service_orders')
-      .select('*, customers(name, phone, cpf), outsourced_orders(id, external_status), profiles:profiles!responsible_technician_id(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)');
+      .select('*, customers(name, phone, cpf), outsourced_orders(id, external_status, partner_shop_name, partner_technician_name), profiles:profiles!responsible_technician_id(full_name), created_by:profiles!created_by_id(full_name), finalized_by:profiles!finalized_by_id(full_name), delivered_by:profiles!delivered_by_id(full_name)');
 
     if (unit_id && unit_id !== 'all') {
-      query = query.eq('unit_id', unit_id);
+      // Find OS IDs outsourced to this unit that are still active (not ready/returned)
+      const { data: activeOutsourced } = await supabase
+        .from('outsourced_orders')
+        .select('os_id')
+        .eq('partner_technician_name', `INTERNAL_UNIT:${unit_id}`)
+        .in('external_status', ['sent', 'repairing']);
+
+      const outsourcedOsIds = (activeOutsourced || []).map(o => o.os_id);
+
+      if (outsourcedOsIds.length > 0) {
+        query = query.or(`unit_id.eq.${unit_id},id.in.(${outsourcedOsIds.join(',')})`);
+      } else {
+        query = query.eq('unit_id', unit_id);
+      }
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -175,6 +188,16 @@ router.patch("/:id", async (req, res) => {
 
     if (updatedOs) {
       try {
+        // Sync outsourced order if OS status is ready or returned_no_fix
+        if (status === 'ready' || status === 'returned_no_fix') {
+          const extStatus = status === 'ready' ? 'ready' : 'returned';
+          await supabase
+            .from('outsourced_orders')
+            .update({ external_status: extStatus, returned_at: new Date().toISOString() })
+            .eq('os_id', req.params.id)
+            .in('external_status', ['sent', 'repairing']);
+        }
+
         const dateStr = updatedOs.delivered_at || updatedOs.created_at || new Date().toISOString();
         const dateObj = new Date(dateStr.split('T')[0] + 'T12:00:00');
         const m = dateObj.getMonth() + 1;

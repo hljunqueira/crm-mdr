@@ -413,6 +413,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
             setCustomDueDates(dueDates);
             setCustomInstallmentValues(instValues);
+            if (dueDates.length > 0 && dueDates[0]) {
+              setFormData(prev => ({
+                ...prev,
+                first_due_date: dueDates[0]
+              }));
+            }
             setIsEditingLoaded(true);
           }
         } catch (e) {
@@ -698,8 +704,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   // Initialize and update due dates based on base date and installment count
   React.useEffect(() => {
-    if (initialData && !isEditingLoaded) {
-      return;
+    if (initialData) {
+      if (!isEditingLoaded) {
+        return;
+      }
+      const firstOriginalDue = originalInstallments[0]?.due_date;
+      if (formData.first_due_date === firstOriginalDue && formData.installments === originalInstallments.length) {
+        return; // Don't regenerate if first due date and installments are unchanged
+      }
     }
     if (formData.first_due_date && formData.installments > 0) {
       const dates: string[] = [];
@@ -711,7 +723,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       }
       setCustomDueDates(dates);
     }
-  }, [formData.first_due_date, formData.installments, isEditingLoaded, initialData]);
+  }, [formData.first_due_date, formData.installments, isEditingLoaded, initialData, originalInstallments]);
 
   React.useEffect(() => {
     fetchInstallments();
@@ -1563,7 +1575,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     const saleDataForPrint = {
       ...formData,
       id: createdSale?.id || initialData?.id || 'temp-id',
-      date: formData.first_due_date,
+      date: createdSale?.date || initialData?.date || new Date().toLocaleDateString('en-CA'),
       total_value: finalValue,
       original_price: formData.total_value,
       down_payment: isCashLike ? finalValue : formData.down_payment,
