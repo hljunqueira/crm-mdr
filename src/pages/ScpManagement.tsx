@@ -1330,80 +1330,86 @@ export default function ScpManagement() {
       {/* Modal: Cadastrar Novo Investidor */}
       {isCreateInvestorOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateInvestorSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-md rounded-3xl p-6 space-y-4 shadow-2xl">
+          <form onSubmit={handleCreateInvestorSubmit} className="bg-[#121214] border border-zinc-800 w-full max-w-2xl rounded-3xl p-6 space-y-4 shadow-2xl">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">Cadastrar Novo Investidor</h3>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nome Completo</label>
-              <input
-                type="text"
-                required
-                placeholder="Ex: João da Silva"
-                value={investorFormData.full_name}
-                onChange={(e) => setInvestorFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: João da Silva"
+                  value={investorFormData.full_name}
+                  onChange={(e) => setInvestorFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">E-mail</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="Ex: joao@investidor.com"
+                  value={investorFormData.email}
+                  onChange={(e) => setInvestorFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">E-mail</label>
-              <input
-                type="email"
-                required
-                placeholder="Ex: joao@investidor.com"
-                value={investorFormData.email}
-                onChange={(e) => setInvestorFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Senha de Acesso</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Mínimo 6 caracteres"
+                  value={investorFormData.password}
+                  onChange={(e) => setInvestorFormData(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Telefone / WhatsApp</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 48991234567"
+                  value={investorFormData.phone}
+                  onChange={(e) => setInvestorFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Senha de Acesso</label>
-              <input
-                type="password"
-                required
-                placeholder="Mínimo 6 caracteres"
-                value={investorFormData.password}
-                onChange={(e) => setInvestorFormData(prev => ({ ...prev, password: e.target.value }))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Perfil do Investidor</label>
+                <select
+                  value={investorFormData.investor_profile || 'arrojado'}
+                  onChange={(e) => setInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+                >
+                  <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas a Prazo/Crediário)</option>
+                  <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
+                </select>
+              </div>
 
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Telefone / WhatsApp</label>
-              <input
-                type="text"
-                placeholder="Ex: 48991234567"
-                value={investorFormData.phone}
-                onChange={(e) => setInvestorFormData(prev => ({ ...prev, phone: e.target.value }))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Perfil do Investidor</label>
-              <select
-                value={investorFormData.investor_profile || 'arrojado'}
-                onChange={(e) => setInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
-              >
-                <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas a Prazo/Crediário)</option>
-                <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Categorização (Categoria)</label>
-              <select
-                required
-                value={investorFormData.manual_category}
-                onChange={(e) => setInvestorFormData(prev => ({ ...prev, manual_category: e.target.value }))}
-                className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
-              >
-                <option value="Bronze" className="bg-[#121214]">🥉 Bronze (2.0% a.m.)</option>
-                <option value="Prata" className="bg-[#121214]">🥈 Prata (2.3% a.m.)</option>
-                <option value="Ouro" className="bg-[#121214]">🏆 Ouro (2.6% a.m.)</option>
-              </select>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Categorização (Categoria)</label>
+                <select
+                  required
+                  value={investorFormData.manual_category}
+                  onChange={(e) => setInvestorFormData(prev => ({ ...prev, manual_category: e.target.value }))}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
+                >
+                  <option value="Bronze" className="bg-[#121214]">🥉 Bronze (2.0% a.m.)</option>
+                  <option value="Prata" className="bg-[#121214]">🥈 Prata (2.3% a.m.)</option>
+                  <option value="Ouro" className="bg-[#121214]">🏆 Ouro (2.6% a.m.)</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex gap-2 pt-4">
