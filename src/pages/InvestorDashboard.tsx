@@ -285,7 +285,7 @@ export default function InvestorDashboard() {
           sale_id: selectedSaleId,
           purchase_price: purchasePrice,
           total_receivable: totalReceivableVal,
-          ownership_percentage: ownershipPercentage / 100
+          ownership_percentage: 1.00
         })
       });
       if (!res.ok) throw new Error();
@@ -1443,12 +1443,12 @@ export default function InvestorDashboard() {
         const selectedSale = availableSales.find(s => s.id === selectedSaleId);
         const unpaidCount = selectedSale ? (selectedSale.unpaid_installments_count ?? selectedSale.installments_count) : 12;
         const saleTotal = selectedSale ? Number(selectedSale.remaining_receivable_value ?? selectedSale.total_value) : 0;
-        const fractionValue = saleTotal * (ownershipPercentage / 100);
-        const calculatedPrice = interestRateInput !== '' && Number(interestRateInput) >= 0 
-          ? fractionValue / (1 + (Number(interestRateInput) / 100))
-          : fractionValue;
-        const monthlyPayout = fractionValue / unpaidCount;
-        const estimatedProfit = fractionValue - calculatedPrice;
+        
+        const monthlyRate = fintechCategory.rate || 2.0;
+        const totalInterestRate = monthlyRate * unpaidCount;
+        const calculatedPrice = saleTotal / (1 + (totalInterestRate / 100));
+        const monthlyPayout = saleTotal / unpaidCount;
+        const estimatedProfit = saleTotal - calculatedPrice;
 
         return (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1472,7 +1472,7 @@ export default function InvestorDashboard() {
 
               <h3 className="text-sm font-bold text-white uppercase tracking-wider pr-6">Adquirir Recebíveis</h3>
               <p className="text-xs text-zinc-400">
-                Selecione um contrato disponível para adquirir uma fração de seus recebíveis futuros.
+                Selecione um contrato disponível para adquirir os seus recebíveis futuros (100% de aquisição).
               </p>
 
               {purchaseError && (
@@ -1500,7 +1500,10 @@ export default function InvestorDashboard() {
                     if (sSale) {
                       const sVal = Number(sSale.remaining_receivable_value ?? sSale.total_value);
                       setTotalReceivableVal(sVal);
-                      const price = sVal / (1 + (Number(interestRateInput || 40) / 100));
+                      const uCount = sSale.unpaid_installments_count ?? sSale.installments_count ?? 12;
+                      const mRate = fintechCategory.rate || 2.0;
+                      const tRate = mRate * uCount;
+                      const price = sVal / (1 + (tRate / 100));
                       setPurchasePrice(parseFloat(price.toFixed(2)));
                     }
                   }}
@@ -1526,53 +1529,34 @@ export default function InvestorDashboard() {
                     <span className="font-bold text-white">R$ {saleTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Parcelas a Receber:</span>
+                    <span>Parcelas a Receber (Futuras):</span>
                     <span className="font-bold text-white">{unpaidCount}x</span>
                   </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Porcentagem Adquirida (%)</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    max={100}
-                    value={ownershipPercentage}
-                    onChange={(e) => {
-                      const pct = Math.max(1, Math.min(100, parseInt(e.target.value) || 100));
-                      setOwnershipPercentage(pct);
-                      if (totalReceivableVal) {
-                        const price = (Number(totalReceivableVal) * (pct / 100)) / (1 + (Number(interestRateInput || 40) / 100));
-                        setPurchasePrice(parseFloat(price.toFixed(2)));
-                      }
-                    }}
-                    className="w-full bg-[#18181b] border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all font-mono"
-                  />
+              {selectedSale && (
+                <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Sua Categoria:</span>
+                    <span className={`font-bold uppercase ${
+                      fintechCategory.category === 'gold' ? 'text-amber-400' :
+                      fintechCategory.category === 'silver' ? 'text-zinc-300' : 'text-amber-700'
+                    }`}>
+                      {fintechCategory.category === 'gold' ? '🏆 Ouro' :
+                       fintechCategory.category === 'silver' ? '🥈 Prata' : '🥉 Bronze'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Taxa Mensal (a.m.):</span>
+                    <span className="font-bold text-white">{Number(fintechCategory.rate || 2.0).toFixed(1)}% a.m.</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Taxa Total do Período ({unpaidCount}m):</span>
+                    <span className="font-bold text-emerald-400">{(Number(fintechCategory.rate || 2.0) * unpaidCount).toFixed(1)}%</span>
+                  </div>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Retorno Almejado (%)</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    step="any"
-                    value={interestRateInput}
-                    onChange={(e) => {
-                      const rate = e.target.value === '' ? '' : parseFloat(e.target.value);
-                      setInterestRateInput(rate);
-                      if (rate !== '' && rate >= 0 && totalReceivableVal) {
-                        const price = (Number(totalReceivableVal) * (ownershipPercentage / 100)) / (1 + (rate / 100));
-                        setPurchasePrice(parseFloat(price.toFixed(2)));
-                      }
-                    }}
-                    className="w-full bg-[#18181b] border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all font-mono"
-                  />
-                </div>
-              </div>
+              )}
 
               {selectedSale && totalReceivableVal !== '' && (
                 <div className="bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-2xl text-[10px] space-y-1.5 text-emerald-300">

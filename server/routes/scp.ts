@@ -2213,40 +2213,42 @@ router.get("/fintech/categories/:profileId", async (req, res) => {
       .select("*")
       .order("min_amount", { ascending: true });
 
-    let currentCategory = "Sem Categoria";
-    let defaultRate = 2.0;
-    let benefits: string[] = ["Acesso inicial às oportunidades"];
-
-    if (rules && rules.length > 0) {
-      for (const rule of rules) {
-        if (totalInvested >= Number(rule.min_amount) && (!rule.max_amount || totalInvested <= Number(rule.max_amount))) {
-          currentCategory = rule.category;
-          defaultRate = Number(rule.default_rate);
-          benefits = rule.benefits || [];
-          break;
-        }
-      }
-      const lastRule = rules[rules.length - 1];
-      if (totalInvested >= Number(lastRule.min_amount) && currentCategory === "Sem Categoria") {
-        currentCategory = lastRule.category;
-        defaultRate = Number(lastRule.default_rate);
-        benefits = lastRule.benefits || [];
-      }
-    }
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("custom_interest_rate, auto_reinvest, investment_category, manual_category")
       .eq("id", profileId)
       .single();
 
+    // 1. Definir categoria ativa (manual ou automática)
+    let currentCategory = "bronze";
     if (profile?.manual_category) {
-      currentCategory = profile.manual_category;
-      const matchedRule = rules?.find(r => r.category.toLowerCase() === currentCategory.toLowerCase());
-      if (matchedRule) {
-        defaultRate = Number(matchedRule.default_rate);
-        benefits = matchedRule.benefits || [];
+      currentCategory = profile.manual_category.toLowerCase();
+    } else {
+      if (totalInvested >= 30000.01) {
+        currentCategory = "gold";
+      } else if (totalInvested >= 10000.01) {
+        currentCategory = "silver";
+      } else {
+        currentCategory = "bronze";
       }
+    }
+
+    // 2. Mapeamento direto de taxas e benefícios
+    let defaultRate = 2.0;
+    let benefits: string[] = [];
+
+    if (currentCategory === "gold" || currentCategory === "ouro") {
+      defaultRate = 2.6;
+      benefits = ["Prioridade máxima na compra de recebíveis", "Consultoria exclusiva", "Taxas operacionais zeradas"];
+      currentCategory = "gold";
+    } else if (currentCategory === "silver" || currentCategory === "prata") {
+      defaultRate = 2.3;
+      benefits = ["Prioridade intermediária na compra de recebíveis", "Taxas operacionais reduzidas"];
+      currentCategory = "silver";
+    } else {
+      defaultRate = 2.0;
+      benefits = ["Acesso inicial às oportunidades de recebíveis"];
+      currentCategory = "bronze";
     }
 
     if (profile && profile.investment_category !== currentCategory) {
