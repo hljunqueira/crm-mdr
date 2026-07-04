@@ -1978,6 +1978,16 @@ router.get("/financeira-report", async (req, res) => {
         continue;
       }
 
+      // Se for Renda, ignorar se o pagamento foi feito antes da data de criação/aprovação da compra
+      if (isRenda && purchase) {
+        const payDateStr = inst.payment_date ? inst.payment_date.split('T')[0] : '';
+        const purchaseDateStr = purchase.created_at ? purchase.created_at.split('T')[0] : '';
+        
+        if (payDateStr && purchaseDateStr && payDateStr < purchaseDateStr) {
+          continue;
+        }
+      }
+
       // Customer paid value for this installment
       const customerPaid = Number(inst.value);
 
