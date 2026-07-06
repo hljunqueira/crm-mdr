@@ -385,7 +385,7 @@ router.post('/asaas', async (req, res) => {
         try {
           const { data: store } = await supabase
             .from('stores')
-            .select('billing_reminder_payment_confirmed_template')
+            .select('name, billing_reminder_payment_confirmed_template')
             .eq('id', storeId)
             .maybeSingle();
 
