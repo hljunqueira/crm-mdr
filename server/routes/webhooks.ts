@@ -378,9 +378,10 @@ router.post('/asaas', async (req, res) => {
 
       console.log(`[Asaas Webhook] Parcela #${installment.installment_number} de ${installment.sales?.customers?.name || 'Cliente'} baixada com sucesso.`);
 
-      // Enviar mensagem de confirmação de pagamento automatizada
+      // Enviar mensagem de confirmação de pagamento automatizada apenas para crediário próprio (loja)
       const storeId = updatedInst.sales?.store_id || updatedInst.unit_id;
-      if (storeId) {
+      const isCrediario = updatedInst.sales?.payment_type === 'crediario';
+      if (storeId && isCrediario) {
         try {
           const { data: store } = await supabase
             .from('stores')

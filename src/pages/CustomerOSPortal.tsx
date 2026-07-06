@@ -117,7 +117,7 @@ export default function CustomerOSPortal() {
       <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[150px] -z-10 rounded-full"></div>
 
       {/* Navigation Header */}
-      <nav className="h-20 px-8 flex items-center justify-between backdrop-blur-xl sticky top-0 z-[100] border-b border-white/5">
+      <nav className="h-20 px-8 flex items-center justify-between backdrop-blur-xl sticky top-0 z-100 border-b border-white/5">
         <Link to="/" className="flex items-center gap-2 group">
           <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white group-hover:bg-white group-hover:text-black transition-all">
             <ArrowLeft size={20} />
@@ -156,7 +156,7 @@ export default function CustomerOSPortal() {
                   </p>
                 </div>
 
-                <div className="glass-card border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl relative overflow-hidden bg-white/[0.01] max-w-xl mx-auto">
+                <div className="glass-card border border-white/10 rounded-[48px] p-8 md:p-12 shadow-2xl relative overflow-hidden bg-white/1 max-w-xl mx-auto">
                   <form onSubmit={handleSearch} className="space-y-6">
                     <div className="space-y-3">
                       <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.15em] pl-1">Digite seu Celular / WhatsApp cadastrado (DDD + 9 dígitos)</label>
@@ -269,7 +269,7 @@ export default function CustomerOSPortal() {
                                   className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-1.5 ${
                                     isSelected 
                                       ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/10' 
-                                      : 'bg-white/[0.02] border-white/5 text-white hover:bg-white/[0.04]'
+                                      : 'bg-white/2 border-white/5 text-white hover:bg-white/4'
                                   }`}
                                 >
                                   <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-70">OS #{numberStr}</span>
@@ -284,7 +284,7 @@ export default function CustomerOSPortal() {
                               <button
                                 type="button"
                                 onClick={() => setShowCompletedOpen(!showCompletedOpen)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl bg-white/[0.01] hover:bg-white/5 border border-white/5 text-[8px] font-black uppercase tracking-widest transition-all"
+                                className="w-full flex items-center justify-between p-3 rounded-xl bg-white/1 hover:bg-white/5 border border-white/5 text-[8px] font-black uppercase tracking-widest transition-all"
                               >
                                 <span>Concluídas / Canceladas ({completedOrCanceledOrders.length})</span>
                                 <span className="text-primary">{showCompletedOpen ? '▼' : '▶'}</span>
@@ -303,7 +303,7 @@ export default function CustomerOSPortal() {
                                         className={`w-full text-left p-3 rounded-xl border transition-all flex flex-col gap-1 ${
                                           isSelected 
                                             ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/10' 
-                                            : 'bg-white/[0.02] border-white/5 text-white hover:bg-white/[0.04]'
+                                            : 'bg-white/2 border-white/5 text-white hover:bg-white/4'
                                         }`}
                                       >
                                         <span className="text-[8px] font-black font-mono leading-none tracking-widest opacity-70">OS #{numberStr}</span>
@@ -333,7 +333,7 @@ export default function CustomerOSPortal() {
                         osNumber={selectedOrder.os_number}
                       />
                     ) : (
-                      <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
+                      <div className="p-8 bg-white/2 border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
                         <Wrench size={32} className="opacity-20" />
                         <p className="text-[10px] font-black uppercase tracking-wider">Escolha uma Ordem de Serviço ao lado</p>
                       </div>

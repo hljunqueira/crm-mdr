@@ -67,8 +67,10 @@ async function recalculateFutureReceipts(profileId: string): Promise<number> {
     // 2. Recebíveis comprados no modelo RENDA
     const { data: purchases } = await supabase
       .from("receivable_purchases")
-      .select("sale_id, total_receivable, purchase_price, ownership_percentage")
-      .eq("profile_id", profileId);
+      .select("sale_id, total_receivable, purchase_price, ownership_percentage, status, sales!inner(status)")
+      .eq("profile_id", profileId)
+      .eq("status", "approved")
+      .not("sales.status", "in", '("cancelled","refunded")');
 
     let totalRendaFuture = 0;
 
@@ -306,6 +308,12 @@ router.delete('/:id', async (req, res) => {
         error: 'Este investidor possui cotas de lotes, celulares Prime ou recebíveis vinculados no SCP. Remova todos os vínculos antes de excluí-lo.'
       });
     }
+
+    // Remover registros associados do SCP para evitar erro de chave estrangeira
+    await supabase.from("withdrawal_requests").delete().eq("profile_id", id);
+    await supabase.from("wallet_transactions").delete().eq("profile_id", id);
+    await supabase.from("wallets").delete().eq("profile_id", id);
+    await supabase.from("scp_audit_logs").delete().eq("user_id", id);
 
     // Remover da Auth deleta automaticamente o perfil da tabela "profiles" em cascata (ON DELETE CASCADE)
     const { error } = await supabase.auth.admin.deleteUser(id);

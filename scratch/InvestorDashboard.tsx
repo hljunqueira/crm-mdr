@@ -42,7 +42,7 @@ export default function InvestorDashboard() {
       {/* Header */}
       <header className="border-b border-[#27272a] bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-50 px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+          <div className="h-10 w-10 rounded-2xl bg-linear-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/10">
             <Activity className="text-black" size={20} />
           </div>
           <div>
@@ -63,7 +63,7 @@ export default function InvestorDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Card: Saldo Disponível */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
             <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
             <div className="flex justify-between items-center mb-6">
               <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Saldo Disponível</span>
@@ -86,7 +86,7 @@ export default function InvestorDashboard() {
           </div>
 
           {/* Card: Recebíveis Futuros */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-8 shadow-2xl flex flex-col justify-between">
             <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
             <div className="flex justify-between items-center mb-6">
               <span className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Recebíveis Futuros</span>

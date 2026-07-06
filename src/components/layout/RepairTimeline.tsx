@@ -92,7 +92,7 @@ export default function RepairTimeline({
     <div className="w-full space-y-8 animate-in fade-in duration-500">
       
       {/* Device Header Card */}
-      <div className="p-6 bg-white/[0.02] border border-white/10 rounded-3xl flex items-center justify-between gap-4">
+      <div className="p-6 bg-white/2 border border-white/10 rounded-3xl flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shrink-0">
             <Smartphone size={24} />
@@ -171,8 +171,8 @@ export default function RepairTimeline({
                 <div 
                   className={cn(
                     "p-5 rounded-2xl border transition-all duration-300",
-                    isActive ? "bg-white/[0.03] border-white/20" :
-                    isCompleted ? "bg-white/[0.01] border-white/5 opacity-80" :
+                    isActive ? "bg-white/3 border-white/20" :
+                    isCompleted ? "bg-white/1 border-white/5 opacity-80" :
                     "bg-transparent border-transparent opacity-40"
                   )}
                 >

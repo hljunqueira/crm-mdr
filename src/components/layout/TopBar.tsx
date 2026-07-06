@@ -247,7 +247,7 @@ export default function TopBar() {
 
           {/* Search Dropdown Overlay */}
           {showSearchDropdown && (searchQuery.trim() || searchLoading) && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-[#121224] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[100] max-h-96 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-[#121224] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-100 max-h-96 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-1 duration-150">
               {searchLoading ? (
                 <div className="p-8 flex items-center justify-center gap-3 text-on-surface-variant">
                   <Loader2 size={16} className="animate-spin text-primary" />
@@ -407,7 +407,7 @@ export default function TopBar() {
 
       {/* MODAL: EDITAR PERFIL */}
       {isEditProfileOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-80 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-white/10 rounded-[32px] w-full max-w-md p-6 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 text-left">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <h3 className="text-md font-black text-white uppercase tracking-wider font-display">Editar Perfil</h3>
@@ -491,7 +491,7 @@ export default function TopBar() {
                 <button
                   type="submit"
                   disabled={isSavingProfile || !fullName}
-                  className="flex-[2] py-3 bg-primary text-on-primary rounded-xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                  className="flex-2 py-3 bg-primary text-on-primary rounded-xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 transition-all flex items-center justify-center gap-2"
                 >
                   {isSavingProfile ? <Loader2 size={12} className="animate-spin" /> : 'Salvar Perfil'}
                 </button>
@@ -503,7 +503,7 @@ export default function TopBar() {
 
       {/* MODAL: ALTERAR SENHA */}
       {isChangePasswordOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-80 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-white/10 rounded-[32px] w-full max-w-md p-6 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 text-left">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <h3 className="text-md font-black text-white uppercase tracking-wider font-display">Alterar Senha</h3>
@@ -557,7 +557,7 @@ export default function TopBar() {
                 <button
                   type="submit"
                   disabled={isSavingPassword || !newPassword || !confirmPassword}
-                  className="flex-[2] py-3 bg-primary text-on-primary rounded-xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                  className="flex-2 py-3 bg-primary text-on-primary rounded-xl font-black uppercase tracking-widest text-[9px] hover:opacity-90 transition-all flex items-center justify-center gap-2"
                 >
                   {isSavingPassword ? <Loader2 size={12} className="animate-spin" /> : 'Alterar Senha'}
                 </button>

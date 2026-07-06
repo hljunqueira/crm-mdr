@@ -1163,7 +1163,7 @@ export default function Reports() {
       </div>
 
       {/* TABS SELECTOR (HIDDEN ON PRINT) */}
-      <div className="flex p-1 bg-white/[0.02] rounded-[24px] mb-8 gap-1 border border-white/5 max-w-4xl print:hidden overflow-x-auto scrollbar-none">
+      <div className="flex p-1 bg-white/2 rounded-[24px] mb-8 gap-1 border border-white/5 max-w-4xl print:hidden overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Visão Geral', icon: BarChart2 },
           { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
@@ -1177,7 +1177,7 @@ export default function Reports() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-grow py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+            className={`grow py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
               activeTab === tab.id 
                 ? 'bg-white text-black shadow-xl' 
                 : 'text-on-surface-variant hover:text-white hover:bg-white/5'
@@ -1191,7 +1191,7 @@ export default function Reports() {
 
       {/* GLOBAL PERIOD & BRAND FILTERS (HIDDEN ON PRINT) */}
       {['overview', 'fluxo_caixa', 'lucro_presumido', 'laboratorio', 'liquidacoes'].includes(activeTab) && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 print:hidden">
+        <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
             {/* Period Selector */}
             <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
@@ -1275,7 +1275,7 @@ export default function Reports() {
 
       {/* GLOBAL MONTH/YEAR SELECTOR FOR GOALS & CARDS (HIDDEN ON PRINT) */}
       {['metas', 'controle_cartoes'].includes(activeTab) && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-wrap gap-4 print:hidden">
+        <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-wrap gap-4 print:hidden">
           {/* Month Filter */}
           <div className="flex flex-col gap-1.5 min-w-[150px]">
             <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Mês</span>
@@ -1341,7 +1341,7 @@ export default function Reports() {
               { label: 'Ticket Médio Vendas', value: `R$ ${ticketComercial.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Média por aparelho vendido', color: 'text-white' },
               { label: 'Ticket Médio OS', value: `R$ ${ticketTecnico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Média por reparo finalizado', color: 'text-white' }
             ].map((stat, i) => (
-              <div key={i} className="bg-white/[0.01] hover:bg-white/[0.02] p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
+              <div key={i} className="bg-white/1 hover:bg-white/2 p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
                 <div className="absolute top-4 right-4 opacity-10">
                   <TrendingUp size={24} className={stat.color} />
                 </div>
@@ -1353,7 +1353,7 @@ export default function Reports() {
           </div>
 
           {/* Revenue Evolution Chart */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:p-8 space-y-6">
+          <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:p-8 space-y-6">
             <div>
               <h3 className="text-sm font-black text-white uppercase tracking-wider font-display">Evolução do Faturamento no Período</h3>
               <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Entradas diárias combinadas de vendas e assistência</p>
@@ -1395,7 +1395,7 @@ export default function Reports() {
             
             {/* Sales Goal Card */}
             {profile?.role === 'admin' && (
-              <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 space-y-6">
+              <div className="bg-white/1 border border-white/5 rounded-[32px] p-8 space-y-6">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">Meta Mensal da Loja</h3>
@@ -1445,8 +1445,8 @@ export default function Reports() {
                       transition={{ duration: 1, ease: 'easeOut' }}
                       className={`h-full rounded-full ${
                         metaPercentage >= 100 
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
-                          : 'bg-gradient-to-r from-primary to-indigo-500'
+                          ? 'bg-linear-to-r from-green-500 to-emerald-400' 
+                          : 'bg-linear-to-r from-primary to-indigo-500'
                       }`}
                     />
                   </div>
@@ -1460,7 +1460,7 @@ export default function Reports() {
             )}
 
             {/* Payment Type Distribution Bar */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-8 space-y-6">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-8 space-y-6">
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-wider">Meios de Pagamento de Aparelhos</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Fração Comercial por Tipo</p>
@@ -1468,9 +1468,9 @@ export default function Reports() {
 
               <div className="space-y-4">
                 {[
-                  { label: 'Crediário Próprio', pct: paymentMethodDist.crediario, color: 'bg-gradient-to-r from-indigo-600 to-violet-500', value: `R$ ${(totalSalesValue * paymentMethodDist.crediario / 100).toLocaleString('pt-BR')}` },
-                  { label: 'Cartões (Débito/Crédito)', pct: paymentMethodDist.card, color: 'bg-gradient-to-r from-pink-600 to-rose-500', value: `R$ ${(totalSalesValue * paymentMethodDist.card / 100).toLocaleString('pt-BR')}` },
-                  { label: 'À Vista (Dinheiro/PIX)', pct: paymentMethodDist.vista, color: 'bg-gradient-to-r from-emerald-500 to-teal-500', value: `R$ ${(totalSalesValue * paymentMethodDist.vista / 100).toLocaleString('pt-BR')}` }
+                  { label: 'Crediário Próprio', pct: paymentMethodDist.crediario, color: 'bg-linear-to-r from-indigo-600 to-violet-500', value: `R$ ${(totalSalesValue * paymentMethodDist.crediario / 100).toLocaleString('pt-BR')}` },
+                  { label: 'Cartões (Débito/Crédito)', pct: paymentMethodDist.card, color: 'bg-linear-to-r from-pink-600 to-rose-500', value: `R$ ${(totalSalesValue * paymentMethodDist.card / 100).toLocaleString('pt-BR')}` },
+                  { label: 'À Vista (Dinheiro/PIX)', pct: paymentMethodDist.vista, color: 'bg-linear-to-r from-emerald-500 to-teal-500', value: `R$ ${(totalSalesValue * paymentMethodDist.vista / 100).toLocaleString('pt-BR')}` }
                 ].map((item, idx) => (
                   <div key={idx} className="space-y-1">
                     <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
@@ -1495,7 +1495,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Stock Turnover Metric Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px]">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px]">
               <div>
                 <div className="w-9 h-9 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary mb-3">
                   <Clock size={16} />
@@ -1516,7 +1516,7 @@ export default function Reports() {
             </div>
 
             {/* Top Customers Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:col-span-2 flex flex-col justify-between min-h-[220px]">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-2 flex flex-col justify-between min-h-[220px]">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -1532,7 +1532,7 @@ export default function Reports() {
                   <p className="text-xs text-on-surface-variant opacity-60 text-center py-6">Nenhum cliente registrado no período.</p>
                 ) : (
                   topCustomersList.map((cust, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-white/[0.02] rounded-xl border border-white/5">
+                    <div key={idx} className="flex items-center justify-between p-3 bg-white/2 rounded-xl border border-white/5">
                       <div className="flex items-center gap-3">
                         <span className="w-5 h-5 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[9px] font-black text-primary font-mono">
                           {idx + 1}
@@ -1557,7 +1557,7 @@ export default function Reports() {
         <div className="space-y-8 animate-in fade-in duration-500">
           {/* Dashboard de Métricas */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-[#6C63FF]/10 flex items-center justify-center text-[#6C63FF] mb-4 border border-white/10">
                 <TrendingUp size={20} />
               </div>
@@ -1567,7 +1567,7 @@ export default function Reports() {
               </h3>
             </div>
             
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success mb-4 border border-white/10">
                 <ArrowUpRight size={20} />
               </div>
@@ -1577,7 +1577,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error mb-4 border border-white/10">
                 <ArrowDownRight size={20} />
               </div>
@@ -1587,7 +1587,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning mb-4 border border-white/10">
                 <Smartphone size={20} />
               </div>
@@ -1599,7 +1599,7 @@ export default function Reports() {
           </div>
 
           {/* Seção Lançamento Rápido & Filtro de Fluxo */}
-          <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
+          <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
                 <FileText size={16} /> Registro de Transações
@@ -1635,7 +1635,7 @@ export default function Reports() {
                     </tr>
                   ) : (
                     filteredTransactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-white/[0.01] transition-colors">
+                      <tr key={tx.id} className="hover:bg-white/1 transition-colors">
                         <td className="py-4 pl-4 text-[10px] font-mono text-on-surface-variant">
                           {new Date(tx.created_at).toLocaleString('pt-BR')}
                         </td>
@@ -1860,7 +1860,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             
             {/* Total Sale Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Faturamento do Período (Venda)</h4>
               </div>
@@ -1872,7 +1872,7 @@ export default function Reports() {
             </div>
 
             {/* Total Cost Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Valor de Custo Geral</h4>
               </div>
@@ -1884,7 +1884,7 @@ export default function Reports() {
             </div>
 
             {/* Total Profit Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Lucro do Período</h4>
               </div>
@@ -1896,7 +1896,7 @@ export default function Reports() {
             </div>
 
             {/* Average Margin Card */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Rentabilidade Média</h4>
               </div>
@@ -1909,7 +1909,7 @@ export default function Reports() {
           </div>
 
           {/* Detailed monthly items table */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 overflow-hidden print:border-black print:text-black">
+          <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 overflow-hidden print:border-black print:text-black">
             <div className="mb-4 print:hidden">
               <h3 className="text-sm font-black text-white uppercase tracking-wider">Itens e Serviços Vendidos</h3>
               <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Detalhamento unitário com custos e margens</p>
@@ -1938,7 +1938,7 @@ export default function Reports() {
                     </tr>
                   ) : (
                     monthlyProfitItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-white/[0.01] print:hover:bg-transparent">
+                      <tr key={idx} className="hover:bg-white/1 print:hover:bg-transparent">
                         <td className="py-4 pl-4 font-mono font-bold text-white print:text-black">
                           {item.saleNumber}
                         </td>
@@ -1971,7 +1971,7 @@ export default function Reports() {
                 {/* Total Row */}
                 {monthlyProfitItems.length > 0 && (
                   <tfoot>
-                    <tr className="border-t-2 border-white/10 print:border-black font-black text-xs text-white print:text-black bg-white/[0.02] print:bg-transparent">
+                    <tr className="border-t-2 border-white/10 print:border-black font-black text-xs text-white print:text-black bg-white/2 print:bg-transparent">
                       <td colSpan={3} className="py-4 pl-4 uppercase">
                         Totais Consolidados
                       </td>
@@ -2011,7 +2011,7 @@ export default function Reports() {
               { label: 'Custo de Peças Utilizadas', value: `R$ ${labMetrics.totalParts.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Valor descontado do estoque', color: 'text-error' },
               { label: 'Margem do Laboratório', value: `R$ ${labMetrics.contributionMargin.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: `Rentabilidade de ${labMetrics.marginPercentage.toFixed(1)}%`, color: 'text-success' }
             ].map((stat, i) => (
-              <div key={i} className="bg-white/[0.01] hover:bg-white/[0.02] p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
+              <div key={i} className="bg-white/1 hover:bg-white/2 p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
                 <div className="absolute top-4 right-4 opacity-10">
                   <Wrench size={24} />
                 </div>
@@ -2023,7 +2023,7 @@ export default function Reports() {
           </div>
 
           {/* List of completed OS in period */}
-          <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 overflow-hidden">
+          <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
             <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Reparos Finalizados</h3>
@@ -2079,7 +2079,7 @@ export default function Reports() {
                       {labMetrics.finishedOS.map((o) => {
                         const marginPercent = o.total_value > 0 ? (o.labor_value / o.total_value) * 100 : 0;
                         return (
-                          <tr key={o.id} className="hover:bg-white/[0.01]">
+                          <tr key={o.id} className="hover:bg-white/1">
                             <td className="py-4 pl-4 font-bold text-white">
                               #{o.os_number}
                             </td>
@@ -2112,7 +2112,7 @@ export default function Reports() {
             <div className="space-y-6">
               
               {/* Card de Sessão Ativa */}
-              <div className="bg-white/[0.02] border border-[#6C63FF]/30 rounded-[32px] p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="bg-white/2 border border-[#6C63FF]/30 rounded-[32px] p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                   <span className="bg-[#6C63FF]/20 text-[#6C63FF] border border-[#6C63FF]/30 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">Auditoria Ativa</span>
                   <h2 className="text-xl font-black text-white uppercase mt-2">
@@ -2161,15 +2161,15 @@ export default function Reports() {
 
               {/* KPIs de Auditoria */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white/[0.01] p-5 border border-white/5 rounded-3xl">
+                <div className="bg-white/1 p-5 border border-white/5 rounded-3xl">
                   <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Progresso da Contagem</p>
                   <h3 className="text-xl font-black text-white font-mono">{auditStats.countedItems} / {auditStats.totalItems} <span className="text-[10px] text-on-surface-variant font-display font-medium">({auditStats.percentage}%)</span></h3>
                   <div className="w-full h-2 bg-white/5 rounded-full mt-3 overflow-hidden border border-white/5 p-0.5">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#6C63FF] to-primary" style={{ width: `${auditStats.percentage}%` }} />
+                    <div className="h-full rounded-full bg-linear-to-r from-[#6C63FF] to-primary" style={{ width: `${auditStats.percentage}%` }} />
                   </div>
                 </div>
 
-                <div className="bg-white/[0.01] p-5 border border-white/5 rounded-3xl">
+                <div className="bg-white/1 p-5 border border-white/5 rounded-3xl">
                   <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Variação Total (Divergências)</p>
                   <h3 className={`text-xl font-black font-mono ${auditStats.deltaCount === 0 ? 'text-white' : auditStats.deltaCount > 0 ? 'text-green-400' : 'text-error'}`}>
                     {auditStats.deltaCount > 0 ? `+${auditStats.deltaCount}` : auditStats.deltaCount} unidades
@@ -2177,7 +2177,7 @@ export default function Reports() {
                   <p className="text-[8px] text-on-surface-variant opacity-70 mt-1 uppercase tracking-widest">Saldo total de itens a mais/menos</p>
                 </div>
 
-                <div className="bg-white/[0.01] p-5 border border-white/5 rounded-3xl">
+                <div className="bg-white/1 p-5 border border-white/5 rounded-3xl">
                   <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Impacto Financeiro (Custo)</p>
                   <h3 className={`text-xl font-black font-mono ${auditStats.costDiscrepancy === 0 ? 'text-white' : auditStats.costDiscrepancy > 0 ? 'text-green-400' : 'text-error'}`}>
                     R$ {auditStats.costDiscrepancy.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -2187,7 +2187,7 @@ export default function Reports() {
               </div>
 
               {/* Modo Bipador Contínuo */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5">
+              <div className="bg-white/2 border border-white/5 rounded-3xl p-5">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
@@ -2227,7 +2227,7 @@ export default function Reports() {
                         value={scannedCode}
                         onChange={(e) => setScannedCode(e.target.value)}
                         placeholder="Bipe o código de barras ou IMEI do produto aqui..."
-                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none focus:border-[#6C63FF] focus:bg-white/[0.08] transition-all font-mono"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white outline-none focus:border-[#6C63FF] focus:bg-white/8 transition-all font-mono"
                       />
                       <button
                         type="submit"
@@ -2241,11 +2241,11 @@ export default function Reports() {
               </div>
 
               {/* Tabela de Produtos para Auditoria */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+              <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
                 
                 {/* Filtros da Tabela */}
                 <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
-                  <div className="flex flex-wrap items-center gap-3 flex-grow">
+                  <div className="flex flex-wrap items-center gap-3 grow">
                     <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex-1 min-w-[200px]">
                       <Search size={14} className="text-on-surface-variant mr-2" />
                       <input
@@ -2329,7 +2329,7 @@ export default function Reports() {
                           const diff = hasCounted ? physical - system : 0;
                           
                           return (
-                            <tr key={item.device_id} className="hover:bg-white/[0.01] transition-colors">
+                            <tr key={item.device_id} className="hover:bg-white/1 transition-colors">
                               <td className="py-4 pl-4">
                                 <span className="text-xs font-black text-white uppercase tracking-wider">{item.brand} {item.model}</span>
                                 <div className="text-[8px] font-black uppercase text-on-surface-variant opacity-75 mt-0.5">
@@ -2425,7 +2425,7 @@ export default function Reports() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* Card Iniciar Sessão */}
-              <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:col-span-1 flex flex-col justify-between min-h-[300px]">
+              <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-1 flex flex-col justify-between min-h-[300px]">
                 <div className="space-y-4">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                     <CheckCircle2 size={20} />
@@ -2465,7 +2465,7 @@ export default function Reports() {
               </div>
 
               {/* Tabela de Histórico de Auditorias passadas */}
-              <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 lg:col-span-2 space-y-6">
+              <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-2 space-y-6">
                 <div>
                   <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Auditorias Concluídas</h3>
                   <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Sessões finalizadas nesta filial</p>
@@ -2490,7 +2490,7 @@ export default function Reports() {
                         </tr>
                       ) : (
                         audits.map((a) => (
-                          <tr key={a.id} className="hover:bg-white/[0.01] transition-colors">
+                          <tr key={a.id} className="hover:bg-white/1 transition-colors">
                             <td className="py-4 pl-4 font-mono text-[10px] text-on-surface-variant">
                               {new Date(a.completed_at || a.created_at).toLocaleString('pt-BR')}
                             </td>
@@ -2722,7 +2722,7 @@ export default function Reports() {
       {activeTab === 'metas' && profile?.role === 'admin' && (
         <div className="space-y-8 animate-in fade-in duration-500">
           {/* Controls Bar for Goals */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h3 className="text-sm font-black text-white uppercase tracking-wider">Metas por Colaboradores</h3>
               <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Acompanhamento e definição de objetivos</p>
@@ -2793,7 +2793,7 @@ export default function Reports() {
 
           {/* Goals KPIs Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6">
               <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total Vendas (Colaboradores)</p>
               <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
                 R$ {collaboratorData.reduce((acc, c) => acc + c.sales, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -2803,7 +2803,7 @@ export default function Reports() {
               </p>
             </div>
 
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6">
               <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total OS Finalizadas (Colaboradores)</p>
               <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
                 {collaboratorData.reduce((acc, c) => acc + c.osCount, 0)} OS
@@ -2817,7 +2817,7 @@ export default function Reports() {
           {/* Graphics Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sales Chart */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 space-y-4">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 space-y-4">
               <div>
                 <h3 className="text-xs font-black text-white uppercase tracking-wider">Vendas por Colaborador (Faturamento)</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Comparação em R$ contra metas individuais</p>
@@ -2853,7 +2853,7 @@ export default function Reports() {
             </div>
 
             {/* OS Chart */}
-            <div className="bg-white/[0.01] border border-white/5 rounded-[32px] p-6 space-y-4">
+            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 space-y-4">
               <div>
                 <h3 className="text-xs font-black text-white uppercase tracking-wider">OS Concluídas por Técnico</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Comparação em quantidade contra metas individuais</p>
@@ -2890,7 +2890,7 @@ export default function Reports() {
           </div>
 
           {/* Collaborators Targets Management list */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+          <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
             <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
               <Users size={16} /> Configurações de Metas Individuais
             </h3>
@@ -2900,7 +2900,7 @@ export default function Reports() {
                 const isEditing = editingGoalUserId === col.id;
                 
                 return (
-                  <div key={col.id} className="bg-white/[0.01] border border-white/5 rounded-[28px] p-5 space-y-4 flex flex-col justify-between hover:bg-white/[0.02] transition-all">
+                  <div key={col.id} className="bg-white/1 border border-white/5 rounded-[28px] p-5 space-y-4 flex flex-col justify-between hover:bg-white/2 transition-all">
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="text-sm font-black text-white uppercase">{col.name}</h4>
@@ -2976,7 +2976,7 @@ export default function Reports() {
                           </div>
                           <div className="h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
                             <div 
-                              className={`h-full rounded-full ${col.salesProgress >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-primary to-indigo-500'}`} 
+                              className={`h-full rounded-full ${col.salesProgress >= 100 ? 'bg-linear-to-r from-green-500 to-emerald-400' : 'bg-linear-to-r from-primary to-indigo-500'}`} 
                               style={{ width: `${Math.min(100, col.salesProgress)}%` }} 
                             />
                           </div>
@@ -2990,7 +2990,7 @@ export default function Reports() {
                           </div>
                           <div className="h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
                             <div 
-                              className={`h-full rounded-full ${col.osProgress >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : 'bg-gradient-to-r from-emerald-500 to-teal-500'}`} 
+                              className={`h-full rounded-full ${col.osProgress >= 100 ? 'bg-linear-to-r from-green-500 to-emerald-400' : 'bg-linear-to-r from-emerald-500 to-teal-500'}`} 
                               style={{ width: `${Math.min(100, col.osProgress)}%` }} 
                             />
                           </div>
@@ -3010,7 +3010,7 @@ export default function Reports() {
         <div className="space-y-8 animate-in fade-in duration-500">
           
           {/* Sub Filters Toolbar */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
               {/* Period Selector */}
               <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
@@ -3075,7 +3075,7 @@ export default function Reports() {
               { label: 'Total de Juros e Multas Cobrados', value: `R$ ${liquidationStats.totalInterest.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Acrescimos por atraso', color: 'text-error' },
               { label: 'Valor Original das Parcelas', value: `R$ ${liquidationStats.totalOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Expectativa contratual base', color: 'text-white' }
             ].map((stat, i) => (
-              <div key={i} className="bg-white/[0.01] hover:bg-white/[0.02] p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
+              <div key={i} className="bg-white/1 hover:bg-white/2 p-6 border border-white/5 rounded-[28px] relative overflow-hidden transition-all">
                 <div className="absolute top-4 right-4 opacity-10">
                   <DollarSign size={24} className={stat.color} />
                 </div>
@@ -3087,7 +3087,7 @@ export default function Reports() {
           </div>
 
           {/* Detailed Table */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+          <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
             <div>
               <h3 className="text-xs font-black text-white uppercase tracking-wider">Histórico de Liquidações e Descontos</h3>
               <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Detalhamento das parcelas recebidas com descontos ou mora no período</p>
@@ -3116,7 +3116,7 @@ export default function Reports() {
                     filteredInstallmentsReport.map((inst, idx) => {
                       const paidVal = inst.paid_value !== undefined ? inst.paid_value : inst.value;
                       return (
-                        <tr key={inst.id || idx} className="hover:bg-white/[0.01]">
+                        <tr key={inst.id || idx} className="hover:bg-white/1">
                           <td className="py-4 pl-4 font-bold text-white uppercase">{inst.customer_name || 'Sem Nome'}</td>
                           <td className="py-4 text-on-surface-variant">Parcela {inst.number}/{inst.total}</td>
                           <td className="py-4 font-mono">{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
@@ -3145,7 +3145,7 @@ export default function Reports() {
       {activeTab === 'controle_cartoes' && (
         <div className="space-y-6 animate-in fade-in duration-300">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-4">
                 <CreditCard size={20} />
               </div>
@@ -3155,7 +3155,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success mb-4">
                 <CheckCircle2 size={20} />
               </div>
@@ -3165,7 +3165,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-error/10 border border-error/20 flex items-center justify-center text-error mb-4">
                 <AlertCircle size={20} />
               </div>
@@ -3177,7 +3177,7 @@ export default function Reports() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            <div className="xl:col-span-8 bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+            <div className="xl:col-span-8 bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
               <h3 className="text-xs font-black text-white uppercase tracking-widest">
                 Detalhamento dos Lançamentos Ativos no Mês
               </h3>
@@ -3203,7 +3203,7 @@ export default function Reports() {
                       </tr>
                     ) : (
                       bills.map((bill) => (
-                        <tr key={bill.id} className="hover:bg-white/[0.01] transition-all">
+                        <tr key={bill.id} className="hover:bg-white/1 transition-all">
                           <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
                           <td className="py-4 text-xs font-bold text-white uppercase">
                             {bill.description}
@@ -3237,7 +3237,7 @@ export default function Reports() {
             </div>
 
             <div className="xl:col-span-4 space-y-6">
-              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+              <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
                   Comparativo de Custos e Previsões
                 </h3>

@@ -433,7 +433,7 @@ export default function InvestorDashboard() {
       {/* Header */}
       <header className="border-b border-[#27272a] bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-50 px-8 py-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+          <div className="h-10 w-10 rounded-2xl bg-linear-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/10">
             <Activity className="text-black" size={20} />
           </div>
           <div>
@@ -506,7 +506,7 @@ export default function InvestorDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
 
               {/* Card: Saldo Disponível */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+              <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Saldo Disponível</span>
@@ -524,8 +524,15 @@ export default function InvestorDashboard() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setIsWithdrawalOpen(true)}
-                  className="w-full mt-4 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 cursor-pointer border-0"
+                  onClick={() => {
+                    if (wallet.balance > 0) setIsWithdrawalOpen(true);
+                  }}
+                  disabled={wallet.balance <= 0}
+                  className={`w-full mt-4 py-3 text-black font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all border-0 ${
+                    wallet.balance <= 0
+                      ? 'bg-emerald-500/20 text-zinc-500 cursor-not-allowed opacity-50 shadow-none'
+                      : 'bg-emerald-500 hover:bg-emerald-400 hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 cursor-pointer'
+                  }`}
                 >
                   Solicitar Resgate
                 </button>
@@ -538,7 +545,7 @@ export default function InvestorDashboard() {
               </div>
 
               {/* Card: Capital Investido */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+              <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Capital Investido</span>
@@ -548,11 +555,11 @@ export default function InvestorDashboard() {
                 </div>
                 <div>
                   <span className="text-3xl font-extrabold tracking-tight">
-                    R$ {wallet.capitalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {(wallet.capitalInvested + (wallet.projectedInterest || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                   <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <Calendar size={14} className="text-indigo-400" />
-                    Valor aportado SCP
+                    Capital + Lucro projetado
                   </p>
                 </div>
                 <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
@@ -562,7 +569,7 @@ export default function InvestorDashboard() {
               </div>
 
               {/* Card: Previsão de Lucro */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+              <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Previsão de Lucro</span>
@@ -589,7 +596,7 @@ export default function InvestorDashboard() {
 
               {/* Card: Modelo Renda (Condicional) */}
               {renda && renda.purchases && renda.purchases.length > 0 && (
-                <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-[#4338ca]/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+                <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-[#4338ca]/30 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                   <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Modelo Renda</span>
@@ -668,7 +675,7 @@ export default function InvestorDashboard() {
               </div>
 
               {/* Card: Categoria & Taxa de Retorno */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+              <div className="relative overflow-hidden bg-linear-to-br from-[#18181b] to-[#121214] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
                 <div className="absolute top-0 right-0 h-40 w-40 bg-amber-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Categoria & Taxa</span>
@@ -1003,7 +1010,7 @@ export default function InvestorDashboard() {
                         </div>
 
                         {simSaleType === 'prazo' && (
-                          <div className="border-t border-zinc-800/80 pt-2 mt-2 space-y-1 text-[9px] text-zinc-400 bg-black/20 p-2 rounded-xl border border-zinc-800/30">
+                          <div className="border-t border-zinc-800/80 pt-2 mt-2 space-y-1 text-[9px] text-zinc-400 bg-black/20 p-2 rounded-xl">
                             <span className="font-bold text-white uppercase tracking-wider block text-[8px] mb-1">Detalhamento por Parcela (12x)</span>
                             <div className="flex justify-between">
                               <span>Parcela de Capital (Amortização):</span>
@@ -1118,7 +1125,7 @@ export default function InvestorDashboard() {
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                     <thead>
-                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Aparelho</th>
                         <th className="py-4 px-6">Cliente Final</th>
                         <th className="py-4 px-6 text-center">Parcelas</th>
@@ -1189,7 +1196,7 @@ export default function InvestorDashboard() {
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[800px]">
                     <thead>
-                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Contrato</th>
                         <th className="py-4 px-6">Data de Aquisição</th>
                         <th className="py-4 px-6 text-right">Preço de Compra</th>
@@ -1197,6 +1204,7 @@ export default function InvestorDashboard() {
                         <th className="py-4 px-6 text-center">Fração Adquirida</th>
                         <th className="py-4 px-6 text-right">Lucro Previsto</th>
                         <th className="py-4 px-6 text-center">Status</th>
+                        <th className="py-4 px-6 text-center">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/40">
@@ -1217,6 +1225,18 @@ export default function InvestorDashboard() {
                               Adquirido
                             </span>
                           </td>
+                          <td className="py-4 px-6 text-center">
+                             {purchase.saleId ? (
+                               <button
+                                 onClick={() => handleViewClientContract(purchase.saleId)}
+                                 className="px-2 py-1 bg-zinc-850 hover:bg-zinc-750 text-emerald-400 hover:text-emerald-300 border border-zinc-800 hover:border-zinc-700 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                               >
+                                 Ver Contrato
+                               </button>
+                             ) : (
+                               <span className="text-zinc-500">-</span>
+                             )}
+                           </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1239,7 +1259,7 @@ export default function InvestorDashboard() {
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[700px]">
                     <thead>
-                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Aparelho / Lote</th>
                         <th className="py-4 px-6">Cliente</th>
                         <th className="py-4 px-6 text-center">Data de Vencimento</th>
@@ -1303,7 +1323,7 @@ export default function InvestorDashboard() {
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[600px]">
                     <thead>
-                      <tr className="border-b border-zinc-800 bg-white/[0.02] text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                      <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Transação</th>
                         <th className="py-4 px-6">Data</th>
                         <th className="py-4 px-6 text-right">Capital</th>
@@ -1519,7 +1539,7 @@ export default function InvestorDashboard() {
               </div>
 
               {selectedSale && (
-                <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                <div className="bg-white/2 border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
                   <div className="flex justify-between">
                     <span>Equipamento:</span>
                     <span className="font-bold text-white">{selectedSale.device ? `${selectedSale.device.brand} ${selectedSale.device.model}` : 'N/A'}</span>
@@ -1536,7 +1556,7 @@ export default function InvestorDashboard() {
               )}
 
               {selectedSale && (
-                <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                <div className="bg-white/2 border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
                   <div className="flex justify-between">
                     <span>Sua Categoria:</span>
                     <span className={`font-bold uppercase ${

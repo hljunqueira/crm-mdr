@@ -165,7 +165,7 @@ export default function SignatureCanvas({ onSave, onCancel, title = "Assinatura 
           type="button"
           onClick={handleConfirm}
           disabled={isEmpty}
-          className="flex-[2] py-3 px-4 bg-primary text-on-primary rounded-xl text-[9px] font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
+          className="flex-2 py-3 px-4 bg-primary text-on-primary rounded-xl text-[9px] font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
         >
           <CheckCircle2 size={12} /> Confirmar Assinatura
         </button>

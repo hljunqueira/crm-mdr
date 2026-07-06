@@ -766,6 +766,57 @@ router.patch("/:id", async (req, res) => {
        
     if (updateError) return res.status(500).json({ error: updateError.message });
 
+    if (updatedSale && 
+        (updatedSale.status === 'cancelled' || updatedSale.status === 'refunded') && 
+        (oldSale.status !== 'cancelled' && oldSale.status !== 'refunded')) {
+      
+      // 1. Clean up and deduct future_receipts for purchased receivables of this sale
+      const { data: purchases } = await supabase
+        .from('receivable_purchases')
+        .select('*')
+        .eq('sale_id', req.params.id)
+        .eq('status', 'approved');
+
+      if (purchases && purchases.length > 0) {
+        for (const pur of purchases) {
+          const { data: unpaidInstallments } = await supabase
+            .from('installments')
+            .select('value')
+            .eq('sale_id', req.params.id)
+            .neq('status', 'paid')
+            .neq('status', 'cancelled');
+
+          const unpaidSum = (unpaidInstallments || []).reduce((sum, inst) => sum + Number(inst.value), 0);
+          const remainingAmt = unpaidSum * Number(pur.ownership_percentage || 1);
+
+          const { data: wallet } = await supabase
+            .from('wallets')
+            .select('future_receipts')
+            .eq('profile_id', pur.profile_id)
+            .maybeSingle();
+
+          if (wallet) {
+            const newFuture = Math.max(0, Number(wallet.future_receipts || 0) - remainingAmt);
+            await supabase
+              .from('wallets')
+              .update({ future_receipts: newFuture })
+              .eq('profile_id', pur.profile_id);
+          }
+        }
+        await supabase
+          .from('receivable_purchases')
+          .delete()
+          .eq('sale_id', req.params.id);
+      }
+
+      // 2. Update installments to cancelled
+      await supabase
+        .from('installments')
+        .update({ status: 'cancelled' })
+        .eq('sale_id', req.params.id)
+        .neq('status', 'paid');
+    }
+
     if (updatedSale && updatedSale.device_id && req.body.imei_manual) {
       try {
         const cleanImei = String(req.body.imei_manual).trim();
@@ -973,7 +1024,45 @@ router.delete("/:id", async (req, res) => {
       }
     }
 
-    // 2.5 Clean up and deduct future_receipts for purchased receivables of this sale
+    // 2.5 Reverter repasses já realizados para investidores nas parcelas pagas desta venda
+    const { data: tempInstallments } = await supabase
+      .from('installments')
+      .select('id')
+      .eq('sale_id', req.params.id);
+
+    const tempInstIds = (tempInstallments || []).map(i => i.id);
+
+    if (tempInstIds.length > 0) {
+      const { data: txsToRevert } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .in('installment_id', tempInstIds);
+
+      if (txsToRevert && txsToRevert.length > 0) {
+        for (const tx of txsToRevert) {
+          const { data: wallet } = await supabase
+            .from('wallets')
+            .select('id, balance')
+            .eq('profile_id', tx.profile_id)
+            .maybeSingle();
+
+          if (wallet) {
+            const newBalance = Math.max(0, Number(wallet.balance || 0) - Number(tx.amount || 0));
+            await supabase
+              .from('wallets')
+              .update({ balance: newBalance })
+              .eq('id', wallet.id);
+          }
+        }
+        const txIds = txsToRevert.map(t => t.id);
+        await supabase
+          .from('wallet_transactions')
+          .delete()
+          .in('id', txIds);
+      }
+    }
+
+    // 2.6 Clean up and deduct future_receipts for purchased receivables of this sale
     const { data: purchases } = await supabase
       .from('receivable_purchases')
       .select('*')
@@ -982,6 +1071,16 @@ router.delete("/:id", async (req, res) => {
 
     if (purchases && purchases.length > 0) {
       for (const pur of purchases) {
+        const { data: unpaidInstallments } = await supabase
+          .from('installments')
+          .select('value')
+          .eq('sale_id', req.params.id)
+          .neq('status', 'paid')
+          .neq('status', 'cancelled');
+
+        const unpaidSum = (unpaidInstallments || []).reduce((sum, inst) => sum + Number(inst.value), 0);
+        const remainingAmt = unpaidSum * Number(pur.ownership_percentage || 1);
+
         const { data: wallet } = await supabase
           .from('wallets')
           .select('future_receipts')
@@ -989,7 +1088,7 @@ router.delete("/:id", async (req, res) => {
           .maybeSingle();
 
         if (wallet) {
-          const newFuture = Math.max(0, Number(wallet.future_receipts || 0) - Number(pur.total_receivable));
+          const newFuture = Math.max(0, Number(wallet.future_receipts || 0) - remainingAmt);
           await supabase
             .from('wallets')
             .update({ future_receipts: newFuture })

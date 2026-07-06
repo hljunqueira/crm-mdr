@@ -204,7 +204,7 @@ const replacementBottomLine = `      {/* MODAL DE ASSINATURA ELETRÔNICA */}
 
       {/* MODAL: CADASTRO RÁPIDO DE CLIENTE */}
       {isQuickCustomerOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-70 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[32px] p-6 space-y-6 animate-in zoom-in duration-300 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <div>

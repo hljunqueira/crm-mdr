@@ -1741,11 +1741,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-primary outline-none transition-all appearance-none"
             >
               <option value="" className="bg-[#121214] text-on-surface-variant">Selecionar Vendedor...</option>
-              {employees.map(e => (
-                <option key={e.id} value={e.id} className="bg-[#121214] text-white">
-                  {e.full_name}
-                </option>
-              ))}
+              {employees
+                .filter(e => e.role !== 'investor')
+                .map(e => (
+                  <option key={e.id} value={e.id} className="bg-[#121214] text-white">
+                    {e.full_name}
+                  </option>
+                ))}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-xs">
               ▼
@@ -2213,7 +2215,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               <span className="text-[10px] text-green-400 font-bold mt-1 block">🔓 Edição liberada pelo Administrador</span>
             )}
             {selectedDevices.length > 0 && (
-              <div className="mt-2 p-3 bg-white/[0.02] border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
+              <div className="mt-2 p-3 bg-white/2 border border-white/5 rounded-xl flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-on-surface-variant/70">
                 <span>Sugerido: <strong className="text-white font-mono">R$ {suggestedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                 {profile?.role === 'admin' && (
                   <>
@@ -2804,7 +2806,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           </button>
           <button
             type="submit"
-            className="w-full sm:flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+            className="w-full sm:flex-2 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
           >
             <Save size={16} /> {initialData ? 'Atualizar Venda' : 'Finalizar Venda'}
           </button>
@@ -3076,7 +3078,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
       {/* Modal de Cadastro Rápido de Fornecedor */}
       {isQuickSupplierOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-60 p-4 animate-in fade-in duration-300">
           <div className="bg-[#121224] border border-white/10 rounded-[28px] w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-5 border-b border-white/5 flex items-center justify-between">
               <h4 className="text-sm font-black text-white uppercase tracking-wider font-display">Novo Fornecedor</h4>
@@ -3121,7 +3123,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       )}
       {/* Modal de Confirmação de Assinatura do Colaborador (Senha) */}
       {isConfirmAuthOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-70 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-white/10 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
             <div className="flex items-center gap-3 text-primary">
               <UserCheck size={28} />
@@ -3152,7 +3154,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 >
                   <option value="" className="bg-[#121214]">Selecione seu nome...</option>
                   {employees
-                    .filter(emp => !emp.full_name.toLowerCase().includes('terminal') && emp.full_name.toLowerCase() !== 'loja arroio')
+                    .filter(emp => emp.role !== 'investor' && !emp.full_name.toLowerCase().includes('terminal') && emp.full_name.toLowerCase() !== 'loja arroio')
                     .map(emp => (
                       <option key={emp.id} value={emp.id} className="bg-[#121214]">
                         {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
@@ -3211,7 +3213,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
       {/* Modal de Autorização do Administrador para Desconto / Alteração de Valor */}
       {isAdminAuthModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-80 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-white/10 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
             <div className="flex items-center gap-3 text-primary">
               <UserCheck size={28} />

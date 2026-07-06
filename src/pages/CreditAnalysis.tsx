@@ -733,7 +733,7 @@ export default function CreditAnalysis() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* COLUNA 1: LISTAGEM DE CLIENTES E FILTRO */}
-        <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
+        <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
           <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 shrink-0">
             <button
               type="button"
@@ -791,7 +791,7 @@ export default function CreditAnalysis() {
                   className={`w-full text-left p-4 rounded-3xl border transition-all flex flex-col gap-1.5 ${
                     selectedCustomerId === cust.id 
                       ? 'bg-primary-container border-primary/40 text-on-primary-container shadow-lg' 
-                      : 'bg-white/[0.01] border-white/5 text-on-surface hover:bg-white/[0.03]'
+                      : 'bg-white/1 border-white/5 text-on-surface hover:bg-white/3'
                   }`}
                 >
                   <div className="flex justify-between items-start w-full">
@@ -826,7 +826,7 @@ export default function CreditAnalysis() {
 
 
           {!selectedCustomer ? (
-            <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-8 h-[30vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
+            <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-8 h-[30vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
               <ShieldCheck size={64} className="text-on-surface-variant opacity-20" />
               <h3 className="text-sm font-black text-on-surface uppercase tracking-widest">Nenhum Cliente Selecionado</h3>
               <p className="text-xs text-on-surface-variant max-w-sm">Escolha uma solicitação na lista lateral para iniciar a validação cadastral e consulta automatizada ao Banco Central.</p>
@@ -835,7 +835,7 @@ export default function CreditAnalysis() {
             <div className="space-y-6">
 
               {/* Card Dados do Cliente & Seletor de Consultas */}
-              <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+              <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-primary font-black uppercase text-lg border border-white/10">
@@ -909,7 +909,7 @@ export default function CreditAnalysis() {
                 </div>
 
                 {/* Informações Pessoais & Documentação do Cliente */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 rounded-3xl p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/1 border border-white/5 rounded-3xl p-5">
                   <div className="space-y-4">
                     <div>
                       <span className="text-[9px] font-black text-primary uppercase tracking-widest block mb-2">Endereço Residencial</span>
@@ -1009,7 +1009,7 @@ export default function CreditAnalysis() {
                 </div>
 
                 {/* Seletores de Consulta com Custo Estimado */}
-                <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+                <div className="bg-white/1 border border-white/5 rounded-3xl p-5 space-y-4">
                   <span className="text-[9px] font-black text-primary uppercase tracking-widest block">Seletor de Consulta</span>
                   
                   {isCompany ? (
@@ -1036,7 +1036,7 @@ export default function CreditAnalysis() {
                               "flex items-start gap-3 p-4 rounded-2xl border text-left transition-all",
                               isSelected 
                                 ? "bg-primary-container/20 border-primary text-white" 
-                                : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/[0.03]"
+                                : "bg-white/1 border-white/5 text-on-surface-variant hover:bg-white/3"
                             )}
                           >
                             <div className="mt-0.5 text-primary shrink-0">
@@ -1161,7 +1161,7 @@ export default function CreditAnalysis() {
 
               {/* Histórico de Consultas Realizadas */}
               {queryHistory.length > 0 && (
-                <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+                <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
                   <span className="text-[10px] font-black text-primary uppercase tracking-widest block pl-1">Histórico de Consultas Realizadas</span>
                   <div className="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                     {queryHistory.map((q) => {
@@ -1216,7 +1216,7 @@ export default function CreditAnalysis() {
 
               {/* Painel de Resultados por Abas */}
               {queryResults && (
-                <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+                <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
                   {/* Tabs Selector */}
                   <div className="flex overflow-x-auto gap-2 pb-2 custom-scrollbar border-b border-white/5">
                     {selectedServices.map(srvId => {
@@ -1231,7 +1231,7 @@ export default function CreditAnalysis() {
                             "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shrink-0 border",
                             activeTab === srvId
                               ? "bg-primary border-primary text-on-primary shadow-lg"
-                              : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/5",
+                              : "bg-white/1 border-white/5 text-on-surface-variant hover:bg-white/5",
                             hasErr && activeTab !== srvId && "border-red-500/30 text-red-400"
                           )}
                         >
@@ -1249,7 +1249,7 @@ export default function CreditAnalysis() {
               )}
 
               {/* Formulário de Decisão e Homologação de Crédito */}
-              <form onSubmit={handleSubmit} className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
+              <form onSubmit={handleSubmit} className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
                   <UserCheck size={16} /> Decisão e Homologação de Crédito
                 </h3>
@@ -1375,7 +1375,7 @@ export default function CreditAnalysis() {
                   <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-2 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <><Loader2 className="animate-spin" size={16} /> Salvando...</>

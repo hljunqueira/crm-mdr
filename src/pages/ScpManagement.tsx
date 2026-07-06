@@ -6,6 +6,126 @@ import {
 import { useScpStore } from '../store/useScpStore';
 import { useUI } from '../context/UIContext';
 import { supabase } from '../lib/supabase';
+import { Upload } from 'lucide-react';
+
+interface ApproveWithdrawalFormProps {
+  id: string;
+  onApprove: (paymentDate: string, receiptUrl: string) => Promise<void>;
+  onCancel: () => void;
+}
+
+const ApproveWithdrawalForm: React.FC<ApproveWithdrawalFormProps> = ({ id, onApprove, onCancel }) => {
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [receiptUrl, setReceiptUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const filePath = `receipts/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      setReceiptUrl(publicUrl);
+    } catch (err: any) {
+      alert(`Falha no upload: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentDate) return;
+    try {
+      setIsSaving(true);
+      await onApprove(paymentDate, receiptUrl);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 text-white text-xs">
+      <p className="text-sm">Deseja realmente aprovar este resgate Pix?</p>
+      <p className="text-[10px] text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 font-black uppercase tracking-widest leading-normal">
+        Certifique-se de que a transferência Pix já foi efetuada manualmente na sua conta bancária antes de confirmar.
+      </p>
+
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Data de Pagamento</label>
+          <input
+            type="date"
+            value={paymentDate}
+            onChange={(e) => setPaymentDate(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary outline-none transition-all"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Comprovante de Pagamento</label>
+          <div className="flex items-center gap-4">
+            <label className="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-2xl cursor-pointer transition-all flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]">
+              <Upload size={14} />
+              {isUploading ? 'Fazendo Upload...' : receiptUrl ? 'Alterar Comprovante' : 'Anexar Comprovante'}
+              <input
+                type="file"
+                onChange={handleFileUpload}
+                accept="image/*,application/pdf"
+                className="hidden"
+                disabled={isUploading}
+              />
+            </label>
+            {receiptUrl && (
+              <a
+                href={receiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline font-bold uppercase tracking-widest text-[10px] flex items-center gap-1"
+              >
+                Visualizar Anexo
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4 border-t border-zinc-800 pt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 py-4 px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-all cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={isUploading || isSaving}
+          className="flex-1 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+        >
+          {isSaving ? 'Aprovando...' : 'Aprovar e Liquidar'}
+        </button>
+      </div>
+    </form>
+  );
+};
 
 export default function ScpManagement() {
   const {
@@ -509,24 +629,21 @@ export default function ScpManagement() {
     showModal({
       title: 'Aprovar Solicitação de Resgate',
       children: (
-        <div className="space-y-4 text-white text-xs">
-          <p className="text-sm">Deseja realmente aprovar este resgate Pix?</p>
-          <p className="text-[10px] text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 font-black uppercase tracking-widest leading-normal">
-            Certifique-se de que a transferência Pix já foi efetuada manualmente na sua conta bancária antes de confirmar.
-          </p>
-        </div>
+        <ApproveWithdrawalForm
+          id={id}
+          onApprove={async (paymentDate, receiptUrl) => {
+            try {
+              await approveWithdrawal(id, { paymentDate, receiptUrl });
+              showNotification('success', 'Sucesso', 'Resgate aprovado e saldo debitado com sucesso.');
+              hideModal();
+            } catch (err) {
+              showNotification('error', 'Erro', 'Falha ao aprovar resgate.');
+            }
+          }}
+          onCancel={hideModal}
+        />
       ),
-      type: 'primary',
-      confirmText: 'Aprovar e Liquidar',
-      onConfirm: async () => {
-        try {
-          await approveWithdrawal(id);
-          showNotification('success', 'Sucesso', 'Resgate aprovado e saldo debitado com sucesso.');
-          hideModal();
-        } catch (err) {
-          showNotification('error', 'Erro', 'Falha ao aprovar resgate.');
-        }
-      }
+      type: 'primary'
     });
   };
 
@@ -1731,7 +1848,7 @@ export default function ScpManagement() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {filteredAvailableDevices.map((d) => (
-                      <div key={d.id} className="flex flex-col p-3 bg-white/[0.02] hover:bg-white/[0.06] border border-white/5 rounded-2xl transition-all">
+                      <div key={d.id} className="flex flex-col p-3 bg-white/2 hover:bg-white/6 border border-white/5 rounded-2xl transition-all">
                         <div
                           className="flex items-center gap-3 w-full cursor-pointer"
                           onClick={() => {
@@ -1881,7 +1998,7 @@ export default function ScpManagement() {
               </div>
 
               {primeSelectedDeviceIds.length > 0 && (
-                <div className="bg-white/[0.02] border border-zinc-800 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
+                <div className="bg-white/2 border border-zinc-800 p-3 rounded-2xl text-[10px] space-y-1.5 text-zinc-400">
                   <div className="flex justify-between">
                     <span>Valor Total Financiado (À Vista):</span>
                     <span className="font-bold text-white">R$ {salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
@@ -1982,7 +2099,7 @@ export default function ScpManagement() {
               </div>
 
               {selectedSale && (
-                <div className="bg-white/[0.02] border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1 text-zinc-400">
+                <div className="bg-white/2 border border-zinc-800/80 p-3 rounded-2xl text-[10px] space-y-1 text-zinc-400">
                   <div className="flex justify-between">
                     <span>Equipamento:</span>
                     <span className="font-bold text-white">{brandModel}</span>

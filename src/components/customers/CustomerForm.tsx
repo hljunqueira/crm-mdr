@@ -570,7 +570,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       )}
 
       {/* SEÇÃO 1: INFORMAÇÕES PESSOAIS */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <User size={14} /> Dados Pessoais
         </h4>
@@ -683,7 +683,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       {formType === 'complete' && (
         <>
           {/* SEÇÃO 2: CONTATOS COMPLEMENTARES */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <Phone size={14} /> Contatos Complementares
         </h4>
@@ -744,7 +744,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       </div>
 
       {/* SEÇÃO 2: ENDEREÇO ESTRUTURADO */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <MapPin size={14} /> Endereço Residencial
         </h4>
@@ -819,7 +819,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       </div>
 
       {/* SEÇÃO 3: ANEXOS & DOCUMENTOS */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <Upload size={14} /> Documentos Comprobatórios
         </h4>
@@ -829,7 +829,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
             { label: 'CNH ou RG', key: 'document_id_url' as const },
             { label: 'Comp. Renda', key: 'document_income_url' as const }
           ].map((doc, idx) => (
-            <div key={idx} className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-between text-center gap-3">
+            <div key={idx} className="bg-white/2 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-between text-center gap-3">
               <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider">{doc.label}</span>
               
               {formData[doc.key] ? (
@@ -867,7 +867,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
       </div>
 
       {/* SEÇÃO 5: SIMULAÇÃO DE PRÉ-VENDA */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 space-y-4">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 space-y-4">
         <h4 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <Smartphone size={14} /> Simulação de Pré-venda (Sujeita a Aprovação)
         </h4>
@@ -1075,7 +1075,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         <button 
           type="submit"
           disabled={isSubmitting}
-          className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
+          className="flex-2 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {isSubmitting ? (
             <>

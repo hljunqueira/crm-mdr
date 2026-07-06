@@ -347,7 +347,8 @@ export default function ServiceOrders() {
       const { data } = await supabase
         .from('profiles')
         .select('id, full_name, role')
-        .eq('active', true);
+        .eq('active', true)
+        .neq('role', 'investor');
       if (data) setAdmins(data);
     };
     fetchAdmins();
@@ -2226,7 +2227,7 @@ export default function ServiceOrders() {
                 "flex items-center gap-2.5 px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
                 selectedCategoryTab === cat.id
                   ? "bg-primary border-primary text-on-primary shadow-lg shadow-primary/10"
-                  : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/5"
+                  : "bg-white/1 border-white/5 text-on-surface-variant hover:bg-white/5"
               )}
             >
               <CatIcon size={14} />
@@ -2237,7 +2238,7 @@ export default function ServiceOrders() {
       </div>
 
       {/* Mobile Tab Switcher */}
-      <div className="flex xl:hidden bg-white/[0.02] border border-white/5 p-1 rounded-3xl mb-6 gap-1">
+      <div className="flex xl:hidden bg-white/2 border border-white/5 p-1 rounded-3xl mb-6 gap-1">
         <button
           onClick={() => setActiveMobileTab('queue')}
           className={cn(
@@ -2289,7 +2290,7 @@ export default function ServiceOrders() {
         {/* COLUNA 2 E 3: BANCADA DO TÉCNICO & DETALHES DA OS */}
         <div className={cn("xl:col-span-9 flex flex-col gap-6", activeMobileTab === 'workbench' ? 'block' : 'hidden xl:block')}>
           {!selectedOsId || !currentServiceOrder ? (
-            <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-8 h-[75vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
+            <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-8 h-[75vh] flex flex-col items-center justify-center text-center gap-4 opacity-50">
               <Wrench size={64} className="text-on-surface-variant opacity-20" />
               <h3 className="text-sm font-black text-on-surface uppercase tracking-widest">Nenhuma OS Selecionada</h3>
               <p className="text-xs text-on-surface-variant max-w-sm">Escolha uma Ordem de Serviço na fila ao lado para diagnosticar, adicionar peças, checklist de testes e emitir termos.</p>
@@ -2326,7 +2327,7 @@ export default function ServiceOrders() {
               )}
 
               {/* FICHA GERAL DO EQUIPAMENTO */}
-              <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
+              <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-4">
                   <div className="flex items-center gap-3">
                     <button
@@ -2496,7 +2497,7 @@ export default function ServiceOrders() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                  <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                     <User size={14} className="opacity-40 text-primary" />
                     <div>
                       <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Cliente</p>
@@ -2504,7 +2505,7 @@ export default function ServiceOrders() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                     <Phone size={14} className="opacity-40 text-primary" />
                     <div>
                       <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">WhatsApp do Cliente</p>
@@ -2512,7 +2513,7 @@ export default function ServiceOrders() {
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5 md:col-span-2">
+                  <div className="flex items-start gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5 md:col-span-2">
                     <AlertCircle size={14} className="opacity-40 text-primary mt-0.5" />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
@@ -2561,7 +2562,7 @@ export default function ServiceOrders() {
                   </div>
 
                   {currentServiceOrder.device_passcode && (
-                    <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                       <Info size={14} className="opacity-40 text-primary" />
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Senha do Dispositivo</p>
@@ -2571,7 +2572,7 @@ export default function ServiceOrders() {
                   )}
 
                   {currentServiceOrder.device_pattern_lock && (
-                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                    <div className="flex items-start gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                       <Info size={14} className="opacity-40 text-primary mt-0.5" />
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Padrão de Desbloqueio</p>
@@ -2583,7 +2584,7 @@ export default function ServiceOrders() {
                   )}
 
                   {currentServiceOrder.cosmetic_condition && (
-                    <div className="flex items-center gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                    <div className="flex items-center gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                       <Info size={14} className="opacity-40 text-primary" />
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Estado de Vistoria Visual</p>
@@ -2593,7 +2594,7 @@ export default function ServiceOrders() {
                   )}
 
                   {currentServiceOrder.accessories_left && currentServiceOrder.accessories_left.length > 0 && (
-                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5 md:col-span-2">
+                    <div className="flex items-start gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5 md:col-span-2">
                       <FileText size={14} className="opacity-40 text-primary mt-0.5" />
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Acessórios Inclusos</p>
@@ -2609,7 +2610,7 @@ export default function ServiceOrders() {
                   )}
 
                   {currentServiceOrder.signature_entry && (
-                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                    <div className="flex items-start gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                       <FileText size={14} className="opacity-40 text-primary mt-0.5" />
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Assinatura de Entrada</p>
@@ -2621,7 +2622,7 @@ export default function ServiceOrders() {
                   )}
 
                   {currentServiceOrder.signature_exit && (
-                    <div className="flex items-start gap-2.5 bg-white/[0.01] p-3 rounded-2xl border border-white/5">
+                    <div className="flex items-start gap-2.5 bg-white/1 p-3 rounded-2xl border border-white/5">
                       <FileText size={14} className="opacity-40 text-primary mt-0.5" />
                       <div>
                         <p className="text-[8px] font-black text-on-surface-variant uppercase tracking-wider leading-none">Assinatura de Saída</p>
@@ -2673,7 +2674,7 @@ export default function ServiceOrders() {
               />
 
               {/* MOTOR DE DECISÃO TÉCNICA E HOMOLOGAÇÃO FINANCEIRA */}
-              <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
+              <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2 border-b border-white/5 pb-3">
                   <Save size={16} /> Homologação Técnica & Fechamento Financeiro
                 </h3>
@@ -2839,7 +2840,7 @@ export default function ServiceOrders() {
                           showNotification('error', 'Erro', 'Falha ao salvar OS.');
                         }
                       }}
-                      className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                      className="flex-2 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                     >
                       <Check size={16} /> Salvar OS & Sincronizar
                     </button>
@@ -3028,7 +3029,7 @@ export default function ServiceOrders() {
                       placeholder="Ex: 1234, admin, sem senha"
                       value={newOs.device_passcode}
                       onChange={(e) => setNewOs(p => ({ ...p, device_passcode: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all font-mono text-warning"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs focus:border-primary outline-none transition-all font-mono text-warning"
                     />
                   </div>
                 )}
@@ -3223,7 +3224,7 @@ export default function ServiceOrders() {
                 <button
                   type="submit"
                   disabled={isSubmitting || !newOs.customer_id}
-                  className="flex-[2] py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:opacity-90 active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-2 py-4 bg-primary text-on-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:opacity-90 active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
@@ -3444,7 +3445,7 @@ export default function ServiceOrders() {
       {/* ======================================================================= */}
       {/* MODAL DE CONFIRMAÇÃO DE IMPRESSÃO IMEDIATA */}
       {justCreatedOs && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-60 flex items-center justify-center p-4 animate-in fade-in duration-300">
           <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[40px] p-8 space-y-6 text-center animate-in zoom-in duration-300 shadow-2xl relative">
             {/* Botão de Fechar */}
             <button
@@ -3542,7 +3543,7 @@ export default function ServiceOrders() {
 
       {/* MODAL: CADASTRO RÁPIDO DE CLIENTE */}
       {isQuickCustomerOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-70 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-outline-variant/30 w-full max-w-md rounded-[32px] p-6 space-y-6 animate-in zoom-in duration-300 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/5 pb-4">
               <div>
@@ -3793,7 +3794,7 @@ export default function ServiceOrders() {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
+                  <div className="space-y-2 bg-white/2 border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
                     <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Parceiro Rápido</span>
                     <div className="flex gap-2">
                       <input
@@ -3899,7 +3900,7 @@ export default function ServiceOrders() {
 
       {/* Modal de Confirmação de Assinatura do Colaborador (Senha) */}
       {isConfirmAuthOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-70 flex items-center justify-center p-4">
           <div className="bg-[#121214] border border-white/10 rounded-[40px] max-w-md w-full p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
             <div className="flex items-center gap-3 text-primary">
               <UserCheck size={28} />

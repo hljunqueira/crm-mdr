@@ -45,7 +45,7 @@ interface ScpState {
     pix_key_type: string;
     pix_key: string;
   }) => Promise<void>;
-  approveWithdrawal: (id: string) => Promise<void>;
+  approveWithdrawal: (id: string, payload?: { paymentDate?: string; receiptUrl?: string }) => Promise<void>;
   rejectWithdrawal: (id: string) => Promise<void>;
   linkDevices: (lotId: string, deviceIds: string[]) => Promise<void>;
   updateContractUrl: (quotaId: string, contractUrl: string) => Promise<void>;
@@ -108,9 +108,9 @@ export const useScpStore = create<ScpState>()((set, get) => ({
       throw err;
     }
   },
-  approveWithdrawal: async (id) => {
+  approveWithdrawal: async (id, payload) => {
     try {
-      await api.post(`/scp/withdrawals/${id}/approve`, {});
+      await api.post(`/scp/withdrawals/${id}/approve`, payload || {});
       get().fetchWithdrawals();
     } catch (err) {
       console.error('Error approving withdrawal:', err);

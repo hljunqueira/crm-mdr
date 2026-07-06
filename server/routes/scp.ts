@@ -426,11 +426,19 @@ router.get("/dashboard/:profile_id", async (req, res) => {
               const paidInst = insts ? insts.filter(i => i.status === "paid").length : 0;
               const isOverdue = insts ? insts.some(i => i.status === "overdue" || i.status === "blocked") : false;
 
-              // Calculate device-specific capital returned and interest received
               const devTxs = credits.filter(t => t.description && t.description.includes(`Lote: ${lot.title}`));
 
-              const devCapReturned = devTxs.filter(t => t.type === "AMORTIZATION").reduce((sum, t) => sum + Number(t.amount || 0), 0) * ownershipFraction;
-              const devIntReceived = devTxs.filter(t => t.type === "PROFIT").reduce((sum, t) => sum + Number(t.amount || 0), 0) * ownershipFraction;
+              const devCapReturned = devTxs.reduce((sum, t) => {
+                if (t.type === "AMORTIZATION") return sum + Number(t.amount || 0);
+                if (t.type === "CREDIT") return sum + Number(t.capital_portion || 0);
+                return sum;
+              }, 0) * ownershipFraction;
+              
+              const devIntReceived = devTxs.reduce((sum, t) => {
+                if (t.type === "PROFIT") return sum + Number(t.amount || 0);
+                if (t.type === "CREDIT") return sum + Number(t.interest_portion || 0);
+                return sum;
+              }, 0) * ownershipFraction;
 
               // Calculate projected interest & monthly forecast for unpaid installments
               const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
@@ -596,8 +604,17 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         const isOverdue = insts ? insts.some(i => i.status === "overdue" || i.status === "blocked") : false;
 
         const devTxs = credits.filter(t => t.description && t.description.includes(`Celular #${dev.id}`));
-        const devCapReturned = devTxs.filter(t => t.type === "AMORTIZATION").reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        const devIntReceived = devTxs.filter(t => t.type === "PROFIT").reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        const devCapReturned = devTxs.reduce((sum, t) => {
+          if (t.type === "AMORTIZATION") return sum + Number(t.amount || 0);
+          if (t.type === "CREDIT") return sum + Number(t.capital_portion || 0);
+          return sum;
+        }, 0);
+        
+        const devIntReceived = devTxs.reduce((sum, t) => {
+          if (t.type === "PROFIT") return sum + Number(t.amount || 0);
+          if (t.type === "CREDIT") return sum + Number(t.interest_portion || 0);
+          return sum;
+        }, 0);
 
         // Calculate projected interest & monthly forecast for unpaid installments
         const unpaidInsts = (insts || []).filter(i => i.status !== "paid");
@@ -1023,6 +1040,7 @@ router.get("/withdrawals", async (req, res) => {
 router.post("/withdrawals/:id/approve", async (req, res) => {
   try {
     const { id } = req.params;
+    const { paymentDate, receiptUrl } = req.body;
 
     // Buscar dados do saque
     const { data: request, error: reqErr } = await supabase
@@ -1080,7 +1098,9 @@ router.post("/withdrawals/:id/approve", async (req, res) => {
       .from("withdrawal_requests")
       .update({
         status: "APPROVED",
-        processed_at: new Date().toISOString()
+        processed_at: new Date().toISOString(),
+        payment_date: paymentDate ? new Date(paymentDate).toISOString() : new Date().toISOString(),
+        receipt_url: receiptUrl || null
       })
       .eq("id", id)
       .select()
@@ -1475,7 +1495,7 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
           const { processScpInstallmentPayout } = require("./scp_payout_trigger");
           for (const inst of paidInstallments) {
             try {
-              await processScpInstallmentPayout(inst);
+              await processScpInstallmentPayout(inst.id, Number(inst.value));
             } catch (err) {
               console.error("Erro no repasse retroativo:", err);
             }
