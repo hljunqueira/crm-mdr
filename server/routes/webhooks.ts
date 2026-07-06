@@ -429,9 +429,16 @@ router.post('/asaas', async (req, res) => {
                 : "Olá, {nome}! Recebemos o seu pagamento de {valor} referente à parcela {numero}. Muito obrigado pela preferência! 🙏";
 
               const messageText = templateToUse
+                .replace(/{nome_cliente}/gi, customerName)
                 .replace(/{nome}/gi, customerName)
+                .replace(/{valor_parcela}/gi, `R$ ${instVal}`)
                 .replace(/{valor}/gi, `R$ ${instVal}`)
-                .replace(/{numero}/gi, String(instNum));
+                .replace(/{numero}/gi, String(instNum))
+                .replace(/{parcela_atual}/gi, String(instNum))
+                .replace(/{total_parcelas}/gi, String(updatedInst.total_installments || ''))
+                .replace(/{aparelho}/gi, (updatedInst.sales?.device_model_manual || 'Aparelho').replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase())
+                .replace(/{nome_loja}/gi, (store?.name || 'MDR Celulares').trim())
+                .replace(/{data_pagamento}/gi, new Date().toLocaleDateString('pt-BR'));
 
               console.log(`[Asaas Webhook] Sending payment confirmation message to ${remoteJid} using instance ${activeChannelForCust.instance_name}`);
               
