@@ -1316,7 +1316,7 @@ export default function ScpManagement() {
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           }`}>
-                          {u.investor_profile === 'conservador' ? 'Sem Risco (Vista)' : 'Com Risco (Prazo)'}
+                          {u.investor_profile === 'conservador' ? 'Sem Risco (Vista)' : 'Com Risco (Vista e Prazo)'}
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right font-bold text-emerald-400 font-mono">R$ {Number(u.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -1509,7 +1509,7 @@ export default function ScpManagement() {
                   onChange={(e) => setInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
                 >
-                  <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas a Prazo/Crediário)</option>
+                  <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas À Vista E A Prazo/Crediário)</option>
                   <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
                 </select>
               </div>
@@ -1598,7 +1598,7 @@ export default function ScpManagement() {
                 onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
               >
-                <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas a Prazo/Crediário)</option>
+                <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas À Vista E A Prazo/Crediário)</option>
                 <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
               </select>
             </div>
