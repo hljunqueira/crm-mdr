@@ -814,8 +814,9 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       });
     }
 
-    const capitalInvested = legacyCapitalInvested + primeCapitalInvested + rendaCapitalInvested;
-    const roi = capitalInvested > 0 ? (interestReceived / capitalInvested) * 100 : 0;
+    const totalInitialCapital = legacyCapitalInvested + primeCapitalInvested + rendaCapitalInvested;
+    const capitalInvested = Math.max(0, totalInitialCapital - capitalRecovered);
+    const roi = totalInitialCapital > 0 ? (interestReceived / totalInitialCapital) * 100 : 0;
     const delinquencyRate = totalRendaReceivable > 0 ? (totalRendaOverdue / totalRendaReceivable) * 100 : 0;
 
     const monthlyForecast = Object.keys(monthlyForecastMap)
