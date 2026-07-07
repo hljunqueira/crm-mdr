@@ -191,6 +191,7 @@ export default function ScpManagement() {
   const [primeDeviceImeis, setPrimeDeviceImeis] = useState<Record<string, string[]>>({});
   const [primeSelectedQuantities, setPrimeSelectedQuantities] = useState<Record<string, number>>({});
   const [primeValuationType, setPrimeValuationType] = useState<'sale' | 'cost'>('sale');
+  const [primeOnlyCashSale, setPrimeOnlyCashSale] = useState<boolean>(false);
 
   // Estados para edição de contrato
   const [isContractUrlOpen, setIsContractUrlOpen] = useState(false);
@@ -1314,9 +1315,15 @@ export default function ScpManagement() {
                       <td className="py-4 px-4">
                         <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${u.investor_profile === 'conservador'
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : u.investor_profile === 'arrojado_vista'
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           }`}>
-                          {u.investor_profile === 'conservador' ? 'Sem Risco (Vista)' : 'Com Risco (Vista e Prazo)'}
+                          {u.investor_profile === 'conservador' 
+                            ? 'Sem Risco (Apenas A Vista)' 
+                            : u.investor_profile === 'arrojado_vista'
+                              ? 'Com Risco (Avista)'
+                              : 'Com Risco (A Prazo)'}
                         </span>
                       </td>
                       <td className="py-4 px-4 text-right font-bold text-emerald-400 font-mono">R$ {Number(u.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -1509,8 +1516,9 @@ export default function ScpManagement() {
                   onChange={(e) => setInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
                   className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
                 >
-                  <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas À Vista E A Prazo/Crediário)</option>
-                  <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
+                  <option value="arrojado_vista" className="bg-[#121214]">COM RISCO (AVISTA)</option>
+                  <option value="arrojado" className="bg-[#121214]">COM RISCO (A PRAZO)</option>
+                  <option value="conservador" className="bg-[#121214]">SEM RISCO (APENAS A VISTA)</option>
                 </select>
               </div>
 
@@ -1598,8 +1606,9 @@ export default function ScpManagement() {
                 onChange={(e) => setEditInvestorFormData(prev => ({ ...prev, investor_profile: e.target.value }))}
                 className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-primary outline-none transition-all"
               >
-                <option value="arrojado" className="bg-[#121214]">Com Risco (Permite Vendas À Vista E A Prazo/Crediário)</option>
-                <option value="conservador" className="bg-[#121214]">Sem Risco (Apenas Vendas À Vista)</option>
+                <option value="arrojado_vista" className="bg-[#121214]">COM RISCO (AVISTA)</option>
+                <option value="arrojado" className="bg-[#121214]">COM RISCO (A PRAZO)</option>
+                <option value="conservador" className="bg-[#121214]">SEM RISCO (APENAS A VISTA)</option>
               </select>
             </div>
 

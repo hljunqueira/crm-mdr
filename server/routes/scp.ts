@@ -1379,7 +1379,7 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
       .eq("id", investor_id)
       .maybeSingle();
 
-    const isConservador = investorProf?.investor_profile === "conservador";
+    const isConservador = investorProf?.investor_profile === "conservador" || investorProf?.investor_profile === "arrojado_vista";
 
     const share = prime_profit_share !== undefined ? Number(prime_profit_share) / 100 : 0.6000;
     const fee = prime_admin_fee !== undefined ? Number(prime_admin_fee) / 100 : 0.1000;

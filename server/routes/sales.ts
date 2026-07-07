@@ -284,10 +284,10 @@ router.post("/", async (req, res) => {
             .eq('id', devObj.investor_id)
             .maybeSingle();
 
-          if (investorProfile?.investor_profile === 'conservador') {
+          if (investorProfile?.investor_profile === 'conservador' || investorProfile?.investor_profile === 'arrojado_vista') {
             if (req.body.payment_type === 'crediario') {
               return res.status(400).json({ 
-                error: "Este aparelho pertence a um investidor conservador e só pode ser vendido à vista (não é permitido crediário)." 
+                error: "Este aparelho pertence a um investidor com perfil de venda somente à vista (não é permitido crediário)." 
               });
             }
           }
