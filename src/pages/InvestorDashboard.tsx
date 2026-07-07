@@ -555,11 +555,11 @@ export default function InvestorDashboard() {
                 </div>
                 <div>
                   <span className="text-3xl font-extrabold tracking-tight">
-                    R$ {(wallet.capitalInvested + (wallet.projectedInterest || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {wallet.capitalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                   <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <Calendar size={14} className="text-indigo-400" />
-                    Capital + Lucro projetado
+                    Capital ativo sob gestão
                   </p>
                 </div>
                 <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
