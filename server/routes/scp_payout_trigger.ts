@@ -163,7 +163,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
     // 2. Fetch device details to find the lot or investor
     const { data: device, error: devErr } = await supabase
       .from("devices")
-      .select("id, brand, model, cost_price, sale_price, lot_id, investor_id, prime_profit_share, prime_admin_fee")
+      .select("id, brand, model, cost_price, sale_price, lot_id, investor_id, prime_profit_share, prime_admin_fee, prime_valuation_type")
       .eq("id", deviceId)
       .single();
 
@@ -192,7 +192,9 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
       const investorPhone = investorProfile.phone;
 
       // Prime Payout Math
-      const deviceSalePrice = Number(device.sale_price || device.cost_price || 0);
+      const deviceSalePrice = device.prime_valuation_type === "cost"
+        ? Number(device.cost_price || 0)
+        : Number(device.sale_price || device.cost_price || 0);
       const saleTotal = Number(sale.total_value || 0);
 
       // Amortization (Capital)
