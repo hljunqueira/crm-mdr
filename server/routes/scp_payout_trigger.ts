@@ -12,7 +12,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
         sales (
           id,
           device_id,
-          installments,
+          installments_count,
           total_value,
           customers (
             id,
@@ -24,14 +24,14 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
       .single();
 
     if (instErr || !installment || !installment.sales) {
-      console.log(`[SCP Payout] Installment ${installmentId} has no associated sale, ignoring.`);
+      console.log(`[SCP Payout] Installment ${installmentId} has no associated sale, ignoring. Error:`, instErr);
       return;
     }
 
     const sale = installment.sales as any;
     const customerName = sale.customers?.name || "Cliente";
     const deviceId = sale.device_id;
-    const totalInstallments = Number(sale.installments || 1);
+    const totalInstallments = Number(sale.installments_count || 1);
 
     // Verificar se há uma compra de recebível (Renda) aprovada para esta venda
     const { data: purchase } = await supabase
@@ -102,7 +102,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
           .from("wallet_transactions")
           .insert({
             profile_id: investorId,
-            type: "CREDIT",
+            type: "AMORTIZATION",
             amount: investorRepasse,
             capital_portion: investorRepasse,
             interest_portion: 0,
@@ -252,17 +252,36 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
         }
 
         // Create transaction log
+        const txsToInsert = [];
+        const amrt = Number(amortization.toFixed(2));
+        const prft = Number(investorProfit.toFixed(2));
+
+        if (amrt > 0) {
+          txsToInsert.push({
+            profile_id: investorId,
+            type: "AMORTIZATION",
+            amount: amrt,
+            capital_portion: amrt,
+            interest_portion: 0,
+            installment_id: installmentId,
+            description: `Amortização Parcela #${installment.installment_number} do celular Prime ${device.brand || ""} ${device.model || ""} (${customerName}) (Celular #${device.id})`
+          });
+        }
+        if (prft > 0) {
+          txsToInsert.push({
+            profile_id: investorId,
+            type: "PROFIT",
+            amount: prft,
+            capital_portion: 0,
+            interest_portion: prft,
+            installment_id: installmentId,
+            description: `Lucro Parcela #${installment.installment_number} do celular Prime ${device.brand || ""} ${device.model || ""} (${customerName}) (Celular #${device.id})`
+          });
+        }
+
         const { error: txErr } = await supabase
           .from("wallet_transactions")
-          .insert({
-            profile_id: investorId,
-            type: "CREDIT",
-            amount: investorRepasse,
-            capital_portion: Number(amortization.toFixed(2)),
-            interest_portion: Number(investorProfit.toFixed(2)),
-            installment_id: installmentId,
-            description: `Repasse Parcela #${installment.installment_number} do celular Prime ${device.brand || ""} ${device.model || ""} (${customerName})`
-          });
+          .insert(txsToInsert);
 
         if (txErr) {
           console.error(`[SCP Payout] Error inserting Prime transaction log:`, txErr);
@@ -321,7 +340,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
     // 3. Fetch lot details to get target amount (for quota ownership calculation)
     const { data: lot, error: lotErr } = await supabase
       .from("lots")
-      .select("id, target_amount")
+      .select("id, target_amount, title")
       .eq("id", device.lot_id)
       .single();
 
@@ -417,17 +436,36 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
       }
 
       // Create transaction log
+      const txsToInsert = [];
+      const cap = Number(investorShareCapital.toFixed(2));
+      const intr = Number(investorShareInterest.toFixed(2));
+
+      if (cap > 0) {
+        txsToInsert.push({
+          profile_id: q.profile_id,
+          type: "AMORTIZATION",
+          amount: cap,
+          capital_portion: cap,
+          interest_portion: 0,
+          installment_id: installmentId,
+          description: `Amortização Parcela #${installment.installment_number} do celular ${deviceModel} (${customerName}) (Lote: ${lot.title})`
+        });
+      }
+      if (intr > 0) {
+        txsToInsert.push({
+          profile_id: q.profile_id,
+          type: "PROFIT",
+          amount: intr,
+          capital_portion: 0,
+          interest_portion: intr,
+          installment_id: installmentId,
+          description: `Lucro Parcela #${installment.installment_number} do celular ${deviceModel} (${customerName}) (Lote: ${lot.title})`
+        });
+      }
+
       const { error: txErr } = await supabase
         .from("wallet_transactions")
-        .insert({
-          profile_id: q.profile_id,
-          type: "CREDIT",
-          amount: investorRepasse,
-          capital_portion: Number(investorShareCapital.toFixed(2)),
-          interest_portion: Number(investorShareInterest.toFixed(2)),
-          installment_id: installmentId,
-          description: `Repasse Parcela #${installment.installment_number} do celular ${deviceModel} (${customerName})`
-        });
+        .insert(txsToInsert);
 
       if (txErr) {
         console.error(`[SCP Payout] Error inserting transaction log for investor ${q.profile_id}:`, txErr);

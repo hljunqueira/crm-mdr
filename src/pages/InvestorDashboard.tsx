@@ -583,7 +583,7 @@ export default function InvestorDashboard() {
                   </span>
                   <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <Info size={14} className="text-emerald-400" />
-                    Juros previstos de parcelas em aberto
+                    Lucro previsto de parcelas em aberto
                   </p>
                 </div>
                 <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
