@@ -958,7 +958,17 @@ export default function CreditAnalysis() {
                     <span className="text-[9px] font-black text-primary uppercase tracking-widest block">Comprovantes & Selfie</span>
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { label: 'Identificação (CNH/RG)', url: selectedCustomer.document_id_url, key: 'document_id' },
+                        ...(selectedCustomer.rg_frente_url || selectedCustomer.rg_verso_url ? [
+                          { label: 'RG Frente', url: selectedCustomer.rg_frente_url, key: 'rg_frente' },
+                          { label: 'RG Verso', url: selectedCustomer.rg_verso_url, key: 'rg_verso' }
+                        ] : []),
+                        ...(selectedCustomer.cnh_frente_url || selectedCustomer.cnh_verso_url ? [
+                          { label: 'CNH Frente', url: selectedCustomer.cnh_frente_url, key: 'cnh_frente' },
+                          { label: 'CNH Verso', url: selectedCustomer.cnh_verso_url, key: 'cnh_verso' }
+                        ] : []),
+                        ...(!(selectedCustomer.rg_frente_url || selectedCustomer.rg_verso_url || selectedCustomer.cnh_frente_url || selectedCustomer.cnh_verso_url) || selectedCustomer.document_id_url ? [
+                          { label: 'Identificação (Legado)', url: selectedCustomer.document_id_url, key: 'document_id' }
+                        ] : []),
                         { label: 'Comp. Residência', url: selectedCustomer.document_address_url, key: 'document_address' },
                         { label: 'Comp. Renda', url: selectedCustomer.document_income_url, key: 'document_income' },
                         { label: 'Selfie de Segurança', url: selectedCustomer.self_photo_url, key: 'self_photo', isSelfie: true }

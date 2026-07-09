@@ -21,6 +21,10 @@ export interface Customer {
   document_address_url?: string;
   document_id_url?: string;
   document_income_url?: string;
+  rg_frente_url?: string;
+  rg_verso_url?: string;
+  cnh_frente_url?: string;
+  cnh_verso_url?: string;
   self_photo_url?: string;
   desired_device?: string;
   needed_credit?: number;

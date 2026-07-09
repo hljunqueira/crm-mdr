@@ -44,6 +44,10 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
     document_address_url: initialData?.document_address_url || '',
     document_id_url: initialData?.document_id_url || '',
     document_income_url: initialData?.document_income_url || '',
+    rg_frente_url: initialData?.rg_frente_url || '',
+    rg_verso_url: initialData?.rg_verso_url || '',
+    cnh_frente_url: initialData?.cnh_frente_url || '',
+    cnh_verso_url: initialData?.cnh_verso_url || '',
     desired_device: initialData?.desired_device || '',
     needed_credit: initialData?.needed_credit || 0,
     desired_installment_value: initialData?.desired_installment_value || 0,
@@ -188,6 +192,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         !!initialData.parent_contact_phone || 
         !!initialData.reference1_name || 
         !!initialData.document_id_url || 
+        !!initialData.rg_frente_url || 
+        !!initialData.cnh_frente_url || 
         !!initialData.desired_device;
       return hasCompleteInfo ? 'complete' : 'simple';
     }
@@ -299,7 +305,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: 'document_address_url' | 'document_id_url' | 'document_income_url'
+    fieldName: 'document_address_url' | 'document_id_url' | 'document_income_url' | 'rg_frente_url' | 'rg_verso_url' | 'cnh_frente_url' | 'cnh_verso_url'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -464,6 +470,10 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         submitData.document_address_url = '';
         submitData.document_id_url = '';
         submitData.document_income_url = '';
+        (submitData as any).rg_frente_url = '';
+        (submitData as any).rg_verso_url = '';
+        (submitData as any).cnh_frente_url = '';
+        (submitData as any).cnh_verso_url = '';
         submitData.desired_device = '';
         submitData.needed_credit = 0;
         submitData.desired_installment_value = 0;
@@ -495,6 +505,8 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                             !initialData.parent_contact_phone && 
                             !initialData.reference1_name && 
                             !initialData.document_id_url && 
+                            !initialData.rg_frente_url && 
+                            !initialData.cnh_frente_url && 
                             !initialData.desired_device;
           if (wasSimple) {
             submitData.registration_status = 'PRE_CADASTRO';
@@ -826,8 +838,12 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
             { label: 'Comp. Endereço', key: 'document_address_url' as const },
-            { label: 'CNH ou RG', key: 'document_id_url' as const },
-            { label: 'Comp. Renda', key: 'document_income_url' as const }
+            { label: 'Comp. Renda', key: 'document_income_url' as const },
+            { label: 'CNH ou RG (Legado)', key: 'document_id_url' as const },
+            { label: 'RG Frente', key: 'rg_frente_url' as const },
+            { label: 'RG Verso', key: 'rg_verso_url' as const },
+            { label: 'CNH Frente', key: 'cnh_frente_url' as const },
+            { label: 'CNH Verso', key: 'cnh_verso_url' as const }
           ].map((doc, idx) => (
             <div key={idx} className="bg-white/2 border border-white/5 p-4 rounded-2xl flex flex-col items-center justify-between text-center gap-3">
               <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-wider">{doc.label}</span>

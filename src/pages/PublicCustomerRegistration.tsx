@@ -16,6 +16,7 @@ export default function PublicCustomerRegistration() {
   const [loadingCep, setLoadingCep] = useState(false);
   const [uploading, setUploading] = useState<{ [key: string]: boolean }>({});
   const [documentType, setDocumentType] = useState<'CPF' | 'CNPJ'>('CPF');
+  const [selectedDocType, setSelectedDocType] = useState<'RG' | 'CNH'>('RG');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -36,6 +37,10 @@ export default function PublicCustomerRegistration() {
     document_address_url: '',
     document_id_url: '',
     document_income_url: '',
+    rg_frente_url: '',
+    rg_verso_url: '',
+    cnh_frente_url: '',
+    cnh_verso_url: '',
     self_photo_url: '',
     registration_status: 'PRE_CADASTRO',
     credit_status: 'EM_ANALISE',
@@ -98,7 +103,7 @@ export default function PublicCustomerRegistration() {
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    fieldName: 'document_address_url' | 'document_id_url' | 'document_income_url' | 'self_photo_url'
+    fieldName: 'document_address_url' | 'document_id_url' | 'document_income_url' | 'self_photo_url' | 'rg_frente_url' | 'rg_verso_url' | 'cnh_frente_url' | 'cnh_verso_url'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -147,9 +152,16 @@ export default function PublicCustomerRegistration() {
       return;
     }
 
-    if (!formData.document_id_url) {
-      showNotification('error', 'Documento Faltando', 'Por favor, anexe uma foto de sua CNH ou RG.');
-      return;
+    if (selectedDocType === 'RG') {
+      if (!formData.rg_frente_url || !formData.rg_verso_url) {
+        showNotification('error', 'Documento Faltando', 'Por favor, anexe a foto do RG Frente e do RG Verso.');
+        return;
+      }
+    } else {
+      if (!formData.cnh_frente_url || !formData.cnh_verso_url) {
+        showNotification('error', 'Documento Faltando', 'Por favor, anexe a foto da CNH Frente e da CNH Verso.');
+        return;
+      }
     }
 
     if (!formData.self_photo_url) {
@@ -157,10 +169,17 @@ export default function PublicCustomerRegistration() {
       return;
     }
 
+    // Preenche o campo legado com a frente do documento selecionado para compatibilidade
+    const documentIdUrl = selectedDocType === 'RG' ? formData.rg_frente_url : formData.cnh_frente_url;
+    const finalFormData = {
+      ...formData,
+      document_id_url: documentIdUrl
+    };
+
     setIsSubmitting(true);
     try {
       // Salva no banco de dados via API endpoint de criação de cliente
-      await api.post('/customers', formData);
+      await api.post('/customers', finalFormData);
       setSubmitted(true);
     } catch (error: any) {
       showNotification('error', 'Erro ao Enviar', error.message || 'Erro ao salvar os dados. Tente novamente.');
@@ -276,7 +295,7 @@ export default function PublicCustomerRegistration() {
                 placeholder={documentType === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'}
                 value={formData.cpf}
                 onChange={(e) => setFormData(p => ({ ...p, cpf: formatCPF(e.target.value) }))}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
               />
             </div>
           </div>
@@ -289,7 +308,7 @@ export default function PublicCustomerRegistration() {
               placeholder="(00) 00000-0000"
               value={formData.phone}
               onChange={(e) => setFormData(p => ({ ...p, phone: formatPhone(e.target.value) }))}
-              className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+              className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
             />
           </div>
         </div>
@@ -308,7 +327,7 @@ export default function PublicCustomerRegistration() {
               placeholder="(00) 00000-0000"
               value={formData.parent_contact_phone}
               onChange={(e) => setFormData(p => ({ ...p, parent_contact_phone: formatPhone(e.target.value) }))}
-              className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+              className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
             />
           </div>
 
@@ -332,7 +351,7 @@ export default function PublicCustomerRegistration() {
                 placeholder="(00) 00000-0000"
                 value={formData.reference1_phone}
                 onChange={(e) => setFormData(p => ({ ...p, reference1_phone: formatPhone(e.target.value) }))}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
               />
             </div>
           </div>
@@ -357,7 +376,7 @@ export default function PublicCustomerRegistration() {
                 placeholder="(00) 00000-0000"
                 value={formData.reference2_phone}
                 onChange={(e) => setFormData(p => ({ ...p, reference2_phone: formatPhone(e.target.value) }))}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
               />
             </div>
           </div>
@@ -381,7 +400,7 @@ export default function PublicCustomerRegistration() {
                 maxLength={9}
                 value={cep}
                 onChange={(e) => handleCepChange(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
               />
             </div>
             <div className="md:col-span-4 space-y-2">
@@ -415,7 +434,7 @@ export default function PublicCustomerRegistration() {
                 placeholder="Nº"
                 value={formData.address_number}
                 onChange={(e) => setFormData(p => ({ ...p, address_number: e.target.value }))}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-display font-mono"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white transition-all font-mono"
               />
             </div>
             <div className="md:col-span-2 space-y-2">
@@ -438,7 +457,7 @@ export default function PublicCustomerRegistration() {
                 placeholder="SC"
                 value={formData.state}
                 onChange={(e) => setFormData(p => ({ ...p, state: e.target.value.toUpperCase() }))}
-                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white text-center transition-all font-display font-mono"
+                className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs text-white outline-none focus:border-white text-center transition-all font-mono"
               />
             </div>
           </div>
@@ -453,9 +472,45 @@ export default function PublicCustomerRegistration() {
             * Por favor, tire fotos nítidas dos comprovantes (ou anexe em PDF/Imagem). É obrigatório o envio do Documento de Identidade para prosseguir.
           </p>
 
+          <div className="bg-black/20 border border-white/5 p-4 rounded-2xl space-y-3">
+            <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Selecione o Documento para Enviar</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedDocType('RG')}
+                className={cn(
+                  "flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all",
+                  selectedDocType === 'RG'
+                    ? "bg-white border-white text-black font-black"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                RG (Frente e Verso)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedDocType('CNH')}
+                className={cn(
+                  "flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all",
+                  selectedDocType === 'CNH'
+                    ? "bg-white border-white text-black font-black"
+                    : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                )}
+              >
+                CNH (Frente e Verso)
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'CNH ou RG *', key: 'document_id_url' as const },
+              ...(selectedDocType === 'RG' ? [
+                { label: 'RG Frente *', key: 'rg_frente_url' as const },
+                { label: 'RG Verso *', key: 'rg_verso_url' as const }
+              ] : [
+                { label: 'CNH Frente *', key: 'cnh_frente_url' as const },
+                { label: 'CNH Verso *', key: 'cnh_verso_url' as const }
+              ]),
               { label: 'Comp. Residência', key: 'document_address_url' as const },
               { label: 'Comp. Renda', key: 'document_income_url' as const },
               { label: 'Sua Selfie *', key: 'self_photo_url' as const, isSelfie: true }
