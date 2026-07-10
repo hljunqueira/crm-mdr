@@ -371,8 +371,28 @@ function SaleDocumentViewer({
   const basePrice = sale.original_price ?? sale.total_value;
   const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
   const financed = basePrice - sale.down_payment - tradeInVal;
-  const instValue = installments.length > 0 ? installments[0].value : (sale.installments > 0 ? financed / sale.installments : 0);
-  const firstInstValue = installments.length > 0 ? installments[0].value : instValue;
+  const instValue = (() => {
+    if (installments.length > 0) {
+      const monthlyInst = sale.down_payment > 0
+        ? installments.find(i => i.number > 1)
+        : installments[0];
+      if (monthlyInst) return monthlyInst.value;
+    }
+    if (sale.down_payment > 0) {
+      const monthlyCount = sale.installments - 1;
+      return monthlyCount > 0 ? financed / monthlyCount : 0;
+    }
+    return sale.installments > 0 ? financed / sale.installments : 0;
+  })();
+  const firstInstValue = (() => {
+    if (installments.length > 0) {
+      const firstMonthlyInst = sale.down_payment > 0
+        ? installments.find(i => i.number === 2)
+        : installments.find(i => i.number === 1);
+      if (firstMonthlyInst) return firstMonthlyInst.value;
+    }
+    return instValue;
+  })();
 
   let downPaymentMethod = (sale as any).down_payment_method;
   let tradeDeviceModel = (sale as any).trade_device_model;
@@ -903,7 +923,7 @@ function SaleDocumentViewer({
         <button
           type="button"
           onClick={handlePrint}
-          className="flex-[2] py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+          className="flex-2 py-4 px-6 rounded-2xl bg-primary text-on-primary text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
         >
           <Printer size={16} />
           Imprimir
@@ -1295,7 +1315,7 @@ export default function Sales() {
             <div
               key={idx}
               onClick={() => setStatusFilter(stat.id as any)}
-              className={`bg-white/[0.02] p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.04] ${isActive ? stat.activeBorder : 'border-white/5'}`}
+              className={`bg-white/2 p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
             >
               {isActive && (
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
@@ -1313,7 +1333,7 @@ export default function Sales() {
         })}
       </div>
 
-      <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 overflow-hidden">
+      <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
         <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
           <div className="relative flex-1 group">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
@@ -1396,7 +1416,7 @@ export default function Sales() {
                     key={sale.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="hover:bg-white/[0.02] transition-colors group"
+                    className="hover:bg-white/2 transition-colors group"
                   >
                     <td className="px-8 py-6">
                       <div>
@@ -1433,7 +1453,9 @@ export default function Sales() {
                               ? 'Cartão de Débito'
                               : sale.payment_type === 'card'
                                 ? `${sale.installments}x no Cartão`
-                                : `${sale.installments}x de R$ ${sale.installments > 0 ? (sale.total_value / sale.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}`}
+                                : sale.down_payment > 0
+                                  ? `${sale.installments - 1}x de R$ ${sale.installments > 1 ? ((sale.total_value - sale.down_payment) / (sale.installments - 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}`
+                                  : `${sale.installments}x de R$ ${sale.installments > 0 ? (sale.total_value / sale.installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}`}
                         </p>
                       </div>
                     </td>

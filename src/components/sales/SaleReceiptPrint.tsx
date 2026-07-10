@@ -290,7 +290,8 @@ export default function SaleReceiptPrint({
                 {(() => {
                   if (installments && installments.length > 0) {
                     const sorted = [...installments].sort((a, b) => a.number - b.number);
-                    const firstDate = (sorted[0] as any).due_date || (sorted[0] as any).dueDate;
+                    const targetInst = sale.down_payment > 0 && sorted.length > 1 ? sorted[1] : sorted[0];
+                    const firstDate = (targetInst as any).due_date || (targetInst as any).dueDate;
                     if (firstDate) {
                       const cleanStr = firstDate.includes('T') ? firstDate : `${firstDate}T12:00:00`;
                       return new Date(cleanStr).toLocaleDateString('pt-BR');

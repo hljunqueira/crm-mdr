@@ -62,7 +62,13 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
   const basePrice = sale.original_price ?? sale.total_value;
   const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
   const financed = basePrice - sale.down_payment - tradeInVal;
-  const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
+  const instValue = installmentValue ?? (
+    sale.installments > 0 
+      ? (sale.down_payment > 0 && sale.installments > 1 
+          ? financed / (sale.installments - 1) 
+          : financed / sale.installments)
+      : 0
+  );
   const firstInstValue = firstInstallmentValue ?? instValue;
   const totalWithFee = sale.total_value;
   const today = new Date().toLocaleDateString('pt-BR');
@@ -90,6 +96,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
 
     const sortedInsts = [...installments].sort((a, b) => a.number - b.number);
     sortedInsts.forEach((inst) => {
+      if (sale.down_payment > 0 && inst.number === 1) return; // skip down payment in cashflow as it is already subtracted from financed
       cashFlow.push(inst.value);
       const dateVal = inst.due_date || inst.dueDate || inst.date;
       dates.push(dateVal ? new Date(dateVal.includes('T') ? dateVal : `${dateVal}T12:00:00`) : new Date());
@@ -481,7 +488,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
               </td>
               <td>
                 <span className="label">Data da 1ª Parcela</span>
-                <span className="value">{installmentDates[0] || today}</span>
+                <span className="value">{(sale.down_payment > 0 && installmentDates.length > 1 ? installmentDates[1] : installmentDates[0]) || today}</span>
               </td>
               <td>
                 <span className="label">Data da Última Parcela</span>

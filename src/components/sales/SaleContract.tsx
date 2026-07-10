@@ -27,7 +27,19 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
 
   const basePrice = sale.original_price ?? sale.total_value;
   const financed = basePrice - sale.down_payment;
-  const instValue = installments.length > 0 ? installments[0].value : (sale.installments > 0 ? financed / sale.installments : 0);
+  const instValue = (() => {
+    if (installments.length > 0) {
+      const monthlyInst = sale.down_payment > 0
+        ? installments.find(i => i.number > 1)
+        : installments[0];
+      if (monthlyInst) return monthlyInst.value;
+    }
+    if (sale.down_payment > 0) {
+      const monthlyCount = sale.installments - 1;
+      return monthlyCount > 0 ? financed / monthlyCount : 0;
+    }
+    return sale.installments > 0 ? financed / sale.installments : 0;
+  })();
   const totalWithFee = sale.total_value;
 
   let downPaymentMethod = (sale as any).down_payment_method;
@@ -218,7 +230,20 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
             </td>
             <td>
               <span className="label">Vencimento das Parcelas</span>
-              <span className="value">Todo dia {new Date(sale.date + 'T12:00:00').getDate()}</span>
+              <span className="value">Todo dia {(() => {
+                if (installments && installments.length > 0) {
+                  const monthlyInst = sale.down_payment > 0
+                    ? installments.find(i => i.number > 1)
+                    : installments[0];
+                  if (monthlyInst) {
+                    const dateVal = monthlyInst.due_date;
+                    if (dateVal) {
+                      return new Date(dateVal.includes('T') ? dateVal : `${dateVal}T12:00:00`).getDate();
+                    }
+                  }
+                }
+                return new Date(sale.date + 'T12:00:00').getDate();
+              })()}</span>
             </td>
             <td>
               <span className="label">Forma de Pagamento</span>
