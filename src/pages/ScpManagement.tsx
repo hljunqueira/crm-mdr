@@ -127,6 +127,70 @@ const ApproveWithdrawalForm: React.FC<ApproveWithdrawalFormProps> = ({ id, onApp
   );
 };
 
+interface ReceiptUploaderProps {
+  requestId: string;
+  currentReceiptUrl?: string;
+  onSuccess: () => void;
+}
+
+const ReceiptUploader: React.FC<ReceiptUploaderProps> = ({ requestId, currentReceiptUrl, onSuccess }) => {
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const filePath = `receipts/${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Update in table
+      const { error: updateError } = await supabase
+        .from('withdrawal_requests')
+        .update({ receipt_url: publicUrl })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      onSuccess();
+    } catch (err: any) {
+      alert(`Falha no upload: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <label className="text-emerald-450 hover:text-emerald-350 font-bold uppercase tracking-widest text-[8px] hover:underline cursor-pointer flex items-center gap-1">
+      {isUploading ? (
+        <Loader2 size={10} className="animate-spin" />
+      ) : currentReceiptUrl ? (
+        '(Alterar)'
+      ) : (
+        'Anexar Comprovante'
+      )}
+      <input
+        type="file"
+        onChange={handleFileUpload}
+        accept="image/*,application/pdf"
+        className="hidden"
+        disabled={isUploading}
+      />
+    </label>
+  );
+};
+
 export default function ScpManagement() {
   const {
     lots, fetchLots, createLot, addQuota, isLoading,
@@ -202,6 +266,7 @@ export default function ScpManagement() {
   const [primeDevices, setPrimeDevices] = useState<any[]>([]);
   const [isLinkPrimeOpen, setIsLinkPrimeOpen] = useState(false);
   const [primeInvestorId, setPrimeInvestorId] = useState('');
+  const [primeProfitShareType, setPrimeProfitShareType] = useState<'percent' | 'fixed' | 'profit_only'>('percent');
   const [primeProfitShare, setPrimeProfitShare] = useState<number | ''>(60);
   const [primeProfitShareVal, setPrimeProfitShareVal] = useState<string>('');
   const [primeAdminFee, setPrimeAdminFee] = useState<number | ''>(10);
@@ -490,7 +555,9 @@ export default function ScpManagement() {
           prime_profit_share: primeProfitShare === '' ? 0 : primeProfitShare,
           prime_admin_fee: primeAdminFee === '' ? 0 : primeAdminFee,
           device_imeis: primeDeviceImeis,
-          prime_valuation_type: primeValuationType
+          prime_valuation_type: primeValuationType,
+          prime_profit_share_value: primeProfitShareVal === '' ? 0 : parseFloat(primeProfitShareVal),
+          prime_profit_share_type: primeProfitShareType
         })
       });
       const data = await res.json();
@@ -502,6 +569,9 @@ export default function ScpManagement() {
       setPrimeSelectedQuantities({});
       setPrimeInvestorId('');
       setPrimeValuationType('sale');
+      setPrimeProfitShareType('percent');
+      setPrimeProfitShare(60);
+      setPrimeProfitShareVal('');
       fetchPrimeDevices();
     } catch (err: any) {
       showNotification('error', 'Erro', err.message || 'Falha ao vincular investidor Prime.');
@@ -883,27 +953,29 @@ export default function ScpManagement() {
   const salePrice = primeSelectedDevices.reduce((sum, d) => sum + Number(d.sale_price || 0), 0);
   const grossProfit = Math.max(0, salePrice - costPrice);
   const feePct = Number(primeAdminFee) || 0;
-  const sharePct = Number(primeProfitShare) || 0;
   const netProfit = grossProfit * (1.0 - (feePct / 100));
-  const estimatedProfitVal = netProfit * (sharePct / 100);
 
-  const handleProfitValChange = (valStr: string) => {
-    const val = parseFloat(valStr);
-    if (!isNaN(val) && netProfit > 0) {
-      const pct = Math.min(100, Math.max(0, parseFloat(((val / netProfit) * 100).toFixed(2))));
-      setPrimeProfitShare(pct);
-    } else if (valStr === '') {
-      setPrimeProfitShare('');
-    }
-  };
+  const estimatedProfitVal = primeProfitShareType === 'fixed'
+    ? (parseFloat(primeProfitShareVal) || 0)
+    : netProfit * ((Number(primeProfitShare) || 0) / 100);
 
   useEffect(() => {
-    if (netProfit > 0 && primeProfitShare !== '') {
-      setPrimeProfitShareVal((netProfit * (primeProfitShare / 100)).toFixed(2));
+    if (primeProfitShareType === 'percent') {
+      if (netProfit > 0 && primeProfitShare !== '') {
+        setPrimeProfitShareVal((netProfit * (Number(primeProfitShare) / 100)).toFixed(2));
+      } else {
+        setPrimeProfitShareVal('');
+      }
     } else {
-      setPrimeProfitShareVal('');
+      const val = parseFloat(primeProfitShareVal);
+      if (!isNaN(val) && netProfit > 0) {
+        const pct = Math.min(100, Math.max(0, parseFloat(((val / netProfit) * 100).toFixed(2))));
+        setPrimeProfitShare(pct);
+      } else {
+        setPrimeProfitShare('');
+      }
     }
-  }, [primeSelectedDeviceIds, primeAdminFee]);
+  }, [primeSelectedDeviceIds, primeAdminFee, primeProfitShareType, primeProfitShare, primeProfitShareVal, netProfit]);
 
   return (
     <div className="space-y-6">
@@ -1039,7 +1111,15 @@ export default function ScpManagement() {
                       <td className="py-4 px-4 font-bold text-white">{d.brand} {d.model}</td>
                       <td className="py-4 px-4 font-mono text-zinc-400 select-all">{d.imei || '-'}</td>
                       <td className="py-4 px-4 text-zinc-300 font-semibold">{d.profiles?.full_name || 'Investidor'}</td>
-                      <td className="py-4 px-4 text-center font-bold text-indigo-400">{(Number(d.prime_profit_share || 0.60) * 100).toFixed(0)}%</td>
+                      <td className="py-4 px-4 text-center font-bold text-indigo-400 text-xs">
+                        {d.prime_profit_share_value && Number(d.prime_profit_share_value) > 0 ? (
+                          <span>R$ {Number(d.prime_profit_share_value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} <span className="text-[8px] font-normal text-zinc-500">(Fixo)</span></span>
+                        ) : d.prime_profit_share_type === 'profit_only' ? (
+                          <span>{(Number(d.prime_profit_share || 0.60) * 100).toFixed(0)}% <span className="text-[8px] font-normal text-zinc-500">(Apenas Lucro)</span></span>
+                        ) : (
+                          <span>{(Number(d.prime_profit_share || 0.60) * 100).toFixed(0)}%</span>
+                        )}
+                      </td>
                       <td className="py-4 px-4 text-center text-zinc-400">{(Number(d.prime_admin_fee || 0.10) * 100).toFixed(0)}%</td>
                       <td className="py-4 px-4 font-bold text-emerald-400">R$ {Number(d.sale_price || d.cost_price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td className="py-4 px-4">
@@ -1249,9 +1329,30 @@ export default function ScpManagement() {
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-zinc-600">
-                            Processado em {w.processed_at ? new Date(w.processed_at).toLocaleDateString('pt-BR') : '-'}
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] text-zinc-650">
+                              Processado em {w.processed_at ? new Date(w.processed_at).toLocaleDateString('pt-BR') : '-'}
+                            </span>
+                            {w.status === 'APPROVED' && (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {w.receipt_url && (
+                                  <a
+                                    href={w.receipt_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-indigo-400 hover:text-indigo-350 font-bold uppercase tracking-widest text-[8px] hover:underline"
+                                  >
+                                    Ver Comprovante
+                                  </a>
+                                )}
+                                <ReceiptUploader
+                                  requestId={w.id}
+                                  currentReceiptUrl={w.receipt_url}
+                                  onSuccess={fetchWithdrawals}
+                                />
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -1948,47 +2049,77 @@ export default function ScpManagement() {
                 )}
               </div>
 
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Tipo de Repasse</label>
+                <div className="flex gap-4 pl-1 py-1">
+                  <label className="flex items-center gap-2 text-xs text-white cursor-pointer">
+                    <input
+                      type="radio"
+                      name="primeProfitShareType"
+                      checked={primeProfitShareType === 'percent'}
+                      onChange={() => setPrimeProfitShareType('percent')}
+                      className="accent-emerald-500"
+                    />
+                    Porcentagem (%)
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-white cursor-pointer">
+                    <input
+                      type="radio"
+                      name="primeProfitShareType"
+                      checked={primeProfitShareType === 'profit_only'}
+                      onChange={() => setPrimeProfitShareType('profit_only')}
+                      className="accent-emerald-500"
+                    />
+                    Somente o Lucro (sem capital)
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-white cursor-pointer">
+                    <input
+                      type="radio"
+                      name="primeProfitShareType"
+                      checked={primeProfitShareType === 'fixed'}
+                      onChange={() => setPrimeProfitShareType('fixed')}
+                      className="accent-emerald-500"
+                    />
+                    Valor Fixo (R$)
+                  </label>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (%)</label>
                   <input
                     type="number"
-                    required
+                    required={primeProfitShareType === 'percent' || primeProfitShareType === 'profit_only'}
+                    disabled={primeProfitShareType === 'fixed'}
                     min={0}
                     max={100}
                     step="any"
                     value={primeProfitShare}
                     onChange={(e) => {
-                      const pctVal = e.target.value;
-                      setPrimeProfitShare(pctVal === '' ? '' : parseFloat(pctVal));
-                      if (pctVal === '' || isNaN(parseFloat(pctVal))) {
-                        setPrimeProfitShareVal('');
-                      } else {
-                        setPrimeProfitShareVal((netProfit * (parseFloat(pctVal) / 100)).toFixed(2));
+                      if (primeProfitShareType === 'percent' || primeProfitShareType === 'profit_only') {
+                        const pctVal = e.target.value;
+                        setPrimeProfitShare(pctVal === '' ? '' : parseFloat(pctVal));
                       }
                     }}
-                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all"
+                    placeholder={primeProfitShareType === 'fixed' ? "Calculado..." : "60"}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Part. Lucro (R$)</label>
                   <input
                     type="number"
+                    required={primeProfitShareType === 'fixed'}
+                    disabled={primeSelectedDeviceIds.length === 0 || netProfit <= 0 || primeProfitShareType === 'percent' || primeProfitShareType === 'profit_only'}
                     step="any"
-                    disabled={primeSelectedDeviceIds.length === 0 || netProfit <= 0}
                     value={primeProfitShareVal}
                     onChange={(e) => {
-                      const valStr = e.target.value;
-                      setPrimeProfitShareVal(valStr);
-                      const val = parseFloat(valStr);
-                      if (!isNaN(val) && netProfit > 0) {
-                        const pct = Math.min(100, Math.max(0, parseFloat(((val / netProfit) * 100).toFixed(2))));
-                        setPrimeProfitShare(pct);
-                      } else if (valStr === '') {
-                        setPrimeProfitShare('');
+                      if (primeProfitShareType === 'fixed') {
+                        setPrimeProfitShareVal(e.target.value);
                       }
                     }}
-                    placeholder={primeSelectedDeviceIds.length === 0 ? "Escolha..." : "R$ 0,00"}
+                    placeholder={primeSelectedDeviceIds.length === 0 ? "Escolha..." : primeProfitShareType === 'fixed' ? "R$ 0,00" : "Calculado..."}
                     className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-emerald-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed font-mono"
                   />
                 </div>

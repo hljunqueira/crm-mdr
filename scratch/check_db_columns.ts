@@ -13,11 +13,8 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function check() {
-  const { data: saleData } = await supabase.from('sales').select('*').limit(1);
-  const { data: osData } = await supabase.from('service_orders').select('*').limit(1);
-  
-  console.log('Sale columns:', saleData && saleData.length > 0 ? Object.keys(saleData[0]) : 'No data');
-  console.log('OS columns:', osData && osData.length > 0 ? Object.keys(osData[0]) : 'No data');
+  const { data: devicesData } = await supabase.from('devices').select('*').limit(1);
+  console.log('Device columns:', devicesData && devicesData.length > 0 ? Object.keys(devicesData[0]) : 'No data');
 }
 
 check();

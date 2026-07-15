@@ -31,6 +31,7 @@ import PublicCustomerRegistration from './pages/PublicCustomerRegistration';
 import PartnersLogin from './pages/PartnersLogin';
 import InvestorDashboard from './pages/InvestorDashboard';
 import ScpManagement from './pages/ScpManagement';
+import Commissions from './pages/Commissions';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
@@ -85,6 +86,7 @@ export default function App() {
           <Route path="/partners" element={<PrivateRoute pageName="Parceiros"><AppLayout><Partners /></AppLayout></PrivateRoute>} />
           <Route path="/scp" element={<PrivateRoute requireAdmin={true}><AppLayout><ScpManagement /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute pageName="Financeiro"><AppLayout><Finance /></AppLayout></PrivateRoute>} />
+          <Route path="/commissions" element={<PrivateRoute requireAdmin={true}><AppLayout><Commissions /></AppLayout></PrivateRoute>} />
           <Route path="/cash-control" element={<PrivateRoute pageName="Controle de Caixa"><AppLayout><CashControl /></AppLayout></PrivateRoute>} />
           <Route path="/device-locks" element={<PrivateRoute pageName="Controle de Bloqueio"><AppLayout><DeviceLockPanel /></AppLayout></PrivateRoute>} />
           <Route path="/fiscal" element={<PrivateRoute pageName="Fiscal (NFe/NFSe)"><AppLayout><Fiscal /></AppLayout></PrivateRoute>} />

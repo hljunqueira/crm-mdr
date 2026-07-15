@@ -731,17 +731,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   const availableDevices = useMemo(() =>
     inventory.filter(item => {
-      const isVirtualOrService = item.category === 'service' || 
-                                 item.category === 'other' || 
-                                 item.model.toLowerCase().includes('diversos') || 
-                                 item.brand.toLowerCase().includes('diversos');
+      const isVirtualOrService = item.category === 'service' ||
+        item.category === 'other' ||
+        item.model.toLowerCase().includes('diversos') ||
+        item.brand.toLowerCase().includes('diversos');
 
       if (formData.payment_type === 'crediario' && item.only_cash_sale === true) {
         return false;
       }
 
-      return (isVirtualOrService || (item.stock_quantity || 0) > 0) && 
-             (isVirtualOrService || item.status === 'available');
+      return (isVirtualOrService || (item.stock_quantity || 0) > 0) &&
+        (isVirtualOrService || item.status === 'available');
     }),
     [inventory, formData.payment_type]);
 

@@ -565,7 +565,7 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     // 6. PRIME PORTFOLIO (Estoque Próprio)
     const { data: primeDevices, error: primeErr } = await supabase
       .from("devices")
-      .select("id, brand, model, imei, status, cost_price, sale_price, prime_profit_share, prime_admin_fee, prime_valuation_type")
+      .select("id, brand, model, imei, status, cost_price, sale_price, prime_profit_share, prime_profit_share_value, prime_admin_fee, prime_valuation_type, prime_profit_share_type")
       .eq("investor_id", profile_id);
 
     if (primeErr) throw primeErr;
@@ -621,15 +621,26 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         unpaidInsts.forEach(inst => {
           const instValue = Number(inst.value);
           
-          const amortization = saleTotal > 0 
+          const amortization = (saleTotal > 0 && dev.prime_profit_share_type !== 'profit_only')
             ? instValue * (cappedDeviceSalePrice / saleTotal)
             : 0;
             
-          const totalProfit = instValue - amortization;
-          const adminFee = Number(dev.prime_admin_fee ?? 0.10);
-          const profitShare = Number(dev.prime_profit_share ?? 0.60);
-          const netProfit = totalProfit * (1.0 - adminFee);
-          const investorProfit = netProfit * profitShare;
+          let investorProfit = 0;
+          if (dev.prime_profit_share_value && Number(dev.prime_profit_share_value) > 0) {
+            investorProfit = saleTotal > 0
+              ? instValue * (Number(dev.prime_profit_share_value) / saleTotal)
+              : 0;
+          } else {
+            // For profit calculation, we still need to know the base/virtual amortization to find the profit margin
+            const virtualAmortization = saleTotal > 0
+              ? instValue * (cappedDeviceSalePrice / saleTotal)
+              : 0;
+            const totalProfit = instValue - virtualAmortization;
+            const adminFee = Number(dev.prime_admin_fee ?? 0.10);
+            const profitShare = Number(dev.prime_profit_share ?? 0.60);
+            const netProfit = totalProfit * (1.0 - adminFee);
+            investorProfit = netProfit * profitShare;
+          }
           const expectedValue = amortization + investorProfit;
           projectedInterest += investorProfit;
 
@@ -658,8 +669,16 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         const profitShare = Number(dev.prime_profit_share ?? 0.60);
         const totalProfit = saleTotal - cappedDeviceSalePrice;
         const netProfit = totalProfit * (1.0 - adminFee);
-        const projectedTotalProfit = Math.max(0, netProfit * profitShare);
-        const projectedTotalContract = cappedDeviceSalePrice + projectedTotalProfit;
+        
+        let projectedTotalProfit = 0;
+        if (dev.prime_profit_share_value && Number(dev.prime_profit_share_value) > 0) {
+          projectedTotalProfit = Number(dev.prime_profit_share_value);
+        } else {
+          projectedTotalProfit = Math.max(0, netProfit * profitShare);
+        }
+        const projectedTotalContract = dev.prime_profit_share_type === 'profit_only'
+          ? projectedTotalProfit
+          : cappedDeviceSalePrice + projectedTotalProfit;
 
         let devStatus = "ativo";
         if (paidInst === totalInst) {
@@ -1289,7 +1308,7 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 
     const { data: oldDevice } = await supabase
       .from("devices")
-      .select("investor_id, cost_price, sale_price, prime_valuation_type")
+      .select("investor_id, cost_price, sale_price, prime_valuation_type, prime_profit_share_type")
       .eq("id", id)
       .single();
 
@@ -1318,7 +1337,7 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
         ? Number(oldDevice.cost_price || 0)
         : Number(oldDevice.sale_price || oldDevice.cost_price || 0);
 
-      if (oldWallet) {
+      if (oldWallet && oldDevice.prime_profit_share_type !== 'profit_only') {
         await supabase
           .from("wallets")
           .update({
@@ -1367,7 +1386,17 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
 // 16b. POST /api/scp/devices/link-prime-bulk — Vincular celulares em lote a investidor Prime
 router.post("/devices/link-prime-bulk", async (req, res) => {
   try {
-    const { investor_id, device_ids, device_quantities, prime_profit_share, prime_admin_fee, device_imeis, prime_valuation_type } = req.body;
+    const { 
+      investor_id, 
+      device_ids, 
+      device_quantities, 
+      prime_profit_share, 
+      prime_admin_fee, 
+      device_imeis, 
+      prime_valuation_type,
+      prime_profit_share_value,
+      prime_profit_share_type
+    } = req.body;
 
     if (!investor_id || !Array.isArray(device_ids) || device_ids.length === 0) {
       return res.status(400).json({ error: "Parâmetros obrigatórios ausentes ou inválidos." });
@@ -1383,6 +1412,14 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
 
     const share = prime_profit_share !== undefined ? Number(prime_profit_share) / 100 : 0.6000;
     const fee = prime_admin_fee !== undefined ? Number(prime_admin_fee) / 100 : 0.1000;
+
+    let totalUnits = 0;
+    for (const devId of device_ids) {
+      totalUnits += Number(device_quantities?.[devId] || 1);
+    }
+    const unitProfitShareValue = (prime_profit_share_type === 'fixed' && totalUnits > 0 && prime_profit_share_value !== undefined)
+      ? Number(prime_profit_share_value) / totalUnits
+      : null;
 
     let linkedCount = 0;
     let totalCostCredited = 0;
@@ -1410,6 +1447,8 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
         ? Number(dev.cost_price || 0)
         : Number(dev.sale_price || dev.cost_price || 0);
 
+      const isProfitOnly = prime_profit_share_type === 'profit_only';
+
       // Se quantidade original for 1, faz update in-place para evitar erro de IMEI duplicado
       if (originalQty === 1) {
         const { error: updateErr } = await supabase
@@ -1417,9 +1456,11 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
           .update({
             investor_id,
             prime_profit_share: share,
+            prime_profit_share_value: unitProfitShareValue,
             prime_admin_fee: fee,
             imei: imeis[0] && imeis[0].trim() !== "" ? imeis[0].trim() : dev.imei,
             prime_valuation_type: prime_valuation_type || 'sale',
+            prime_profit_share_type: prime_profit_share_type || 'percent',
             only_cash_sale: isConservador ? true : dev.only_cash_sale
           })
           .eq("id", dev.id);
@@ -1427,7 +1468,9 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
         if (updateErr) throw updateErr;
 
         linkedCount++;
-        totalCostCredited += deviceInvestedPrice;
+        if (!isProfitOnly) {
+          totalCostCredited += deviceInvestedPrice;
+        }
       } else {
         // Desmembrar normal (decrementar pai e inserir novos)
         const parentStatus = newQty <= 0 ? 'sold' : dev.status;
@@ -1454,10 +1497,12 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
             status: "available",
             investor_id,
             prime_profit_share: share,
+            prime_profit_share_value: unitProfitShareValue,
             prime_admin_fee: fee,
             imei: imeis[i] && imeis[i].trim() !== "" ? imeis[i].trim() : null,
             lot_id: null,
             prime_valuation_type: prime_valuation_type || 'sale',
+            prime_profit_share_type: prime_profit_share_type || 'percent',
             only_cash_sale: isConservador ? true : dev.only_cash_sale
           };
 
@@ -1471,7 +1516,9 @@ router.post("/devices/link-prime-bulk", async (req, res) => {
           }
 
           linkedCount++;
-          totalCostCredited += deviceInvestedPrice;
+          if (!isProfitOnly) {
+            totalCostCredited += deviceInvestedPrice;
+          }
         }
       }
       
@@ -1893,7 +1940,7 @@ router.get("/investor-contract/:profileId", async (req, res) => {
 
     const { data: quotas, error: quotasError } = await supabase
       .from("investor_quotas")
-      .select("id, amount_invested, ownership_percentage, lot:lots(id, title, target_amount)")
+      .select("id, amount_invested, ownership_percentage, lot:lots(id, title, target_amount), created_at, signed_contract_at")
       .eq("profile_id", profileId);
 
     if (quotasError) throw quotasError;
@@ -1920,12 +1967,15 @@ router.get("/investor-contract/:profileId", async (req, res) => {
         id: q.id,
         amountInvested: Number(q.amount_invested),
         ownershipPercentage: Number(q.ownership_percentage) * 100,
-        lotTitle: (q.lot as any)?.title || "Lote"
+        lotTitle: (q.lot as any)?.title || "Lote",
+        createdAt: q.created_at,
+        signedContractAt: q.signed_contract_at
       })),
       devices: (devices || []).map(d => ({
         id: d.id,
         model: `${d.brand} ${d.model}`,
         imei: d.imei || "N/A",
+        costPrice: Number(d.cost_price || 0),
         salePrice: Number(d.sale_price || d.cost_price || 0),
         status: d.status
       }))

@@ -163,7 +163,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
     // 2. Fetch device details to find the lot or investor
     const { data: device, error: devErr } = await supabase
       .from("devices")
-      .select("id, brand, model, cost_price, sale_price, lot_id, investor_id, prime_profit_share, prime_admin_fee, prime_valuation_type")
+      .select("id, brand, model, cost_price, sale_price, lot_id, investor_id, prime_profit_share, prime_profit_share_value, prime_admin_fee, prime_valuation_type, prime_profit_share_type")
       .eq("id", deviceId)
       .single();
 
@@ -198,17 +198,27 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
       const saleTotal = Number(sale.total_value || 0);
 
       // Amortization (Capital)
-      const amortization = saleTotal > 0
+      const amortization = (saleTotal > 0 && device.prime_profit_share_type !== 'profit_only')
         ? amountPaid * (deviceSalePrice / saleTotal)
         : 0;
 
       // Profit Portion
-      const totalProfit = amountPaid - amortization;
-      const adminFee = Number(device.prime_admin_fee ?? 0.10);
-      const profitShare = Number(device.prime_profit_share ?? 0.60);
-      
-      const netProfit = totalProfit * (1.0 - adminFee);
-      const investorProfit = netProfit * profitShare;
+      let investorProfit = 0;
+      if (device.prime_profit_share_value && Number(device.prime_profit_share_value) > 0) {
+        investorProfit = saleTotal > 0
+          ? amountPaid * (Number(device.prime_profit_share_value) / saleTotal)
+          : 0;
+      } else {
+        const virtualAmortization = saleTotal > 0
+          ? amountPaid * (deviceSalePrice / saleTotal)
+          : 0;
+        const totalProfit = amountPaid - virtualAmortization;
+        const adminFee = Number(device.prime_admin_fee ?? 0.10);
+        const profitShare = Number(device.prime_profit_share ?? 0.60);
+        
+        const netProfit = totalProfit * (1.0 - adminFee);
+        investorProfit = netProfit * profitShare;
+      }
 
       // Total Repayment to Investor
       const investorRepasse = Number((amortization + investorProfit).toFixed(2));
@@ -249,7 +259,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
             .insert({
               profile_id: investorId,
               balance: investorRepasse,
-              future_receipts: Math.max(0, Number((deviceSalePrice - amortization).toFixed(2)))
+              future_receipts: Math.max(0, Number(((device.prime_profit_share_type === 'profit_only' ? 0 : deviceSalePrice) - amortization).toFixed(2)))
             });
         }
 

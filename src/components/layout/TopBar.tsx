@@ -218,7 +218,7 @@ export default function TopBar() {
 
   return (
     <>
-      <header className="h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-20 shrink-0 relative">
+      <header className="h-16 bg-surface border-b border-outline-variant flex items-center justify-between px-8 z-20 shrink-0 relative print:hidden">
         {/* Global Search Input Area */}
         <div ref={searchContainerRef} className="flex-1 max-w-xl relative">
           <div className="relative group">

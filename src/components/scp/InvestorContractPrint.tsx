@@ -21,11 +21,14 @@ interface InvestorContractPrintProps {
     amountInvested: number;
     ownershipPercentage: number;
     lotTitle: string;
+    createdAt?: string;
+    signedContractAt?: string;
   }>;
   devices: Array<{
     id: string;
     model: string;
     imei: string;
+    costPrice?: number;
     salePrice: number;
     status: string;
   }>;
@@ -40,8 +43,15 @@ export default function InvestorContractPrint({ profile, unit, quotas, devices, 
   
   // Calculate total values
   const totalQuotasInvested = quotas.reduce((acc, q) => acc + q.amountInvested, 0);
-  const totalDevicesFinanced = devices.reduce((acc, d) => acc + d.salePrice, 0);
+  const totalDevicesFinanced = devices.reduce((acc, d) => acc + (d.costPrice ?? d.salePrice ?? 0), 0);
   const totalCapitalInvested = totalQuotasInvested + totalDevicesFinanced;
+
+  // Get date of investment (earliest quota signature date or creation date)
+  const firstQuota = quotas && quotas.length > 0 ? quotas[0] : null;
+  const investmentDateRaw = firstQuota ? (firstQuota.signedContractAt || firstQuota.createdAt) : null;
+  const investmentDate = investmentDateRaw 
+    ? new Date(investmentDateRaw).toLocaleDateString('pt-BR')
+    : today;
 
   const renderHeader = (pageNum: number) => (
     <div className="flex justify-between items-center border-b border-black pb-2 mb-4 no-print-border">
@@ -259,7 +269,7 @@ export default function InvestorContractPrint({ profile, unit, quotas, devices, 
                 <tr className="border-b border-black text-left font-bold">
                   <th className="py-1">Smartphone (Modelo)</th>
                   <th className="py-1">Identificador (IMEI)</th>
-                  <th className="py-1 text-right">Valor À Vista Financiado</th>
+                  <th className="py-1 text-right">Valor do Aporte (Custo)</th>
                   <th className="py-1 text-center">Status Operacional</th>
                 </tr>
               </thead>
@@ -268,7 +278,7 @@ export default function InvestorContractPrint({ profile, unit, quotas, devices, 
                   <tr key={d.id} className="border-b border-zinc-200">
                     <td className="py-1.5 font-bold">{d.model}</td>
                     <td className="py-1.5 font-mono">{d.imei}</td>
-                    <td className="py-1.5 text-right font-mono">R$ {d.salePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td className="py-1.5 text-right font-mono">R$ {(d.costPrice ?? d.salePrice ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     <td className="py-1.5 text-center uppercase text-[8px] font-semibold">{d.status === 'sold' ? 'Comercializado' : 'Disponível em Estoque'}</td>
                   </tr>
                 ))}
@@ -303,7 +313,7 @@ export default function InvestorContractPrint({ profile, unit, quotas, devices, 
         </div>
 
         <div className="text-right mt-12 font-bold text-[10px]">
-          Localidade da Sede da Unidade, {today}.
+          Balneário Arroio do Silva/SC, {investmentDate}.
         </div>
 
         <div className="grid grid-cols-2 gap-8 mt-16">

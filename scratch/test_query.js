@@ -9,22 +9,37 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SU
 const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 async function run() {
-  const gaivotaUnit = 'cf7efbfd-dd63-4618-9d9b-0887a1ec5032';
-  const arroioUnit = 'b2b1f71d-0471-49a1-b151-865ccc3cd627';
+  const { data: inst } = await supabase.from('installments').select('id, sale_id').limit(1).single();
+  if (!inst) {
+    console.log('No installment found');
+    return;
+  }
+  
+  console.log('Testing query on installment ID:', inst.id);
+  const { data, error } = await supabase
+    .from("installments")
+    .select(`
+      id,
+      installment_number,
+      sales (
+        id,
+        device_id,
+        installments_count,
+        total_value,
+        customers (
+          id,
+          name
+        )
+      )
+    `)
+    .eq("id", inst.id)
+    .single();
 
-  console.log('Query for Gaivota:');
-  const { data: dataGaivota, error: errorGaivota } = await supabase
-    .from('outsourced_orders')
-    .select('*, service_orders!inner(*, customers(name, phone))')
-    .eq('service_orders.unit_id', gaivotaUnit);
-  console.log('Gaivota results:', dataGaivota?.length, 'Error:', errorGaivota?.message);
-
-  console.log('Query for Arroio:');
-  const { data: dataArroio, error: errorArroio } = await supabase
-    .from('outsourced_orders')
-    .select('*, service_orders!inner(*, customers(name, phone))')
-    .eq('service_orders.unit_id', arroioUnit);
-  console.log('Arroio results:', dataArroio?.length, 'Error:', errorArroio?.message);
+  if (error) {
+    console.error('Query Failed with Error:', error);
+  } else {
+    console.log('Query Succeeded:', data);
+  }
 }
 
 run();

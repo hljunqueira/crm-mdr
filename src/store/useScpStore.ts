@@ -20,6 +20,7 @@ export interface WithdrawalRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
   processed_at?: string;
+  receipt_url?: string;
   profiles?: {
     full_name: string;
   };

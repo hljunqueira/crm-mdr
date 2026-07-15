@@ -11,7 +11,7 @@ async function recalculateFutureReceipts(profileId: string): Promise<number> {
     // 1. Aparelhos no modelo PRIME vinculados ao investidor
     const { data: devices } = await supabase
       .from("devices")
-      .select("id, sale_price, cost_price, prime_admin_fee, prime_profit_share, prime_valuation_type")
+      .select("id, sale_price, cost_price, prime_admin_fee, prime_profit_share, prime_profit_share_value, prime_valuation_type, prime_profit_share_type")
       .eq("investor_id", profileId);
 
     let totalPrimeFuture = 0;
@@ -45,22 +45,35 @@ async function recalculateFutureReceipts(profileId: string): Promise<number> {
         for (const inst of unpaidInsts) {
           const instValue = Number(inst.value);
           
-          const amortization = saleTotal > 0 
+          const amortization = (saleTotal > 0 && dev.prime_profit_share_type !== 'profit_only')
             ? instValue * (cappedDeviceSalePrice / saleTotal)
             : 0;
             
-          const totalProfit = instValue - amortization;
-          const adminFee = Number(dev.prime_admin_fee ?? 0.10);
-          const profitShare = Number(dev.prime_profit_share ?? 0.60);
-          const netProfit = totalProfit * (1.0 - adminFee);
-          const investorProfit = netProfit * profitShare;
+          let investorProfit = 0;
+          if (dev.prime_profit_share_value && Number(dev.prime_profit_share_value) > 0) {
+            investorProfit = saleTotal > 0
+              ? instValue * (Number(dev.prime_profit_share_value) / saleTotal)
+              : 0;
+          } else {
+            const virtualAmortization = saleTotal > 0
+              ? instValue * (cappedDeviceSalePrice / saleTotal)
+              : 0;
+            const totalProfit = instValue - virtualAmortization;
+            const adminFee = Number(dev.prime_admin_fee ?? 0.10);
+            const profitShare = Number(dev.prime_profit_share ?? 0.60);
+            const netProfit = totalProfit * (1.0 - adminFee);
+            investorProfit = netProfit * profitShare;
+          }
           const expectedValue = amortization + investorProfit;
 
           totalPrimeFuture += expectedValue;
         }
       } else {
-        // Celulares ainda em estoque mantêm o valor de aporte nos recebíveis futuros
-        totalPrimeFuture += deviceSalePrice;
+        // Celulares ainda em estoque mantêm o valor de aporte nos recebíveis futuros,
+        // exceto se for do tipo 'profit_only' pois o investidor não receberá o capital investido de volta.
+        if (dev.prime_profit_share_type !== 'profit_only') {
+          totalPrimeFuture += deviceSalePrice;
+        }
       }
     }
 

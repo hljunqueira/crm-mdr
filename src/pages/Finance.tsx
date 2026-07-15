@@ -636,11 +636,13 @@ export default function Finance() {
   const [showPaidBills, setShowPaidBills] = useState<boolean>(false);
 
   const filteredBills = useMemo(() => {
-    return bills.filter(bill => {
-      const dayMatches = selectedDay === 'all' || bill.day === Number(selectedDay);
-      const paidMatches = showPaidBills ? true : !bill.is_paid;
-      return dayMatches && paidMatches;
-    });
+    return bills
+      .filter(bill => {
+        const dayMatches = selectedDay === 'all' || bill.day === Number(selectedDay);
+        const paidMatches = showPaidBills ? true : !bill.is_paid;
+        return dayMatches && paidMatches;
+      })
+      .sort((a, b) => a.day - b.day);
   }, [bills, selectedDay, showPaidBills]);
 
   const dayOpenValue = useMemo(() => {
@@ -1415,7 +1417,7 @@ export default function Finance() {
               <div
                 key={idx}
                 onClick={() => setStatusFilter(stat.id as any)}
-                className={`bg-white/[0.02] p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.04] ${isActive ? stat.activeBorder : 'border-white/5'}`}
+                className={`bg-white/2 p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
               >
                 {isActive && (
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
@@ -1431,7 +1433,7 @@ export default function Finance() {
         </div>
 
         {/* Search Input and Cards List Container */}
-        <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 overflow-hidden">
+        <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
           <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
             <div className="relative flex-1 group">
               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
@@ -1499,7 +1501,7 @@ export default function Finance() {
                 const paidPercent = group.totalCount > 0 ? (group.paidCount / group.totalCount) * 100 : 0;
 
                 return (
-                  <div key={group.id} className="bg-white/[0.01] hover:bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
+                  <div key={group.id} className="bg-white/1 hover:bg-white/2 border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
                     <div
                       onClick={() => toggleExpand(group.id)}
                       className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
@@ -1563,7 +1565,7 @@ export default function Finance() {
                           className="overflow-hidden bg-black/10"
                         >
                           <div className="p-5 border-t border-white/5 space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/[0.02] p-4 border border-white/5 rounded-2xl">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/2 p-4 border border-white/5 rounded-2xl">
                               <div>
                                 <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Resumo de Cobrança</p>
                                 <p className="text-xs text-white mt-1 flex flex-wrap items-center gap-2">
@@ -1628,7 +1630,7 @@ export default function Finance() {
                                   {group.displayedInstallments.map((inst) => {
                                     const fees = calculateOverdueFees(inst);
                                     return (
-                                      <tr key={inst.id} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01] transition-all">
+                                      <tr key={inst.id} className="border-b border-white/2 last:border-0 hover:bg-white/1 transition-all">
                                         <td className="py-4 pl-4">
                                           {inst.status !== 'paid' ? (
                                             <input
@@ -1762,7 +1764,7 @@ export default function Finance() {
       </>
       ) : (
         <div className="space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/[0.02] border border-white/5 p-6 rounded-[32px]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/2 border border-white/5 p-6 rounded-[32px]">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5">
                 <Calendar size={16} className="text-primary shrink-0" />
@@ -1826,7 +1828,7 @@ export default function Finance() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            <div className="xl:col-span-8 bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+            <div className="xl:col-span-8 bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-white/5 pb-4">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest">
                   Mensal Fixo - Cartão ({filteredBills.length})
@@ -1856,8 +1858,10 @@ export default function Finance() {
                       </tr>
                     ) : (
                       filteredBills.map((bill) => (
-                        <tr key={bill.id} className="hover:bg-white/[0.01] transition-all group">
-                          <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
+                        <tr key={bill.id} className="hover:bg-white/1 transition-all group">
+                          <td className="py-4 pl-4 text-xs font-black font-mono text-white">
+                            {String(bill.day).padStart(2, '0')}/{String(selectedMonth).padStart(2, '0')}/{selectedYear}
+                          </td>
                           <td className="py-4 text-xs font-bold text-white uppercase">
                             P-{bill.current_installment} {bill.description}
                             <span className={cn(
@@ -1921,7 +1925,7 @@ export default function Finance() {
             </div>
 
             <div className="xl:col-span-4 space-y-6">
-              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+              <div className="bg-white/5 border border-white/5 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
                   Relatório Mensal
                 </h3>
@@ -1995,7 +1999,7 @@ export default function Finance() {
                 </div>
               </div>
 
-              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-6">
+              <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
                   Entrada - Previsão
                 </h3>
@@ -2035,7 +2039,7 @@ export default function Finance() {
               </div>
 
               {/* Widget de Previsão Mensal de Saídas */}
-              <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
+              <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
                   Previsão Mensal de Saídas
                 </h3>

@@ -29,6 +29,7 @@ import deviceLockRoutes from "./server/routes/device_locks.js";
 import billingRoutes from "./server/routes/billing.js";
 import scpRoutes from "./server/routes/scp.js";
 import financialDashboardRoutes from "./server/routes/financial_dashboard.js";
+import commissionRoutes from "./server/routes/commissions.js";
 import { checkAndReactivateAsaasWebhook } from "./server/services/asaasService.js";
 
 
@@ -110,6 +111,7 @@ async function startServer() {
   app.use("/api/billing", billingRoutes);
   app.use("/api/scp", scpRoutes);
   app.use("/api/financial-dashboard", financialDashboardRoutes);
+  app.use("/api/commissions", commissionRoutes);
 
 
   // Vite middleware for development

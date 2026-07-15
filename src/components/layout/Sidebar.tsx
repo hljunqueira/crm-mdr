@@ -113,7 +113,8 @@ export default function Sidebar() {
         { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
         ...(profile?.role === 'admin' ? [
-          { name: 'Investimentos SCP', displayName: 'Investimentos SCP', icon: TrendingUp, path: '/scp' }
+          { name: 'Investimentos SCP', displayName: 'Investimentos SCP', icon: TrendingUp, path: '/scp' },
+          { name: 'Comissões & Vales', displayName: 'Comissões & Vales', icon: DollarSign, path: '/commissions' }
         ] : []),
       ]
     },
@@ -179,7 +180,7 @@ export default function Sidebar() {
         const GroupIcon = group.icon;
 
         return (
-          <div key={group.title} className="space-y-1 rounded-2xl bg-white/[0.01] border border-white/5 p-1.5 transition-all">
+          <div key={group.title} className="space-y-1 rounded-2xl bg-white/1 border border-white/5 p-1.5 transition-all">
             {/* Group Title Trigger Header */}
             <button
               onClick={() => {
@@ -266,14 +267,14 @@ export default function Sidebar() {
       {/* Floating Hamburger Button for Mobile View */}
       <button
         onClick={() => setIsMobileOpen(true)}
-        className="fixed top-3 left-3 z-40 p-2.5 bg-[#121214]/80 backdrop-blur border border-white/10 rounded-2xl text-white md:hidden hover:bg-[#121214] active:scale-95 transition-all shadow-lg cursor-pointer"
+        className="fixed top-3 left-3 z-40 p-2.5 bg-[#121214]/80 backdrop-blur border border-white/10 rounded-2xl text-white md:hidden hover:bg-[#121214] active:scale-95 transition-all shadow-lg cursor-pointer print:hidden"
         title="Abrir Menu"
       >
         <Menu size={18} />
       </button>
 
       {/* Desktop Persistent Sidebar */}
-      <aside translate="no" className={cn("notranslate hidden md:flex md:flex-col h-screen bg-surface-container-low border-r border-outline-variant py-6 shrink-0 z-30 transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
+      <aside translate="no" className={cn("notranslate hidden md:flex md:flex-col h-screen bg-surface-container-low border-r border-outline-variant py-6 shrink-0 z-30 transition-all duration-300 relative print:hidden", isCollapsed ? "w-20" : "w-64")}>
         {/* Toggle Collapse Button */}
         <button
           onClick={handleToggleCollapse}
@@ -315,7 +316,7 @@ export default function Sidebar() {
 
       {/* Mobile Sidebar Drawer overlay */}
       {isMobileOpen && (
-        <div className="fixed inset-0 z-[70] md:hidden flex animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-70 md:hidden flex animate-in fade-in duration-200">
           {/* Backdrop */}
           <div 
             onClick={() => setIsMobileOpen(false)}
@@ -323,7 +324,7 @@ export default function Sidebar() {
           />
 
           {/* Drawer Panel */}
-          <aside translate="no" className="notranslate relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-[80] animate-in slide-in-from-left duration-300">
+          <aside translate="no" className="notranslate relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-80 animate-in slide-in-from-left duration-300">
             <div className="flex justify-between items-center px-6 mb-8">
               <img src="/logo-mdr.png" alt="MDR" className="h-16 w-auto object-contain" />
               <button 

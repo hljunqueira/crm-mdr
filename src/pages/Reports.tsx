@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  TrendingUp, DollarSign, Briefcase, Calendar, ChevronDown, 
-  Download, BarChart2, Printer, Percent, Award, BookOpen, Clock, 
+import {
+  TrendingUp, DollarSign, Briefcase, Calendar, ChevronDown,
+  Download, BarChart2, Printer, Percent, Award, BookOpen, Clock,
   Users, ArrowUpRight, CheckCircle2, AlertCircle, Wrench, ChevronUp, Eye,
   Calculator, Smartphone, ArrowDownRight, FileText, Plus, Loader2, Search, X, Trash2,
   Barcode, AlertTriangle, CreditCard
 } from 'lucide-react';
-import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, 
-  CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell 
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
+  CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell
 } from 'recharts';
 import { cn } from '../lib/utils';
 import { useUI } from '../context/UIContext';
@@ -34,13 +34,18 @@ export default function Reports() {
   const { inventory, fetchInventory } = useInventoryStore();
   const { profile } = useAuthStore();
   const { bills, forecast, fetchDashboardData } = useFinancialDashboardStore();
+  const [selectedCardDay, setSelectedCardDay] = useState<string>('all');
+
+  const filteredCardBills = useMemo(() => {
+    return bills.filter(b => selectedCardDay === 'all' || b.day === Number(selectedCardDay));
+  }, [bills, selectedCardDay]);
 
   // Navigation tab
   const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas' | 'liquidacoes' | 'controle_cartoes'>('overview');
 
   // Global filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
-  
+
   // Overview & Lab Period filters
   const [dateRange, setDateRange] = useState<'week' | 'month' | '30days' | 'year' | 'all' | 'custom'>('week');
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -258,28 +263,28 @@ export default function Reports() {
   }, [sales, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
 
   const filteredServiceOrders = useMemo(() => {
-    return serviceOrders.filter(o => 
-      (o.status === 'delivered' || o.status === 'ready') && 
-      filterByUnit(o.unit_id) && 
-      filterByDateRange(o.delivered_at || o.created_at) && 
+    return serviceOrders.filter(o =>
+      (o.status === 'delivered' || o.status === 'ready') &&
+      filterByUnit(o.unit_id) &&
+      filterByDateRange(o.delivered_at || o.created_at) &&
       filterByBrand(o.device_model)
     );
   }, [serviceOrders, selectedUnitId, dateRange, customStartDate, customEndDate, selectedBrand]);
 
   const revenueChartData = useMemo(() => {
     const dayMap: Record<string, { date: string; formattedDate: string; total: number }> = {};
-    
+
     filteredSales.forEach(s => {
       if (!s.date) return;
       const dayStr = s.date.split('T')[0];
       const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
       const value = (s.original_price ?? s.total_value) - tradeInVal;
-      
+
       if (!dayMap[dayStr]) {
-        dayMap[dayStr] = { 
-          date: dayStr, 
-          formattedDate: new Date(dayStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), 
-          total: 0 
+        dayMap[dayStr] = {
+          date: dayStr,
+          formattedDate: new Date(dayStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          total: 0
         };
       }
       dayMap[dayStr].total += value;
@@ -290,12 +295,12 @@ export default function Reports() {
       if (!dateStr) return;
       const dayStr = dateStr.split('T')[0];
       const value = o.total_value || 0;
-      
+
       if (!dayMap[dayStr]) {
-        dayMap[dayStr] = { 
-          date: dayStr, 
-          formattedDate: new Date(dayStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), 
-          total: 0 
+        dayMap[dayStr] = {
+          date: dayStr,
+          formattedDate: new Date(dayStr + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          total: 0
         };
       }
       dayMap[dayStr].total += value;
@@ -417,7 +422,7 @@ export default function Reports() {
       const isVenda = itemStr.includes('Venda R$');
       const isBrinde = itemStr.includes('Brinde');
       const name = itemStr.replace(/\s*\([^)]*\)\s*/g, '').trim();
-      
+
       let salePrice = 0;
       if (isVenda) {
         const match = itemStr.match(/Venda R\$\s*([0-9.,]+)/i);
@@ -425,11 +430,11 @@ export default function Reports() {
           salePrice = parseFloat(match[1].replace(',', '.'));
         }
       }
-      
+
       const matchedInv = inventory.find(i => i.model.toLowerCase() === name.toLowerCase());
       const costPrice = matchedInv ? matchedInv.cost_price : 0;
       const barcode = matchedInv ? (matchedInv.barcode || '') : '';
-      
+
       return {
         name,
         isVenda,
@@ -457,7 +462,7 @@ export default function Reports() {
     const mSales = sales.filter(s => s.status !== 'cancelled' && filterByUnit(s.unit_id) && filterByDateRange(s.date));
     mSales.forEach(s => {
       const saleNum = s.id.split('-')[0].toUpperCase();
-      
+
       const mainDevice = inventory.find(inv => inv.id === s.device_id);
       const mainCost = mainDevice ? mainDevice.cost_price : (s.device_cost_price || 0);
       const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
@@ -565,7 +570,7 @@ export default function Reports() {
 
   const collaboratorData = useMemo(() => {
     let cols = usersList.filter(u => u.role !== 'admin' && u.role !== 'investor' && !u.full_name.toLowerCase().includes('terminal'));
-    
+
     // Filter by store if not "all"
     if (selectedUnitId !== 'all') {
       cols = cols.filter(u => u.store_id === selectedUnitId);
@@ -573,7 +578,7 @@ export default function Reports() {
 
     return cols.map(usr => {
       // Sales for this collaborator in the selected month/year
-      const usrSales = sales.filter(s => 
+      const usrSales = sales.filter(s =>
         s.status !== 'cancelled' &&
         s.seller_id === usr.id &&
         isDateInMonth(s.date) &&
@@ -585,7 +590,7 @@ export default function Reports() {
       }, 0);
 
       // Completed/delivered OSs for this collaborator in the selected month/year
-      const usrOSs = serviceOrders.filter(o => 
+      const usrOSs = serviceOrders.filter(o =>
         (o.status === 'delivered' || o.status === 'ready') &&
         o.responsible_technician_id === usr.id &&
         isDateInMonth(o.delivered_at || o.created_at) &&
@@ -618,9 +623,9 @@ export default function Reports() {
 
     terminalUsers.forEach(term => {
       // Filter sales by selected month/year and unit
-      const termSales = sales.filter(s => 
-        s.status !== 'cancelled' && 
-        s.seller_id === term.id && 
+      const termSales = sales.filter(s =>
+        s.status !== 'cancelled' &&
+        s.seller_id === term.id &&
         isDateInMonth(s.date) &&
         filterByUnit(s.unit_id)
       );
@@ -630,9 +635,9 @@ export default function Reports() {
       }, 0);
 
       // Filter OSs by selected month/year and unit
-      const termOSs = serviceOrders.filter(o => 
-        (o.status === 'delivered' || o.status === 'ready') && 
-        o.responsible_technician_id === term.id && 
+      const termOSs = serviceOrders.filter(o =>
+        (o.status === 'delivered' || o.status === 'ready') &&
+        o.responsible_technician_id === term.id &&
         isDateInMonth(o.delivered_at || o.created_at) &&
         filterByUnit(o.unit_id)
       );
@@ -643,9 +648,9 @@ export default function Reports() {
   }, [usersList, sales, serviceOrders, selectedMonth, selectedYear, selectedUnitId]);
 
   const filteredInstallmentsReport = useMemo(() => {
-    return installments.filter(i => 
-      i.status === 'paid' && 
-      filterByUnit(i.unit_id) && 
+    return installments.filter(i =>
+      i.status === 'paid' &&
+      filterByUnit(i.unit_id) &&
       filterByDateRange(i.paid_at)
     );
   }, [installments, selectedUnitId, dateRange, customStartDate, customEndDate]);
@@ -655,19 +660,19 @@ export default function Reports() {
     let totalReceived = 0;
     let totalDiscount = 0;
     let totalInterest = 0;
-    
+
     filteredInstallmentsReport.forEach(i => {
       const orig = Number(i.value || 0);
       const paid = Number(i.paid_value !== undefined ? i.paid_value : orig);
       const disc = Number(i.discount_value || 0);
       const juros = Number(i.interest_value || 0);
-      
+
       totalOriginal += orig;
       totalReceived += paid;
       totalDiscount += disc;
       totalInterest += juros;
     });
-    
+
     return {
       totalOriginal,
       totalReceived,
@@ -767,14 +772,14 @@ export default function Reports() {
   const filteredAuditItems = useMemo(() => {
     return auditItems.filter(item => {
       if (item.category === 'service') return false;
-      const matchesSearch = 
+      const matchesSearch =
         item.model.toLowerCase().includes(auditSearch.toLowerCase()) ||
         item.brand.toLowerCase().includes(auditSearch.toLowerCase()) ||
         (item.barcode || '').includes(auditSearch) ||
         (item.imei || '').includes(auditSearch);
-        
+
       const matchesCategory = auditCategory === 'all' || item.category === auditCategory;
-      
+
       let matchesDivergence = true;
       if (auditDivergence === 'correct') {
         matchesDivergence = item.physical_quantity !== null && item.physical_quantity === item.system_quantity;
@@ -785,7 +790,7 @@ export default function Reports() {
       } else if (auditDivergence === 'pending') {
         matchesDivergence = item.physical_quantity === null;
       }
-      
+
       return matchesSearch && matchesCategory && matchesDivergence;
     });
   }, [auditItems, auditSearch, auditCategory, auditDivergence]);
@@ -796,10 +801,10 @@ export default function Reports() {
       showNotification('error', 'Bloqueador de Pop-ups', 'Por favor, permita pop-ups para imprimir a folha de conferência.');
       return;
     }
-    
+
     const storeName = units.find(u => u.id === selectedUnitId)?.name || 'MDR';
     const dateStr = new Date().toLocaleDateString('pt-BR');
-    
+
     let rowsHtml = filteredAuditItems
       .map(item => `
         <tr>
@@ -811,7 +816,7 @@ export default function Reports() {
           <td style="padding: 8px; border: 1px solid #ddd; width: 150px;"></td>
         </tr>
       `).join('');
-      
+
     printWindow.document.write(`
       <html>
         <head>
@@ -865,25 +870,25 @@ export default function Reports() {
     e.preventDefault();
     if (!scannedCode.trim()) return;
     if (!activeAudit) return;
-    
+
     const code = scannedCode.trim().toLowerCase();
-    const item = auditItems.find(i => 
-      (i.barcode && i.barcode.toLowerCase() === code) || 
+    const item = auditItems.find(i =>
+      (i.barcode && i.barcode.toLowerCase() === code) ||
       (i.imei && i.imei.toLowerCase() === code)
     );
-    
+
     if (item) {
       const currentQty = item.physical_quantity !== null ? item.physical_quantity : 0;
       const newQty = currentQty + 1;
-      
+
       try {
         await saveAuditItem(activeAudit.id, item.device_id, newQty, item.reason);
         showNotification('success', `${item.brand} ${item.model} incrementado!`, `Total físico: ${newQty}`);
-        
+
         try {
           const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==");
-          audio.play().catch(() => {});
-        } catch {}
+          audio.play().catch(() => { });
+        } catch { }
       } catch (err: any) {
         showNotification('error', 'Erro ao bipar', err.message);
       }
@@ -993,15 +998,15 @@ export default function Reports() {
       new Date(tx.created_at).toLocaleString('pt-BR'),
       tx.type === 'inflow' ? 'Entrada' : 'Saída',
       tx.category === 'installment' ? 'Contrato' :
-      tx.category === 'sale' ? 'Venda PDV' :
-      tx.category === 'suprimento' ? 'Suprimento' :
-      tx.category === 'sangria' ? 'Sangria' :
-      tx.category === 'despesa_luz' ? 'Despesa Luz' :
-      tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros',
+        tx.category === 'sale' ? 'Venda PDV' :
+          tx.category === 'suprimento' ? 'Suprimento' :
+            tx.category === 'sangria' ? 'Sangria' :
+              tx.category === 'despesa_luz' ? 'Despesa Luz' :
+                tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros',
       tx.description || '',
       tx.payment_method === 'pix' ? 'PIX' :
-      tx.payment_method === 'money' ? 'Dinheiro' :
-      tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco',
+        tx.payment_method === 'money' ? 'Dinheiro' :
+          tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco',
       Number(tx.amount).toFixed(2)
     ]);
     exportTableCSV(rows, 'relatorio_fluxo_caixa', headers);
@@ -1023,8 +1028,8 @@ export default function Reports() {
       Number(i.interest_value || 0).toFixed(2),
       Number(i.paid_value !== undefined ? i.paid_value : i.value).toFixed(2),
       i.payment_method === 'pix' ? 'PIX' :
-      i.payment_method === 'money' ? 'Dinheiro' :
-      i.payment_method === 'card' ? 'Cartão' : 'Outros'
+        i.payment_method === 'money' ? 'Dinheiro' :
+          i.payment_method === 'card' ? 'Cartão' : 'Outros'
     ]);
     exportTableCSV(rows, 'relatorio_liquidacoes_descontos', headers);
   };
@@ -1095,7 +1100,7 @@ export default function Reports() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20 p-8 print:p-0 print:bg-white print:text-black print:space-y-4 print:pb-0">
-      
+
       {/* HEADER SECTION (HIDDEN ON PRINT) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
         <div>
@@ -1125,7 +1130,7 @@ export default function Reports() {
           </div>
 
           {activeTab === 'overview' && (
-            <button 
+            <button
               onClick={handleExportSales}
               className="bg-white text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
             >
@@ -1134,7 +1139,7 @@ export default function Reports() {
           )}
 
           {activeTab === 'fluxo_caixa' && (
-            <button 
+            <button
               onClick={handleExportTransactionsCSV}
               className="bg-white text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
             >
@@ -1143,7 +1148,7 @@ export default function Reports() {
           )}
 
           {activeTab === 'liquidacoes' && (
-            <button 
+            <button
               onClick={handleExportLiquidacoesCSV}
               className="bg-white text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-white/5 flex items-center justify-center gap-2 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
             >
@@ -1152,7 +1157,7 @@ export default function Reports() {
           )}
 
           {activeTab === 'lucro_presumido' && (
-            <button 
+            <button
               onClick={handlePrintReport}
               className="bg-primary text-black px-6 py-3.5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-primary/10 flex items-center justify-center gap-2 hover:scale-[1.03] active:scale-95 transition-all cursor-pointer"
             >
@@ -1177,11 +1182,10 @@ export default function Reports() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`grow py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-              activeTab === tab.id 
-                ? 'bg-white text-black shadow-xl' 
+            className={`grow py-3.5 rounded-[20px] text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${activeTab === tab.id
+                ? 'bg-white text-black shadow-xl'
                 : 'text-on-surface-variant hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
             <tab.icon size={12} />
             {tab.label}
@@ -1243,7 +1247,7 @@ export default function Reports() {
           {/* Custom Dates inputs (reactive) */}
           <AnimatePresence>
             {dateRange === 'custom' && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
@@ -1251,8 +1255,8 @@ export default function Reports() {
               >
                 <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
                   <span className="text-[9px] font-black uppercase text-on-surface-variant">Início:</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
                     className="bg-transparent outline-none text-white w-full cursor-pointer"
@@ -1260,8 +1264,8 @@ export default function Reports() {
                 </div>
                 <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
                   <span className="text-[9px] font-black uppercase text-on-surface-variant">Fim:</span>
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
                     className="bg-transparent outline-none text-white w-full cursor-pointer"
@@ -1326,6 +1330,30 @@ export default function Reports() {
               </select>
             </div>
           </div>
+
+          {/* Day Filter (Only for Card Control) */}
+          {activeTab === 'controle_cartoes' && (
+            <div className="flex flex-col gap-1.5 min-w-[120px]">
+              <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Dia</span>
+              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
+                <select
+                  value={selectedCardDay}
+                  onChange={(e) => setSelectedCardDay(e.target.value)}
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none font-display font-black"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                  }}
+                >
+                  <option value="all" className="bg-[#0f0f1a]">Todos os Dias</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                    <option key={d} value={String(d)} className="bg-[#0f0f1a]">{d}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1358,7 +1386,7 @@ export default function Reports() {
               <h3 className="text-sm font-black text-white uppercase tracking-wider font-display">Evolução do Faturamento no Período</h3>
               <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Entradas diárias combinadas de vendas e assistência</p>
             </div>
-            
+
             {revenueChartData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 opacity-40">
                 <BarChart2 size={32} className="text-on-surface-variant mb-2" />
@@ -1370,15 +1398,15 @@ export default function Reports() {
                   <AreaChart data={revenueChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6C63FF" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#6C63FF" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#6C63FF" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#6C63FF" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="formattedDate" stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} />
                     <YAxis stroke="rgba(255,255,255,0.4)" fontSize={9} tickLine={false} tickFormatter={(val) => `R$ ${val}`} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }} 
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0f0f1a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
                       labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: '10px' }}
                       itemStyle={{ fontSize: '11px', color: '#6C63FF' }}
                       formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Faturamento']}
@@ -1392,7 +1420,7 @@ export default function Reports() {
 
           {/* Goal Tracker & Payment Methods Distribution */}
           <div className={`grid grid-cols-1 ${profile?.role === 'admin' ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-6`}>
-            
+
             {/* Sales Goal Card */}
             {profile?.role === 'admin' && (
               <div className="bg-white/1 border border-white/5 rounded-[32px] p-8 space-y-6">
@@ -1401,7 +1429,7 @@ export default function Reports() {
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">Meta Mensal da Loja</h3>
                     <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Acompanhamento do Faturamento</p>
                   </div>
-                  
+
                   <div className="text-right">
                     {editingTarget ? (
                       <div className="flex items-center gap-2">
@@ -1411,7 +1439,7 @@ export default function Reports() {
                           onChange={(e) => setTargetInput(e.target.value)}
                           className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white w-28 font-mono"
                         />
-                        <button 
+                        <button
                           onClick={handleUpdateTarget}
                           className="px-3 py-1.5 bg-primary text-black rounded-xl text-[9px] font-black uppercase tracking-widest"
                         >
@@ -1421,7 +1449,7 @@ export default function Reports() {
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-white font-mono">Meta: R$ {salesTarget.toLocaleString()}</span>
-                        <button 
+                        <button
                           onClick={() => { setTargetInput(salesTarget.toString()); setEditingTarget(true); }}
                           className="p-1 px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] text-on-surface-variant hover:text-white uppercase transition-all"
                         >
@@ -1439,20 +1467,19 @@ export default function Reports() {
                     <span className="text-primary">{metaPercentage.toFixed(1)}%</span>
                   </div>
                   <div className="h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
-                    <motion.div 
+                    <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, metaPercentage)}%` }}
                       transition={{ duration: 1, ease: 'easeOut' }}
-                      className={`h-full rounded-full ${
-                        metaPercentage >= 100 
-                          ? 'bg-linear-to-r from-green-500 to-emerald-400' 
+                      className={`h-full rounded-full ${metaPercentage >= 100
+                          ? 'bg-linear-to-r from-green-500 to-emerald-400'
                           : 'bg-linear-to-r from-primary to-indigo-500'
-                      }`}
+                        }`}
                     />
                   </div>
                   <p className="text-[9px] text-on-surface-variant text-center mt-1">
-                    {metaPercentage >= 100 
-                      ? '🎉 Meta de faturamento batida com sucesso! Parabéns!' 
+                    {metaPercentage >= 100
+                      ? '🎉 Meta de faturamento batida com sucesso! Parabéns!'
                       : `Falta R$ ${Math.max(0, salesTarget - totalRevenue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para atingir o objetivo.`}
                   </p>
                 </div>
@@ -1478,7 +1505,7 @@ export default function Reports() {
                       <span className="text-white">{item.pct}% ({item.value})</span>
                     </div>
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
+                      <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${item.pct}%` }}
                         transition={{ duration: 0.8, ease: 'easeOut' }}
@@ -1493,7 +1520,7 @@ export default function Reports() {
 
           {/* Stock Turnover & Top Customers */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+
             {/* Stock Turnover Metric Card */}
             <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px]">
               <div>
@@ -1566,7 +1593,7 @@ export default function Reports() {
                 R$ {netBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
-            
+
             <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success mb-4 border border-white/10">
                 <ArrowUpRight size={20} />
@@ -1647,19 +1674,19 @@ export default function Reports() {
                         </td>
                         <td className="py-4 text-xs font-bold text-white uppercase tracking-wider">
                           {tx.category === 'installment' ? 'Contrato' :
-                           tx.category === 'sale' ? 'Venda PDV' :
-                           tx.category === 'suprimento' ? 'Suprimento' :
-                           tx.category === 'sangria' ? 'Sangria' :
-                           tx.category === 'despesa_luz' ? 'Despesa Luz' :
-                           tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
+                            tx.category === 'sale' ? 'Venda PDV' :
+                              tx.category === 'suprimento' ? 'Suprimento' :
+                                tx.category === 'sangria' ? 'Sangria' :
+                                  tx.category === 'despesa_luz' ? 'Despesa Luz' :
+                                    tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
                         </td>
                         <td className="py-4 text-xs text-on-surface-variant max-w-[200px] truncate" title={tx.description}>
                           {tx.description || '—'}
                         </td>
                         <td className="py-4 text-[10px] font-black uppercase text-on-surface-variant">
                           {tx.payment_method === 'pix' ? 'PIX' :
-                           tx.payment_method === 'money' ? 'Dinheiro' :
-                           tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
+                            tx.payment_method === 'money' ? 'Dinheiro' :
+                              tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
                         </td>
                         <td className={`py-4 text-right pr-4 font-mono font-black text-xs ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
                           {tx.type === 'inflow' ? '+' : '-'} R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1847,7 +1874,7 @@ export default function Reports() {
       {/* ─── TAB 2: LUCRO PRESUMIDO (VALOR DE VENDA X VALOR DE CUSTO) ─────── */}
       {activeTab === 'lucro_presumido' && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          
+
           {/* PRINT-ONLY TITLE (VISIBLE ON PRINT) */}
           <div className="hidden print:block border-b border-black pb-4 mb-4 text-black">
             <h1 className="text-2xl font-black uppercase">Lucro Presumido de Venda de Serviços/Itens Avulsos ou do Estoque</h1>
@@ -1858,7 +1885,7 @@ export default function Reports() {
 
           {/* Profit Summary Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            
+
             {/* Total Sale Card */}
             <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
               <div>
@@ -1967,7 +1994,7 @@ export default function Reports() {
                     ))
                   )}
                 </tbody>
-                
+
                 {/* Total Row */}
                 {monthlyProfitItems.length > 0 && (
                   <tfoot>
@@ -2002,7 +2029,7 @@ export default function Reports() {
       {/* ─── TAB 3: LABORATÓRIO (DESEMPENHO TÉCNICO) ────────────────────────── */}
       {activeTab === 'laboratorio' && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          
+
           {/* Stats Laboratory cards grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
@@ -2029,7 +2056,7 @@ export default function Reports() {
                 <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Reparos Finalizados</h3>
                 <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Ordens de Serviço faturadas no período</p>
               </div>
-              
+
               <button
                 onClick={() => {
                   if (labMetrics.finishedCount === 0) {
@@ -2106,11 +2133,11 @@ export default function Reports() {
       {/* ─── TAB 4: AUDITORIA DE ESTOQUE ─────────────────────────────────────── */}
       {activeTab === 'auditoria' && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          
+
           {activeAudit ? (
             // ==================== SEÇÃO: AUDITORIA EM ANDAMENTO ====================
             <div className="space-y-6">
-              
+
               {/* Card de Sessão Ativa */}
               <div className="bg-white/2 border border-[#6C63FF]/30 rounded-[32px] p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
@@ -2202,11 +2229,10 @@ export default function Reports() {
                       setBarcodeMode(!barcodeMode);
                       setScannedCode('');
                     }}
-                    className={`px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${
-                      barcodeMode 
-                        ? 'bg-[#6C63FF] text-white shadow-lg shadow-[#6C63FF]/20' 
+                    className={`px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${barcodeMode
+                        ? 'bg-[#6C63FF] text-white shadow-lg shadow-[#6C63FF]/20'
                         : 'bg-white/5 hover:bg-white/10 text-on-surface-variant hover:text-white border border-white/10'
-                    }`}
+                      }`}
                   >
                     {barcodeMode ? 'Modo Bipador: ATIVO' : 'Ativar Modo Bipador'}
                   </button>
@@ -2214,7 +2240,7 @@ export default function Reports() {
 
                 <AnimatePresence>
                   {barcodeMode && (
-                    <motion.form 
+                    <motion.form
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
@@ -2242,7 +2268,7 @@ export default function Reports() {
 
               {/* Tabela de Produtos para Auditoria */}
               <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
-                
+
                 {/* Filtros da Tabela */}
                 <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
                   <div className="flex flex-wrap items-center gap-3 grow">
@@ -2327,16 +2353,16 @@ export default function Reports() {
                           const system = item.system_quantity;
                           const hasCounted = physical !== null;
                           const diff = hasCounted ? physical - system : 0;
-                          
+
                           return (
                             <tr key={item.device_id} className="hover:bg-white/1 transition-colors">
                               <td className="py-4 pl-4">
                                 <span className="text-xs font-black text-white uppercase tracking-wider">{item.brand} {item.model}</span>
                                 <div className="text-[8px] font-black uppercase text-on-surface-variant opacity-75 mt-0.5">
                                   {item.category === 'smartphone' ? 'Celular' :
-                                   item.category === 'accessory_mobile' ? 'Acessório Celular' :
-                                   item.category === 'accessory_it' ? 'Acessório TI' :
-                                   item.category === 'part' ? 'Peça' : 'Outros'}
+                                    item.category === 'accessory_mobile' ? 'Acessório Celular' :
+                                      item.category === 'accessory_it' ? 'Acessório TI' :
+                                        item.category === 'part' ? 'Peça' : 'Outros'}
                                 </div>
                               </td>
                               <td className="py-4">
@@ -2423,7 +2449,7 @@ export default function Reports() {
           ) : (
             // ==================== SEÇÃO: INICIAR NOVA AUDITORIA / HISTÓRICO ====================
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
+
               {/* Card Iniciar Sessão */}
               <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-1 flex flex-col justify-between min-h-[300px]">
                 <div className="space-y-4">
@@ -2501,19 +2527,16 @@ export default function Reports() {
                               {a.profiles?.full_name || 'N/A'}
                             </td>
                             <td className="py-4 text-center">
-                              <span className={`inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
-                                a.status === 'completed' 
-                                  ? 'bg-success/15 border border-success/30 text-success' 
+                              <span className={`inline-block text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${a.status === 'completed'
+                                  ? 'bg-success/15 border border-success/30 text-success'
                                   : 'bg-error/15 border border-error/30 text-error'
-                              }`}>
+                                }`}>
                                 {a.status === 'completed' ? 'Ajustado' : 'Cancelado'}
                               </span>
                             </td>
-                            <td className={`py-4 text-right font-mono font-black ${
-                              profile?.role === 'admin' ? '' : 'pr-4'
-                            } ${
-                              Number(a.total_cost_discrepancy) === 0 ? 'text-white' : Number(a.total_cost_discrepancy) > 0 ? 'text-green-400' : 'text-error'
-                            }`}>
+                            <td className={`py-4 text-right font-mono font-black ${profile?.role === 'admin' ? '' : 'pr-4'
+                              } ${Number(a.total_cost_discrepancy) === 0 ? 'text-white' : Number(a.total_cost_discrepancy) > 0 ? 'text-green-400' : 'text-error'
+                              }`}>
                               R$ {Number(a.total_cost_discrepancy || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </td>
                             {profile?.role === 'admin' && (
@@ -2618,7 +2641,7 @@ export default function Reports() {
 
                   <div className="space-y-3">
                     <p className="text-xs text-on-surface-variant leading-relaxed">
-                      {auditStats.countedItems < auditStats.totalItems 
+                      {auditStats.countedItems < auditStats.totalItems
                         ? `Você só conferiu ${auditStats.countedItems} de ${auditStats.totalItems} produtos. Tem certeza que deseja finalizar mesmo assim?`
                         : 'Deseja realmente finalizar esta auditoria de estoque?'
                       }
@@ -2727,7 +2750,7 @@ export default function Reports() {
               <h3 className="text-sm font-black text-white uppercase tracking-wider">Metas por Colaboradores</h3>
               <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Acompanhamento e definição de objetivos</p>
             </div>
-            
+
             {/* Period selector */}
             <div className="flex items-center gap-4">
               <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[150px]">
@@ -2784,7 +2807,7 @@ export default function Reports() {
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wider">Lançamentos não identificados nos Terminais</h4>
                 <p className="text-[10px] opacity-85 mt-1 leading-relaxed">
-                  Detectamos <strong>R$ {terminalOrphanStats.sales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em vendas e/ou <strong>{terminalOrphanStats.osCount} OS</strong> registrados diretamente nas contas de terminal genéricas no período selecionado. 
+                  Detectamos <strong>R$ {terminalOrphanStats.sales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> em vendas e/ou <strong>{terminalOrphanStats.osCount} OS</strong> registrados diretamente nas contas de terminal genéricas no período selecionado.
                   Certifique-se de que os colaboradores se identificam com suas senhas individuais ao realizar lançamentos, para que suas metas individuais sejam devidamente creditadas.
                 </p>
               </div>
@@ -2898,21 +2921,20 @@ export default function Reports() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {collaboratorData.map(col => {
                 const isEditing = editingGoalUserId === col.id;
-                
+
                 return (
                   <div key={col.id} className="bg-white/1 border border-white/5 rounded-[28px] p-5 space-y-4 flex flex-col justify-between hover:bg-white/2 transition-all">
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="text-sm font-black text-white uppercase">{col.name}</h4>
-                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 ${
-                          col.role === 'technician' 
-                            ? 'bg-primary/20 text-primary border border-primary/20' 
+                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 ${col.role === 'technician'
+                            ? 'bg-primary/20 text-primary border border-primary/20'
                             : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/25'
-                        }`}>
+                          }`}>
                           {col.role === 'technician' ? 'Técnico' : 'Atendente'}
                         </span>
                       </div>
-                      
+
                       {!isEditing && (
                         <button
                           onClick={() => {
@@ -2939,7 +2961,7 @@ export default function Reports() {
                               className="w-full bg-[#121214] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none font-mono"
                             />
                           </div>
-                          
+
                           <div className="space-y-1">
                             <label className="text-[8px] font-black uppercase text-on-surface-variant pl-1">Meta OS (Qtd)</label>
                             <input
@@ -2975,9 +2997,9 @@ export default function Reports() {
                             <span className="text-white">R$ {col.sales.toLocaleString('pt-BR')} / R$ {col.salesTarget.toLocaleString('pt-BR')}</span>
                           </div>
                           <div className="h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                            <div 
-                              className={`h-full rounded-full ${col.salesProgress >= 100 ? 'bg-linear-to-r from-green-500 to-emerald-400' : 'bg-linear-to-r from-primary to-indigo-500'}`} 
-                              style={{ width: `${Math.min(100, col.salesProgress)}%` }} 
+                            <div
+                              className={`h-full rounded-full ${col.salesProgress >= 100 ? 'bg-linear-to-r from-green-500 to-emerald-400' : 'bg-linear-to-r from-primary to-indigo-500'}`}
+                              style={{ width: `${Math.min(100, col.salesProgress)}%` }}
                             />
                           </div>
                         </div>
@@ -2989,9 +3011,9 @@ export default function Reports() {
                             <span className="text-white">{col.osCount} / {col.osTarget} OS</span>
                           </div>
                           <div className="h-2 bg-white/5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                            <div 
-                              className={`h-full rounded-full ${col.osProgress >= 100 ? 'bg-linear-to-r from-green-500 to-emerald-400' : 'bg-linear-to-r from-emerald-500 to-teal-500'}`} 
-                              style={{ width: `${Math.min(100, col.osProgress)}%` }} 
+                            <div
+                              className={`h-full rounded-full ${col.osProgress >= 100 ? 'bg-linear-to-r from-green-500 to-emerald-400' : 'bg-linear-to-r from-emerald-500 to-teal-500'}`}
+                              style={{ width: `${Math.min(100, col.osProgress)}%` }}
                             />
                           </div>
                         </div>
@@ -3008,7 +3030,7 @@ export default function Reports() {
       {/* ─── TAB: LIQUIDAÇÕES & DESCONTOS ────────────────────────────────────── */}
       {activeTab === 'liquidacoes' && (
         <div className="space-y-8 animate-in fade-in duration-500">
-          
+
           {/* Sub Filters Toolbar */}
           <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
@@ -3038,7 +3060,7 @@ export default function Reports() {
             {/* Custom Dates inputs (reactive) */}
             <AnimatePresence>
               {dateRange === 'custom' && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -3046,8 +3068,8 @@ export default function Reports() {
                 >
                   <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
                     <span className="text-[9px] font-black uppercase text-on-surface-variant">Início:</span>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
                       className="bg-transparent outline-none text-white w-full cursor-pointer"
@@ -3055,8 +3077,8 @@ export default function Reports() {
                   </div>
                   <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-xs text-white">
                     <span className="text-[9px] font-black uppercase text-on-surface-variant">Fim:</span>
-                    <input 
-                      type="date" 
+                    <input
+                      type="date"
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
                       className="bg-transparent outline-none text-white w-full cursor-pointer"
@@ -3151,7 +3173,7 @@ export default function Reports() {
               </div>
               <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Total a pagar cartão (Dívida Total)</p>
               <h3 className="text-2xl font-black text-white leading-none font-mono">
-                R$ {bills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {filteredCardBills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
 
@@ -3161,7 +3183,7 @@ export default function Reports() {
               </div>
               <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Pago este Mês</p>
               <h3 className="text-2xl font-black text-success leading-none font-mono">
-                R$ {bills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {filteredCardBills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
 
@@ -3171,7 +3193,7 @@ export default function Reports() {
               </div>
               <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Pendente este Mês</p>
               <h3 className="text-2xl font-black text-error leading-none font-mono">
-                R$ {bills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {filteredCardBills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
             </div>
           </div>
@@ -3195,41 +3217,45 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {bills.length === 0 ? (
+                    {filteredCardBills.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-12 text-center text-xs text-on-surface-variant">
                           Nenhum cartão ativo ou despesa registrada neste período.
                         </td>
                       </tr>
                     ) : (
-                      bills.map((bill) => (
-                        <tr key={bill.id} className="hover:bg-white/1 transition-all">
-                          <td className="py-4 pl-4 text-xs font-black font-mono text-white">{bill.day}</td>
-                          <td className="py-4 text-xs font-bold text-white uppercase">
-                            {bill.description}
-                            <span className={cn(
-                              "ml-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border",
-                              bill.category === 'store'
-                                ? "bg-primary/10 border-primary/20 text-primary"
-                                : "bg-purple-500/10 border-purple-500/20 text-purple-400"
-                            )}>
-                              {bill.category === 'store' ? 'Loja' : 'Pessoal'}
-                            </span>
-                          </td>
-                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">
-                            {bill.current_installment} / {bill.total_installments}
-                          </td>
-                          <td className="py-4 text-center text-xs font-mono text-on-surface-variant">
-                            {bill.remaining_installments}
-                          </td>
-                          <td className="py-4 text-right text-xs font-mono font-black text-white">
-                            R$ {Number(bill.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-4 text-right pr-4 text-xs font-mono font-black text-white/80">
-                            R$ {(Number(bill.value) * Math.max(0, bill.remaining_installments || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      ))
+                      [...filteredCardBills]
+                        .sort((a, b) => a.day - b.day)
+                        .map((bill) => (
+                          <tr key={bill.id} className="hover:bg-white/1 transition-all">
+                            <td className="py-4 pl-4 text-xs font-black font-mono text-white">
+                              {String(bill.day).padStart(2, '0')}/{String(selectedMonth).padStart(2, '0')}/{selectedYear}
+                            </td>
+                            <td className="py-4 text-xs font-bold text-white uppercase">
+                              {bill.description}
+                              <span className={cn(
+                                "ml-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full border",
+                                bill.category === 'store'
+                                  ? "bg-primary/10 border-primary/20 text-primary"
+                                  : "bg-purple-500/10 border-purple-500/20 text-purple-400"
+                              )}>
+                                {bill.category === 'store' ? 'Loja' : 'Pessoal'}
+                              </span>
+                            </td>
+                            <td className="py-4 text-center text-xs font-mono text-on-surface-variant">
+                              {bill.current_installment} / {bill.total_installments}
+                            </td>
+                            <td className="py-4 text-center text-xs font-mono text-on-surface-variant">
+                              {bill.remaining_installments}
+                            </td>
+                            <td className="py-4 text-right text-xs font-mono font-black text-white">
+                              R$ {Number(bill.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-4 text-right pr-4 text-xs font-mono font-black text-white/80">
+                              R$ {(Number(bill.value) * Math.max(0, bill.remaining_installments || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))
                     )}
                   </tbody>
                 </table>
