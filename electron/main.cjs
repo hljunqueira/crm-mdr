@@ -22,25 +22,7 @@ try {
   const { execSync } = require('child_process');
   const currentPid = process.pid;
 
-  // 2a. Terminar outros processos do MDR que possam estar rodando em background
-  if (process.platform === 'win32') {
-    const stdout = execSync('tasklist /NH /FO CSV').toString();
-    const lines = stdout.split('\n');
-    for (const line of lines) {
-      if (line.includes('MDR INFORMATICA E CELULARES.exe')) {
-        const parts = line.split(',');
-        if (parts.length > 1) {
-          const pid = parseInt(parts[1].replace(/"/g, '').trim(), 10);
-          if (pid && pid !== currentPid) {
-            console.log(`[Cleanup] Finalizando instancia antiga de MDR em background. PID: ${pid}`);
-            try { execSync(`taskkill /F /PID ${pid}`); } catch (e) {}
-          }
-        }
-      }
-    }
-  }
-
-  // 2b. Liberar a porta 3009 de qualquer processo travando-a (exceto o nosso)
+  // Liberar a porta do servidor de qualquer processo travando-a (exceto o nosso)
   if (process.platform === 'win32') {
     const netstat = execSync('netstat -aon').toString();
     const lines = netstat.split('\n');
@@ -60,7 +42,7 @@ try {
     }
   }
 } catch (err) {
-  console.log('[Cleanup] Erro ou nenhum processo anterior encontrado:', err.message);
+  console.log('[Cleanup] Erro ou nenhum processo anterior encontrado na porta:', err.message);
 }
 
 // 3. Trava de Instância Única (Single Instance Lock)
