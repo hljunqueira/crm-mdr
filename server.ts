@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -34,12 +33,19 @@ import { checkAndReactivateAsaasWebhook } from "./server/services/asaasService.j
 
 
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let activeFilename = '';
+let activeDirname = '';
+try {
+  activeFilename = fileURLToPath(import.meta.url);
+  activeDirname = path.dirname(activeFilename);
+} catch (e) {
+  activeFilename = __filename;
+  activeDirname = __dirname;
+}
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3009;
 
   // Hardening de segurança com Helmet
   app.use(helmet({
@@ -116,13 +122,16 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = fs.existsSync(path.join(activeDirname, "dist"))
+      ? path.join(activeDirname, "dist")
+      : path.join(activeDirname, "../dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
