@@ -1,4 +1,8 @@
 import { Router } from "express";
+import { db } from "../db/connection.js";
+import { customers, syncQueue } from "../db/schema.js";
+import { eq, or, isNull } from "drizzle-orm";
+import crypto from "crypto";
 import { supabase } from "../lib/supabase.js";
 import { updateAsaasCustomer } from "../services/asaasService.js";
 
@@ -7,16 +11,49 @@ const router = Router();
 // Get all customers
 router.get("/", async (req, res) => {
   const { unit_id } = req.query;
-  let query = supabase.from('customers').select('*');
 
-  if (unit_id && unit_id !== 'all') {
-    query = query.eq('unit_id', unit_id);
+  try {
+    let result;
+    // No SQLite local, mapeamos unit_id como storeId
+    if (unit_id && unit_id !== 'all') {
+      result = await db.select()
+        .from(customers)
+        .where(
+          or(
+            eq(customers.storeId, unit_id as string),
+            isNull(customers.storeId)
+          )
+        )
+        .orderBy(customers.name);
+    } else {
+      result = await db.select().from(customers).orderBy(customers.name);
+    }
+    
+    // Converte de volta para snake_case para manter compatibilidade com o frontend
+    const formattedResult = result.map(c => ({
+      id: c.id,
+      name: c.name,
+      cpf: c.cpf,
+      phone: c.phone,
+      parent_contact_phone: c.parentContactPhone,
+      reference1_name: c.reference1Name,
+      reference1_phone: c.reference1Phone,
+      reference2_name: c.reference2Name,
+      reference2_phone: c.reference2Phone,
+      email: c.email,
+      address: c.address,
+      status: c.status,
+      notes: c.notes,
+      suggested_down_payment: c.suggestedDownPayment,
+      last_payment_date: c.lastPaymentDate,
+      created_at: c.createdAt,
+      unit_id: c.storeId,
+    }));
+    
+    res.json(formattedResult);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  const { data, error } = await query.order('name');
-
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
 });
 
 const EVOLUTION_URL = 'https://whatsapp.mdrinformaticaecelulares.com.br';
@@ -69,24 +106,19 @@ async function notifyMaykonOfAnalysis(customer: any) {
 // Create customer
 router.post("/", async (req, res) => {
   const { phone, unit_id } = req.body;
-  if (phone) {
-    const cleanNewPhone = phone.replace(/\D/g, '');
-    if (cleanNewPhone) {
-      let query = supabase
-        .from('customers')
-        .select('id, phone');
-
-      if (unit_id) {
-        query = query.eq('unit_id', unit_id);
-      }
-
-      const { data: allCustomers, error: fetchError } = await query;
-
-      if (!fetchError && allCustomers) {
+  
+  try {
+    if (phone) {
+      const cleanNewPhone = phone.replace(/\D/g, '');
+      if (cleanNewPhone) {
+        // Validação local no SQLite
+        const allCustomers = await db.select().from(customers);
         const duplicate = allCustomers.find(c => {
           if (!c.phone) return false;
           const cleanExisting = c.phone.replace(/\D/g, '');
-          return cleanExisting === cleanNewPhone;
+          // Verifica se está na mesma unidade (se especificado)
+          const sameUnit = !unit_id || c.storeId === unit_id;
+          return cleanExisting === cleanNewPhone && sameUnit;
         });
 
         if (duplicate) {
@@ -94,21 +126,72 @@ router.post("/", async (req, res) => {
         }
       }
     }
+
+    const id = req.body.id || crypto.randomUUID();
+    
+    // Mapeamento dos campos recebidos do body (geralmente snake_case) para o schema Drizzle
+    const newCustomer = {
+      id,
+      name: req.body.name,
+      cpf: req.body.cpf,
+      phone: req.body.phone,
+      parentContactPhone: req.body.parent_contact_phone,
+      reference1Name: req.body.reference1_name,
+      reference1Phone: req.body.reference1_phone,
+      reference2Name: req.body.reference2_name,
+      reference2Phone: req.body.reference2_phone,
+      email: req.body.email,
+      address: req.body.address,
+      status: req.body.status || 'active',
+      notes: req.body.notes,
+      suggestedDownPayment: Number(req.body.suggested_down_payment || 0),
+      lastPaymentDate: req.body.last_payment_date,
+      storeId: unit_id || req.body.unit_id,
+      syncStatus: 'pending_insert',
+      updatedAt: new Date().toISOString()
+    };
+
+    // 1. Gravação local no SQLite
+    await db.insert(customers).values(newCustomer);
+
+    // 2. Gravação na fila de sincronização offline
+    // Usamos o payload mapeado em snake_case para que o Supabase receba no formato correto
+    const pgPayload = {
+      id,
+      name: req.body.name,
+      cpf: req.body.cpf,
+      phone: req.body.phone,
+      parent_contact_phone: req.body.parent_contact_phone,
+      reference1_name: req.body.reference1_name,
+      reference1_phone: req.body.reference1_phone,
+      reference2_name: req.body.reference2_name,
+      reference2_phone: req.body.reference2_phone,
+      email: req.body.email,
+      address: req.body.address,
+      status: req.body.status || 'active',
+      notes: req.body.notes,
+      suggested_down_payment: Number(req.body.suggested_down_payment || 0),
+      last_payment_date: req.body.last_payment_date,
+      unit_id: unit_id || req.body.unit_id,
+      updated_at: newCustomer.updatedAt,
+    };
+
+    await db.insert(syncQueue).values({
+      tableName: 'customers',
+      action: 'INSERT',
+      recordId: id,
+      payload: JSON.stringify(pgPayload),
+    });
+
+    if (req.body.credit_status === 'EM_ANALISE') {
+      notifyMaykonOfAnalysis(pgPayload);
+    }
+
+    res.status(201).json(pgPayload);
+  } catch (error: any) {
+    console.error('[Create Customer Error]', error);
+    res.status(500).json({ error: error.message });
   }
-
-  const { data, error } = await supabase
-    .from('customers')
-    .insert([req.body])
-    .select()
-    .single();
-
-  if (error) return res.status(500).json({ error: error.message });
-
-  if (data && data.credit_status === 'EM_ANALISE') {
-    notifyMaykonOfAnalysis(data);
-  }
-
-  res.status(201).json(data);
 });
 
 // Update customer
