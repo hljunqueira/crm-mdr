@@ -36,13 +36,33 @@ import Commissions from './pages/Commissions';
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
 import AdminSessionTimeout from './components/layout/AdminSessionTimeout';
+import { useNetworkStore } from './store/useNetworkStore';
 
 export default function App() {
   const initializeAuth = useAuthStore(state => state.initialize);
+  const setOnlineStatus = useNetworkStore(state => state.setOnlineStatus);
+  const setOfflineMode = useNetworkStore(state => state.setOfflineMode);
 
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setOnlineStatus(true);
+    };
+    const handleOffline = () => {
+      setOnlineStatus(false);
+      setOfflineMode(true);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [setOnlineStatus, setOfflineMode]);
 
   const isPartnersSubdomain = window.location.hostname.startsWith('parceiros');
 

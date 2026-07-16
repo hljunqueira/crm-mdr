@@ -8,11 +8,13 @@ import {
   Search, Bell, User, Key, LogOut, Loader2, X, 
   ChevronDown, Camera, Users, Wrench, UserSearch 
 } from 'lucide-react';
+import { useNetworkStore } from '../../store/useNetworkStore';
 
 export default function TopBar() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuthStore();
   const { showNotification } = useUI();
+  const { isOfflineMode, setOfflineMode } = useNetworkStore();
 
   // Search States
   const [searchQuery, setSearchQuery] = useState('');
@@ -326,6 +328,20 @@ export default function TopBar() {
 
         {/* User profile section */}
         <div className="flex items-center gap-6 ml-8">
+          <button
+            type="button"
+            onClick={() => setOfflineMode(!isOfflineMode)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all duration-300 border ${
+              isOfflineMode 
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20 shadow-lg shadow-amber-500/5' 
+                : 'bg-green-500/10 border-green-500/20 text-green-500 hover:bg-green-500/20 shadow-lg shadow-green-500/5'
+            }`}
+            title={isOfflineMode ? "Modo Offline Ativo. Clique para alternar para Online." : "Modo Online Ativo. Clique para alternar para Offline."}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isOfflineMode ? 'bg-amber-500 animate-pulse' : 'bg-green-500 animate-pulse'}`} />
+            {isOfflineMode ? 'Offline' : 'Online'}
+          </button>
+
           <div className="h-8 w-px bg-outline-variant opacity-40"></div>
 
           <div ref={dropdownRef} className="relative">

@@ -29,6 +29,38 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   signIn: async (email, password) => {
     try {
+      const { useNetworkStore } = await import('./useNetworkStore');
+      const isOffline = useNetworkStore.getState().isOfflineMode;
+
+      if (isOffline) {
+        // Login Offline contra o SQLite Local
+        const response = await fetch('http://localhost:3009/api/users/login-offline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          return { error: new Error(errorData.error || 'Erro ao realizar login offline.') };
+        }
+
+        const { user } = await response.json();
+        const fakeSession = null;
+        const fakeUser = { id: user.id, email: user.email } as any;
+        const fakeProfile = {
+          id: user.id,
+          unit_id: user.unit_id,
+          full_name: user.fullName,
+          role: user.role
+        };
+
+        localStorage.setItem('crm_offline_session', JSON.stringify({ session: fakeSession, user: fakeUser, profile: fakeProfile }));
+        set({ session: fakeSession, user: fakeUser, profile: fakeProfile });
+        return { error: null };
+      }
+
+      // Login Online normal
       const response = await fetch('/api/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,6 +76,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
       // Salva sessão localmente para inicialização offline imediata
       localStorage.setItem('crm_offline_session', JSON.stringify({ session, user, profile }));
+
+      // Criptografa e salva as credenciais locais no SQLite para uso offline futuro
+      try {
+        await fetch('/api/users/cache-credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, email: user.email, password })
+        });
+      } catch (cacheErr) {
+        console.warn('[AuthStore] Erro ao salvar cache de credenciais local:', cacheErr);
+      }
 
       if (session) {
         await supabase.auth.setSession({

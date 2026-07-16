@@ -22,6 +22,13 @@
       "when": 1784229837300,
       "tag": "0002_useful_the_executioner",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784234347185,
+      "tag": "0003_clammy_champions",
+      "breakpoints": true
     }
   ]
 }

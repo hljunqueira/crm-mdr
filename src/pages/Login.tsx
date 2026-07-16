@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, ArrowRight, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Shield, ArrowRight, Lock, Mail, AlertCircle, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuthStore } from '../store/useAuthStore';
+import { useNetworkStore } from '../store/useNetworkStore';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -22,6 +23,28 @@ export default function Login() {
 
   const navigate = useNavigate();
   const signIn = useAuthStore(state => state.signIn);
+  const { isOfflineMode, setOfflineMode } = useNetworkStore();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncSuccess, setSyncSuccess] = useState('');
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setError('');
+    setSyncSuccess('');
+    try {
+      const response = await fetch('http://localhost:3009/api/users/sync-pull', {
+        method: 'POST'
+      });
+      if (!response.ok) {
+        throw new Error('Falha ao sincronizar dados com o servidor local.');
+      }
+      setSyncSuccess('Sincronização de tabelas e usuários concluída!');
+    } catch (err: any) {
+      setError(err.message || 'Erro ao sincronizar. Verifique se o servidor local está ativo.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +53,17 @@ export default function Login() {
     setIsSubmitting(true);
 
     try {
+      if (isOfflineMode) {
+        const { error: authError } = await signIn(email, password);
+        if (authError) {
+          setError(authError.message || 'E-mail ou senha incorretos no modo offline.');
+        } else {
+          navigate('/dashboard');
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
       if (!twoFactorRequired) {
         // Passo 1: Pré-login para verificar credenciais e checar 2FA
         const res = await fetch('/api/users/pre-login', {
@@ -213,6 +247,70 @@ export default function Login() {
             {viewMode === 'login' ? (
               !twoFactorRequired ? (
                 <>
+                  {/* Seletor Online / Offline */}
+                  <div className="flex bg-[#1a1b24] p-1.5 rounded-2xl border border-white/5 gap-2 mb-6 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOfflineMode(false);
+                        setError('');
+                        setSyncSuccess('');
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                        !isOfflineMode 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${!isOfflineMode ? 'bg-white animate-pulse' : 'bg-green-500'}`} />
+                      Online (Nuvem)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOfflineMode(true);
+                        setError('');
+                        setSyncSuccess('');
+                        if (typeof navigator !== 'undefined' && navigator.onLine) {
+                          handleSync();
+                        }
+                      }}
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                        isOfflineMode 
+                          ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-white animate-pulse' : 'bg-amber-500'}`} />
+                      Offline (Local)
+                    </button>
+                  </div>
+
+                  {syncSuccess && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-2xl mb-4"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
+                      <p className="text-[11px] font-bold text-green-500 tracking-wider">{syncSuccess}</p>
+                    </motion.div>
+                  )}
+
+                  {isOfflineMode && (
+                    <div className="flex justify-end mb-4">
+                      <button
+                        type="button"
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 text-xs font-bold text-amber-500 hover:text-amber-400 disabled:opacity-50 transition-colors"
+                      >
+                        <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                        {isSyncing ? 'Sincronizando...' : 'Sincronizar Banco Local'}
+                      </button>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-on-surface/60 tracking-[0.2em] pl-1">E-mail</label>
                     <div className="relative group">

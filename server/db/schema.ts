@@ -120,3 +120,12 @@ export const syncQueue = sqliteTable('sync_queue', {
   payload: text('payload').notNull(), // JSON string com os dados a sincronizar
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
 });
+
+// 8. LOCAL CREDENTIALS CACHE (Autenticação Offline)
+export const localAuthCache = sqliteTable('local_auth_cache', {
+  id: text('id').primaryKey(), // ID do profile
+  email: text('email').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  salt: text('salt').notNull(),
+  updatedAt: text('updated_at').default('CURRENT_TIMESTAMP')
+});

@@ -1,7 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+import { useNetworkStore } from '../store/useNetworkStore';
 
 async function fetchApi(endpoint: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const isOffline = useNetworkStore.getState().isOfflineMode;
+  const baseUrl = isOffline ? 'http://localhost:3009/api' : (import.meta.env.VITE_API_URL || '/api');
+
+  const response = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
