@@ -1,0 +1,1 @@
+ALTER TABLE `customers` ADD `unit_id` text REFERENCES stores(id);
