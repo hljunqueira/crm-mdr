@@ -30,6 +30,7 @@ import scpRoutes from "./server/routes/scp.js";
 import financialDashboardRoutes from "./server/routes/financial_dashboard.js";
 import commissionRoutes from "./server/routes/commissions.js";
 import { checkAndReactivateAsaasWebhook } from "./server/services/asaasService.js";
+import { startSyncService } from "./server/services/syncService.js";
 
 
 
@@ -140,6 +141,9 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    
+    // Iniciar serviço de sincronização SQLite <-> Supabase
+    startSyncService(15000);
     
     // Monitoramento do webhook do Asaas para auto-reativação em caso de instabilidades
     checkAndReactivateAsaasWebhook().catch(err => console.error("Erro na ativação inicial do webhook Asaas:", err));
