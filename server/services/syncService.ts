@@ -58,20 +58,21 @@ export async function pushLocalChanges() {
       }
 
       if (error) {
-        console.error(`[Sync] Erro ao sincronizar item ${item.id}:`, error.message);
-        // Se for um erro temporário de rede, para a fila. Se for erro de validação/schema, removemos da fila para não travar
-        if (error.message.includes('fetch') || error.message.includes('network')) {
-          break; 
-        }
+        console.error(`[Sync] Erro ao sincronizar item ${item.id} (${item.tableName}):`, error.message);
+        // Se houver qualquer erro (rede, RLS ou FK de dependência temporária), paramos o processamento da fila.
+        // Isso impede a perda de dados e mantém a fila intacta para tentar novamente no próximo ciclo,
+        // após as dependências (como clientes) terem sido puxadas/sincronizadas.
+        break;
       }
 
-      // Remove da fila local após sucesso
+      // Remove da fila local apenas após sucesso real de gravação na nuvem
       await db.delete(syncQueue).where(eq(syncQueue.id, item.id));
 
       // Atualiza o status local para synced na tabela correspondente
       await updateLocalSyncStatus(item.tableName, item.recordId, 'synced');
     } catch (e) {
       console.error(`[Sync] Erro crítico ao processar item ${item.id} da fila:`, e);
+      break; // Para a fila em caso de erro crítico
     }
   }
 }
