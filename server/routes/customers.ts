@@ -16,15 +16,7 @@ router.get("/", async (req, res) => {
     let result;
     // No SQLite local, mapeamos unit_id como storeId
     if (unit_id && unit_id !== 'all') {
-      result = await db.select()
-        .from(customers)
-        .where(
-          or(
-            eq(customers.storeId, unit_id as string),
-            isNull(customers.storeId)
-          )
-        )
-        .orderBy(customers.name);
+      result = await db.select().from(customers).where(eq(customers.storeId, unit_id as string)).orderBy(customers.name);
     } else {
       result = await db.select().from(customers).orderBy(customers.name);
     }
