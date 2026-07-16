@@ -21,6 +21,8 @@ services:
     build: .
     restart: always
     env_file: .env
+    environment:
+      - PORT=3000
     networks:
       - crm-network
 

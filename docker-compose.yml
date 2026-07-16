@@ -6,6 +6,7 @@ services:
     restart: always
     environment:
       - NODE_ENV=production
+      - PORT=3000
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - ASAAS_API_KEY=${ASAAS_API_KEY}
