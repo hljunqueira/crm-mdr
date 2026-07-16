@@ -312,7 +312,12 @@ export default function Reports() {
   // Overview metrics calculations
   const totalSalesValue = useMemo(() => filteredSales.reduce((acc, s) => {
     const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
-    return acc + (s.original_price ?? s.total_value) - tradeInVal;
+    const parsedAcc = parseAccessories(s.accessories || '');
+    const accessoriesTotal = parsedAcc.reduce((sum, a) => sum + (a.isVenda ? a.salePrice : 0), 0);
+    const expectedTotal = (s.original_price ?? s.total_value) + accessoriesTotal + (s.service_fee || 0) - tradeInVal;
+    const discount = Math.max(0, expectedTotal - s.total_value);
+    const devicePrice = Math.max(0, (s.original_price ?? s.total_value) - discount - tradeInVal);
+    return acc + devicePrice + accessoriesTotal;
   }, 0), [filteredSales]);
   const totalServiceValue = useMemo(() => filteredServiceOrders.reduce((acc, o) => acc + o.total_value, 0), [filteredServiceOrders]);
   const totalRevenue = totalSalesValue + totalServiceValue;
@@ -466,7 +471,13 @@ export default function Reports() {
       const mainDevice = inventory.find(inv => inv.id === s.device_id);
       const mainCost = mainDevice ? mainDevice.cost_price : (s.device_cost_price || 0);
       const tradeInVal = s.is_trade_in ? Number(s.trade_in_valuation || 0) : 0;
-      const mainSale = (s.original_price ?? s.total_value) - tradeInVal;
+      
+      const parsedAcc = parseAccessories(s.accessories || '');
+      const accessoriesTotal = parsedAcc.reduce((sum, a) => sum + (a.isVenda ? a.salePrice : 0), 0);
+      const expectedTotal = (s.original_price ?? s.total_value) + accessoriesTotal + (s.service_fee || 0) - tradeInVal;
+      const discount = Math.max(0, expectedTotal - s.total_value);
+      
+      const mainSale = Math.max(0, (s.original_price ?? s.total_value) - discount - tradeInVal);
       const mainProfit = mainSale - mainCost;
       const mainMargin = mainCost > 0 ? (mainProfit / mainCost) * 100 : 0;
 

@@ -18,27 +18,21 @@ router.get("/bills", async (req, res) => {
     const { data: bills, error: billsError } = await query;
     if (billsError) throw billsError;
 
-    // Filter active bills for this period first
-    const activeBillsRaw = bills.filter(bill => {
-      const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
-      const currentInstallment = elapsedMonths + 1;
-      return currentInstallment >= 1 && currentInstallment <= bill.total_installments;
-    });
+    const billIds = bills.map(b => b.id);
 
-    const activeBillIds = activeBillsRaw.map(b => b.id);
-
-    // Fetch all payments for these active bills to calculate remaining installments accurately
+    // Fetch all payments for these bills to calculate remaining installments accurately
     let allPayments: any[] = [];
-    if (activeBillIds.length > 0) {
+    if (billIds.length > 0) {
       const { data: paymentsData, error: paymentsError } = await supabase
         .from("credit_card_bill_payments")
         .select("bill_id, month, year")
-        .in("bill_id", activeBillIds);
+        .in("bill_id", billIds);
       if (paymentsError) throw paymentsError;
       allPayments = paymentsData || [];
     }
 
-    const activeBills = activeBillsRaw.map(bill => {
+    const activeBills = [];
+    for (const bill of bills) {
       const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
       const currentInstallment = elapsedMonths + 1;
       
@@ -46,14 +40,22 @@ router.get("/bills", async (req, res) => {
       const isPaid = paymentsForBill.some(p => p.month === month && p.year === year);
       const remainingInstallments = Math.max(0, bill.total_installments - paymentsForBill.length);
 
-      return {
-        ...bill,
-        current_installment: currentInstallment,
-        remaining_installments: remainingInstallments,
-        is_active: true,
-        is_paid: isPaid
-      };
-    });
+      // A bill is active in the selected month if:
+      // 1. It is within its scheduled timeline
+      // 2. OR its schedule has elapsed but it still has outstanding debt (unpaid installments)
+      const isWithinTimeline = currentInstallment >= 1 && currentInstallment <= bill.total_installments;
+      const hasPendingDebt = currentInstallment > bill.total_installments && remainingInstallments > 0;
+
+      if (isWithinTimeline || hasPendingDebt) {
+        activeBills.push({
+          ...bill,
+          current_installment: Math.min(bill.total_installments, Math.max(1, currentInstallment)),
+          remaining_installments: remainingInstallments,
+          is_active: true,
+          is_paid: isPaid
+        });
+      }
+    }
 
     res.json(activeBills);
   } catch (error: any) {
