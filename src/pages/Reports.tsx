@@ -492,7 +492,6 @@ export default function Reports() {
         margin: mainMargin
       });
 
-      const parsedAcc = parseAccessories(s.accessories || '');
       parsedAcc.forEach(acc => {
         const accSale = acc.isVenda ? acc.salePrice : 0;
         const accCost = acc.costPrice;
