@@ -109,12 +109,10 @@ export async function pullCloudChanges() {
         lastUpdatedAt = localRecords[0].updated_at || lastUpdatedAt;
       }
 
-      // 2. Buscar registros mais recentes no Supabase
+      // 2. Buscar registros no Supabase
       const { data: cloudRecords, error } = await supabase
         .from(table)
-        .select('*')
-        .gt('updated_at', lastUpdatedAt)
-        .order('updated_at', { ascending: true });
+        .select('*');
 
       if (error) {
         console.error(`[Sync] Erro no pull da tabela ${table}:`, error.message);
