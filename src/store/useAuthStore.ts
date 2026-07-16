@@ -29,44 +29,68 @@ export const useAuthStore = create<AuthState>()((set) => ({
 
   signIn: async (email, password) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { error };
-      
-      let profile = null;
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+      const response = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
-        if (!profileError && profileData) {
-          profile = {
-            ...profileData,
-            unit_id: profileData.store_id // Mapear store_id para unit_id
-          };
-        }
-      } catch (profileErr) {
-        console.error('Error fetching profile during sign in:', profileErr);
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { error: new Error(errorData.error || 'Erro ao realizar login.') };
       }
 
-      set({ session: data.session, user: data.user, profile });
+      const { session, user, profile } = await response.json();
+
+      // Salva sessão localmente para inicialização offline imediata
+      localStorage.setItem('crm_offline_session', JSON.stringify({ session, user, profile }));
+
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        }).catch(e => console.warn('[AuthStore] Error syncing supabase session:', e));
+      }
+
+      set({ session, user, profile });
       return { error: null };
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected sign in error:', err);
       return { error: err };
     }
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Falha silenciosa ao deslogar da nuvem (offline):', e);
+    }
+    localStorage.removeItem('crm_offline_session');
     set({ session: null, user: null, profile: null });
   },
 
   initialize: async () => {
     try {
+      // 1. Tentar restaurar sessão do localStorage (funciona offline-first instantaneamente)
+      const cached = localStorage.getItem('crm_offline_session');
+      if (cached) {
+        const { session, user, profile } = JSON.parse(cached);
+        console.log('[AuthStore] Restaurando sessão local offline:', user?.email);
+        
+        if (session) {
+          await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token
+          }).catch(e => console.warn('[AuthStore] Error syncing cached supabase session:', e));
+        }
+
+        set({ session, user, profile, isLoading: false });
+        return;
+      }
+
+      // 2. Se não houver cache local, tenta buscar sessão do Supabase online
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('[AuthStore] Initializing session:', session?.user?.email);
       
       if (session) {
         let profile = null;
@@ -80,15 +104,15 @@ export const useAuthStore = create<AuthState>()((set) => ({
           if (!profileError && profileData) {
             profile = {
               ...profileData,
-              unit_id: profileData.store_id // Mapear store_id para unit_id
+              unit_id: profileData.store_id
             };
           }
-          console.log('[AuthStore] Profile data from DB:', profileData);
         } catch (profileErr) {
           console.error('[AuthStore] Error fetching profile during initialization:', profileErr);
         }
 
-        console.log('[AuthStore] Final mapped profile:', profile);
+        // Cacheia a sessão obtida online
+        localStorage.setItem('crm_offline_session', JSON.stringify({ session, user: session.user, profile }));
         set({ session, user: session.user, profile, isLoading: false });
       } else {
         set({ session: null, user: null, profile: null, isLoading: false });
@@ -97,35 +121,5 @@ export const useAuthStore = create<AuthState>()((set) => ({
       console.error('[AuthStore] Initialization error:', err);
       set({ session: null, user: null, profile: null, isLoading: false });
     }
-
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[AuthStore] onAuthStateChange event:', event);
-      if (session) {
-        // Defer user query using setTimeout to prevent Supabase JS deadlock
-        setTimeout(async () => {
-          let profile = null;
-          try {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (!profileError && profileData) {
-              profile = {
-                ...profileData,
-                unit_id: profileData.store_id // Mapear store_id para unit_id
-              };
-            }
-          } catch (profileErr) {
-            console.error('[AuthStore] Error fetching profile in onAuthStateChange:', profileErr);
-          }
-
-          set({ session, user: session.user, profile });
-        }, 0);
-      } else {
-        set({ session: null, user: null, profile: null });
-      }
-    });
   },
 }));

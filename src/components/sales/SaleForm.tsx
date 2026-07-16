@@ -3154,10 +3154,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 >
                   <option value="" className="bg-[#121214]">Selecione seu nome...</option>
                   {employees
-                    .filter(emp => emp.role !== 'investor' && !emp.full_name.toLowerCase().includes('terminal') && emp.full_name.toLowerCase() !== 'loja arroio')
+                    .filter(emp => emp.role !== 'investor' && emp.role !== 'admin' && !emp.full_name.toLowerCase().includes('terminal') && emp.full_name.toLowerCase() !== 'loja arroio')
                     .map(emp => (
                       <option key={emp.id} value={emp.id} className="bg-[#121214]">
-                        {emp.full_name} ({emp.role === 'admin' ? 'Admin' : emp.role === 'technician' ? 'Técnico' : 'Atendente'})
+                        {emp.full_name} ({emp.role === 'technician' ? 'Técnico' : 'Atendente'})
                       </option>
                     ))}
                 </select>
