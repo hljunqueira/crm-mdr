@@ -59,7 +59,9 @@ const formatPaymentDate = (dateStr?: string) => {
 
 export default function ContractPrint({ sale, customer, unit, installmentValue, firstInstallmentValue, isPreview, installments }: ContractPrintProps) {
   const resolvedUnit = resolveUnitInfo(unit);
-  const basePrice = sale.original_price ?? sale.total_value;
+  const basePrice = sale.total_value - (sale.service_fee || 0);
+  const originalPrice = sale.original_price && sale.original_price > 0 ? sale.original_price : basePrice;
+  const discountValue = originalPrice > basePrice ? originalPrice - basePrice : 0;
   const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
   const financed = basePrice - sale.down_payment - tradeInVal;
   const instValue = installmentValue ?? (
@@ -583,7 +585,7 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
               </td>
               <td style={{ width: '30%' }}>
                 <span className="label">Banco / Agência / Conta</span>
-                <span className="value">MDR Celulares</span>
+                <span className="value">MDR Informática e Celulares</span>
               </td>
             </tr>
           </tbody>

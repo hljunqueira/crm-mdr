@@ -71,7 +71,9 @@ export default function SaleReceiptPrint({
   };
 
   const saleDateFormatted = formatPaymentDate(sale.date || sale.created_at) || today;
-  const basePrice = sale.original_price ?? sale.total_value;
+  const basePrice = sale.total_value - (sale.service_fee || 0);
+  const originalPrice = sale.original_price && sale.original_price > 0 ? sale.original_price : basePrice;
+  const discountValue = originalPrice > basePrice ? originalPrice - basePrice : 0;
   const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
   const financed = basePrice - sale.down_payment - tradeInVal;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
@@ -181,8 +183,20 @@ export default function SaleReceiptPrint({
         <div className="divider"></div>
 
         <div className="section-title">RESUMO FINANCEIRO</div>
+        {discountValue > 0 && (
+          <>
+            <div className="row">
+              <span>Valor Original:</span>
+              <span className="align-right font-mono">R$ {originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="row" style={{ color: '#16a34a', fontWeight: 'bold' }}>
+              <span>Desconto:</span>
+              <span className="align-right font-mono">- R$ {discountValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </>
+        )}
         <div className="row">
-          <span>Preço Base:</span>
+          <span>Preço de Venda:</span>
           <span className="align-right font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
         </div>
 
@@ -462,7 +476,7 @@ export default function SaleReceiptPrint({
                 </td>
                 <td className="font-mono">{sale.imei || '—'}</td>
                 <td style={{ textAlign: 'center' }}>1</td>
-                <td className="font-mono" style={{ textAlign: 'right' }}>R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="font-mono" style={{ textAlign: 'right' }}>R$ {originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
           </table>
@@ -521,6 +535,18 @@ export default function SaleReceiptPrint({
 
           {/* Financial summary values */}
           <div className="values-box">
+            {discountValue > 0 && (
+              <>
+                <div className="val-row">
+                  <span>Valor Original:</span>
+                  <span className="font-mono">R$ {originalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="val-row font-bold" style={{ color: '#16a34a' }}>
+                  <span>Desconto:</span>
+                  <span className="font-mono">- R$ {discountValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </>
+            )}
             <div className="val-row">
               <span>Valor Base:</span>
               <span className="font-mono">R$ {basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>

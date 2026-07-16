@@ -1098,6 +1098,17 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     return Math.max(0, formData.down_payment + totalInstallmentsValue + accessoriesTotal);
   }, [isCashLike, formData.total_value, formData.down_payment, totalInstallmentsValue, accessoriesTotal, formData.is_trade_in, formData.trade_in_valuation]);
 
+  const originalPriceBeforeDiscount = useMemo(() => {
+    if (selectedDevices.length > 0) {
+      return selectedDevices.reduce((sum, d) => {
+        const stockItem = inventory.find(i => i.id === d.id);
+        const itemPrice = stockItem?.price || d.price;
+        return sum + itemPrice * d.quantity;
+      }, 0);
+    }
+    return formData.total_value;
+  }, [selectedDevices, inventory, formData.total_value]);
+
   const feeValue = useMemo(() => {
     if (isCashLike) return 0;
     const tradeInVal = formData.is_trade_in ? (Number(formData.trade_in_valuation) || 0) : 0;
@@ -1247,7 +1258,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           total_value: finalValue,
           down_payment: isCashLike ? finalValue : formData.down_payment,
           service_fee: feeValue,
-          original_price: formData.total_value,
+          original_price: originalPriceBeforeDiscount,
           installments: totalInstCount,
           date: initialData.date || new Date().toLocaleDateString('en-CA'),
           device_color: formData.device_color,
@@ -1328,7 +1339,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           total_value: finalValue,
           down_payment: isCashLike ? finalValue : formData.down_payment,
           service_fee: feeValue,
-          original_price: formData.total_value,
+          original_price: originalPriceBeforeDiscount,
           installments: totalInstCount,
           date: new Date().toLocaleDateString('en-CA'),
           device_color: formData.device_color,
@@ -1582,7 +1593,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       id: createdSale?.id || initialData?.id || 'temp-id',
       date: createdSale?.date || initialData?.date || new Date().toLocaleDateString('en-CA'),
       total_value: finalValue,
-      original_price: formData.total_value,
+      original_price: originalPriceBeforeDiscount,
       down_payment: isCashLike ? finalValue : formData.down_payment,
       service_fee: feeValue,
       accessories: finalAccessoriesStr,
