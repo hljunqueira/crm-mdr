@@ -157,7 +157,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
     const priceNum = Number(formData.price) || 0;
     const tradeInPriceNum = formData.trade_in_price ? Number(formData.trade_in_price) : undefined;
     const costPriceNum = Number(formData.cost_price) || 0;
-    const qtyNum = formData.category === 'service' ? 1 : Math.max(1, Number(formData.stock_quantity) || 1);
+    const qtyNum = formData.category === 'service' ? 1 : Math.max(0, parseInt(formData.stock_quantity, 10) || 0);
 
     // Security check: non-admin decreasing stock quantity manually
     if (item && profile?.role !== 'admin' && formData.category !== 'service') {
@@ -219,7 +219,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar text-white text-xs">
       {/* Bloco Superior: Código de Barras & Empresa */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 rounded-3xl p-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/1 border border-white/5 rounded-3xl p-5">
         {profile?.role === 'admin' ? (
           <div className="space-y-2">
             <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1 flex items-center gap-1.5">
@@ -267,7 +267,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       </div>
 
       {/* Bloco de Identificação: Descrição e Nome Curto */}
-      <div className="space-y-4 bg-white/[0.01] border border-white/5 rounded-3xl p-5">
+      <div className="space-y-4 bg-white/1 border border-white/5 rounded-3xl p-5">
         <div className="space-y-2">
           <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Descrição / Nome do Item *</label>
           <input
@@ -331,14 +331,14 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       </div>
 
       {/* Conteúdo das Abas */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-3xl p-5 min-h-[200px]">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 min-h-[200px]">
         {activeTab === 'info' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in duration-300">
             <div className="space-y-2">
               <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Categoria</label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
                 className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none text-white appearance-none"
               >
                 <option value="smartphone" className="bg-[#121214] text-white">📱 Smartphone / Celular</option>
@@ -396,7 +396,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 <input
                   type="number"
                   required
-                  min="1"
+                  min="0"
                   value={formData.stock_quantity}
                   onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
                   className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary transition-all outline-none"
@@ -410,7 +410,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                 <label className="text-[9px] font-black text-on-surface/60 uppercase tracking-widest pl-1">Condição</label>
                 <select
                   value={formData.condition}
-                  onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, condition: e.target.value as any })}
                   className="w-full bg-[#121214] border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-primary outline-none appearance-none"
                 >
                   <option value="new" className="bg-[#121214] text-white">Novo (Lacre)</option>
@@ -463,7 +463,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-2 bg-white/[0.02] border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
+                  <div className="space-y-2 bg-white/2 border border-white/5 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
                     <span className="text-[8px] font-bold text-primary uppercase tracking-wider block">Novo Fornecedor Rápido</span>
                     <div className="flex flex-col gap-2">
                       <input
@@ -655,7 +655,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
         </button>
         <button
           type="submit"
-          className="w-full sm:flex-[2] py-3.5 px-6 rounded-2xl bg-primary text-on-primary text-[9px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
+          className="w-full sm:flex-2 py-3.5 px-6 rounded-2xl bg-primary text-on-primary text-[9px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
         >
           <Save size={14} /> {item ? 'Gravar Alterações' : 'Gravar Item'}
         </button>
