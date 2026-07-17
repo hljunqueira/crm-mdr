@@ -261,7 +261,7 @@ router.post('/login', async (req, res) => {
         const mappedProfile = {
           id: profileData.id,
           storeId: profileData.store_id,
-          email: profileData.email,
+          email: data.user.email ? data.user.email.toLowerCase().trim() : email.toLowerCase().trim(),
           fullName: profileData.full_name,
           avatarUrl: profileData.avatar_url,
           role: profileData.role,
