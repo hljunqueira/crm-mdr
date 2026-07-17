@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell
+  CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell,
+  PieChart, Pie
 } from 'recharts';
 import { cn } from '../lib/utils';
 import { useUI } from '../context/UIContext';
@@ -3330,6 +3331,88 @@ export default function Reports() {
                   </div>
                 </div>
               </div>
+
+              {/* Novo gráfico de faturamento de cartões (Pago vs Pendente) */}
+              {(() => {
+                const totalPaid = filteredCardBills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0);
+                const totalPending = filteredCardBills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0);
+                const hasData = totalPaid > 0 || totalPending > 0;
+                const chartData = [
+                  { name: 'Pago', value: totalPaid, color: '#10B981' },
+                  { name: 'Pendente', value: totalPending, color: '#EF4444' }
+                ];
+
+                return (
+                  <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
+                    <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
+                      Status das Faturas (Mês)
+                    </h3>
+                    {hasData ? (
+                      <div className="space-y-4">
+                        <div className="h-48 relative flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={chartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={55}
+                                outerRadius={75}
+                                paddingAngle={3}
+                                dataKey="value"
+                              >
+                                {chartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                contentStyle={{
+                                  backgroundColor: '#1e1f29',
+                                  borderColor: 'rgba(255,255,255,0.05)',
+                                  borderRadius: '16px',
+                                  color: '#fff',
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute flex flex-col items-center justify-center">
+                            <span className="text-[10px] uppercase font-black tracking-wider text-on-surface-variant opacity-60">Total</span>
+                            <span className="text-sm font-black text-white font-mono">
+                              R$ {(totalPaid + totalPending).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div className="flex flex-col items-center p-3 bg-white/2 border border-white/5 rounded-2xl">
+                            <span className="flex items-center gap-1.5 text-[9px] font-black text-success uppercase tracking-wider mb-1">
+                              <span className="w-2 h-2 rounded-full bg-success" />
+                              Pago
+                            </span>
+                            <span className="text-xs font-black font-mono text-white">
+                              R$ {totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex flex-col items-center p-3 bg-white/2 border border-white/5 rounded-2xl">
+                            <span className="flex items-center gap-1.5 text-[9px] font-black text-error uppercase tracking-wider mb-1">
+                              <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
+                              Pendente
+                            </span>
+                            <span className="text-xs font-black font-mono text-white">
+                              R$ {totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-10 text-center text-xs text-on-surface-variant opacity-60">
+                        Nenhum lançamento de cartão ativo neste mês.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
