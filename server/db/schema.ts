@@ -27,6 +27,7 @@ export const stores = sqliteTable('stores', {
 export const profiles = sqliteTable('profiles', {
   id: text('id').primaryKey(), // ID vindo do auth.users (Supabase)
   storeId: text('store_id').references(() => stores.id),
+  email: text('email'),
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
   role: text('role').default('attendant'), // admin, attendant, technician, investor

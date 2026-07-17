@@ -171,6 +171,7 @@ async function upsertLocalRecord(tableName: string, data: any) {
       const mapped = {
         id: data.id,
         storeId: data.store_id,
+        email: data.email,
         fullName: data.full_name,
         avatarUrl: data.avatar_url,
         role: data.role,
