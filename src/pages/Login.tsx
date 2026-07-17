@@ -333,7 +333,7 @@ export default function Login() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="seu@email.com" 
-                        className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                        className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                         required
                       />
                     </div>
@@ -360,7 +360,7 @@ export default function Login() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••" 
-                        className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                        className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                         required
                       />
                       <button
@@ -398,7 +398,7 @@ export default function Login() {
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                       placeholder="Digite os 6 números" 
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-center text-lg font-bold tracking-[0.5em] focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-center text-lg font-bold tracking-[0.5em] focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                       required
                       autoFocus
                     />
@@ -436,7 +436,7 @@ export default function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="seu@email.com" 
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-6 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                       required
                     />
                   </div>
@@ -473,7 +473,7 @@ export default function Login() {
                     value={resetCode}
                     onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
                     placeholder="Digite os 6 números" 
-                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-center text-lg font-bold tracking-[0.5em] focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                    className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl px-6 py-4 text-center text-lg font-bold tracking-[0.5em] focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                     required
                     autoFocus
                   />
@@ -488,7 +488,7 @@ export default function Login() {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Mínimo 6 caracteres" 
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                       required
                     />
                     <button
@@ -510,7 +510,7 @@ export default function Login() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Digite a senha novamente" 
-                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none"
+                      className="w-full bg-surface/50 border border-outline-variant/50 rounded-2xl pl-14 pr-14 py-4 text-sm focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all outline-none normal-case"
                       required
                     />
                   </div>
