@@ -9,9 +9,19 @@ import { eq } from 'drizzle-orm';
 
 const router = Router();
 
+const useSupabase = (req: any) => {
+  const host = req.headers.host || '';
+  return host.includes('mdrinformaticaecelulares.com.br') || 
+         process.env.IS_VPS === 'true' || 
+         (!host.includes('localhost') && !host.includes('127.0.0.1'));
+};
+
 // POST /api/users/cache-credentials — Salvar credenciais para login offline
 router.post('/cache-credentials', async (req, res) => {
   try {
+    if (useSupabase(req)) {
+      return res.json({ success: true, message: 'Operação ignorada em ambiente online.' });
+    }
     const { userId, email, password } = req.body;
     if (!userId || !email || !password) {
       return res.status(400).json({ error: 'Faltam dados obrigatórios.' });
@@ -43,6 +53,9 @@ router.post('/cache-credentials', async (req, res) => {
 // POST /api/users/login-offline — Autenticação offline no SQLite
 router.post('/login-offline', async (req, res) => {
   try {
+    if (useSupabase(req)) {
+      return res.status(400).json({ error: 'Login offline não é permitido em ambiente online.' });
+    }
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
@@ -84,6 +97,9 @@ router.post('/login-offline', async (req, res) => {
 // POST /api/users/sync-pull — Disparar sincronização manual (pull de dados) do Supabase para o SQLite local
 router.post('/sync-pull', async (req, res) => {
   try {
+    if (useSupabase(req)) {
+      return res.status(400).json({ error: 'Sincronização manual do SQLite não é permitida em ambiente online.' });
+    }
     const { pullCloudChanges, pushLocalChanges } = await import('../services/syncService.js');
     console.log('[Sync Endpoint] Disparando sincronização manual...');
     await pushLocalChanges();
@@ -225,17 +241,21 @@ router.post('/login', async (req, res) => {
   }
 
   try {
+    const onlineOnly = useSupabase(req);
+
     // 1. Tentar login online com o Supabase Auth
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     
     if (!authError && data) {
       console.log(`[Auth] Login online bem-sucedido para: ${email}`);
       
-      // Cache do hash da senha localmente no SQLite para uso offline futuro
-      const passHash = hashPassword(password);
-      await db.update(profiles)
-        .set({ passwordHash: passHash, syncStatus: 'synced', updatedAt: new Date().toISOString() })
-        .where(eq(profiles.id, data.user.id));
+      if (!onlineOnly) {
+        // Cache do hash da senha localmente no SQLite para uso offline futuro
+        const passHash = hashPassword(password);
+        await db.update(profiles)
+          .set({ passwordHash: passHash, syncStatus: 'synced', updatedAt: new Date().toISOString() })
+          .where(eq(profiles.id, data.user.id));
+      }
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -248,6 +268,10 @@ router.post('/login', async (req, res) => {
         user: data.user,
         profile: profileData ? { ...profileData, unit_id: profileData.store_id } : null
       });
+    }
+
+    if (onlineOnly) {
+      return res.status(401).json({ error: authError?.message || 'Credenciais inválidas.' });
     }
 
     // 2. Se falhar por erro de rede/offline, tentar login local no SQLite

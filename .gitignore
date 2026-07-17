@@ -1,9 +1,14 @@
 node_modules/
 build/
 dist/
+dist-electron/
+dist-server/
 coverage/
 .DS_Store
 *.log
+*.db
+database.db
+deploy_package.tar.gz
 .env*
 !.env.example
 docs/*.json

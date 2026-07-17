@@ -632,7 +632,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 "w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
                 activeTab === item.id 
                   ? "bg-white text-black border-white shadow-xl shadow-white/5" 
-                  : "bg-white/[0.02] text-on-surface-variant border-transparent hover:bg-white/5 hover:text-white"
+                  : "bg-white/2 text-on-surface-variant border-transparent hover:bg-white/5 hover:text-white"
               )}
             >
               <item.icon size={18} />
@@ -649,7 +649,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="unit"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                   <div className="flex items-center gap-4">
@@ -818,7 +818,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       value={formData.contract_terms}
                       onChange={(e) => setFormData(prev => ({ ...prev, contract_terms: e.target.value }))}
                       placeholder="Insira aqui as cláusulas do contrato de venda e financiamento..."
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed text-xs opacity-80"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-on-surface focus:border-white outline-none transition-all resize-none font-sans leading-relaxed text-xs opacity-80"
                     />
                   </div>
 
@@ -834,7 +834,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="notifications"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
@@ -1085,9 +1085,9 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                   </div>
 
                   {/* Right Column: Help variables */}
-                  <div className="lg:col-span-1 glass-card p-6 border border-white/5 rounded-3xl bg-white/[0.01] h-fit space-y-6">
+                  <div className="lg:col-span-1 glass-card p-6 border border-white/5 rounded-3xl bg-white/1 h-fit space-y-6">
                     <div>
-                      <h3 className="text-xs font-black text-white uppercase tracking-wider text-primary">Variáveis Disponíveis</h3>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-primary">Variáveis Disponíveis</h3>
                       <p className="text-[10px] text-on-surface-variant leading-relaxed mt-1">Clique nas tags abaixo para inseri-las na posição do cursor do campo ativo:</p>
                     </div>
 
@@ -1112,7 +1112,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                             e.preventDefault();
                             insertVariable(item.tag);
                           }}
-                          className="w-full text-left p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 hover:scale-[1.01] active:scale-95 transition-all group flex flex-col gap-0.5 cursor-pointer"
+                          className="w-full text-left p-2.5 rounded-xl bg-white/2 border border-white/5 hover:bg-white/5 hover:border-white/10 hover:scale-[1.01] active:scale-95 transition-all group flex flex-col gap-0.5 cursor-pointer"
                         >
                           <span className="text-[9px] text-on-surface-variant group-hover:text-white uppercase tracking-widest font-black transition-colors">
                             {item.label}
@@ -1145,7 +1145,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                             e.preventDefault();
                             insertVariable(item.tag);
                           }}
-                          className="w-full text-left p-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 hover:scale-[1.01] active:scale-95 transition-all group flex flex-col gap-0.5 cursor-pointer"
+                          className="w-full text-left p-2.5 rounded-xl bg-white/2 border border-white/5 hover:bg-white/5 hover:border-white/10 hover:scale-[1.01] active:scale-95 transition-all group flex flex-col gap-0.5 cursor-pointer"
                         >
                           <span className="text-[9px] text-on-surface-variant group-hover:text-white uppercase tracking-widest font-black transition-colors">
                             {item.label}
@@ -1166,7 +1166,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="chatbot"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex items-center justify-between border-b border-white/5 pb-6">
                   <div className="flex items-center gap-4">
@@ -1226,7 +1226,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       onSelect={(e) => updateSelection('chatbot_prompt', e)}
                       onKeyUp={(e) => updateSelection('chatbot_prompt', e)}
                       onMouseUp={(e) => updateSelection('chatbot_prompt', e)}
-                      placeholder="Ex: Você é um assistente virtual da MDR Celulares. Ajude o cliente a tirar dúvidas sobre aparelhos..."
+                      placeholder="Ex: Você é um assistente virtual da MDR Informática e Celulares. Ajude o cliente a tirar dúvidas sobre aparelhos..."
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xs font-mono text-on-surface focus:border-white outline-none transition-all resize-y leading-relaxed"
                     />
                     <p className="text-[9px] text-on-surface-variant leading-relaxed">
@@ -1261,7 +1261,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="users"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                   <div className="flex items-center gap-4">
@@ -1290,7 +1290,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                   <div className="overflow-x-auto w-full border border-white/5 rounded-3xl">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-white/5 bg-white/[0.02]">
+                        <tr className="border-b border-white/5 bg-white/2">
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Colaborador</th>
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">E-mail</th>
                           <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Telefone</th>
@@ -1304,7 +1304,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                           const userUnit = units.find(u => u.id === usr.store_id)?.name || 'Geral/Todas';
                           
                           return (
-                            <tr key={usr.id} className="hover:bg-white/[0.01] transition-all">
+                            <tr key={usr.id} className="hover:bg-white/1 transition-all">
                               <td className="px-6 py-4 font-display font-semibold text-white text-sm">
                                 {usr.full_name}
                               </td>
@@ -1506,7 +1506,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="rbac"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
@@ -1549,7 +1549,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                     <div className="overflow-x-auto w-full border border-white/5 rounded-3xl max-h-[600px] custom-scrollbar">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-white/5 bg-white/[0.02]">
+                          <tr className="border-b border-white/5 bg-white/2">
                             <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Funcionalidade / Permissão</th>
                             <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant text-center">Permissão de Acesso</th>
                           </tr>
@@ -1649,13 +1649,13 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                             }
                           ].map((group) => (
                             <React.Fragment key={group.title}>
-                              <tr className="bg-white/[0.04]">
-                                <td colSpan={2} className="px-6 py-2 text-[9px] font-black text-primary uppercase tracking-widest bg-white/[0.03] border-y border-white/5">
+                              <tr className="bg-white/4">
+                                <td colSpan={2} className="px-6 py-2 text-[9px] font-black text-primary uppercase tracking-widest bg-white/3 border-y border-white/5">
                                   {group.title}
                                 </td>
                               </tr>
                               {group.items.map((item) => (
-                                <tr key={item.key} className="hover:bg-white/[0.01] transition-all">
+                                <tr key={item.key} className="hover:bg-white/1 transition-all">
                                   <td className="px-8 py-3.5 font-display font-semibold text-white text-xs">
                                     {item.label}
                                   </td>
@@ -1683,7 +1683,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                     </div>
                   )
                 ) : (
-                  <div className="p-8 bg-white/[0.02] border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
+                  <div className="p-8 bg-white/2 border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
                     <ShieldCheck size={32} className="opacity-20 text-primary" />
                     <p className="text-[10px] font-black uppercase tracking-wider">Aguardando Seleção de Colaborador</p>
                     <p className="text-[9px] text-on-surface-variant max-w-[280px]">Escolha um colaborador no seletor acima para auditar e editar suas permissões de tela reativas.</p>
@@ -1697,7 +1697,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="android-enterprise"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
@@ -1749,7 +1749,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       </div>
                     </div>
                   ) : (
-                    <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[32px] space-y-6">
+                    <div className="p-8 bg-white/1 border border-white/5 rounded-[32px] space-y-6">
                       <div className="flex items-center gap-4 text-amber-500">
                         <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                           <AlertCircle size={20} />
@@ -1764,7 +1764,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                         Para habilitar a integração com o Google Device Lock Controller e bloquear celulares Android de clientes inadimplentes, você precisa primeiro registrar sua empresa na Android Management API do Google.
                       </p>
 
-                      <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl space-y-4">
+                      <div className="bg-white/2 border border-white/5 p-6 rounded-2xl space-y-4">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Instruções Passo a Passo</h4>
                         <ol className="text-[11px] text-on-surface-variant/90 space-y-2.5 list-decimal pl-4 leading-relaxed">
                           <li>Prepare uma conta de e-mail do Google (Gmail comum ou Workspace) que <strong>não seja</strong> a mesma conta que você usa no Google Play Console pessoal e que <strong>não pertença</strong> a nenhuma outra organização Enterprise.</li>
@@ -1802,7 +1802,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="auth"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/[0.02]"
+                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
@@ -1821,7 +1821,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Carregando configurações de segurança...</span>
                     </div>
                   ) : (
-                    <div className="p-8 bg-white/[0.01] border border-white/5 rounded-[32px] space-y-6">
+                    <div className="p-8 bg-white/1 border border-white/5 rounded-[32px] space-y-6">
                       <div className="flex items-center justify-between gap-6">
                         <div className="space-y-1">
                           <h3 className="text-sm font-black text-white uppercase tracking-tight">Autenticação de Dois Fatores (2FA) via WhatsApp</h3>

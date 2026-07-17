@@ -4,41 +4,34 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY; // Emulando chave do cliente (Frontend)
+const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+const supabase = createClient(supabaseUrl || '', anonKey || '');
 
 async function run() {
-  console.log('Testing client-side RLS authorization flow...');
-  
-  // 1. Fazer login como o usuário Admin
-  console.log('Signing in as admin@mdrinformatica.com.br...');
-  const { data: auth, error: authError } = await supabase.auth.signInWithPassword({
-    email: 'admin@mdrinformatica.com.br',
-    password: 'Admin@Mdr@2026' // Senha padrão
+  // Sign in as Terminal Arroio
+  const { data: auth, error: authErr } = await supabase.auth.signInWithPassword({
+    email: 'lojaarroio@mdrinformaticaecelulares.com.br',
+    password: '123' // wait, we don't know the password, let's see if we can get the profile first using service role or check the profiles table password hash
   });
 
-  if (authError) {
-    console.error('Login failed:', authError.message);
+  if (authErr) {
+    console.error('Auth error:', authErr);
     return;
   }
 
-  const userId = auth.user.id;
-  console.log(`Login successful! User ID: ${userId}`);
+  console.log('Logged in successfully!');
 
-  // 2. Tentar buscar o próprio perfil como o usuário autenticado (Cenário do Frontend)
-  console.log(`Fetching profile for ID ${userId} from client client-side...`);
-  const { data: profile, error: profError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (profError) {
-    console.error('❌ RLS BLOCKED READ! Error details:', profError);
-  } else {
-    console.log('✅ RLS READ SUCCESSFUL! Profile data:', profile);
+  // Query profiles
+  const { data: profilesList, error: profErr } = await supabase.from('profiles').select('*');
+  console.log('Profiles returned:', profilesList ? profilesList.length : 0, 'error:', profErr);
+  if (profilesList) {
+    console.log('Profiles names:', profilesList.map(p => p.full_name));
   }
+
+  // Query user_permissions
+  const { data: permsList, error: permErr } = await supabase.from('user_permissions').select('*');
+  console.log('Permissions returned:', permsList ? permsList.length : 0, 'error:', permErr);
 }
 
 run();

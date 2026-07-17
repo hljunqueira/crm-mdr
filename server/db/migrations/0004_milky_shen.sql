@@ -1,0 +1,1 @@
+ALTER TABLE `customers` ADD `approved_for_purchase` integer DEFAULT false;

@@ -29,6 +29,13 @@
       "when": 1784234347185,
       "tag": "0003_clammy_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784287989501,
+      "tag": "0004_milky_shen",
+      "breakpoints": true
     }
   ]
 }

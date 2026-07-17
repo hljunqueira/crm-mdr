@@ -142,8 +142,12 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     
-    // Iniciar serviço de sincronização SQLite <-> Supabase
-    startSyncService(15000);
+    // Iniciar serviço de sincronização SQLite <-> Supabase se não estiver na VPS
+    if (process.env.IS_VPS !== 'true') {
+      startSyncService(15000);
+    } else {
+      console.log('[Sync] Servidor rodando na VPS. Serviço de sincronização desativado.');
+    }
     
     // Monitoramento do webhook do Asaas para auto-reativação em caso de instabilidades
     checkAndReactivateAsaasWebhook().catch(err => console.error("Erro na ativação inicial do webhook Asaas:", err));

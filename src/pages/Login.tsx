@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Shield, ArrowRight, Lock, Mail, AlertCircle, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useNetworkStore } from '../store/useNetworkStore';
+
+const isElectronApp = typeof window !== 'undefined' && 
+                      window.navigator && 
+                      window.navigator.userAgent && 
+                      window.navigator.userAgent.toLowerCase().includes('electron');
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -26,6 +31,12 @@ export default function Login() {
   const { isOfflineMode, setOfflineMode } = useNetworkStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState('');
+
+  useEffect(() => {
+    if (!isElectronApp) {
+      setOfflineMode(false);
+    }
+  }, [setOfflineMode]);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -248,43 +259,45 @@ export default function Login() {
               !twoFactorRequired ? (
                 <>
                   {/* Seletor Online / Offline */}
-                  <div className="flex bg-[#1a1b24] p-1.5 rounded-2xl border border-white/5 gap-2 mb-6 shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOfflineMode(false);
-                        setError('');
-                        setSyncSuccess('');
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                        !isOfflineMode 
-                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${!isOfflineMode ? 'bg-white animate-pulse' : 'bg-green-500'}`} />
-                      Online (Nuvem)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOfflineMode(true);
-                        setError('');
-                        setSyncSuccess('');
-                        if (typeof navigator !== 'undefined' && navigator.onLine) {
-                          handleSync();
-                        }
-                      }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                        isOfflineMode 
-                          ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-white animate-pulse' : 'bg-amber-500'}`} />
-                      Offline (Local)
-                    </button>
-                  </div>
+                  {isElectronApp && (
+                    <div className="flex bg-[#1a1b24] p-1.5 rounded-2xl border border-white/5 gap-2 mb-6 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOfflineMode(false);
+                          setError('');
+                          setSyncSuccess('');
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                          !isOfflineMode 
+                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${!isOfflineMode ? 'bg-white animate-pulse' : 'bg-green-500'}`} />
+                        Online (Nuvem)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOfflineMode(true);
+                          setError('');
+                          setSyncSuccess('');
+                          if (typeof navigator !== 'undefined' && navigator.onLine) {
+                            handleSync();
+                          }
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                          isOfflineMode 
+                            ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' 
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-white animate-pulse' : 'bg-amber-500'}`} />
+                        Offline (Local)
+                      </button>
+                    </div>
+                  )}
 
                   {syncSuccess && (
                     <motion.div 

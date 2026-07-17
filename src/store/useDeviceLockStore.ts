@@ -37,7 +37,9 @@ export interface DeviceLock {
     total_value: number;
     down_payment: number;
     installments_count: number;
-    sale_date: string;
+    device_model_manual?: string;
+    imei_manual?: string;
+    sale_date?: string;
     customer?: {
       id: string;
       name: string;

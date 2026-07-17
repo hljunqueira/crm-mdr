@@ -187,7 +187,7 @@ export default function DeviceLockPanel() {
 
   const handleOpenLockModal = (lock: DeviceLock) => {
     setSelectedLock(lock);
-    setCustomMessage(`MDR Celulares: Aparelho bloqueado por atraso no crediário. Por favor, entre em contato com nosso financeiro para regularizar e desbloquear na hora.`);
+    setCustomMessage(`MDR Informática e Celulares: Aparelho bloqueado por atraso no crediário. Por favor, entre em contato com nosso financeiro para regularizar e desbloquear na hora.`);
     setShowLockModal(true);
   };
 
@@ -290,7 +290,7 @@ export default function DeviceLockPanel() {
           <button
             onClick={() => { fetchDeviceLocks(); showNotification('info', 'Atualizando', 'Sincronizando status dos aparelhos...'); }}
             disabled={isLoading}
-            className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.06] text-white transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer disabled:opacity-50"
+            className="p-3 bg-white/2 border border-white/5 rounded-2xl hover:bg-white/6 text-white transition-all flex items-center gap-2 text-xs font-semibold cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={14} className={cn(isLoading && "animate-spin")} />
             Atualizar Dados
@@ -300,8 +300,8 @@ export default function DeviceLockPanel() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-white/[0.03] opacity-0 group-hover:opacity-100 transition-all duration-500" />
+        <div className="p-6 bg-white/2 border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-linear-to-tr from-white/1 to-white/3 opacity-0 group-hover:opacity-100 transition-all duration-500" />
           <div className="p-4 bg-primary/10 rounded-2xl text-primary">
             <Smartphone size={24} />
           </div>
@@ -311,8 +311,8 @@ export default function DeviceLockPanel() {
           </div>
         </div>
 
-        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-white/[0.03] opacity-0 group-hover:opacity-100 transition-all duration-500" />
+        <div className="p-6 bg-white/2 border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-linear-to-tr from-white/1 to-white/3 opacity-0 group-hover:opacity-100 transition-all duration-500" />
           <div className="p-4 bg-red-500/10 rounded-2xl text-red-500">
             <Lock size={24} />
           </div>
@@ -322,8 +322,8 @@ export default function DeviceLockPanel() {
           </div>
         </div>
 
-        <div className="p-6 bg-white/[0.02] border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.01] to-white/[0.03] opacity-0 group-hover:opacity-100 transition-all duration-500" />
+        <div className="p-6 bg-white/2 border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-linear-to-tr from-white/1 to-white/3 opacity-0 group-hover:opacity-100 transition-all duration-500" />
           <div className="p-4 bg-amber-500/10 rounded-2xl text-amber-500">
             <Clock size={24} />
           </div>
@@ -335,7 +335,7 @@ export default function DeviceLockPanel() {
       </div>
 
       {/* Filters & Search */}
-      <div className="flex flex-col xl:flex-row gap-4 justify-between items-stretch xl:items-center bg-white/[0.01] border border-white/5 p-4 rounded-[28px]">
+      <div className="flex flex-col xl:flex-row gap-4 justify-between items-stretch xl:items-center bg-white/1 border border-white/5 p-4 rounded-[28px]">
         {/* Search */}
         <div className="relative w-full md:max-w-xs">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -344,14 +344,14 @@ export default function DeviceLockPanel() {
             placeholder="Buscar por cliente, IMEI ou modelo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 bg-white/[0.02] border border-white/5 rounded-2xl text-xs text-white placeholder-on-surface-variant focus:outline-none focus:border-primary transition-all"
+            className="w-full pl-11 pr-4 py-3 bg-white/2 border border-white/5 rounded-2xl text-xs text-white placeholder-on-surface-variant focus:outline-none focus:border-primary transition-all"
           />
         </div>
 
         {/* Buttons filters */}
         <div className="flex flex-wrap gap-4 items-center">
           {/* Platform filter */}
-          <div className="flex bg-white/[0.02] border border-white/5 p-1 rounded-2xl">
+          <div className="flex bg-white/2 border border-white/5 p-1 rounded-2xl">
             {(['all', 'icloud', 'android'] as const).map((filter) => (
               <button
                 key={filter}
@@ -371,7 +371,7 @@ export default function DeviceLockPanel() {
           </div>
 
           {/* Status filter */}
-          <div className="flex bg-white/[0.02] border border-white/5 p-1 rounded-2xl">
+          <div className="flex bg-white/2 border border-white/5 p-1 rounded-2xl">
             {(['all', 'overdue', 'active', 'quitado'] as const).map((filter) => (
               <button
                 key={filter}
@@ -394,11 +394,11 @@ export default function DeviceLockPanel() {
       </div>
 
       {/* Main Table */}
-      <div className="bg-white/[0.02] border border-white/5 rounded-[40px] overflow-hidden">
+      <div className="bg-white/2 border border-white/5 rounded-[40px] overflow-hidden">
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
+              <tr className="border-b border-white/5 bg-white/1">
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Cliente</th>
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Plataforma / Aparelho</th>
                 <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Status Financ.</th>
@@ -422,11 +422,11 @@ export default function DeviceLockPanel() {
                     const hasLinkInfo = isIos ? !!lock.icloud_email : !!lock.mdm_device_id;
                     
                     return (
-                      <tr key={lock.id} className="hover:bg-white/[0.01] transition-all group">
+                      <tr key={lock.id} className="hover:bg-white/1 transition-all group">
                         {/* Customer */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-white/[0.02] border border-white/5 rounded-xl text-on-surface-variant">
+                            <div className="p-2.5 bg-white/2 border border-white/5 rounded-xl text-on-surface-variant">
                               <Users size={16} />
                             </div>
                             <div>
@@ -517,7 +517,7 @@ export default function DeviceLockPanel() {
                                     href="https://www.icloud.com/find"
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="px-3.5 py-2 bg-white/[0.04] border border-white/5 hover:bg-white/[0.08] text-white rounded-xl transition-all font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+                                    className="px-3.5 py-2 bg-white/4 border border-white/5 hover:bg-white/8 text-white rounded-xl transition-all font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
                                   >
                                     Abrir Buscar <ExternalLink size={12} />
                                   </a>
@@ -594,7 +594,7 @@ export default function DeviceLockPanel() {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => { setShowLockModal(false); setSelectedLock(null); }}
-                className="flex-1 py-3.5 bg-white/[0.04] hover:bg-white/[0.08] text-white rounded-2xl font-semibold text-xs cursor-pointer transition-all border border-white/5"
+                className="flex-1 py-3.5 bg-white/4 hover:bg-white/8 text-white rounded-2xl font-semibold text-xs cursor-pointer transition-all border border-white/5"
               >
                 Cancelar
               </button>
@@ -657,7 +657,7 @@ export default function DeviceLockPanel() {
                   </div>
 
                   {enrollmentQr ? (
-                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
+                    <div className="p-6 bg-white/2 border border-white/5 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
                       <div className="p-4 bg-white rounded-2xl shrink-0">
                         <img 
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(enrollmentQr)}`} 
@@ -709,7 +709,7 @@ export default function DeviceLockPanel() {
                     <p className="text-xs text-on-surface-variant mt-1">Sua conta do Google Enterprise ID ainda não está vinculada a este CRM.</p>
                   </div>
 
-                  <div className="bg-white/[0.01] border border-white/5 p-5 rounded-2xl space-y-3">
+                  <div className="bg-white/1 border border-white/5 p-5 rounded-2xl space-y-3">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-primary">Como Vincular:</h4>
                     <ol className="text-[11px] text-on-surface-variant/90 space-y-2 list-decimal pl-4 leading-relaxed">
                       <li>Use uma conta do Google corporativa limpa (que nunca tenha sido cadastrada no Android Enterprise).</li>

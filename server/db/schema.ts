@@ -53,6 +53,7 @@ export const customers = sqliteTable('customers', {
   notes: text('notes'),
   suggestedDownPayment: real('suggested_down_payment').default(0),
   lastPaymentDate: text('last_payment_date'),
+  approvedForPurchase: integer('approved_for_purchase', { mode: 'boolean' }).default(false),
   storeId: text('unit_id').references(() => stores.id),
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
   ...syncColumns,

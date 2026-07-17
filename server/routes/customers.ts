@@ -8,11 +8,30 @@ import { updateAsaasCustomer } from "../services/asaasService.js";
 
 const router = Router();
 
+const useSupabase = (req: any) => {
+  const host = req.headers.host || '';
+  return host.includes('mdrinformaticaecelulares.com.br') || 
+         process.env.IS_VPS === 'true' || 
+         (!host.includes('localhost') && !host.includes('127.0.0.1'));
+};
+
 // Get all customers
 router.get("/", async (req, res) => {
   const { unit_id } = req.query;
 
   try {
+    if (useSupabase(req)) {
+      let query = supabase
+        .from('customers')
+        .select('*');
+      if (unit_id && unit_id !== 'all') {
+        query = query.eq('unit_id', unit_id);
+      }
+      const { data, error } = await query.order('name');
+      if (error) return res.status(500).json({ error: error.message });
+      return res.json(data);
+    }
+
     let result;
     // No SQLite local, mapeamos unit_id como storeId
     if (unit_id && unit_id !== 'all') {
@@ -38,6 +57,7 @@ router.get("/", async (req, res) => {
       notes: c.notes,
       suggested_down_payment: c.suggestedDownPayment,
       last_payment_date: c.lastPaymentDate,
+      approved_for_purchase: c.approvedForPurchase,
       created_at: c.createdAt,
       unit_id: c.storeId,
     }));
@@ -100,6 +120,67 @@ router.post("/", async (req, res) => {
   const { phone, unit_id } = req.body;
   
   try {
+    if (useSupabase(req)) {
+      if (phone) {
+        const cleanNewPhone = phone.replace(/\D/g, '');
+        if (cleanNewPhone) {
+          let query = supabase
+            .from('customers')
+            .select('id, phone, unit_id');
+          if (unit_id) {
+            query = query.eq('unit_id', unit_id);
+          }
+          const { data: allCustomers } = await query;
+          const duplicate = (allCustomers || []).find(c => {
+            if (!c.phone) return false;
+            const cleanExisting = c.phone.replace(/\D/g, '');
+            const sameUnit = !unit_id || c.unit_id === unit_id;
+            return cleanExisting === cleanNewPhone && sameUnit;
+          });
+
+          if (duplicate) {
+            return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente nesta unidade." });
+          }
+        }
+      }
+
+      const id = req.body.id || crypto.randomUUID();
+      const pgPayload = {
+        id,
+        name: req.body.name,
+        cpf: req.body.cpf,
+        phone: req.body.phone,
+        parent_contact_phone: req.body.parent_contact_phone,
+        reference1_name: req.body.reference1_name,
+        reference1_phone: req.body.reference1_phone,
+        reference2_name: req.body.reference2_name,
+        reference2_phone: req.body.reference2_phone,
+        email: req.body.email,
+        address: req.body.address,
+        status: req.body.status || 'active',
+        notes: req.body.notes,
+        suggested_down_payment: Number(req.body.suggested_down_payment || 0),
+        last_payment_date: req.body.last_payment_date,
+        approved_for_purchase: req.body.approved_for_purchase !== undefined ? !!req.body.approved_for_purchase : false,
+        unit_id: unit_id || req.body.unit_id,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('customers')
+        .insert([pgPayload])
+        .select()
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+
+      if (req.body.credit_status === 'EM_ANALISE') {
+        notifyMaykonOfAnalysis(pgPayload);
+      }
+
+      return res.status(201).json(data);
+    }
+
     if (phone) {
       const cleanNewPhone = phone.replace(/\D/g, '');
       if (cleanNewPhone) {
@@ -138,6 +219,7 @@ router.post("/", async (req, res) => {
       notes: req.body.notes,
       suggestedDownPayment: Number(req.body.suggested_down_payment || 0),
       lastPaymentDate: req.body.last_payment_date,
+      approvedForPurchase: req.body.approved_for_purchase !== undefined ? !!req.body.approved_for_purchase : false,
       storeId: unit_id || req.body.unit_id,
       syncStatus: 'pending_insert',
       updatedAt: new Date().toISOString()
@@ -164,6 +246,7 @@ router.post("/", async (req, res) => {
       notes: req.body.notes,
       suggested_down_payment: Number(req.body.suggested_down_payment || 0),
       last_payment_date: req.body.last_payment_date,
+      approved_for_purchase: newCustomer.approvedForPurchase,
       unit_id: unit_id || req.body.unit_id,
       updated_at: newCustomer.updatedAt,
     };

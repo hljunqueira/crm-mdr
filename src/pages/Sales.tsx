@@ -740,7 +740,7 @@ function SaleDocumentViewer({
                                   }}
                                   >
                                   <div>
-                                    <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '10px', color: '#000000', margin: '0 0 4px 0', textAlign: 'left' }}>MDR Celulares</p>
+                                    <p style={{ fontWeight: '900', textTransform: 'uppercase', fontSize: '10px', color: '#000000', margin: '0 0 4px 0', textAlign: 'left' }}>MDR Informática e Celulares</p>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
                                       <p style={{ margin: 0, textAlign: 'left' }}><strong>PARC:</strong> {inst.number} de {inst.total}</p>
                                       <p style={{ margin: 0, textAlign: 'left' }}><strong>VENC:</strong> {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
@@ -1153,7 +1153,7 @@ export default function Sales() {
     }
 
     const saleUnit = units.find(u => u.id === sale.unit_id) || units[0] || {
-      name: 'MDR Celulares',
+      name: 'MDR Informática e Celulares',
       cnpj: '____________________',
       address: '____________________',
       phone: '____________________'

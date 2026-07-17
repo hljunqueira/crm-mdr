@@ -202,6 +202,7 @@ async function upsertLocalRecord(tableName: string, data: any) {
         notes: data.notes,
         suggestedDownPayment: Number(data.suggested_down_payment || 0),
         lastPaymentDate: data.last_payment_date,
+        approvedForPurchase: data.approved_for_purchase,
         storeId: data.unit_id,
         syncStatus: 'synced',
         updatedAt: data.updated_at,
