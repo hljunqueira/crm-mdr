@@ -249,19 +249,35 @@ router.post('/login', async (req, res) => {
     if (!authError && data) {
       console.log(`[Auth] Login online bem-sucedido para: ${email}`);
       
-      if (!onlineOnly) {
-        // Cache do hash da senha localmente no SQLite para uso offline futuro
-        const passHash = hashPassword(password);
-        await db.update(profiles)
-          .set({ passwordHash: passHash, syncStatus: 'synced', updatedAt: new Date().toISOString() })
-          .where(eq(profiles.id, data.user.id));
-      }
-
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', data.user.id)
         .maybeSingle();
+
+      if (!onlineOnly && profileData) {
+        // Cache do hash da senha localmente no SQLite para uso offline futuro (Upsert completo)
+        const passHash = hashPassword(password);
+        const mappedProfile = {
+          id: profileData.id,
+          storeId: profileData.store_id,
+          email: profileData.email,
+          fullName: profileData.full_name,
+          avatarUrl: profileData.avatar_url,
+          role: profileData.role,
+          active: profileData.active,
+          passwordHash: passHash,
+          syncStatus: 'synced',
+          updatedAt: new Date().toISOString()
+        };
+
+        await db.insert(profiles)
+          .values(mappedProfile)
+          .onConflictDoUpdate({
+            target: profiles.id,
+            set: mappedProfile
+          });
+      }
 
       return res.json({
         session: data.session,
