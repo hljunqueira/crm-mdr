@@ -32,6 +32,38 @@ export default function Reports() {
   const { units, fetchAllUnits } = useUnitStore();
   const { transactions, fetchTransactions, addTransaction, deleteTransaction } = useCashStore();
   const { inventory, fetchInventory } = useInventoryStore();
+
+  const parseAccessories = (accStr: string) => {
+    if (!accStr) return [];
+    const cleanPart = accStr.split('|')[0] || '';
+    const items = cleanPart.split(',').map(s => s.trim()).filter(s => s && !s.startsWith('['));
+    return items.map(itemStr => {
+      const isVenda = itemStr.includes('Venda R$');
+      const isBrinde = itemStr.includes('Brinde');
+      const name = itemStr.replace(/\s*\([^)]*\)\s*/g, '').trim();
+
+      let salePrice = 0;
+      if (isVenda) {
+        const match = itemStr.match(/Venda R\$\s*([0-9.,]+)/i);
+        if (match) {
+          salePrice = parseFloat(match[1].replace(',', '.'));
+        }
+      }
+
+      const matchedInv = inventory.find(i => i.model.toLowerCase() === name.toLowerCase());
+      const costPrice = matchedInv ? matchedInv.cost_price : 0;
+      const barcode = matchedInv ? (matchedInv.barcode || '') : '';
+
+      return {
+        name,
+        isVenda,
+        isBrinde,
+        salePrice,
+        costPrice,
+        barcode
+      };
+    });
+  };
   const { profile } = useAuthStore();
   const { bills, forecast, fetchDashboardData } = useFinancialDashboardStore();
   const [selectedCardDay, setSelectedCardDay] = useState<string>('all');
@@ -419,37 +451,6 @@ export default function Reports() {
   };
 
 
-  const parseAccessories = (accStr: string) => {
-    if (!accStr) return [];
-    const cleanPart = accStr.split('|')[0] || '';
-    const items = cleanPart.split(',').map(s => s.trim()).filter(s => s && !s.startsWith('['));
-    return items.map(itemStr => {
-      const isVenda = itemStr.includes('Venda R$');
-      const isBrinde = itemStr.includes('Brinde');
-      const name = itemStr.replace(/\s*\([^)]*\)\s*/g, '').trim();
-
-      let salePrice = 0;
-      if (isVenda) {
-        const match = itemStr.match(/Venda R\$\s*([0-9.,]+)/i);
-        if (match) {
-          salePrice = parseFloat(match[1].replace(',', '.'));
-        }
-      }
-
-      const matchedInv = inventory.find(i => i.model.toLowerCase() === name.toLowerCase());
-      const costPrice = matchedInv ? matchedInv.cost_price : 0;
-      const barcode = matchedInv ? (matchedInv.barcode || '') : '';
-
-      return {
-        name,
-        isVenda,
-        isBrinde,
-        salePrice,
-        costPrice,
-        barcode
-      };
-    });
-  };
 
   const monthlyProfitItems = useMemo(() => {
     const items: Array<{
