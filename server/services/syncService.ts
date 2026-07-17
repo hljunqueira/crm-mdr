@@ -2,6 +2,11 @@ import { db } from '../db/connection.js';
 import { syncQueue, customers, sales, devices, installments, stores, profiles } from '../db/schema.js';
 import { supabase } from '../lib/supabase.js';
 import { eq, and, gt } from 'drizzle-orm';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.VITE_SUPABASE_URL || '', process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null;
 
 let isSyncing = false;
 
@@ -110,14 +115,38 @@ export async function pullCloudChanges() {
         lastUpdatedAt = localRecords[0].updated_at || lastUpdatedAt;
       }
 
-      // 2. Buscar registros no Supabase
-      const { data: cloudRecords, error } = await supabase
-        .from(table)
-        .select('*');
+      // 2. Buscar registros no Supabase (com bypass de RLS e e-mails para profiles se admin)
+      let cloudRecords: any[] | null = null;
+      const usersMap = new Map<string, string>();
 
-      if (error) {
-        console.error(`[Sync] Erro no pull da tabela ${table}:`, error.message);
-        continue;
+      if (table === 'profiles' && supabaseAdmin) {
+        const { data, error } = await supabaseAdmin.from(table).select('*');
+        if (error) {
+          console.error(`[Sync] Erro no pull admin da tabela profiles:`, error.message);
+          continue;
+        }
+        cloudRecords = data;
+
+        // Buscar emails da tabela auth.users do Supabase
+        try {
+          const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+          if (!usersError && usersData?.users) {
+            for (const u of usersData.users) {
+              if (u.email) {
+                usersMap.set(u.id, u.email);
+              }
+            }
+          }
+        } catch (ue) {
+          console.error('[Sync] Erro ao obter e-mails do Auth via admin API:', ue);
+        }
+      } else {
+        const { data, error } = await supabase.from(table).select('*');
+        if (error) {
+          console.error(`[Sync] Erro no pull da tabela ${table}:`, error.message);
+          continue;
+        }
+        cloudRecords = data;
       }
 
       if (!cloudRecords || cloudRecords.length === 0) continue;
@@ -126,6 +155,12 @@ export async function pullCloudChanges() {
 
       // 3. Upsert no SQLite local sem disparar a fila de sync local
       for (const record of cloudRecords) {
+        if (table === 'profiles') {
+          const realEmail = usersMap.get(record.id);
+          if (realEmail) {
+            record.email = realEmail;
+          }
+        }
         await upsertLocalRecord(table, record);
       }
     } catch (e) {
