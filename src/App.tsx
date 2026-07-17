@@ -66,6 +66,11 @@ export default function App() {
 
   const isPartnersSubdomain = window.location.hostname.startsWith('parceiros');
 
+  const isElectronApp = typeof window !== 'undefined' && 
+                        window.navigator && 
+                        window.navigator.userAgent && 
+                        window.navigator.userAgent.toLowerCase().includes('electron');
+
   if (isPartnersSubdomain) {
     return (
       <Router>
@@ -86,7 +91,7 @@ export default function App() {
         <AdminSessionTimeout />
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={isElectronApp ? <Navigate to="/login" replace /> : <Landing />} />
           <Route path="/atendimento" element={<Atendimento />} />
           <Route path="/login" element={<Login />} />
           <Route path="/consulta-os" element={<CustomerOSPortal />} />
