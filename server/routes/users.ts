@@ -61,28 +61,32 @@ router.post('/login-offline', async (req, res) => {
       return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
     }
 
-    const cacheEntries = await db.select().from(localAuthCache).where(eq(localAuthCache.email, email.toLowerCase().trim())).limit(1);
-    if (cacheEntries.length === 0) {
-      return res.status(401).json({ error: 'Usuário não encontrado offline. Realize o primeiro login no modo Online.' });
+    const lowercaseEmail = email.toLowerCase().trim();
+    const { profiles } = await import('../db/schema.js');
+
+    // Buscar usuário localmente no SQLite diretamente na tabela de perfis
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.email, lowercaseEmail))
+      .limit(1);
+
+    if (!profile) {
+      return res.status(401).json({ error: 'Usuário não encontrado offline. Realize o primeiro login no modo Online ou sincronize o banco local.' });
     }
 
-    const entry = cacheEntries[0];
-    if (!verifyPassword(password, entry.passwordHash)) {
+    if (!profile.passwordHash) {
+      return res.status(401).json({ error: 'Senha não cacheada. Faça login no modo online primeiro para salvar a credencial.' });
+    }
+
+    if (!verifyPassword(password, profile.passwordHash)) {
       return res.status(401).json({ error: 'Senha incorreta.' });
     }
 
-    const { profiles } = await import('../db/schema.js');
-    const localProfiles = await db.select().from(profiles).where(eq(profiles.id, entry.id)).limit(1);
-    if (localProfiles.length === 0) {
-      return res.status(404).json({ error: 'Perfil não encontrado localmente. Sincronize antes de acessar.' });
-    }
-
-    const profile = localProfiles[0];
     res.json({
       success: true,
       user: {
-        id: entry.id,
-        email: entry.email,
+        id: profile.id,
+        email: profile.email,
         role: profile.role,
         unit_id: profile.storeId,
         fullName: profile.fullName
@@ -277,6 +281,15 @@ router.post('/login', async (req, res) => {
             target: profiles.id,
             set: mappedProfile
           });
+
+        // Salva também no Supabase cloud para que outros computadores possam baixar durante a sincronização
+        try {
+          await supabase.from('profiles')
+            .update({ password_hash: passHash })
+            .eq('id', profileData.id);
+        } catch (cloudErr) {
+          console.warn('[Auth] Ignorando salvamento de hash na nuvem (coluna password_hash pode não existir ainda):', cloudErr);
+        }
       }
 
       return res.json({
