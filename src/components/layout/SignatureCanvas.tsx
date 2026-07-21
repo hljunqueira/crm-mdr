@@ -112,7 +112,7 @@ export default function SignatureCanvas({ onSave, onCancel, title = "Assinatura 
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-4 w-full bg-[#121215] border border-white/10 rounded-[32px] p-6 max-w-lg mx-auto shadow-2xl">
+    <div ref={containerRef} className="flex flex-col gap-4 w-full bg-[#121215] border border-white/10 rounded-4xl p-6 max-w-lg mx-auto shadow-2xl">
       <div className="flex justify-between items-center">
         <h4 className="text-xs font-black uppercase tracking-widest text-white">{title}</h4>
         {!isEmpty && (

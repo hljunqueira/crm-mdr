@@ -71,10 +71,10 @@ export default function SaleReceiptPrint({
   };
 
   const saleDateFormatted = formatPaymentDate(sale.date || sale.created_at) || today;
-  const basePrice = sale.total_value - (sale.service_fee || 0);
+  const tradeInVal = sale.is_trade_in ? (Number(sale.trade_valuation ?? sale.trade_in_valuation) || 0) : 0;
+  const basePrice = sale.total_value - (sale.service_fee || 0) + tradeInVal;
   const originalPrice = sale.original_price && sale.original_price > 0 ? sale.original_price : basePrice;
   const discountValue = originalPrice > basePrice ? originalPrice - basePrice : 0;
-  const tradeInVal = sale.is_trade_in ? (Number(sale.trade_in_valuation) || 0) : 0;
   const financed = basePrice - sale.down_payment - tradeInVal;
   const instValue = installmentValue ?? (sale.installments > 0 ? financed / sale.installments : 0);
   const firstInstValue = firstInstallmentValue ?? instValue;

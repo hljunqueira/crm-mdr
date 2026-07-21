@@ -5,6 +5,22 @@ import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
+const useSupabase = (req: any) => {
+  const host = req.headers.host || '';
+  return host.includes('mdrinformaticaecelulares.com.br') || 
+         process.env.IS_VPS === 'true' || 
+         (!host.includes('localhost') && !host.includes('127.0.0.1'));
+};
+
+// Intercept scp portal requests when offline
+router.use((req, res, next) => {
+  if (!useSupabase(req)) {
+    return res.status(503).json({ error: "O portal de parceiros/investidores (SCP) está disponível apenas em modo online." });
+  }
+  next();
+});
+
+
 // 1. POST /api/scp/auth/request-otp — Inicia autenticação do investidor por WhatsApp/Celular
 router.post("/auth/request-otp", async (req, res) => {
   try {
@@ -1300,11 +1316,22 @@ router.delete("/quotas/:id", async (req, res) => {
   }
 });
 
-// 16. PATCH /api/scp/devices/:id/link-investor — Vincular aparelho a investidor Prime
+// 16. PATCH /api/scp/devices/:id/link-investor — Vincular/Editar configurações de aparelho Prime
 router.patch("/devices/:id/link-investor", async (req, res) => {
   try {
     const { id } = req.params;
-    const { investor_id, prime_profit_share, prime_admin_fee } = req.body;
+    const { 
+      investor_id, 
+      prime_profit_share, 
+      prime_admin_fee,
+      prime_profit_share_value,
+      prime_valuation_type,
+      prime_profit_share_type,
+      imei,
+      sale_price,
+      cost_price,
+      only_cash_sale
+    } = req.body;
 
     const { data: oldDevice } = await supabase
       .from("devices")
@@ -1312,68 +1339,96 @@ router.patch("/devices/:id/link-investor", async (req, res) => {
       .eq("id", id)
       .single();
 
+    const updatePayload: any = {};
+    if (investor_id !== undefined) updatePayload.investor_id = investor_id || null;
+    if (prime_profit_share !== undefined) updatePayload.prime_profit_share = Number(prime_profit_share) / 100;
+    if (prime_admin_fee !== undefined) updatePayload.prime_admin_fee = Number(prime_admin_fee) / 100;
+    if (prime_profit_share_value !== undefined) {
+      updatePayload.prime_profit_share_value = prime_profit_share_value === '' || prime_profit_share_value === null
+        ? null
+        : Number(prime_profit_share_value);
+    }
+    if (prime_valuation_type !== undefined) updatePayload.prime_valuation_type = prime_valuation_type;
+    if (prime_profit_share_type !== undefined) updatePayload.prime_profit_share_type = prime_profit_share_type;
+    if (imei !== undefined) updatePayload.imei = imei || null;
+    if (sale_price !== undefined) updatePayload.sale_price = Number(sale_price);
+    if (cost_price !== undefined) updatePayload.cost_price = Number(cost_price);
+    if (only_cash_sale !== undefined) updatePayload.only_cash_sale = Boolean(only_cash_sale);
+
     const { data: device, error: devError } = await supabase
       .from("devices")
-      .update({
-        investor_id: investor_id || null,
-        prime_profit_share: prime_profit_share !== undefined ? Number(prime_profit_share) : 0.6000,
-        prime_admin_fee: prime_admin_fee !== undefined ? Number(prime_admin_fee) : 0.1000
-      })
+      .update(updatePayload)
       .eq("id", id)
       .select()
       .single();
 
     if (devError) throw devError;
 
-    // Se mudou ou desvinculou, subtrair do investidor antigo
-    if (oldDevice && oldDevice.investor_id && oldDevice.investor_id !== investor_id) {
+    // Recalcular recebíveis futuros se mudou investidor, valoração ou tipo de repasse
+    const oldInv = oldDevice?.investor_id;
+    const newInv = device.investor_id;
+
+    const oldCost = oldDevice
+      ? (oldDevice.prime_valuation_type === "cost" ? Number(oldDevice.cost_price || 0) : Number(oldDevice.sale_price || oldDevice.cost_price || 0))
+      : 0;
+
+    const newCost = device.prime_valuation_type === "cost"
+      ? Number(device.cost_price || 0)
+      : Number(device.sale_price || device.cost_price || 0);
+
+    const isOldProfitOnly = oldDevice?.prime_profit_share_type === 'profit_only';
+    const isNewProfitOnly = device.prime_profit_share_type === 'profit_only';
+
+    // Subtrair valor antigo do investidor anterior se mudou algo relevante
+    if (oldInv && (!newInv || oldInv !== newInv || isOldProfitOnly !== isNewProfitOnly || oldCost !== newCost)) {
       const { data: oldWallet } = await supabase
         .from("wallets")
         .select("*")
-        .eq("profile_id", oldDevice.investor_id)
+        .eq("profile_id", oldInv)
         .maybeSingle();
 
-      const oldVal = oldDevice.prime_valuation_type === "cost"
-        ? Number(oldDevice.cost_price || 0)
-        : Number(oldDevice.sale_price || oldDevice.cost_price || 0);
-
-      if (oldWallet && oldDevice.prime_profit_share_type !== 'profit_only') {
+      if (oldWallet && !isOldProfitOnly) {
         await supabase
           .from("wallets")
           .update({
-            future_receipts: Math.max(0, Number(oldWallet.future_receipts || 0) - oldVal)
+            future_receipts: Math.max(0, Number(oldWallet.future_receipts || 0) - oldCost)
           })
           .eq("id", oldWallet.id);
       }
     }
 
-    // Se vinculou um investidor, podemos atualizar seus recebíveis futuros estimativos
-    if (investor_id) {
-      const { data: wallet } = await supabase
-        .from("wallets")
-        .select("*")
-        .eq("profile_id", investor_id)
-        .maybeSingle();
+    // Adicionar valor ao novo investidor se necessário
+    if (newInv) {
+      const isSameInv = oldInv === newInv;
+      const needsCrediting = !isSameInv || isOldProfitOnly !== isNewProfitOnly || oldCost !== newCost;
 
-      const cost = device.prime_valuation_type === "cost"
-        ? Number(device.cost_price || 0)
-        : Number(device.sale_price || device.cost_price || 0);
+      if (needsCrediting && !isNewProfitOnly) {
+        const { data: wallet } = await supabase
+          .from("wallets")
+          .select("*")
+          .eq("profile_id", newInv)
+          .maybeSingle();
 
-      if (wallet) {
-        await supabase
-          .from("wallets")
-          .update({
-            future_receipts: Number(wallet.future_receipts || 0) + cost
-          })
-          .eq("id", wallet.id);
-      } else {
-        await supabase
-          .from("wallets")
-          .insert({
-            profile_id: investor_id,
-            balance: 0,
-            future_receipts: cost
-          });
+        const amountToAdd = isSameInv 
+          ? (newCost - (isOldProfitOnly ? 0 : oldCost))
+          : newCost;
+
+        if (wallet) {
+          await supabase
+            .from("wallets")
+            .update({
+              future_receipts: Math.max(0, Number(wallet.future_receipts || 0) + amountToAdd)
+            })
+            .eq("id", wallet.id);
+        } else {
+          await supabase
+            .from("wallets")
+            .insert({
+              profile_id: newInv,
+              balance: 0,
+              future_receipts: amountToAdd
+            });
+        }
       }
     }
 

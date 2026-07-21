@@ -178,7 +178,7 @@ export default function CustomerSalesCatalog({ osNumber, unitId }: CustomerSales
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-3 glass-card bg-white/1 border border-white/5 rounded-[32px]">
+      <div className="flex flex-col items-center justify-center py-12 gap-3 glass-card bg-white/1 border border-white/5 rounded-4xl">
         <Loader2 className="animate-spin text-primary" size={24} />
         <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant/60">Carregando vitrine...</span>
       </div>
@@ -244,7 +244,7 @@ export default function CustomerSalesCatalog({ osNumber, unitId }: CustomerSales
             <motion.div 
               key={device.id}
               whileHover={{ y: -4 }}
-              className="glass-card bg-white/1 border border-white/5 rounded-[32px] overflow-hidden flex flex-col h-full group relative hover:border-white/20 transition-all shadow-xl"
+              className="glass-card bg-white/1 border border-white/5 rounded-4xl overflow-hidden flex flex-col h-full group relative hover:border-white/20 transition-all shadow-xl"
             >
               {/* Product Visual Container */}
               <div className="h-44 relative bg-linear-to-b from-white/2 to-transparent flex items-center justify-center p-4 overflow-hidden border-b border-white/5">

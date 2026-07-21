@@ -1102,12 +1102,14 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     if (selectedDevices.length > 0) {
       return selectedDevices.reduce((sum, d) => {
         const stockItem = inventory.find(i => i.id === d.id);
-        const itemPrice = stockItem?.price || d.price;
+        const itemPrice = (formData.price_type === 'trade' && stockItem?.trade_in_price)
+          ? stockItem.trade_in_price
+          : (stockItem?.price || d.price);
         return sum + itemPrice * d.quantity;
       }, 0);
     }
     return formData.total_value;
-  }, [selectedDevices, inventory, formData.total_value]);
+  }, [selectedDevices, inventory, formData.total_value, formData.price_type]);
 
   const feeValue = useMemo(() => {
     if (isCashLike) return 0;

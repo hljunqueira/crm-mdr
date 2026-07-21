@@ -29,9 +29,19 @@ export interface FinancialForecast {
   card_payments_inflow: number;
 }
 
+export interface MonthlyCardReportItem {
+  month: number;
+  year: number;
+  monthLabel: string;
+  fixedValue: number;
+  paidValue: number;
+  remainingValue: number;
+}
+
 interface FinancialDashboardState {
   bills: CreditCardBill[];
   forecast: FinancialForecast | null;
+  monthlyReport: MonthlyCardReportItem[];
   isLoading: boolean;
   fetchDashboardData: (month: number, year: number, unitId?: string) => Promise<void>;
   createBill: (bill: Omit<CreditCardBill, 'id'>) => Promise<void>;
@@ -44,17 +54,19 @@ interface FinancialDashboardState {
 export const useFinancialDashboardStore = create<FinancialDashboardState>()((set, get) => ({
   bills: [],
   forecast: null,
+  monthlyReport: [],
   isLoading: false,
 
   fetchDashboardData: async (month, year, unitId) => {
     set({ isLoading: true });
     try {
       const unitParam = unitId && unitId !== 'all' ? `&unit_id=${unitId}` : '';
-      const [billsData, forecastData] = await Promise.all([
+      const [billsData, forecastData, reportData] = await Promise.all([
         api.get(`/financial-dashboard/bills?month=${month}&year=${year}${unitParam}`),
-        api.get(`/financial-dashboard/forecasts?month=${month}&year=${year}`)
+        api.get(`/financial-dashboard/forecasts?month=${month}&year=${year}`),
+        api.get(`/financial-dashboard/bills/monthly-report?month=${month}&year=${year}${unitParam}`)
       ]);
-      set({ bills: billsData || [], forecast: forecastData || null });
+      set({ bills: billsData || [], forecast: forecastData || null, monthlyReport: reportData || [] });
     } catch (error) {
       console.error('Error fetching financial dashboard data:', error);
     } finally {

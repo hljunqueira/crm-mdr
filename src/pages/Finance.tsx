@@ -79,7 +79,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
+        className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header (Sticky at top) */}
@@ -624,6 +624,7 @@ export default function Finance() {
   const { 
     bills, 
     forecast, 
+    monthlyReport,
     fetchDashboardData, 
     createBill, 
     updateBill, 
@@ -1340,7 +1341,7 @@ export default function Finance() {
         <div className="flex items-center gap-3 w-full md:w-auto">
           {/* Unit Selector for Admins */}
           {isAdmin && units.length > 0 && (
-            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] w-full md:w-auto">
+            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-50 w-full md:w-auto">
               <Store size={16} className="text-primary shrink-0" />
               <select
                 value={selectedUnitId}
@@ -1417,7 +1418,7 @@ export default function Finance() {
               <div
                 key={idx}
                 onClick={() => setStatusFilter(stat.id as any)}
-                className={`bg-white/2 p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
+                className={`bg-white/2 p-6 rounded-4xl border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
               >
                 {isActive && (
                   <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
@@ -1447,7 +1448,7 @@ export default function Finance() {
             </div>
 
              {/* Period Filter Dropdown */}
-            <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-[220px]">
+            <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-55">
               <Calendar size={16} className="text-on-surface-variant shrink-0" />
               <select
                 value={dateFilter}
@@ -1764,7 +1765,7 @@ export default function Finance() {
       </>
       ) : (
         <div className="space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/2 border border-white/5 p-6 rounded-[32px]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/2 border border-white/5 p-6 rounded-4xl">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5">
                 <Calendar size={16} className="text-primary shrink-0" />
@@ -2038,20 +2039,46 @@ export default function Finance() {
                 </div>
               </div>
 
-              {/* Widget de Previsão Mensal de Saídas */}
+              {/* Widget de Relatório Mensal de Cartões */}
               <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
-                  Previsão Mensal de Saídas
+                  Relatório Mensal de Cartões
                 </h3>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {monthlyProjection.map((proj, idx) => (
-                    <div key={idx} className="flex justify-between items-center py-2 border-b border-white/5 last:border-b-0">
-                      <span className="text-[10px] text-zinc-400 font-bold uppercase">{proj.monthLabel}</span>
-                      <span className="text-xs font-black text-white font-mono">
-                        R$ {proj.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto max-h-87.5 pr-2 custom-scrollbar">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-wider pb-2">
+                        <th className="pb-2">Mês</th>
+                        <th className="pb-2 text-right">Fixado</th>
+                        <th className="pb-2 text-right">Abatido</th>
+                        <th className="pb-2 text-right">A Pagar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {monthlyReport.map((item, idx) => {
+                        const isCurrentMonth = item.month === new Date().getMonth() + 1 && item.year === new Date().getFullYear();
+                        return (
+                          <tr key={idx} className={cn("hover:bg-white/5 transition-all", isCurrentMonth && "bg-white/5 font-bold")}>
+                            <td className="py-2.5 font-bold text-white uppercase flex items-center gap-1">
+                              {item.monthLabel}
+                              {isCurrentMonth && (
+                                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[7px] font-black uppercase px-1 py-0.2 rounded scale-90">Atual</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-zinc-400">
+                              R$ {item.fixedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-emerald-400">
+                              R$ {item.paidValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-error">
+                              R$ {item.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -2067,7 +2094,7 @@ export default function Finance() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md p-6 shadow-2xl space-y-6 text-left"
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md p-6 shadow-2xl space-y-6 text-left"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center">

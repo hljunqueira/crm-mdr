@@ -2,6 +2,10 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { google } from "googleapis";
 import path from "path";
+import { db } from "../db/connection.js";
+import { deviceLocks, deviceBlockLogs, automationSettings, syncQueue } from "../db/schema.js";
+import { eq, desc } from "drizzle-orm";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -14,29 +18,79 @@ function getAmapiClient() {
   return google.androidmanagement({ version: "v1", auth });
 }
 
-// GET /enterprise - Get current Google Enterprise configuration
-router.get("/enterprise", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("automation_settings")
-      .select("value")
-      .eq("key", "google_enterprise_id")
-      .maybeSingle();
+const useSupabase = (req: any) => {
+  const host = req.headers.host || '';
+  return host.includes('mdrinformaticaecelulares.com.br') || 
+         process.env.IS_VPS === 'true' || 
+         (!host.includes('localhost') && !host.includes('127.0.0.1'));
+};
 
-    if (error) throw error;
-    res.json({ enterpriseId: data?.value || null });
+function snakeToCamel(str: string): string {
+  return str.replace(/([-_][a-z])/g, group =>
+    group.toUpperCase().replace('-', '').replace('_', '')
+  );
+}
+
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function mapLocalToCloud(tableName: string, data: any): any {
+  const result: any = {};
+  for (const k of Object.keys(data)) {
+    let pgKey = camelToSnake(k);
+    if (k === 'deviceId') pgKey = 'device_id';
+    else if (k === 'saleId') pgKey = 'sale_id';
+    else if (k === 'customerId') pgKey = 'customer_id';
+    else if (k === 'lockType') pgKey = 'lock_type';
+    else if (k === 'mdmDeviceId') pgKey = 'mdm_device_id';
+    else if (k === 'mdmLocked') pgKey = 'mdm_locked';
+    else if (k === 'mdmLastSyncAt') pgKey = 'mdm_last_sync_at';
+    else if (k === 'mdmKioskMessage') pgKey = 'mdm_kiosk_message';
+    else if (k === 'icloudEmail') pgKey = 'icloud_email';
+    else if (k === 'icloudPassword') pgKey = 'icloud_password';
+    else if (k === 'icloudLocked') pgKey = 'icloud_locked';
+    else if (k === 'icloudLockConfirmedAt') pgKey = 'icloud_lock_confirmed_at';
+    else if (k === 'icloudLockConfirmedBy') pgKey = 'icloud_lock_confirmed_by';
+    result[pgKey] = data[k];
+  }
+  return result;
+}
+
+// GET /enterprise
+router.get("/enterprise", async (req, res) => {
+  if (useSupabase(req)) {
+    try {
+      const { data, error } = await supabase
+        .from("automation_settings")
+        .select("value")
+        .eq("key", "google_enterprise_id")
+        .maybeSingle();
+
+      if (error) throw error;
+      return res.json({ enterpriseId: data?.value || null });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback
+  try {
+    const [setting] = await db.select().from(automationSettings).where(eq(automationSettings.key, "google_enterprise_id")).limit(1);
+    res.json({ enterpriseId: setting?.value || null });
   } catch (error: any) {
-    console.error("[Device Locks] Error getting enterprise:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /enterprise/signup-url - Generate Google Enterprise Signup URL
+// POST /enterprise/signup-url
 router.post("/enterprise/signup-url", async (req, res) => {
+  if (!useSupabase(req)) {
+    return res.status(400).json({ error: "O cadastro do Android Enterprise requer conexão de rede." });
+  }
+
   try {
     const amapi = getAmapiClient();
-    
-    // We redirect to the API callback route
     const callbackUrl = req.body.callbackUrl || "https://mdrinformaticaecelulares.com.br/api/device-locks/callback";
     
     const signup = await amapi.signupUrls.create({
@@ -44,7 +98,6 @@ router.post("/enterprise/signup-url", async (req, res) => {
       callbackUrl: callbackUrl
     });
 
-    // Save the signupUrlName to database so callback can retrieve it
     await supabase
       .from("automation_settings")
       .upsert(
@@ -54,7 +107,7 @@ router.post("/enterprise/signup-url", async (req, res) => {
 
     res.json({
       url: signup.data.url,
-      name: signup.data.name // This contains the signup token name (e.g. signupUrls/...)
+      name: signup.data.name
     });
   } catch (error: any) {
     console.error("[Device Locks] Error generating signup URL:", error);
@@ -62,140 +115,77 @@ router.post("/enterprise/signup-url", async (req, res) => {
   }
 });
 
-// GET /callback - Google Android Enterprise Callback handler
+// GET /callback
 router.get("/callback", async (req, res) => {
   try {
     let { enterpriseToken, signupUrlName } = req.query;
-
     if (!enterpriseToken) {
       return res.status(400).send("<h1>Erro: Token do Enterprise ausente.</h1>");
     }
 
-    if (!signupUrlName) {
-      // Fetch the latest generated signup url name from database
-      const { data, error: dbError } = await supabase
-        .from("automation_settings")
-        .select("value")
-        .eq("key", "google_signup_url_name")
-        .maybeSingle();
-      
-      if (!dbError && data?.value) {
-        signupUrlName = data.value;
+    if (useSupabase(req)) {
+      if (!signupUrlName) {
+        const { data } = await supabase.from("automation_settings").select("value").eq("key", "google_signup_url_name").maybeSingle();
+        if (data?.value) signupUrlName = data.value;
       }
+
+      if (!signupUrlName) {
+        return res.status(400).send("<h1>Erro: Nome da URL de inscrição ausente.</h1>");
+      }
+
+      const amapi = getAmapiClient();
+      const enterprise = await amapi.enterprises.create({
+        enterpriseToken: enterpriseToken as string,
+        signupUrlName: signupUrlName as string,
+        projectId: "crm-mdr",
+        requestBody: {}
+      });
+
+      const enterpriseId = enterprise.data.name;
+
+      await supabase
+        .from("automation_settings")
+        .upsert(
+          { key: "google_enterprise_id", value: enterpriseId, updated_at: new Date().toISOString() },
+          { onConflict: "key" }
+        );
+
+      return res.send(`<h1>Vinculado com Sucesso! Badge: ${enterpriseId}</h1>`);
     }
 
-    if (!signupUrlName) {
-      return res.status(400).send("<h1>Erro: Nome da URL de inscrição ausente ou expirado. Inicie o registro novamente pelo painel do CRM.</h1>");
-    }
-
-    const amapi = getAmapiClient();
-
-    // Call enterprises.create to complete the registration and obtain the Enterprise ID
-    const enterprise = await amapi.enterprises.create({
-      enterpriseToken: enterpriseToken as string,
-      signupUrlName: signupUrlName as string,
-      projectId: "crm-mdr",
-      requestBody: {}
-    });
-
-    const enterpriseId = enterprise.data.name; // Format: enterprises/LCxxxxxxx
-
-    // Save/upsert the Enterprise ID to automation_settings
-    const { error } = await supabase
-      .from("automation_settings")
-      .upsert(
-        { key: "google_enterprise_id", value: enterpriseId, updated_at: new Date().toISOString() },
-        { onConflict: "key" }
-      );
-
-    if (error) throw error;
-
-    // Redirect or display success message
-    res.send(`
-      <html>
-        <head>
-          <title>Sucesso - Android Enterprise</title>
-          <style>
-            body {
-              background-color: #121215;
-              color: white;
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              height: 100vh;
-              margin: 0;
-            }
-            .card {
-              background: rgba(255,255,255,0.02);
-              border: 1px solid rgba(255,255,255,0.05);
-              padding: 40px;
-              border-radius: 24px;
-              text-align: center;
-              max-width: 400px;
-            }
-            h1 { color: #4BE277; margin-bottom: 10px; font-size: 24px; }
-            p { color: #a0a0a5; font-size: 14px; line-height: 1.6; }
-            .badge {
-              background: rgba(75,226,119,0.1);
-              color: #4BE277;
-              padding: 8px 16px;
-              border-radius: 12px;
-              display: inline-block;
-              margin-top: 15px;
-              font-family: monospace;
-              font-weight: bold;
-            }
-            button {
-              background: white;
-              color: black;
-              border: none;
-              padding: 12px 24px;
-              border-radius: 12px;
-              margin-top: 25px;
-              cursor: pointer;
-              font-weight: bold;
-              text-transform: uppercase;
-              font-size: 11px;
-              letter-spacing: 1px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>Vinculado com Sucesso!</h1>
-            <p>Sua conta Google Enterprise foi associada com sucesso ao CRM MDR.</p>
-            <div class="badge">${enterpriseId}</div>
-            <br/>
-            <button onclick="window.close()">Fechar Janela</button>
-          </div>
-        </body>
-      </html>
-    `);
+    res.status(400).send("<h1>Erro: Callback do Android Enterprise não é suportado offline.</h1>");
   } catch (error: any) {
-    console.error("[Device Locks] Callback error:", error);
     res.status(500).send(`<h1>Erro ao vincular conta:</h1><p>${error.message}</p>`);
   }
 });
 
-// DELETE /enterprise - Unlink/Delete Google Enterprise association
+// DELETE /enterprise
 router.delete("/enterprise", async (req, res) => {
-  try {
-    const { error } = await supabase
-      .from("automation_settings")
-      .delete()
-      .eq("key", "google_enterprise_id");
+  if (useSupabase(req)) {
+    try {
+      const { error } = await supabase.from("automation_settings").delete().eq("key", "google_enterprise_id");
+      if (error) throw error;
+      return res.json({ success: true, message: "Removido com sucesso." });
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
 
-    if (error) throw error;
-    res.json({ success: true, message: "Vínculo com Google Enterprise removido com sucesso." });
+  // SQLite fallback
+  try {
+    await db.delete(automationSettings).where(eq(automationSettings.key, "google_enterprise_id"));
+    res.json({ success: true });
   } catch (error: any) {
-    console.error("[Device Locks] Error deleting enterprise link:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /enterprise/enrollment-token - Create a new enrollment token and return QR payload
+// POST /enterprise/enrollment-token
 router.post("/enterprise/enrollment-token", async (req, res) => {
+  if (!useSupabase(req)) {
+    return res.status(400).json({ error: "Gerar token de inscrição requer conexão de rede." });
+  }
+
   try {
     const { data: setting, error: dbError } = await supabase
       .from("automation_settings")
@@ -210,18 +200,16 @@ router.post("/enterprise/enrollment-token", async (req, res) => {
     const enterpriseId = setting.value;
     const amapi = getAmapiClient();
 
-    // Create the enrollment token (valid for 30 days)
     const tokenResponse = await amapi.enterprises.enrollmentTokens.create({
       parent: enterpriseId,
       requestBody: {
-        duration: "2592000s", // 30 days
+        duration: "2592000s",
         policyName: "default"
       }
     });
 
     const token = tokenResponse.data.value;
 
-    // Construct the standard DPC provisioning QR Code JSON payload
     const qrCodePayload = JSON.stringify({
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": "com.google.android.apps.work.clouddpc/.Receiver",
       "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": "I5YvS0O5hXY46mb01WiRCE2o15935",
@@ -237,232 +225,390 @@ router.post("/enterprise/enrollment-token", async (req, res) => {
       expiration: (tokenResponse.data as any).expirationTime || null
     });
   } catch (error: any) {
-    console.error("[Device Locks] Error generating enrollment token:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-
-
-// 1. Get all active locks with relations
+// GET device_locks
 router.get("/", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('device_locks')
-      .select(`
-        *,
-        device:devices(*),
-        sale:sales(
+  if (useSupabase(req)) {
+    try {
+      const { data, error } = await supabase
+        .from('device_locks')
+        .select(`
           *,
-          customer:customers(*),
-          installments(*)
-        )
-      `)
-      .order('created_at', { ascending: false });
+          device:devices(*),
+          sale:sales(
+            *,
+            customer:customers(*),
+            installments(*)
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    res.json(data || []);
+      if (error) throw error;
+      return res.json(data || []);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback
+  try {
+    const list = await db.select().from(deviceLocks).orderBy(desc(deviceLocks.createdAt));
+    const formatted = list.map(l => ({
+      id: l.id,
+      device_id: l.deviceId,
+      sale_id: l.saleId,
+      lock_type: l.lockType,
+      mdm_device_id: l.mdmDeviceId,
+      mdm_locked: l.mdmLocked,
+      mdm_last_sync_at: l.mdmLastSyncAt,
+      mdm_kiosk_message: l.mdmKioskMessage,
+      icloud_email: l.icloudEmail,
+      icloud_password: l.icloudPassword,
+      icloud_locked: l.icloudLocked,
+      icloud_lock_confirmed_at: l.icloudLockConfirmedAt,
+      icloud_lock_confirmed_by: l.icloudLockConfirmedBy,
+      created_at: l.createdAt
+    }));
+    res.json(formatted);
   } catch (error: any) {
-    console.error("[Device Locks] Error fetching locks:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// 2. Create new device lock relation (Checkout)
+// POST device_locks
 router.post("/", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('device_locks')
-      .insert([req.body])
-      .select()
-      .single();
+  if (useSupabase(req)) {
+    try {
+      const { data, error } = await supabase
+        .from('device_locks')
+        .insert([req.body])
+        .select()
+        .single();
 
-    if (error) throw error;
-    res.status(201).json(data);
+      if (error) throw error;
+      return res.status(201).json(data);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback
+  try {
+    const id = req.body.id || crypto.randomUUID();
+    const newLock: any = {
+      id,
+      syncStatus: 'pending_insert',
+      updatedAt: new Date().toISOString()
+    };
+    for (const key of Object.keys(req.body)) {
+      newLock[snakeToCamel(key)] = req.body[key];
+    }
+
+    await db.insert(deviceLocks).values(newLock);
+
+    const pgPayload = mapLocalToCloud('device_locks', newLock);
+    await db.insert(syncQueue).values({
+      tableName: 'device_locks',
+      action: 'INSERT',
+      recordId: id,
+      payload: JSON.stringify(pgPayload)
+    });
+
+    res.status(201).json(pgPayload);
   } catch (error: any) {
-    console.error("[Device Locks] Error creating lock:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// 3. Update device lock properties (manual check-ins, iCloud details)
+// PATCH device_locks
 router.patch("/:id", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('device_locks')
-      .update(req.body)
-      .eq('id', req.params.id)
-      .select()
-      .single();
+  if (useSupabase(req)) {
+    try {
+      const { data, error } = await supabase
+        .from('device_locks')
+        .update(req.body)
+        .eq('id', req.params.id)
+        .select()
+        .single();
 
-    if (error) throw error;
-    res.json(data);
+      if (error) throw error;
+      return res.json(data);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback
+  try {
+    const updateData: any = {};
+    for (const key of Object.keys(req.body)) {
+      updateData[snakeToCamel(key)] = req.body[key];
+    }
+    updateData.syncStatus = 'pending_update';
+    updateData.updatedAt = new Date().toISOString();
+
+    await db.update(deviceLocks).set(updateData).where(eq(deviceLocks.id, req.params.id));
+
+    const [updatedLock] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, req.params.id)).limit(1);
+    if (!updatedLock) return res.status(404).json({ error: "Bloqueio não encontrado" });
+
+    const pgPayload = mapLocalToCloud('device_locks', updatedLock);
+    await db.insert(syncQueue).values({
+      tableName: 'device_locks',
+      action: 'UPDATE',
+      recordId: req.params.id,
+      payload: JSON.stringify(pgPayload)
+    });
+
+    res.json(pgPayload);
   } catch (error: any) {
-    console.error("[Device Locks] Error patching lock:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// 4. Trigger remote locking (Headwind MDM API or Manual confirm)
+// Trigger remote locking
 router.post("/:id/lock", async (req, res) => {
+  if (useSupabase(req)) {
+    try {
+      const { id } = req.params;
+      const { kioskMessage } = req.body;
+
+      const { data: lock, error: fetchError } = await supabase
+        .from('device_locks')
+        .select('*, device:devices(*)')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !lock) return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
+
+      if (lock.lock_type === 'android') {
+        const { data: updatedLock, error: updateError } = await supabase
+          .from('device_locks')
+          .update({
+            mdm_locked: true,
+            mdm_last_sync_at: new Date().toISOString(),
+            mdm_kiosk_message: kioskMessage || 'Aparelho bloqueado por atraso no crediário.'
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        await supabase.from('device_block_logs').insert([{
+          customer_id: req.body.customerId || null,
+          imei: lock.device?.imei || 'MANUAL_IMEI',
+          action: 'block',
+          reason: 'Bloqueio do Google Device Lock Controller Confirmado Manualmente',
+          success: true
+        }]);
+
+        return res.json({ success: true, data: updatedLock });
+      } else {
+        const { data: updatedLock, error: updateError } = await supabase
+          .from('device_locks')
+          .update({
+            icloud_locked: true,
+            icloud_lock_confirmed_at: new Date().toISOString(),
+            icloud_lock_confirmed_by: req.body.operatorId || null
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        await supabase.from('device_block_logs').insert([{
+          customer_id: req.body.customerId || null,
+          imei: lock.device?.imei || 'MANUAL_IMEI',
+          action: 'block',
+          reason: 'iCloud Modo Perdido Confirmado Manualmente',
+          success: true
+        }]);
+
+        return res.json({ success: true, data: updatedLock });
+      }
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback
   try {
     const { id } = req.params;
     const { kioskMessage } = req.body;
 
-    // Fetch the lock config from Supabase
-    const { data: lock, error: fetchError } = await supabase
-      .from('device_locks')
-      .select('*, device:devices(*)')
-      .eq('id', id)
-      .single();
+    const [lock] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
+    if (!lock) return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
 
-    if (fetchError || !lock) {
-      return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
-    }
-
-    if (lock.lock_type === 'android') {
-      // Manual Google Device Lock Controller locking for Android
-      const { data: updatedLock, error: updateError } = await supabase
-        .from('device_locks')
-        .update({
-          mdm_locked: true,
-          mdm_last_sync_at: new Date().toISOString(),
-          mdm_kiosk_message: kioskMessage || 'Aparelho bloqueado por atraso no crediário.'
+    let updatedLock;
+    if (lock.lockType === 'android') {
+      await db.update(deviceLocks)
+        .set({
+          mdmLocked: true,
+          mdmLastSyncAt: new Date().toISOString(),
+          mdmKioskMessage: kioskMessage || 'Aparelho bloqueado por atraso no crediário.',
+          syncStatus: 'pending_update',
+          updatedAt: new Date().toISOString()
         })
-        .eq('id', id)
-        .select()
-        .single();
+        .where(eq(deviceLocks.id, id));
 
-      if (updateError) throw updateError;
+      const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
+      updatedLock = mapLocalToCloud('device_locks', updated);
 
-      // Registrar log
-      await supabase.from('device_block_logs').insert([{
-        customer_id: req.body.customerId || null,
-        imei: lock.device?.imei || 'MANUAL_IMEI',
-        action: 'block',
-        reason: 'Bloqueio do Google Device Lock Controller Confirmado Manualmente',
-        success: true
-      }]);
-
-      return res.json({
-        success: true,
-        data: updatedLock,
-        message: 'Confirmação do bloqueio manual do Android gravado com sucesso!'
+      await db.insert(syncQueue).values({
+        tableName: 'device_locks',
+        action: 'UPDATE',
+        recordId: id,
+        payload: JSON.stringify(updatedLock)
       });
     } else {
-      // Manual iCloud locking for iOS
-      const { data: updatedLock, error: updateError } = await supabase
-        .from('device_locks')
-        .update({
-          icloud_locked: true,
-          icloud_lock_confirmed_at: new Date().toISOString(),
-          icloud_lock_confirmed_by: req.body.operatorId || null
+      await db.update(deviceLocks)
+        .set({
+          icloudLocked: true,
+          icloudLockConfirmedAt: new Date().toISOString(),
+          icloudLockConfirmedBy: req.body.operatorId || null,
+          syncStatus: 'pending_update',
+          updatedAt: new Date().toISOString()
         })
-        .eq('id', id)
-        .select()
-        .single();
+        .where(eq(deviceLocks.id, id));
 
-      if (updateError) throw updateError;
+      const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
+      updatedLock = mapLocalToCloud('device_locks', updated);
 
-      // Registrar log
-      await supabase.from('device_block_logs').insert([{
-        customer_id: req.body.customerId || null,
-        imei: lock.device?.imei || 'MANUAL_IMEI',
-        action: 'block',
-        reason: 'iCloud Modo Perdido Confirmado Manualmente',
-        success: true
-      }]);
-
-      return res.json({
-        success: true,
-        data: updatedLock,
-        message: 'Confirmação do bloqueio manual do iCloud gravado com sucesso!'
+      await db.insert(syncQueue).values({
+        tableName: 'device_locks',
+        action: 'UPDATE',
+        recordId: id,
+        payload: JSON.stringify(updatedLock)
       });
     }
 
+    res.json({ success: true, data: updatedLock });
   } catch (error: any) {
-    console.error("[Device Locks] Error triggering lock:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// 5. Trigger remote unlocking (Headwind MDM API or Manual confirm)
+// Trigger remote unlocking
 router.post("/:id/unlock", async (req, res) => {
+  if (useSupabase(req)) {
+    try {
+      const { id } = req.params;
+
+      const { data: lock, error: fetchError } = await supabase
+        .from('device_locks')
+        .select('*, device:devices(*)')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !lock) return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
+
+      if (lock.lock_type === 'android') {
+        const { data: updatedLock, error: updateError } = await supabase
+          .from('device_locks')
+          .update({
+            mdm_locked: false,
+            mdm_last_sync_at: new Date().toISOString()
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        await supabase.from('device_block_logs').insert([{
+          customer_id: req.body.customerId || null,
+          imei: lock.device?.imei || 'MANUAL_IMEI',
+          action: 'unblock',
+          reason: 'Desbloqueio do Google Device Lock Controller Confirmado Manualmente',
+          success: true
+        }]);
+
+        return res.json({ success: true, data: updatedLock });
+      } else {
+        const { data: updatedLock, error: updateError } = await supabase
+          .from('device_locks')
+          .update({
+            icloud_locked: false,
+            icloud_lock_confirmed_at: null,
+            icloud_lock_confirmed_by: null
+          })
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        await supabase.from('device_block_logs').insert([{
+          customer_id: req.body.customerId || null,
+          imei: lock.device?.imei || 'MANUAL_IMEI',
+          action: 'unblock',
+          reason: 'Vínculo do iCloud Removido Fisicamente do Aparelho',
+          success: true
+        }]);
+
+        return res.json({ success: true, data: updatedLock });
+      }
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  // SQLite fallback
   try {
     const { id } = req.params;
 
-    // Fetch the lock config from Supabase
-    const { data: lock, error: fetchError } = await supabase
-      .from('device_locks')
-      .select('*, device:devices(*)')
-      .eq('id', id)
-      .single();
+    const [lock] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
+    if (!lock) return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
 
-    if (fetchError || !lock) {
-      return res.status(404).json({ error: 'Registro de bloqueio não encontrado' });
-    }
-
-    if (lock.lock_type === 'android') {
-      // Manual Google Device Lock Controller unlocking for Android
-      const { data: updatedLock, error: updateError } = await supabase
-        .from('device_locks')
-        .update({
-          mdm_locked: false,
-          mdm_last_sync_at: new Date().toISOString()
+    let updatedLock;
+    if (lock.lockType === 'android') {
+      await db.update(deviceLocks)
+        .set({
+          mdmLocked: false,
+          mdmLastSyncAt: new Date().toISOString(),
+          syncStatus: 'pending_update',
+          updatedAt: new Date().toISOString()
         })
-        .eq('id', id)
-        .select()
-        .single();
+        .where(eq(deviceLocks.id, id));
 
-      if (updateError) throw updateError;
+      const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
+      updatedLock = mapLocalToCloud('device_locks', updated);
 
-      // Registrar log
-      await supabase.from('device_block_logs').insert([{
-        customer_id: req.body.customerId || null,
-        imei: lock.device?.imei || 'MANUAL_IMEI',
-        action: 'unblock',
-        reason: 'Desbloqueio do Google Device Lock Controller Confirmado Manualmente',
-        success: true
-      }]);
-
-      return res.json({
-        success: true,
-        data: updatedLock,
-        message: 'Confirmação de liberação manual do Android gravado com sucesso!'
+      await db.insert(syncQueue).values({
+        tableName: 'device_locks',
+        action: 'UPDATE',
+        recordId: id,
+        payload: JSON.stringify(updatedLock)
       });
     } else {
-      // Manual iCloud unlocking for iOS
-      const { data: updatedLock, error: updateError } = await supabase
-        .from('device_locks')
-        .update({
-          icloud_locked: false,
-          icloud_lock_confirmed_at: null,
-          icloud_lock_confirmed_by: null
+      await db.update(deviceLocks)
+        .set({
+          icloudLocked: false,
+          icloudLockConfirmedAt: null,
+          icloudLockConfirmedBy: null,
+          syncStatus: 'pending_update',
+          updatedAt: new Date().toISOString()
         })
-        .eq('id', id)
-        .select()
-        .single();
+        .where(eq(deviceLocks.id, id));
 
-      if (updateError) throw updateError;
+      const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
+      updatedLock = mapLocalToCloud('device_locks', updated);
 
-      // Registrar log
-      await supabase.from('device_block_logs').insert([{
-        customer_id: req.body.customerId || null,
-        imei: lock.device?.imei || 'MANUAL_IMEI',
-        action: 'unblock',
-        reason: 'Vínculo do iCloud Removido Fisicamente do Aparelho',
-        success: true
-      }]);
-
-      return res.json({
-        success: true,
-        data: updatedLock,
-        message: 'Confirmação da liberação física do iCloud gravado com sucesso!'
+      await db.insert(syncQueue).values({
+        tableName: 'device_locks',
+        action: 'UPDATE',
+        recordId: id,
+        payload: JSON.stringify(updatedLock)
       });
     }
 
+    res.json({ success: true, data: updatedLock });
   } catch (error: any) {
-    console.error("[Device Locks] Error triggering unlock:", error);
     res.status(500).json({ error: error.message });
   }
 });

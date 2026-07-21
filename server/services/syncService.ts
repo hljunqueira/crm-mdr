@@ -1,5 +1,14 @@
 import { db } from '../db/connection.js';
-import { syncQueue, customers, sales, devices, installments, stores, profiles } from '../db/schema.js';
+import { 
+  syncQueue, customers, sales, devices, installments, stores, profiles,
+  notificationQueue, creditQueriesHistory, repairOrders, repairOrderParts,
+  kanbanColumns, deals, leads, automationSettings, automationTemplates,
+  deviceBlockLogs, inventoryLogs, suppliers, partners, commissionSettings,
+  employeeVouchers, cashShifts, cashTransactions, creditCardBills,
+  creditCardBillPayments, monthlyFinancialForecasts, invoices,
+  inventoryAudits, inventoryAuditItems, lots, wallets, walletTransactions,
+  withdrawalRequests, investorQuotas, receivablePurchases, outsourcedOrders, deviceLocks
+} from '../db/schema.js';
 import { supabase } from '../lib/supabase.js';
 import { eq, and, gt } from 'drizzle-orm';
 import { createClient } from '@supabase/supabase-js';
@@ -10,10 +19,144 @@ const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 let isSyncing = false;
 
+// Tabela de mapeamento para as entidades Drizzle
+const tableMap: Record<string, any> = {
+  stores, 
+  profiles, 
+  customers, 
+  devices, 
+  sales, 
+  installments,
+  credit_queries_history: creditQueriesHistory,
+  service_orders: repairOrders,
+  service_order_parts: repairOrderParts,
+  kanban_columns: kanbanColumns,
+  deals, 
+  leads,
+  automation_settings: automationSettings,
+  automation_templates: automationTemplates,
+  device_block_logs: deviceBlockLogs,
+  inventory_logs: inventoryLogs,
+  suppliers, 
+  partners,
+  commission_settings: commissionSettings,
+  employee_vouchers: employeeVouchers,
+  cash_shifts: cashShifts,
+  cash_transactions: cashTransactions,
+  credit_card_bills: creditCardBills,
+  credit_card_bill_payments: creditCardBillPayments,
+  monthly_financial_forecasts: monthlyFinancialForecasts,
+  invoices,
+  inventory_audits: inventoryAudits,
+  inventory_audit_items: inventoryAuditItems,
+  lots, 
+  wallets,
+  wallet_transactions: walletTransactions,
+  withdrawal_requests: withdrawalRequests,
+  investor_quotas: investorQuotas,
+  receivable_purchases: receivablePurchases,
+  outsourced_orders: outsourcedOrders,
+  device_locks: deviceLocks
+};
+
+// Tabelas a sincronizar (excluindo chat/wpp)
+const tables = [
+  'stores', 
+  'profiles', 
+  'customers', 
+  'devices', 
+  'sales', 
+  'installments',
+  'credit_queries_history',
+  'service_orders',
+  'service_order_parts',
+  'kanban_columns',
+  'deals',
+  'leads',
+  'automation_settings',
+  'automation_templates',
+  'device_block_logs',
+  'inventory_logs',
+  'suppliers',
+  'partners',
+  'commission_settings',
+  'employee_vouchers',
+  'cash_shifts',
+  'cash_transactions',
+  'credit_card_bills',
+  'credit_card_bill_payments',
+  'monthly_financial_forecasts',
+  'invoices',
+  'inventory_audits',
+  'inventory_audit_items',
+  'lots',
+  'wallets',
+  'wallet_transactions',
+  'withdrawal_requests',
+  'investor_quotas',
+  'receivable_purchases',
+  'outsourced_orders',
+  'device_locks'
+];
+
+// Helper para converter snake_case (Postgres) para camelCase (Drizzle)
+function snakeToCamel(str: string): string {
+  return str.replace(/([-_][a-z])/g, group =>
+    group.toUpperCase().replace('-', '').replace('_', '')
+  );
+}
+
+function mapCloudToLocal(tableName: string, data: any): any {
+  if (tableName === 'service_orders') {
+    return {
+      id: data.id,
+      customerId: data.customer_id,
+      technicianId: data.responsible_technician_id,
+      deviceModel: data.device_model || 'N/A',
+      imei: data.device_serial_number || data.imei,
+      problemDescription: data.reported_issue || 'N/A',
+      techNotes: data.technical_diagnosis,
+      estimatedCost: Number(data.labor_value || 0),
+      finalCost: Number(data.parts_value || 0),
+      entryDate: data.created_at,
+      exitDate: data.delivered_at,
+      status: data.status || 'budget_pending',
+      createdAt: data.created_at,
+      syncStatus: 'synced',
+      updatedAt: data.updated_at || new Date().toISOString()
+    };
+  }
+
+  const result: any = {};
+  for (const key of Object.keys(data)) {
+    let newKey = snakeToCamel(key);
+    // Exceção de mapeamento no customers e credit_card_bills
+    if (tableName === 'customers' && key === 'unit_id') {
+      newKey = 'storeId';
+    } else if (tableName === 'credit_card_bills' && key === 'unit_id') {
+      newKey = 'unitId';
+    }
+    
+    // Tratamento de conversão numérica para campos conhecidos
+    const value = data[key];
+    if (value !== null && value !== undefined) {
+      if (typeof value === 'string' && !isNaN(Number(value)) && 
+          (key.includes('value') || key.includes('price') || key.includes('amount') || key.includes('balance') || key.includes('rate') || key.includes('fee') || key.includes('limit') || key.includes('quantity') || key.includes('count') || key.includes('index') || key.includes('number'))) {
+        result[newKey] = Number(value);
+      } else {
+        result[newKey] = value;
+      }
+    } else {
+      result[newKey] = null;
+    }
+  }
+  result.syncStatus = 'synced';
+  return result;
+}
+
 // Helper para verificar se a internet está disponível
 async function checkInternetConnection(): Promise<boolean> {
   try {
-    // Faz um ping rápido no health check do Supabase ou DNS público
     const res = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/`, {
       method: 'HEAD',
       headers: {
@@ -21,7 +164,7 @@ async function checkInternetConnection(): Promise<boolean> {
       },
       signal: AbortSignal.timeout(3000)
     });
-    return res.ok || res.status === 401; // 401 significa que o servidor respondeu (online)
+    return res.ok || res.status === 401;
   } catch (e) {
     return false;
   }
@@ -33,7 +176,6 @@ async function checkInternetConnection(): Promise<boolean> {
 export async function pushLocalChanges() {
   console.log('[Sync] Iniciando push de alterações locais...');
   
-  // 1. Busca todas as ações na fila de sincronização ordenadas por ID (FIFO)
   const queue = await db.select().from(syncQueue).orderBy(syncQueue.id);
   
   if (queue.length === 0) {
@@ -48,7 +190,6 @@ export async function pushLocalChanges() {
 
       let error = null;
 
-      // Executa a operação equivalente no Supabase
       if (item.action === 'INSERT' || item.action === 'UPDATE') {
         const { error: pgError } = await supabase
           .from(item.tableName)
@@ -64,20 +205,14 @@ export async function pushLocalChanges() {
 
       if (error) {
         console.error(`[Sync] Erro ao sincronizar item ${item.id} (${item.tableName}):`, error.message);
-        // Se houver qualquer erro (rede, RLS ou FK de dependência temporária), paramos o processamento da fila.
-        // Isso impede a perda de dados e mantém a fila intacta para tentar novamente no próximo ciclo,
-        // após as dependências (como clientes) terem sido puxadas/sincronizadas.
         break;
       }
 
-      // Remove da fila local apenas após sucesso real de gravação na nuvem
       await db.delete(syncQueue).where(eq(syncQueue.id, item.id));
-
-      // Atualiza o status local para synced na tabela correspondente
       await updateLocalSyncStatus(item.tableName, item.recordId, 'synced');
     } catch (e) {
       console.error(`[Sync] Erro crítico ao processar item ${item.id} da fila:`, e);
-      break; // Para a fila em caso de erro crítico
+      break;
     }
   }
 }
@@ -85,14 +220,9 @@ export async function pushLocalChanges() {
 // Atualiza o status do registro local para sincronizado
 async function updateLocalSyncStatus(tableName: string, id: string, status: 'synced' | 'pending_insert' | 'pending_update') {
   try {
-    if (tableName === 'customers') {
-      await db.update(customers).set({ syncStatus: status }).where(eq(customers.id, id));
-    } else if (tableName === 'sales') {
-      await db.update(sales).set({ syncStatus: status }).where(eq(sales.id, id));
-    } else if (tableName === 'devices') {
-      await db.update(devices).set({ syncStatus: status }).where(eq(devices.id, id));
-    } else if (tableName === 'installments') {
-      await db.update(installments).set({ syncStatus: status }).where(eq(installments.id, id));
+    const table = tableMap[tableName];
+    if (table && 'syncStatus' in table) {
+      await db.update(table).set({ syncStatus: status }).where(eq(table.id, id));
     }
   } catch (e) {
     console.error(`[Sync] Falha ao atualizar status de sincronização local para ${tableName}:${id}`, e);
@@ -104,7 +234,6 @@ async function updateLocalSyncStatus(tableName: string, id: string, status: 'syn
  */
 export async function pullCloudChanges() {
   console.log('[Sync] Iniciando pull de atualizações da nuvem...');
-  const tables = ['stores', 'profiles', 'customers', 'devices', 'sales', 'installments'];
 
   for (const table of tables) {
     try {
@@ -112,10 +241,10 @@ export async function pullCloudChanges() {
       let lastUpdatedAt = '1970-01-01T00:00:00.000Z';
       const localRecords = await getLocalRecordsOrderedByUpdate(table);
       if (localRecords && localRecords.length > 0) {
-        lastUpdatedAt = localRecords[0].updated_at || lastUpdatedAt;
+        lastUpdatedAt = localRecords[0].updatedAt || lastUpdatedAt;
       }
 
-      // 2. Buscar registros no Supabase (com bypass de RLS e e-mails para profiles se admin)
+      // 2. Buscar registros no Supabase
       let cloudRecords: any[] | null = null;
       const usersMap = new Map<string, string>();
 
@@ -127,7 +256,6 @@ export async function pullCloudChanges() {
         }
         cloudRecords = data;
 
-        // Buscar emails da tabela auth.users do Supabase
         try {
           const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
           if (!usersError && usersData?.users) {
@@ -153,7 +281,6 @@ export async function pullCloudChanges() {
 
       console.log(`[Sync] Baixando ${cloudRecords.length} atualizações da tabela ${table} da nuvem...`);
 
-      // 3. Upsert no SQLite local sem disparar a fila de sync local
       for (const record of cloudRecords) {
         if (table === 'profiles') {
           const realEmail = usersMap.get(record.id);
@@ -170,155 +297,91 @@ export async function pullCloudChanges() {
 }
 
 // Helpers dinâmicos para ler registros locais ordenados por atualização
-async function getLocalRecordsOrderedByUpdate(table: string): Promise<any[]> {
-  if (table === 'customers') return db.select().from(customers).orderBy(customers.updatedAt).limit(1);
-  if (table === 'sales') return db.select().from(sales).orderBy(sales.updatedAt).limit(1);
-  if (table === 'devices') return db.select().from(devices).orderBy(devices.updatedAt).limit(1);
-  if (table === 'installments') return db.select().from(installments).orderBy(installments.updatedAt).limit(1);
+async function getLocalRecordsOrderedByUpdate(tableName: string): Promise<any[]> {
+  try {
+    const table = tableMap[tableName];
+    if (table && 'updatedAt' in table) {
+      return db.select().from(table).orderBy(table.updatedAt).limit(1);
+    }
+  } catch (e) {
+    console.error(`[Sync] Falha ao obter registros locais de ${tableName}:`, e);
+  }
   return [];
 }
 
 // Helpers dinâmicos para salvar registros vindos do Supabase no SQLite local
 async function upsertLocalRecord(tableName: string, data: any) {
   try {
-    if (tableName === 'stores') {
-      const mapped = {
-        id: data.id,
-        name: data.name,
-        cnpj: data.cnpj,
-        address: data.address,
-        phone: data.phone,
-        evolutionApiUrl: data.evolution_api_url,
-        evolutionApiKey: data.evolution_api_key,
-        evolutionInstance: data.evolution_instance,
-        logoUrl: data.logo_url,
-        themeColor: data.theme_color,
-        createdAt: data.created_at,
-        syncStatus: 'synced',
-        updatedAt: data.updated_at,
-        lastSyncBy: data.last_sync_by
-      };
-      await db.insert(stores).values(mapped).onConflictDoUpdate({
-        target: stores.id,
-        set: mapped,
-      });
-    } else if (tableName === 'profiles') {
-      const mapped = {
-        id: data.id,
-        storeId: data.store_id,
-        email: data.email,
-        fullName: data.full_name,
-        avatarUrl: data.avatar_url,
-        role: data.role,
-        active: data.active,
-        passwordHash: data.password_hash,
-        createdAt: data.created_at,
-        syncStatus: 'synced',
-        updatedAt: data.updated_at,
-        lastSyncBy: data.last_sync_by
-      };
-      await db.insert(profiles).values(mapped).onConflictDoUpdate({
-        target: profiles.id,
-        set: mapped,
-      });
-    } else if (tableName === 'customers') {
-      const mapped = {
-        id: data.id,
-        name: data.name,
-        cpf: data.cpf,
-        phone: data.phone,
-        parentContactPhone: data.parent_contact_phone,
-        reference1Name: data.reference1_name,
-        reference1Phone: data.reference1_phone,
-        reference2Name: data.reference2_name,
-        reference2Phone: data.reference2_phone,
-        email: data.email,
-        address: data.address,
-        status: data.status,
-        notes: data.notes,
-        suggestedDownPayment: Number(data.suggested_down_payment || 0),
-        lastPaymentDate: data.last_payment_date,
-        approvedForPurchase: data.approved_for_purchase,
-        storeId: data.unit_id,
-        syncStatus: 'synced',
-        updatedAt: data.updated_at,
-        lastSyncBy: data.last_sync_by
-      };
-      await db.insert(customers).values(mapped).onConflictDoUpdate({
-        target: customers.id,
-        set: mapped,
-      });
-    } else if (tableName === 'sales') {
-      const mapped = {
-        id: data.id,
-        storeId: data.store_id,
-        customerId: data.customer_id,
-        sellerId: data.seller_id,
-        deviceId: data.device_id,
-        deviceModelManual: data.device_model_manual,
-        imeiManual: data.imei_manual,
-        totalValue: Number(data.total_value || 0),
-        downPayment: Number(data.down_payment || 0),
-        installmentsCount: Number(data.installments_count || 1),
-        serviceFee: Number(data.service_fee || 0),
-        originalPrice: Number(data.original_price || 0),
-        saleDate: data.sale_date,
-        status: data.status,
-        paymentType: data.payment_type,
-        createdAt: data.created_at,
-        syncStatus: 'synced',
-        updatedAt: data.updated_at,
-        lastSyncBy: data.last_sync_by
-      };
-      await db.insert(sales).values(mapped).onConflictDoUpdate({
-        target: sales.id,
-        set: mapped,
-      });
-    } else if (tableName === 'devices') {
-      const mapped = {
-        id: data.id,
-        storeId: data.store_id,
-        model: data.model,
-        brand: data.brand,
-        imei: data.imei,
-        serialNumber: data.serial_number,
-        condition: data.condition,
-        costPrice: Number(data.cost_price || 0),
-        salePrice: Number(data.sale_price || 0),
-        stockQuantity: Number(data.stock_quantity || 1),
-        status: data.status,
-        createdAt: data.created_at,
-        syncStatus: 'synced',
-        updatedAt: data.updated_at,
-        lastSyncBy: data.last_sync_by
-      };
-      await db.insert(devices).values(mapped).onConflictDoUpdate({
-        target: devices.id,
-        set: mapped,
-      });
-    } else if (tableName === 'installments') {
-      const mapped = {
-        id: data.id,
-        saleId: data.sale_id,
-        installmentNumber: Number(data.installment_number || 1),
-        totalInstallments: Number(data.total_installments || 1),
-        value: Number(data.value || 0),
-        dueDate: data.due_date,
-        paymentDate: data.payment_date,
-        status: data.status,
-        paymentMethod: data.payment_method,
-        createdAt: data.created_at,
-        syncStatus: 'synced',
-        updatedAt: data.updated_at,
-        lastSyncBy: data.last_sync_by
-      };
-      await db.insert(installments).values(mapped).onConflictDoUpdate({
-        target: installments.id,
-        set: mapped,
-      });
+    const table = tableMap[tableName];
+    if (!table) return;
+
+    if (tableName === 'profiles') {
+      const [existing] = await db.select({ passwordHash: profiles.passwordHash })
+        .from(profiles)
+        .where(eq(profiles.id, data.id))
+        .limit(1);
+      data.password_hash = data.password_hash || (existing ? existing.passwordHash : null);
     }
+
+    const mapped = mapCloudToLocal(tableName, data);
+
+    await db.insert(table).values(mapped).onConflictDoUpdate({
+      target: table.id,
+      set: mapped,
+    });
   } catch (e) {
     console.error(`[Sync] Erro ao aplicar upsert local em ${tableName}:`, e);
+  }
+}
+
+/**
+ * Processar Fila de Notificações / Mensagens Offline
+ */
+export async function processNotificationQueue() {
+  console.log('[Sync] Processando fila de notificações offline...');
+  const queue = await db.select().from(notificationQueue).orderBy(notificationQueue.id);
+
+  if (queue.length === 0) {
+    console.log('[Sync] Nenhuma notificação pendente.');
+    return;
+  }
+
+  for (const item of queue) {
+    try {
+      console.log(`[Sync] Disparando notificação agendada offline para ${item.url} (Tentativa: ${item.attempts + 1})...`);
+      
+      const headers = JSON.parse(item.headers);
+      const body = JSON.parse(item.body);
+
+      const res = await fetch(item.url, {
+        method: item.method,
+        headers,
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        console.log(`[Sync] Notificação enviada com sucesso! Removendo item ${item.id} da fila.`);
+        await db.delete(notificationQueue).where(eq(notificationQueue.id, item.id));
+      } else {
+        const errText = await res.text();
+        throw new Error(`Servidor respondeu com status ${res.status}: ${errText}`);
+      }
+    } catch (err: any) {
+      const attempts = (item.attempts || 0) + 1;
+      console.error(`[Sync] Falha no envio da notificação ${item.id}:`, err.message);
+
+      if (attempts >= 5) {
+        console.warn(`[Sync] Excedido o limite de 5 tentativas para notificação ${item.id}. Removendo da fila para evitar bloqueio.`);
+        await db.delete(notificationQueue).where(eq(notificationQueue.id, item.id));
+      } else {
+        await db.update(notificationQueue)
+          .set({ 
+            attempts, 
+            lastError: err.message || 'Erro desconhecido' 
+          })
+          .where(eq(notificationQueue.id, item.id));
+      }
+    }
   }
 }
 
@@ -339,7 +402,11 @@ export function startSyncService(intervalMs = 15000) {
 
     isSyncing = true;
     try {
+      // Processar fila de alterações locais
       await pushLocalChanges();
+      // Processar fila de notificações/mensagens pendentes
+      await processNotificationQueue();
+      // Pull das atualizações da nuvem
       await pullCloudChanges();
     } catch (e) {
       console.error('[Sync] Falha no ciclo de sincronização:', e);

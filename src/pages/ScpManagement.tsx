@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Building, Package, DollarSign, Users, PlusCircle, Check, Loader2,
-  TrendingUp, BarChart3, ArrowDownLeft, ShieldCheck, Link2, X, Trash2
+  TrendingUp, BarChart3, ArrowDownLeft, ShieldCheck, Link2, X, Trash2, Edit2
 } from 'lucide-react';
 import { useScpStore } from '../store/useScpStore';
 import { useUI } from '../context/UIContext';
@@ -272,6 +272,20 @@ export default function ScpManagement() {
   const [primeAdminFee, setPrimeAdminFee] = useState<number | ''>(10);
   const [selectedGroupKey, setSelectedGroupKey] = useState('');
   const [primeQuantityInput, setPrimeQuantityInput] = useState<number | ''>(1);
+  
+  // States para Edição de Aparelho Prime
+  const [editingPrimeDevice, setEditingPrimeDevice] = useState<any | null>(null);
+  const [isEditPrimeOpen, setIsEditPrimeOpen] = useState(false);
+  const [editImei, setEditImei] = useState('');
+  const [editSalePrice, setEditSalePrice] = useState('');
+  const [editCostPrice, setEditCostPrice] = useState('');
+  const [editPrimeInvestorId, setEditPrimeInvestorId] = useState('');
+  const [editPrimeProfitShare, setEditPrimeProfitShare] = useState(60);
+  const [editPrimeAdminFee, setEditPrimeAdminFee] = useState(10);
+  const [editPrimeValuationType, setEditPrimeValuationType] = useState<'sale' | 'cost'>('sale');
+  const [editPrimeProfitShareType, setEditPrimeProfitShareType] = useState<'percent' | 'fixed' | 'profit_only'>('percent');
+  const [editPrimeProfitShareVal, setEditPrimeProfitShareVal] = useState('');
+  const [editOnlyCashSale, setEditOnlyCashSale] = useState(false);
 
   // Filter available devices by search query
   const filteredAvailableDevices = React.useMemo(() => {
@@ -575,6 +589,54 @@ export default function ScpManagement() {
       fetchPrimeDevices();
     } catch (err: any) {
       showNotification('error', 'Erro', err.message || 'Falha ao vincular investidor Prime.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditPrimeClick = (device: any) => {
+    setEditingPrimeDevice(device);
+    setEditImei(device.imei || '');
+    setEditSalePrice(device.sale_price ? String(device.sale_price) : '');
+    setEditCostPrice(device.cost_price ? String(device.cost_price) : '');
+    setEditPrimeInvestorId(device.investor_id || '');
+    setEditPrimeProfitShare(device.prime_profit_share ? Math.round(device.prime_profit_share * 100) : 60);
+    setEditPrimeAdminFee(device.prime_admin_fee ? Math.round(device.prime_admin_fee * 100) : 10);
+    setEditPrimeValuationType(device.prime_valuation_type || 'sale');
+    setEditPrimeProfitShareType(device.prime_profit_share_type || 'percent');
+    setEditPrimeProfitShareVal(device.prime_profit_share_value ? String(device.prime_profit_share_value) : '');
+    setEditOnlyCashSale(Boolean(device.only_cash_sale));
+    setIsEditPrimeOpen(true);
+  };
+
+  const handleEditPrimeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPrimeDevice) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/scp/devices/${editingPrimeDevice.id}/link-investor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          investor_id: editPrimeInvestorId || null,
+          prime_profit_share: editPrimeProfitShare,
+          prime_admin_fee: editPrimeAdminFee,
+          prime_profit_share_value: editPrimeProfitShareVal === '' ? null : parseFloat(editPrimeProfitShareVal),
+          prime_valuation_type: editPrimeValuationType,
+          prime_profit_share_type: editPrimeProfitShareType,
+          imei: editImei,
+          sale_price: editSalePrice === '' ? undefined : parseFloat(editSalePrice),
+          cost_price: editCostPrice === '' ? undefined : parseFloat(editCostPrice),
+          only_cash_sale: editOnlyCashSale
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao editar aparelho Prime.');
+      showNotification('success', 'Sucesso', 'Aparelho Prime atualizado com sucesso!');
+      setIsEditPrimeOpen(false);
+      fetchPrimeDevices();
+    } catch (err: any) {
+      showNotification('error', 'Erro', err.message || 'Falha ao atualizar aparelho.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1130,7 +1192,14 @@ export default function ScpManagement() {
                           {d.status === 'sold' ? 'Vendido' : 'Disponível'}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-right">
+                      <td className="py-4 px-4 text-right flex justify-end gap-1.5">
+                        <button
+                          onClick={() => handleEditPrimeClick(d)}
+                          className="p-1 hover:bg-indigo-500/10 text-zinc-500 hover:text-indigo-400 rounded-lg transition-colors border-0 bg-transparent cursor-pointer"
+                          title="Editar Configurações"
+                        >
+                          <Edit2 size={14} />
+                        </button>
                         <button
                           onClick={() => handleUnlinkPrime(d.id)}
                           className="p-1 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 rounded-lg transition-colors border-0 bg-transparent cursor-pointer"
@@ -1792,7 +1861,7 @@ export default function ScpManagement() {
               Selecione os smartphones disponíveis em estoque (sem lote associado) que farão parte deste lote SCP:
             </p>
 
-            <div className="flex-1 overflow-y-auto min-h-[250px] border border-zinc-800/80 rounded-2xl divide-y divide-zinc-800/40 p-2">
+            <div className="flex-1 overflow-y-auto min-h-62.5 border border-zinc-800/80 rounded-2xl divide-y divide-zinc-800/40 p-2">
               {availableDevices.length === 0 ? (
                 <div className="text-center py-12 text-zinc-500 text-xs">Nenhum aparelho livre localizado no estoque.</div>
               ) : (
@@ -1952,7 +2021,7 @@ export default function ScpManagement() {
                 />
               </div>
 
-              <div className="border border-zinc-800/80 rounded-2xl p-3 min-h-[200px] bg-black/10">
+              <div className="border border-zinc-800/80 rounded-2xl p-3 min-h-50 bg-black/10">
                 {filteredAvailableDevices.length === 0 ? (
                   <div className="text-center py-8 text-zinc-500 text-xs">Nenhum aparelho disponível localizado.</div>
                 ) : (
@@ -2403,6 +2472,188 @@ export default function ScpManagement() {
           </div>
         );
       })()}
+
+      {isEditPrimeOpen && editingPrimeDevice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setIsEditPrimeOpen(false)} />
+          <div className="relative bg-[#121214] border border-zinc-800 rounded-3xl p-6 w-full max-w-lg space-y-4 animate-in fade-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh] custom-scrollbar">
+            <button
+              onClick={() => setIsEditPrimeOpen(false)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors border-0 bg-transparent cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Editar Configurações Prime</h3>
+            <p className="text-xs text-zinc-400">
+              Modifique os parâmetros de comissão, valores e vinculação deste celular Prime: {editingPrimeDevice.brand} {editingPrimeDevice.model}.
+            </p>
+
+            <form onSubmit={handleEditPrimeSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Preço de Custo (R$)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={editCostPrice}
+                    onChange={(e) => setEditCostPrice(e.target.value)}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Preço de Venda (R$)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={editSalePrice}
+                    onChange={(e) => setEditSalePrice(e.target.value)}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">IMEI</label>
+                <input
+                  type="text"
+                  required
+                  value={editImei}
+                  onChange={(e) => setEditImei(e.target.value)}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Investidor Prime</label>
+                <select
+                  required
+                  value={editPrimeInvestorId}
+                  onChange={(e) => setEditPrimeInvestorId(e.target.value)}
+                  className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                >
+                  <option value="" disabled className="bg-[#121214]">-- Escolha o Investidor --</option>
+                  {investors.map((inv) => (
+                    <option key={inv.id} value={inv.id} className="bg-[#121214]">{inv.full_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Tipo de Repasse</label>
+                  <select
+                    value={editPrimeProfitShareType}
+                    onChange={(e) => setEditPrimeProfitShareType(e.target.value as any)}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                  >
+                    <option value="percent" className="bg-[#121214]">Porcentagem (Padrão)</option>
+                    <option value="fixed" className="bg-[#121214]">Valor Fixo por Celular</option>
+                    <option value="profit_only" className="bg-[#121214]">Apenas Lucro do Aparelho</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Base de Valoração (Investido)</label>
+                  <select
+                    value={editPrimeValuationType}
+                    onChange={(e) => setEditPrimeValuationType(e.target.value as any)}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                  >
+                    <option value="sale" className="bg-[#121214]">Preço de Venda (R$ {Number(editSalePrice || 0).toFixed(2)})</option>
+                    <option value="cost" className="bg-[#121214]">Preço de Custo (R$ {Number(editCostPrice || 0).toFixed(2)})</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {editPrimeProfitShareType === 'percent' ? (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Comissão Investidor (%)</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      max={100}
+                      value={editPrimeProfitShare}
+                      onChange={(e) => setEditPrimeProfitShare(parseInt(e.target.value) || 0)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                    />
+                  </div>
+                ) : editPrimeProfitShareType === 'fixed' ? (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Valor Fixo Investidor (R$)</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={editPrimeProfitShareVal}
+                      onChange={(e) => setEditPrimeProfitShareVal(e.target.value)}
+                      className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1 opacity-50">Comissão (Apenas Lucro)</label>
+                    <input
+                      type="text"
+                      disabled
+                      value="Sem Amortização Base"
+                      className="w-full bg-white/2 border border-zinc-800/40 rounded-2xl px-4 py-3 text-sm text-zinc-500 outline-none"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest block pl-1">Taxa de Administração (%)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    max={100}
+                    value={editPrimeAdminFee}
+                    onChange={(e) => setEditPrimeAdminFee(parseInt(e.target.value) || 0)}
+                    className="w-full bg-white/5 border border-zinc-800 rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 py-2">
+                <input
+                  type="checkbox"
+                  id="editOnlyCashSale"
+                  checked={editOnlyCashSale}
+                  onChange={(e) => setEditOnlyCashSale(e.target.checked)}
+                  className="rounded border-zinc-800 bg-white/5 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                />
+                <label htmlFor="editOnlyCashSale" className="text-xs text-zinc-300 font-bold uppercase tracking-wider cursor-pointer select-none">
+                  Vender apenas à vista (Conservador)
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditPrimeOpen(false)}
+                  className="flex-1 py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer border-0"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3.5 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-extrabold uppercase tracking-widest text-[9px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 border-0"
+                >
+                  {isSubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Salvar Alterações'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

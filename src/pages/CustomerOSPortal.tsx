@@ -113,8 +113,8 @@ export default function CustomerOSPortal() {
     <div className="min-h-screen bg-[#09090b] flex flex-col font-sans text-white overflow-x-hidden relative">
       {/* Background visual styles */}
       <div className="fixed inset-0 tech-grid-pattern opacity-5 pointer-events-none z-0"></div>
-      <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-primary/10 blur-[150px] -z-10 rounded-full animate-pulse-slow"></div>
-      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 blur-[150px] -z-10 rounded-full"></div>
+      <div className="fixed top-0 right-0 w-125 h-125 bg-primary/10 blur-[150px] -z-10 rounded-full animate-pulse-slow"></div>
+      <div className="fixed bottom-0 left-0 w-125 h-125 bg-primary/5 blur-[150px] -z-10 rounded-full"></div>
 
       {/* Navigation Header */}
       <nav className="h-20 px-8 flex items-center justify-between backdrop-blur-xl sticky top-0 z-100 border-b border-white/5">
@@ -134,7 +134,7 @@ export default function CustomerOSPortal() {
 
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center p-6 md:p-12 relative z-10">
-        <div className={hasSearched ? "w-full max-w-[1400px]" : "w-full max-w-3xl"}>
+        <div className={hasSearched ? "w-full max-w-350" : "w-full max-w-3xl"}>
           
           <AnimatePresence mode="wait">
             {!hasSearched ? (

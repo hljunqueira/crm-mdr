@@ -923,7 +923,7 @@ export default function CustomerForm({ initialData, onSuccess, onCancel }: Custo
                           >
                             −
                           </button>
-                          <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
+                          <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-6 text-center">
                             {device.quantity}
                           </span>
                           <button

@@ -1,39 +1,113 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { db } from "../db/connection.js";
+import { commissionSettings, employeeVouchers, profiles, cashShifts, cashTransactions, syncQueue } from "../db/schema.js";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
+import crypto from "crypto";
 
 const router = Router();
 
-// GET /api/commissions/settings - Obter configurações de comissão de todos os perfis
+const useSupabase = (req: any) => {
+  const host = req.headers.host || '';
+  return host.includes('mdrinformaticaecelulares.com.br') || 
+         process.env.IS_VPS === 'true' || 
+         (!host.includes('localhost') && !host.includes('127.0.0.1'));
+};
+
+function snakeToCamel(str: string): string {
+  return str.replace(/([-_][a-z])/g, group =>
+    group.toUpperCase().replace('-', '').replace('_', '')
+  );
+}
+
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function mapLocalToCloud(tableName: string, data: any): any {
+  const result: any = {};
+  for (const k of Object.keys(data)) {
+    let pgKey = camelToSnake(k);
+    if (k === 'profileId') pgKey = 'profile_id';
+    else if (k === 'salesCommissionPct') pgKey = 'sales_commission_pct';
+    else if (k === 'servicesCommissionPct') pgKey = 'services_commission_pct';
+    else if (k === 'baseSalary') pgKey = 'base_salary';
+    else if (k === 'salesGoalBonusPct') pgKey = 'sales_goal_bonus_pct';
+    else if (k === 'salesGoalBonusFixed') pgKey = 'sales_goal_bonus_fixed';
+    else if (k === 'osGoalBonusFixed') pgKey = 'os_goal_bonus_fixed';
+    else if (k === 'unitId') pgKey = 'unit_id';
+    else if (k === 'paymentMethod') pgKey = 'payment_method';
+    else if (k === 'voucherDate') pgKey = 'voucher_date';
+    else if (k === 'shiftId') pgKey = 'shift_id';
+    result[pgKey] = data[k];
+  }
+  return result;
+}
+
+// GET settings
 router.get("/settings", async (req, res) => {
-  try {
+  if (useSupabase(req)) {
     const { data, error } = await supabase
       .from('commission_settings')
       .select('*, profiles(id, full_name, role)');
-
     if (error) return res.status(400).json({ error: error.message });
-    res.json(data || []);
+    return res.json(data || []);
+  }
+
+  // SQLite fallback
+  try {
+    const result = await db.select({
+      id: commissionSettings.id,
+      profileId: commissionSettings.profileId,
+      salesCommissionPct: commissionSettings.salesCommissionPct,
+      servicesCommissionPct: commissionSettings.servicesCommissionPct,
+      baseSalary: commissionSettings.baseSalary,
+      salesGoalBonusPct: commissionSettings.salesGoalBonusPct,
+      salesGoalBonusFixed: commissionSettings.salesGoalBonusFixed,
+      osGoalBonusFixed: commissionSettings.osGoalBonusFixed,
+      createdAt: commissionSettings.createdAt,
+      profileFullName: profiles.fullName,
+      profileRole: profiles.role
+    })
+    .from(commissionSettings)
+    .leftJoin(profiles, eq(commissionSettings.profileId, profiles.id));
+
+    const formatted = result.map(r => ({
+      id: r.id,
+      profile_id: r.profileId,
+      sales_commission_pct: r.salesCommissionPct,
+      services_commission_pct: r.servicesCommissionPct,
+      base_salary: r.baseSalary,
+      sales_goal_bonus_pct: r.salesGoalBonusPct,
+      sales_goal_bonus_fixed: r.salesGoalBonusFixed,
+      os_goal_bonus_fixed: r.osGoalBonusFixed,
+      created_at: r.createdAt,
+      profiles: r.profileFullName ? { id: r.profileId, full_name: r.profileFullName, role: r.profileRole } : null
+    }));
+
+    res.json(formatted);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/commissions/settings - Upsert configurações de comissão
+// POST settings
 router.post("/settings", async (req, res) => {
-  try {
-    const {
-      profile_id,
-      sales_commission_pct,
-      services_commission_pct,
-      base_salary,
-      sales_goal_bonus_pct,
-      sales_goal_bonus_fixed,
-      os_goal_bonus_fixed
-    } = req.body;
+  const {
+    profile_id,
+    sales_commission_pct,
+    services_commission_pct,
+    base_salary,
+    sales_goal_bonus_pct,
+    sales_goal_bonus_fixed,
+    os_goal_bonus_fixed
+  } = req.body;
 
-    if (!profile_id) {
-      return res.status(400).json({ error: "profile_id é obrigatório." });
-    }
+  if (!profile_id) {
+    return res.status(400).json({ error: "profile_id é obrigatório." });
+  }
 
+  if (useSupabase(req)) {
     const { data, error } = await supabase
       .from('commission_settings')
       .upsert({
@@ -52,16 +126,53 @@ router.post("/settings", async (req, res) => {
       .single();
 
     if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+    return res.json(data);
+  }
+
+  // SQLite fallback
+  try {
+    const [existing] = await db.select().from(commissionSettings).where(eq(commissionSettings.profileId, profile_id)).limit(1);
+    const id = existing?.id || crypto.randomUUID();
+
+    const upsertData: any = {
+      id,
+      profileId: profile_id,
+      salesCommissionPct: Number(sales_commission_pct || 0),
+      servicesCommissionPct: Number(services_commission_pct || 0),
+      baseSalary: Number(base_salary || 0),
+      salesGoalBonusPct: Number(sales_goal_bonus_pct || 0),
+      salesGoalBonusFixed: Number(sales_goal_bonus_fixed || 0),
+      osGoalBonusFixed: Number(os_goal_bonus_fixed || 0),
+      syncStatus: 'pending_insert',
+      updatedAt: new Date().toISOString()
+    };
+
+    if (existing) {
+      upsertData.syncStatus = 'pending_update';
+      await db.update(commissionSettings).set(upsertData).where(eq(commissionSettings.id, id));
+    } else {
+      await db.insert(commissionSettings).values(upsertData);
+    }
+
+    const pgPayload = mapLocalToCloud('commission_settings', upsertData);
+    await db.insert(syncQueue).values({
+      tableName: 'commission_settings',
+      action: existing ? 'UPDATE' : 'INSERT',
+      recordId: id,
+      payload: JSON.stringify(pgPayload)
+    });
+
+    res.json(pgPayload);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// GET /api/commissions/vouchers - Obter vales de funcionários
+// GET vouchers
 router.get("/vouchers", async (req, res) => {
-  try {
-    const { unit_id, profile_id, start_date, end_date } = req.query;
+  const { unit_id, profile_id, start_date, end_date } = req.query;
+
+  if (useSupabase(req)) {
     let query = supabase
       .from('employee_vouchers')
       .select('*, profiles:profiles!employee_vouchers_profile_id_fkey(full_name), creator:profiles!employee_vouchers_created_by_fkey(full_name)');
@@ -80,38 +191,64 @@ router.get("/vouchers", async (req, res) => {
     }
 
     const { data, error } = await query.order('voucher_date', { ascending: false });
-
     if (error) return res.status(400).json({ error: error.message });
-    res.json(data || []);
+    return res.json(data || []);
+  }
+
+  // SQLite fallback
+  try {
+    const list = await db.select().from(employeeVouchers).orderBy(desc(employeeVouchers.voucherDate));
+    const formatted = [];
+    for (const v of list) {
+      const [empProfile] = await db.select().from(profiles).where(eq(profiles.id, v.profileId || '')).limit(1);
+      const [creatorProfile] = await db.select().from(profiles).where(eq(profiles.id, v.createdBy || '')).limit(1);
+      
+      formatted.push({
+        id: v.id,
+        profile_id: v.profileId,
+        unit_id: v.unitId,
+        amount: v.amount,
+        payment_method: v.paymentMethod,
+        type: v.type,
+        description: v.description,
+        voucher_date: v.voucherDate,
+        shift_id: v.shiftId,
+        created_by: v.createdBy,
+        created_at: v.createdAt,
+        profiles: empProfile ? { full_name: empProfile.fullName } : null,
+        creator: creatorProfile ? { full_name: creatorProfile.fullName } : null
+      });
+    }
+
+    // Apply basic filter on array if needed, otherwise return all
+    res.json(formatted);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/commissions/vouchers - Registrar um vale (com integração opcional ao caixa físico)
+// POST vouchers
 router.post("/vouchers", async (req, res) => {
-  try {
-    const {
-      profile_id,
-      unit_id,
-      amount,
-      payment_method,
-      type,
-      description,
-      voucher_date,
-      created_by
-    } = req.body;
+  const {
+    profile_id,
+    unit_id,
+    amount,
+    payment_method,
+    type,
+    description,
+    voucher_date,
+    created_by
+  } = req.body;
 
-    if (!profile_id || !unit_id || !amount || !payment_method || !type) {
-      return res.status(400).json({ error: "Campos obrigatórios ausentes." });
-    }
+  if (!profile_id || !unit_id || !amount || !payment_method || !type) {
+    return res.status(400).json({ error: "Campos obrigatórios ausentes." });
+  }
 
+  if (useSupabase(req)) {
     let activeShiftId = null;
     let activeShift: any = null;
 
-    // Se o pagamento for em dinheiro físico (caixa)
     if (payment_method === 'money') {
-      // 1. Verificar se o turno de caixa está aberto para esta unidade
       const { data, error: shiftError } = await supabase
         .from('cash_shifts')
         .select('*')
@@ -125,17 +262,13 @@ router.post("/vouchers", async (req, res) => {
       }
 
       activeShift = data;
-
-      // 2. Opcional: Validar se há saldo suficiente na gaveta
       const currentCashInDrawer = Number(activeShift.expected_cash || 0);
       if (currentCashInDrawer < parseFloat(amount)) {
         return res.status(400).json({ error: `Saldo físico em dinheiro insuficiente na gaveta. Saldo atual: R$ ${currentCashInDrawer.toFixed(2)}.` });
       }
-
       activeShiftId = activeShift.id;
     }
 
-    // 3. Inserir o vale/adiantamento
     const { data: voucher, error: voucherError } = await supabase
       .from('employee_vouchers')
       .insert({
@@ -154,16 +287,9 @@ router.post("/vouchers", async (req, res) => {
 
     if (voucherError) return res.status(400).json({ error: voucherError.message });
 
-    // 4. Se for em dinheiro, integrar com o caixa (lançar outflow/saída)
     if (payment_method === 'money' && activeShiftId) {
       const typeLabel = type === 'pro_labore' ? 'Retirada Pró-labore' : type === 'profit_distribution' ? 'Retirada de Lucros' : 'Vale Funcionário';
-      
-      const { data: employee } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', profile_id)
-        .maybeSingle();
-
+      const { data: employee } = await supabase.from('profiles').select('full_name').eq('id', profile_id).maybeSingle();
       const employeeName = employee?.full_name || 'Funcionário';
 
       const { error: txError } = await supabase
@@ -181,33 +307,55 @@ router.post("/vouchers", async (req, res) => {
         });
 
       if (txError) {
-        // Rollback do vale se falhar ao inserir no caixa
         await supabase.from('employee_vouchers').delete().eq('id', voucher.id);
         return res.status(400).json({ error: `Falha ao integrar com o caixa: ${txError.message}` });
       }
 
-      // 5. Atualizar saldo esperado de dinheiro no turno de caixa
       const newExpectedCash = Number(activeShift.expected_cash || 0) - parseFloat(amount);
-      const { error: shiftUpdateError } = await supabase
-        .from('cash_shifts')
-        .update({
-          expected_cash: newExpectedCash
-        })
-        .eq('id', activeShiftId);
+      await supabase.from('cash_shifts').update({ expected_cash: newExpectedCash }).eq('id', activeShiftId);
     }
 
-    res.json(voucher);
+    return res.json(voucher);
+  }
+
+  // SQLite fallback
+  try {
+    const id = crypto.randomUUID();
+    const newVoucher = {
+      id,
+      profileId: profile_id,
+      unitId: unit_id,
+      amount: Number(amount),
+      paymentMethod: payment_method,
+      type,
+      description,
+      voucherDate: voucher_date || new Date().toISOString().split('T')[0],
+      createdBy: created_by,
+      syncStatus: 'pending_insert',
+      updatedAt: new Date().toISOString()
+    };
+
+    await db.insert(employeeVouchers).values(newVoucher);
+
+    const pgPayload = mapLocalToCloud('employee_vouchers', newVoucher);
+    await db.insert(syncQueue).values({
+      tableName: 'employee_vouchers',
+      action: 'INSERT',
+      recordId: id,
+      payload: JSON.stringify(pgPayload)
+    });
+
+    res.json(pgPayload);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// DELETE /api/commissions/vouchers/:id - Excluir um vale (o cascade remove a transação do caixa)
+// DELETE vouchers
 router.delete("/vouchers/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    // Buscar informações do vale antes de deletar
+  if (useSupabase(req)) {
     const { data: voucher, error: findError } = await supabase
       .from('employee_vouchers')
       .select('*')
@@ -218,13 +366,29 @@ router.delete("/vouchers/:id", async (req, res) => {
       return res.status(404).json({ error: "Vale não encontrado." });
     }
 
-    // Excluir o vale (deve deletar cash_transactions em cascata pelo trigger do banco)
     const { error: deleteError } = await supabase
       .from('employee_vouchers')
       .delete()
       .eq('id', id);
 
     if (deleteError) return res.status(400).json({ error: deleteError.message });
+    return res.json({ success: true, message: "Vale excluído com sucesso." });
+  }
+
+  // SQLite fallback
+  try {
+    const [oldVoucher] = await db.select().from(employeeVouchers).where(eq(employeeVouchers.id, id)).limit(1);
+    if (!oldVoucher) return res.status(404).json({ error: "Vale não encontrado." });
+
+    await db.delete(employeeVouchers).where(eq(employeeVouchers.id, id));
+
+    await db.insert(syncQueue).values({
+      tableName: 'employee_vouchers',
+      action: 'DELETE',
+      recordId: id,
+      payload: JSON.stringify({ id })
+    });
+
     res.json({ success: true, message: "Vale excluído com sucesso." });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

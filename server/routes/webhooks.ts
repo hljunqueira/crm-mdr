@@ -1,6 +1,8 @@
 import express from 'express';
 import { supabase } from '../lib/supabase.js';
 import { processInboundWithAI } from './ai.js';
+import { updateCustomerStatus } from '../utils/customerStatus.js';
+
 
 const router = express.Router();
 
@@ -377,6 +379,10 @@ router.post('/asaas', async (req, res) => {
       }
 
       console.log(`[Asaas Webhook] Parcela #${installment.installment_number} de ${installment.sales?.customers?.name || 'Cliente'} baixada com sucesso.`);
+
+      if (updatedInst.sales?.customer_id) {
+        await updateCustomerStatus(updatedInst.sales.customer_id);
+      }
 
       // Enviar mensagem de confirmação de pagamento automatizada apenas para crediário próprio (loja)
       const storeId = updatedInst.sales?.store_id || updatedInst.unit_id;

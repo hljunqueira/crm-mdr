@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db/connection.js";
-import { customers, syncQueue } from "../db/schema.js";
+import { customers, syncQueue, notificationQueue } from "../db/schema.js";
 import { eq, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { supabase } from "../lib/supabase.js";
@@ -14,6 +14,95 @@ const useSupabase = (req: any) => {
          process.env.IS_VPS === 'true' || 
          (!host.includes('localhost') && !host.includes('127.0.0.1'));
 };
+
+function snakeToCamel(str: string): string {
+  return str.replace(/([-_][a-z])/g, group =>
+    group.toUpperCase().replace('-', '').replace('_', '')
+  );
+}
+
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+const EVOLUTION_URL = 'https://whatsapp.mdrinformaticaecelulares.com.br';
+const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
+
+async function notifyMaykonOfAnalysis(customer: any, forceOfflineQueue = false) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': EVOLUTION_API_KEY
+  };
+  
+  const text = `📢 *Novo Cadastro para Análise!*\n\n` +
+    `*Cliente:* ${customer.name}\n` +
+    `*CPF/CNPJ:* ${customer.cpf || 'Não informado'}\n` +
+    `*Telefone:* ${customer.phone || 'Não informado'}\n` +
+    `*Cidade/UF:* ${customer.city || 'Não informado'}/${customer.state || 'Não informado'}\n\n` +
+    `Por favor, acesse o painel administrativo para avaliar os documentos e realizar a análise de crédito.`;
+
+  const body = {
+    number: `5548999035854@s.whatsapp.net`,
+    text: text,
+    linkPreview: true
+  };
+
+  const instance = 'MDR';
+  const url = `${EVOLUTION_URL}/message/sendText/${instance}`;
+
+  if (forceOfflineQueue) {
+    console.log('[Notify Maykon] Modo offline. Salvando notificação na fila local...');
+    try {
+      await db.insert(notificationQueue).values({
+        url,
+        method: 'POST',
+        headers: JSON.stringify(headers),
+        body: JSON.stringify(body),
+        attempts: 0
+      });
+    } catch (e) {
+      console.error('[Notify Maykon] Falha ao enfileirar notificação offline:', e);
+    }
+    return;
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[Notify Maykon] Failed: ${response.status}`, errText);
+      await db.insert(notificationQueue).values({
+        url,
+        method: 'POST',
+        headers: JSON.stringify(headers),
+        body: JSON.stringify(body),
+        attempts: 1,
+        lastError: `HTTP ${response.status}: ${errText}`
+      });
+    } else {
+      console.log(`[Notify Maykon] Alert sent successfully for customer: ${customer.name}`);
+    }
+  } catch (error: any) {
+    console.error(`[Notify Maykon] Error:`, error);
+    try {
+      await db.insert(notificationQueue).values({
+        url,
+        method: 'POST',
+        headers: JSON.stringify(headers),
+        body: JSON.stringify(body),
+        attempts: 1,
+        lastError: error.message || 'Erro de rede'
+      });
+    } catch (e) {
+      console.error('[Notify Maykon] Falha ao enfileirar notificação após erro de rede:', e);
+    }
+  }
+}
 
 // Get all customers
 router.get("/", async (req, res) => {
@@ -33,14 +122,12 @@ router.get("/", async (req, res) => {
     }
 
     let result;
-    // No SQLite local, mapeamos unit_id como storeId
     if (unit_id && unit_id !== 'all') {
       result = await db.select().from(customers).where(eq(customers.storeId, unit_id as string)).orderBy(customers.name);
     } else {
       result = await db.select().from(customers).orderBy(customers.name);
     }
     
-    // Converte de volta para snake_case para manter compatibilidade com o frontend
     const formattedResult = result.map(c => ({
       id: c.id,
       name: c.name,
@@ -60,6 +147,27 @@ router.get("/", async (req, res) => {
       approved_for_purchase: c.approvedForPurchase,
       created_at: c.createdAt,
       unit_id: c.storeId,
+      document_id_url: c.documentIdUrl,
+      document_address_url: c.documentAddressUrl,
+      document_income_url: c.documentIncomeUrl,
+      classification: c.classification,
+      credit_limit: c.creditLimit,
+      credit_status: c.creditStatus,
+      registration_status: c.registrationStatus,
+      responsible_analyst_id: c.responsibleAnalystId,
+      needed_credit: c.neededCredit,
+      desired_device: c.desiredDevice,
+      desired_installment_value: c.desiredInstallmentValue,
+      address_number: c.addressNumber,
+      neighborhood: c.neighborhood,
+      city: c.city,
+      state: c.state,
+      rg_frente_url: c.rgFrenteUrl,
+      rg_verso_url: c.rgVersoUrl,
+      cnh_frente_url: c.cnhFrenteUrl,
+      cnh_verso_url: c.cnhVersoUrl,
+      self_photo_url: c.selfPhotoUrl,
+      asaas_customer_id: c.asaasCustomerId,
     }));
     
     res.json(formattedResult);
@@ -67,53 +175,6 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
-const EVOLUTION_URL = 'https://whatsapp.mdrinformaticaecelulares.com.br';
-const EVOLUTION_API_KEY = 'MDR_SECRET_TOKEN_2024';
-
-async function notifyMaykonOfAnalysis(customer: any) {
-  try {
-    const { data: channels } = await supabase
-      .from('automation_channels')
-      .select('instance_name')
-      .eq('status', 'connected')
-      .limit(1);
-
-    const instance = channels && channels.length > 0 ? channels[0].instance_name : 'MDR';
-    const maykonPhone = '5548999035854';
-    const remoteJid = `${maykonPhone}@s.whatsapp.net`;
-    const url = `${EVOLUTION_URL}/message/sendText/${instance}`;
-
-    const text = `📢 *Novo Cadastro para Análise!*\n\n` +
-      `*Cliente:* ${customer.name}\n` +
-      `*CPF/CNPJ:* ${customer.cpf || 'Não informado'}\n` +
-      `*Telefone:* ${customer.phone || 'Não informado'}\n` +
-      `*Cidade/UF:* ${customer.city || 'Não informado'}/${customer.state || 'Não informado'}\n\n` +
-      `Por favor, acesse o painel administrativo para avaliar os documentos e realizar a análise de crédito.`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY
-      },
-      body: JSON.stringify({
-        number: remoteJid,
-        text: text,
-        linkPreview: true
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[Notify Maykon] Failed: ${response.status}`, errText);
-    } else {
-      console.log(`[Notify Maykon] Alert sent successfully for customer: ${customer.name}`);
-    }
-  } catch (error) {
-    console.error(`[Notify Maykon] Error:`, error);
-  }
-}
 
 // Create customer
 router.post("/", async (req, res) => {
@@ -145,26 +206,14 @@ router.post("/", async (req, res) => {
       }
 
       const id = req.body.id || crypto.randomUUID();
-      const pgPayload = {
-        id,
-        name: req.body.name,
-        cpf: req.body.cpf,
-        phone: req.body.phone,
-        parent_contact_phone: req.body.parent_contact_phone,
-        reference1_name: req.body.reference1_name,
-        reference1_phone: req.body.reference1_phone,
-        reference2_name: req.body.reference2_name,
-        reference2_phone: req.body.reference2_phone,
-        email: req.body.email,
-        address: req.body.address,
-        status: req.body.status || 'active',
-        notes: req.body.notes,
-        suggested_down_payment: Number(req.body.suggested_down_payment || 0),
-        last_payment_date: req.body.last_payment_date,
-        approved_for_purchase: req.body.approved_for_purchase !== undefined ? !!req.body.approved_for_purchase : false,
-        unit_id: unit_id || req.body.unit_id,
-        updated_at: new Date().toISOString()
-      };
+      const pgPayload: any = {};
+      const keys = Object.keys(req.body);
+      for (const k of keys) {
+        pgPayload[k] = req.body[k];
+      }
+      pgPayload.id = id;
+      pgPayload.unit_id = unit_id || req.body.unit_id;
+      pgPayload.updated_at = new Date().toISOString();
 
       const { data, error } = await supabase
         .from('customers')
@@ -184,12 +233,10 @@ router.post("/", async (req, res) => {
     if (phone) {
       const cleanNewPhone = phone.replace(/\D/g, '');
       if (cleanNewPhone) {
-        // Validação local no SQLite
         const allCustomers = await db.select().from(customers);
         const duplicate = allCustomers.find(c => {
           if (!c.phone) return false;
           const cleanExisting = c.phone.replace(/\D/g, '');
-          // Verifica se está na mesma unidade (se especificado)
           const sameUnit = !unit_id || c.storeId === unit_id;
           return cleanExisting === cleanNewPhone && sameUnit;
         });
@@ -202,54 +249,40 @@ router.post("/", async (req, res) => {
 
     const id = req.body.id || crypto.randomUUID();
     
-    // Mapeamento dos campos recebidos do body (geralmente snake_case) para o schema Drizzle
-    const newCustomer = {
+    const newCustomer: any = {
       id,
-      name: req.body.name,
-      cpf: req.body.cpf,
-      phone: req.body.phone,
-      parentContactPhone: req.body.parent_contact_phone,
-      reference1Name: req.body.reference1_name,
-      reference1Phone: req.body.reference1_phone,
-      reference2Name: req.body.reference2_name,
-      reference2Phone: req.body.reference2_phone,
-      email: req.body.email,
-      address: req.body.address,
-      status: req.body.status || 'active',
-      notes: req.body.notes,
-      suggestedDownPayment: Number(req.body.suggested_down_payment || 0),
-      lastPaymentDate: req.body.last_payment_date,
-      approvedForPurchase: req.body.approved_for_purchase !== undefined ? !!req.body.approved_for_purchase : false,
-      storeId: unit_id || req.body.unit_id,
       syncStatus: 'pending_insert',
       updatedAt: new Date().toISOString()
     };
 
-    // 1. Gravação local no SQLite
+    const bodyKeys = Object.keys(req.body);
+    for (const key of bodyKeys) {
+      let newKey = snakeToCamel(key);
+      if (key === 'unit_id') newKey = 'storeId';
+      
+      const val = req.body[key];
+      if (val !== undefined) {
+        if (typeof val === 'string' && !isNaN(Number(val)) && 
+            (key.includes('value') || key.includes('price') || key.includes('amount') || key.includes('limit') || key.includes('fee'))) {
+          newCustomer[newKey] = Number(val);
+        } else {
+          newCustomer[newKey] = val;
+        }
+      }
+    }
+
+    if (req.body.approved_for_purchase !== undefined) {
+      newCustomer.approvedForPurchase = !!req.body.approved_for_purchase;
+    }
+
     await db.insert(customers).values(newCustomer);
 
-    // 2. Gravação na fila de sincronização offline
-    // Usamos o payload mapeado em snake_case para que o Supabase receba no formato correto
-    const pgPayload = {
-      id,
-      name: req.body.name,
-      cpf: req.body.cpf,
-      phone: req.body.phone,
-      parent_contact_phone: req.body.parent_contact_phone,
-      reference1_name: req.body.reference1_name,
-      reference1_phone: req.body.reference1_phone,
-      reference2_name: req.body.reference2_name,
-      reference2_phone: req.body.reference2_phone,
-      email: req.body.email,
-      address: req.body.address,
-      status: req.body.status || 'active',
-      notes: req.body.notes,
-      suggested_down_payment: Number(req.body.suggested_down_payment || 0),
-      last_payment_date: req.body.last_payment_date,
-      approved_for_purchase: newCustomer.approvedForPurchase,
-      unit_id: unit_id || req.body.unit_id,
-      updated_at: newCustomer.updatedAt,
-    };
+    const pgPayload: any = {};
+    for (const k of Object.keys(newCustomer)) {
+      let pgKey = camelToSnake(k);
+      if (k === 'storeId') pgKey = 'unit_id';
+      pgPayload[pgKey] = newCustomer[k];
+    }
 
     await db.insert(syncQueue).values({
       tableName: 'customers',
@@ -259,7 +292,7 @@ router.post("/", async (req, res) => {
     });
 
     if (req.body.credit_status === 'EM_ANALISE') {
-      notifyMaykonOfAnalysis(pgPayload);
+      notifyMaykonOfAnalysis(pgPayload, true);
     }
 
     res.status(201).json(pgPayload);
@@ -272,91 +305,179 @@ router.post("/", async (req, res) => {
 // Update customer
 router.patch("/:id", async (req, res) => {
   const { phone, unit_id } = req.body;
-  if (phone) {
-    const cleanNewPhone = phone.replace(/\D/g, '');
-    if (cleanNewPhone) {
-      let currentUnitId = unit_id;
-      if (!currentUnitId) {
-        const { data: cust } = await supabase.from('customers').select('unit_id').eq('id', req.params.id).single();
-        currentUnitId = cust?.unit_id;
+  
+  if (useSupabase(req)) {
+    if (phone) {
+      const cleanNewPhone = phone.replace(/\D/g, '');
+      if (cleanNewPhone) {
+        let currentUnitId = unit_id;
+        if (!currentUnitId) {
+          const { data: cust } = await supabase.from('customers').select('unit_id').eq('id', req.params.id).single();
+          currentUnitId = cust?.unit_id;
+        }
+
+        let query = supabase
+          .from('customers')
+          .select('id, phone')
+          .neq('id', req.params.id);
+
+        if (currentUnitId) {
+          query = query.eq('unit_id', currentUnitId);
+        }
+
+        const { data: allCustomers, error: fetchError } = await query;
+
+        if (!fetchError && allCustomers) {
+          const duplicate = allCustomers.find(c => {
+            if (!c.phone) return false;
+            const cleanExisting = c.phone.replace(/\D/g, '');
+            return cleanExisting === cleanNewPhone;
+          });
+
+          if (duplicate) {
+            return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente nesta unidade." });
+          }
+        }
       }
+    }
 
-      let query = supabase
-        .from('customers')
-        .select('id, phone')
-        .neq('id', req.params.id);
+    const { data: oldCustomer } = await supabase
+      .from('customers')
+      .select('credit_status')
+      .eq('id', req.params.id)
+      .single();
 
-      if (currentUnitId) {
-        query = query.eq('unit_id', currentUnitId);
-      }
+    const { data, error } = await supabase
+      .from('customers')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-      const { data: allCustomers, error: fetchError } = await query;
+    if (error) return res.status(404).json({ error: error.message });
 
-      if (!fetchError && allCustomers) {
+    if (data && data.credit_status === 'EM_ANALISE' && oldCustomer?.credit_status !== 'EM_ANALISE') {
+      notifyMaykonOfAnalysis(data);
+    }
+
+    if (data && data.asaas_customer_id) {
+      updateAsaasCustomer(data.asaas_customer_id, {
+        name: data.name,
+        cpfCnpj: data.cpf,
+        phone: data.phone,
+        email: data.email,
+        address: data.address
+      }).catch(err => {
+        console.error("[Asaas Sync] Erro ao sincronizar atualização de cliente:", err);
+      });
+    }
+
+    return res.json(data);
+  }
+
+  // Local Offline Update
+  try {
+    const allCustomers = await db.select().from(customers);
+    if (phone) {
+      const cleanNewPhone = phone.replace(/\D/g, '');
+      if (cleanNewPhone) {
         const duplicate = allCustomers.find(c => {
-          if (!c.phone) return false;
+          if (c.id === req.params.id || !c.phone) return false;
           const cleanExisting = c.phone.replace(/\D/g, '');
-          return cleanExisting === cleanNewPhone;
+          const sameUnit = !unit_id || c.storeId === unit_id;
+          return cleanExisting === cleanNewPhone && sameUnit;
         });
-
         if (duplicate) {
           return res.status(400).json({ error: "Este número de telefone já está cadastrado para outro cliente nesta unidade." });
         }
       }
     }
-  }
 
-  // Fetch the existing customer state to check for changes in credit_status
-  const { data: oldCustomer } = await supabase
-    .from('customers')
-    .select('credit_status')
-    .eq('id', req.params.id)
-    .single();
+    const updateData: any = {};
+    const bodyKeys = Object.keys(req.body);
+    for (const key of bodyKeys) {
+      let newKey = snakeToCamel(key);
+      if (key === 'unit_id') newKey = 'storeId';
+      
+      const val = req.body[key];
+      if (val !== undefined) {
+        if (typeof val === 'string' && !isNaN(Number(val)) && 
+            (key.includes('value') || key.includes('price') || key.includes('amount') || key.includes('limit') || key.includes('fee'))) {
+          updateData[newKey] = Number(val);
+        } else {
+          updateData[newKey] = val;
+        }
+      }
+    }
+    updateData.syncStatus = 'pending_update';
+    updateData.updatedAt = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('customers')
-    .update(req.body)
-    .eq('id', req.params.id)
-    .select()
-    .single();
+    const [oldCust] = await db.select().from(customers).where(eq(customers.id, req.params.id)).limit(1);
+    if (!oldCust) return res.status(404).json({ error: "Cliente não encontrado" });
 
-  if (error) return res.status(404).json({ error: error.message });
+    await db.update(customers).set(updateData).where(eq(customers.id, req.params.id));
 
-  if (data && data.credit_status === 'EM_ANALISE' && oldCustomer?.credit_status !== 'EM_ANALISE') {
-    notifyMaykonOfAnalysis(data);
-  }
+    const [updatedCust] = await db.select().from(customers).where(eq(customers.id, req.params.id)).limit(1);
 
-  // Se o cliente tem cadastro no Asaas, atualiza lá também em segundo plano para manter o telefone sincronizado
-  if (data && data.asaas_customer_id) {
-    updateAsaasCustomer(data.asaas_customer_id, {
-      name: data.name,
-      cpfCnpj: data.cpf,
-      phone: data.phone,
-      email: data.email,
-      address: data.address
-    }).catch(err => {
-      console.error("[Asaas Sync] Erro ao sincronizar atualização de cliente:", err);
+    const pgPayload: any = {};
+    for (const k of Object.keys(updatedCust)) {
+      let pgKey = camelToSnake(k);
+      if (k === 'storeId') pgKey = 'unit_id';
+      pgPayload[pgKey] = (updatedCust as any)[k];
+    }
+
+    await db.insert(syncQueue).values({
+      tableName: 'customers',
+      action: 'UPDATE',
+      recordId: req.params.id,
+      payload: JSON.stringify(pgPayload)
     });
-  }
 
-  res.json(data);
+    if (req.body.credit_status === 'EM_ANALISE' && oldCust.creditStatus !== 'EM_ANALISE') {
+      notifyMaykonOfAnalysis(pgPayload, true);
+    }
+
+    res.json(pgPayload);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Delete customer
 router.delete("/:id", async (req, res) => {
-  const { error } = await supabase
-    .from('customers')
-    .delete()
-    .eq('id', req.params.id);
+  if (useSupabase(req)) {
+    const { error } = await supabase
+      .from('customers')
+      .delete()
+      .eq('id', req.params.id);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(204).send();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(204).send();
+  }
+
+  // Local Offline Delete
+  try {
+    const [oldCust] = await db.select().from(customers).where(eq(customers.id, req.params.id)).limit(1);
+    if (!oldCust) return res.status(404).json({ error: "Cliente não encontrado" });
+
+    await db.delete(customers).where(eq(customers.id, req.params.id));
+
+    await db.insert(syncQueue).values({
+      tableName: 'customers',
+      action: 'DELETE',
+      recordId: req.params.id,
+      payload: JSON.stringify({ id: req.params.id })
+    });
+
+    res.status(204).send();
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Get SCR Bacen (Direct Data) report for a specific customer
 router.get("/:id/bacen", async (req, res) => {
   try {
-    // 1. Get customer's CPF
     const { data: customer, error: dbError } = await supabase
       .from('customers')
       .select('cpf')
@@ -370,7 +491,6 @@ router.get("/:id/bacen", async (req, res) => {
     const cleanCpf = customer.cpf.replace(/\D/g, '');
     const token = process.env.DIRECT_DATA_TOKEN || "E01071B5-B7A5-4950-905A-94C3877E2176";
 
-    // 2. Query Direct Data API
     const response = await fetch(`https://apiv3.directd.com.br/api/SCRBacen?CPF=${cleanCpf}&Token=${token}`);
     const data = await response.json();
 
@@ -404,7 +524,6 @@ router.post("/:id/query-credit", async (req, res) => {
       return res.status(400).json({ error: "Este cliente não possui CPF ou CNPJ cadastrado." });
     }
 
-    // If it is a CNPJ (14 digits), query WDAPI
     if (cleanCpf.length === 14) {
       try {
         const response = await fetch(`https://wd.api.br/v1/cnpj/${cleanCpf}`);
@@ -414,7 +533,6 @@ router.post("/:id/query-credit", async (req, res) => {
         const data = await response.json();
         const responseData = { isCNPJ: true, cnpj_data: data };
 
-        // Save to credit_queries_history
         await supabase.from('credit_queries_history').insert({
           customer_id: req.params.id,
           query_type: 'CNPJ',
@@ -460,7 +578,6 @@ router.post("/:id/query-credit", async (req, res) => {
     const selectedQueries = services.filter(s => serviceUrls[s]);
     await Promise.all(selectedQueries.map(fetchService));
 
-    // Save to credit_queries_history
     await supabase.from('credit_queries_history').insert({
       customer_id: req.params.id,
       query_type: 'CPF',

@@ -606,13 +606,13 @@ export default function CreditAnalysis() {
           <div className="space-y-4 animate-in fade-in duration-300">
             <h4 className="text-[10px] font-black text-primary uppercase tracking-widest pl-1">SCR Resumo Analítico (BACEN)</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white/5 border border-white/5 rounded-3xl p-5 flex flex-col justify-between min-h-[100px]">
+              <div className="bg-white/5 border border-white/5 rounded-3xl p-5 flex flex-col justify-between min-h-25">
                 <span className="text-[8px] font-black text-green-400 uppercase tracking-widest">A Vencer (Crédito Ativo)</span>
                 <h4 className="text-xl font-black text-white font-mono leading-none mt-2">
                   R$ {aVencer.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h4>
               </div>
-              <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
+              <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-25 ${
                 vencido > 0 ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-white/5 border-white/5 text-on-surface-variant'
               }`}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Dívida Vencida (Atraso)</span>
@@ -620,7 +620,7 @@ export default function CreditAnalysis() {
                   R$ {vencido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </h4>
               </div>
-              <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-[100px] ${
+              <div className={`border rounded-3xl p-5 flex flex-col justify-between min-h-25 ${
                 prejuizo > 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-white/5 border-white/5 text-on-surface-variant'
               }`}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Prejuízos (Financeiras)</span>
@@ -674,21 +674,21 @@ export default function CreditAnalysis() {
             {/* Resumo Rápido */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className={cn(
-                "p-4 border rounded-2xl flex flex-col justify-between min-h-[80px]",
+                "p-4 border rounded-2xl flex flex-col justify-between min-h-20",
                 restricoes.length > 0 ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-on-surface-variant"
               )}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Restrições Comerciais</span>
                 <h4 className="text-lg font-black font-mono leading-none mt-1.5">{restricoes.length} ocorrências</h4>
               </div>
               <div className={cn(
-                "p-4 border rounded-2xl flex flex-col justify-between min-h-[80px]",
+                "p-4 border rounded-2xl flex flex-col justify-between min-h-20",
                 pendencias.length > 0 ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-white/5 border-white/5 text-on-surface-variant"
               )}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Pendências Financeiras</span>
                 <h4 className="text-lg font-black font-mono leading-none mt-1.5">{pendencias.length} ocorrências</h4>
               </div>
               <div className={cn(
-                "p-4 border rounded-2xl flex flex-col justify-between min-h-[80px]",
+                "p-4 border rounded-2xl flex flex-col justify-between min-h-20",
                 protestosBv.length > 0 ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-white/5 border-white/5 text-on-surface-variant"
               )}>
                 <span className="text-[8px] font-black uppercase tracking-widest">Protestos Declarados</span>
@@ -777,7 +777,7 @@ export default function CreditAnalysis() {
               <div className="flex flex-col items-center justify-center h-48 opacity-40 text-center gap-2">
                 <CheckCircle2 size={32} className="text-success" />
                 <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Tudo Limpo!</p>
-                <p className="text-[9px] text-on-surface-variant max-w-[200px]">
+                <p className="text-[9px] text-on-surface-variant max-w-50">
                   {listFilter === 'pending' 
                     ? 'Nenhum pré-cadastro aguardando análise de crédito no momento.' 
                     : 'Nenhum registro no histórico de análises de crédito.'}
@@ -795,7 +795,7 @@ export default function CreditAnalysis() {
                   }`}
                 >
                   <div className="flex justify-between items-start w-full">
-                    <span className="text-xs font-black uppercase truncate max-w-[150px]">{cust.name}</span>
+                    <span className="text-xs font-black uppercase truncate max-w-37.5">{cust.name}</span>
                     <span className={cn(
                       "inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider",
                       cust.credit_status === 'APROVADO' ? 'bg-success/15 text-success border border-success/20' :
@@ -1369,7 +1369,7 @@ export default function CreditAnalysis() {
                         onChange={(e) => setFormData(p => ({ ...p, approved_for_purchase: e.target.checked }))}
                         className="sr-only peer" 
                       />
-                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                      <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
                     </label>
                   </div>
                 </div>

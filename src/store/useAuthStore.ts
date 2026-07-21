@@ -45,18 +45,10 @@ export const useAuthStore = create<AuthState>()((set) => ({
           return { error: new Error(errorData.error || 'Erro ao realizar login offline.') };
         }
 
-        const { user } = await response.json();
-        const fakeSession = null;
-        const fakeUser = { id: user.id, email: user.email } as any;
-        const fakeProfile = {
-          id: user.id,
-          unit_id: user.unit_id,
-          full_name: user.fullName,
-          role: user.role
-        };
+        const { session, user, profile } = await response.json();
 
-        localStorage.setItem('crm_offline_session', JSON.stringify({ session: fakeSession, user: fakeUser, profile: fakeProfile }));
-        set({ session: fakeSession, user: fakeUser, profile: fakeProfile });
+        localStorage.setItem('crm_offline_session', JSON.stringify({ session, user, profile }));
+        set({ session, user, profile });
         return { error: null };
       }
 

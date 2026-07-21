@@ -1,62 +1,185 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
+import { db } from "../db/connection.js";
+import { suppliers, syncQueue } from "../db/schema.js";
+import { eq } from "drizzle-orm";
+import crypto from "crypto";
 
 const router = Router();
 
+const useSupabase = (req: any) => {
+  const host = req.headers.host || '';
+  return host.includes('mdrinformaticaecelulares.com.br') || 
+         process.env.IS_VPS === 'true' || 
+         (!host.includes('localhost') && !host.includes('127.0.0.1'));
+};
+
+function snakeToCamel(str: string): string {
+  return str.replace(/([-_][a-z])/g, group =>
+    group.toUpperCase().replace('-', '').replace('_', '')
+  );
+}
+
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
 // Get all suppliers
 router.get("/", async (req, res) => {
-  const { unit_id, all } = req.query;
-  
-  let query = supabase.from('suppliers').select('*');
-  
-  if (all !== 'true') {
-    query = query.eq('active', true);
+  if (useSupabase(req)) {
+    const { unit_id, all } = req.query;
+    let query = supabase.from('suppliers').select('*');
+    if (all !== 'true') {
+      query = query.eq('active', true);
+    }
+    if (unit_id && unit_id !== 'all') {
+      query = query.or(`unit_id.eq.${unit_id},unit_id.is.null`);
+    }
+    const { data, error } = await query.order('name');
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json(data || []);
   }
 
-  if (unit_id && unit_id !== 'all') {
-    query = query.or(`unit_id.eq.${unit_id},unit_id.is.null`);
+  // SQLite fallback
+  try {
+    const result = await db.select().from(suppliers).orderBy(suppliers.name);
+    const formatted = result.map(s => ({
+      id: s.id,
+      name: s.name,
+      cnpj: s.cnpj,
+      phone: s.phone,
+      email: s.email,
+      address: s.address,
+      created_at: s.createdAt
+    }));
+    res.json(formatted);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-  
-  const { data, error } = await query.order('name');
-  
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data || []);
 });
 
 // Create supplier
 router.post("/", async (req, res) => {
-  const { data, error } = await supabase
-    .from('suppliers')
-    .insert([req.body])
-    .select()
-    .single();
+  if (useSupabase(req)) {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .insert([req.body])
+      .select()
+      .single();
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(201).json(data);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(201).json(data);
+  }
+
+  // SQLite fallback
+  try {
+    const id = req.body.id || crypto.randomUUID();
+    const newSupplier: any = {
+      id,
+      syncStatus: 'pending_insert',
+      updatedAt: new Date().toISOString()
+    };
+    
+    for (const key of Object.keys(req.body)) {
+      newSupplier[snakeToCamel(key)] = req.body[key];
+    }
+
+    await db.insert(suppliers).values(newSupplier);
+
+    const pgPayload: any = {};
+    for (const k of Object.keys(newSupplier)) {
+      pgPayload[camelToSnake(k)] = newSupplier[k];
+    }
+
+    await db.insert(syncQueue).values({
+      tableName: 'suppliers',
+      action: 'INSERT',
+      recordId: id,
+      payload: JSON.stringify(pgPayload)
+    });
+
+    res.status(201).json(pgPayload);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Update supplier
 router.patch("/:id", async (req, res) => {
-  const { data, error } = await supabase
-    .from('suppliers')
-    .update(req.body)
-    .eq('id', req.params.id)
-    .select()
-    .single();
+  if (useSupabase(req)) {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-  if (error) return res.status(404).json({ error: error.message });
-  res.json(data);
+    if (error) return res.status(404).json({ error: error.message });
+    return res.json(data);
+  }
+
+  // SQLite fallback
+  try {
+    const updateData: any = {};
+    for (const key of Object.keys(req.body)) {
+      updateData[snakeToCamel(key)] = req.body[key];
+    }
+    updateData.syncStatus = 'pending_update';
+    updateData.updatedAt = new Date().toISOString();
+
+    await db.update(suppliers).set(updateData).where(eq(suppliers.id, req.params.id));
+
+    const [updatedSupplier] = await db.select().from(suppliers).where(eq(suppliers.id, req.params.id)).limit(1);
+    if (!updatedSupplier) return res.status(404).json({ error: "Fornecedor não encontrado" });
+
+    const pgPayload: any = {};
+    for (const k of Object.keys(updatedSupplier)) {
+      pgPayload[camelToSnake(k)] = (updatedSupplier as any)[k];
+    }
+
+    await db.insert(syncQueue).values({
+      tableName: 'suppliers',
+      action: 'UPDATE',
+      recordId: req.params.id,
+      payload: JSON.stringify(pgPayload)
+    });
+
+    res.json(pgPayload);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Delete supplier
 router.delete("/:id", async (req, res) => {
-  const { error } = await supabase
-    .from('suppliers')
-    .delete()
-    .eq('id', req.params.id);
+  if (useSupabase(req)) {
+    const { error } = await supabase
+      .from('suppliers')
+      .delete()
+      .eq('id', req.params.id);
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(204).send();
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(204).send();
+  }
+
+  // SQLite fallback
+  try {
+    const [oldSupplier] = await db.select().from(suppliers).where(eq(suppliers.id, req.params.id)).limit(1);
+    if (!oldSupplier) return res.status(404).json({ error: "Fornecedor não encontrado" });
+
+    await db.delete(suppliers).where(eq(suppliers.id, req.params.id));
+
+    await db.insert(syncQueue).values({
+      tableName: 'suppliers',
+      action: 'DELETE',
+      recordId: req.params.id,
+      payload: JSON.stringify({ id: req.params.id })
+    });
+
+    res.status(204).send();
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;

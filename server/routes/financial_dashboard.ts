@@ -231,4 +231,82 @@ router.post("/forecasts", async (req, res) => {
   }
 });
 
+// GET /bills/monthly-report - Relatório mensal de cartões (últimos 6 meses, mês atual, próximos 5 meses)
+router.get("/bills/monthly-report", async (req, res) => {
+  try {
+    const currentMonth = parseInt(req.query.month as string) || new Date().getMonth() + 1;
+    const currentYear = parseInt(req.query.year as string) || new Date().getFullYear();
+    const unitId = req.query.unit_id as string;
+
+    // Fetch all credit card bills for the unit
+    let query = supabase.from("credit_card_bills").select("*");
+    if (unitId && unitId !== "all") {
+      query = query.eq("unit_id", unitId);
+    }
+    const { data: bills, error: billsError } = await query;
+    if (billsError) throw billsError;
+
+    // Fetch all payments
+    const billIds = bills.map(b => b.id);
+    let allPayments: any[] = [];
+    if (billIds.length > 0) {
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("credit_card_bill_payments")
+        .select("bill_id, month, year")
+        .in("bill_id", billIds);
+      if (paymentsError) throw paymentsError;
+      allPayments = paymentsData || [];
+    }
+
+    // Build the 12 months range (starting from 6 months ago)
+    const report = [];
+    const baseDate = new Date(currentYear, currentMonth - 1, 1);
+
+    for (let i = -6; i <= 5; i++) {
+      const d = new Date(baseDate);
+      d.setMonth(baseDate.getMonth() + i);
+      const m = d.getMonth() + 1;
+      const y = d.getFullYear();
+
+      let fixedValue = 0;
+      let paidValue = 0;
+
+      for (const bill of bills) {
+        const elapsedMonths = (y - bill.start_year) * 12 + (m - bill.start_month);
+        const installmentNum = elapsedMonths + 1;
+
+        // Calculate total payments for this bill up to the CURRENT projected month 'm' / 'y'
+        const paymentsUpToThisMonth = allPayments.filter(p => p.bill_id === bill.id && (p.year < y || (p.year === y && p.month <= m)));
+        const remainingInstallments = Math.max(0, bill.total_installments - paymentsUpToThisMonth.length);
+
+        const isWithinTimeline = installmentNum >= 1 && installmentNum <= bill.total_installments;
+        const hasPendingDebt = installmentNum > bill.total_installments && remainingInstallments > 0;
+
+        if (isWithinTimeline || hasPendingDebt) {
+          fixedValue += Number(bill.value);
+          const isPaidInThisMonth = allPayments.some(p => p.bill_id === bill.id && p.month === m && p.year === y);
+          if (isPaidInThisMonth) {
+            paidValue += Number(bill.value);
+          }
+        }
+      }
+
+      report.push({
+        month: m,
+        year: y,
+        monthLabel: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).toUpperCase().replace('.', ''),
+        fixedValue: Number(fixedValue.toFixed(2)),
+        paidValue: Number(paidValue.toFixed(2)),
+        remainingValue: Number(Math.max(0, fixedValue - paidValue).toFixed(2))
+      });
+    }
+
+    res.json(report);
+  } catch (error: any) {
+    console.error("[Financial Dashboard] Error getting monthly bills report:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
+

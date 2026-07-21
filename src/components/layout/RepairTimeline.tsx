@@ -140,7 +140,7 @@ export default function RepairTimeline({
 
       {/* Active Timeline Steps */}
       {!isSpecialStatus && (
-        <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-[2px] before:bg-white/5">
+        <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-white/5">
           {OS_STEPS.map((step, idx) => {
             const isCompleted = idx < currentStepIndex;
             const isActive = idx === currentStepIndex;

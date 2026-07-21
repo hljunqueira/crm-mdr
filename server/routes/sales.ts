@@ -490,6 +490,82 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // Decrement devices stock on sale creation
+    if (saleData) {
+      try {
+        const decrementedDeviceIds = new Set<string>();
+        
+        if (saleData.device_id) {
+          const { data: dev } = await supabase
+            .from('devices')
+            .select('id, stock_quantity, category')
+            .eq('id', saleData.device_id)
+            .maybeSingle();
+            
+          if (dev && dev.category !== 'service') {
+            const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+            await supabase
+              .from('devices')
+              .update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' })
+              .eq('id', dev.id);
+            decrementedDeviceIds.add(dev.id);
+          }
+        }
+        
+        if (req.body.imei_manual && req.body.imei_manual !== 'N/A') {
+          const imeis = req.body.imei_manual.split(',').map((i: string) => i.trim()).filter(Boolean);
+          for (const imei of imeis) {
+            if (imei !== 'N/A' && imei !== '0000000') {
+              const { data: dev } = await supabase
+                .from('devices')
+                .select('id, stock_quantity, category')
+                .eq('imei', imei)
+                .maybeSingle();
+                
+              if (dev && dev.category !== 'service' && !decrementedDeviceIds.has(dev.id)) {
+                const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+                await supabase
+                  .from('devices')
+                  .update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' })
+                  .eq('id', dev.id);
+                decrementedDeviceIds.add(dev.id);
+              }
+            }
+          }
+        }
+        
+        if (saleData.device_model_manual) {
+          const parts = saleData.device_model_manual.split('+').map(p => p.trim()).filter(Boolean);
+          for (const part of parts) {
+            const cleanName = part.replace(/\s*\(x\d+\)\s*/i, '').trim();
+            const qtyMatch = part.match(/\(x(\d+)\)/i);
+            const quantity = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+            if (cleanName) {
+              const { data: devs } = await supabase
+                .from('devices')
+                .select('id, stock_quantity, category')
+                .eq('model', cleanName)
+                .eq('store_id', store_id);
+                
+              if (devs && devs.length > 0) {
+                const dev = devs[0];
+                if (dev.category !== 'service' && !decrementedDeviceIds.has(dev.id)) {
+                  const newQty = Math.max(0, (dev.stock_quantity || 0) - quantity);
+                  await supabase
+                    .from('devices')
+                    .update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' })
+                    .eq('id', dev.id);
+                  decrementedDeviceIds.add(dev.id);
+                }
+              }
+            }
+          }
+        }
+      } catch (stockErr) {
+        console.error('Error decrementing device stock on sale creation:', stockErr);
+      }
+    }
+
     res.status(201).json(saleData);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

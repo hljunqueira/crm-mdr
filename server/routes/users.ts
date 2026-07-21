@@ -82,14 +82,29 @@ router.post('/login-offline', async (req, res) => {
       return res.status(401).json({ error: 'Senha incorreta.' });
     }
 
-    res.json({
-      success: true,
+    // Cria uma sessão mockada local para permitir a autenticação em modo offline
+    const mockSession = {
+      access_token: 'local-mock-token-' + crypto.randomUUID(),
+      token_type: 'bearer',
+      expires_in: 3600,
+      refresh_token: 'local-mock-refresh',
       user: {
         id: profile.id,
         email: profile.email,
-        role: profile.role,
+        role: profile.role || 'attendant',
+      }
+    };
+
+    res.json({
+      success: true,
+      session: mockSession,
+      user: mockSession.user,
+      profile: {
+        id: profile.id,
         unit_id: profile.storeId,
-        fullName: profile.fullName
+        full_name: profile.fullName,
+        role: profile.role,
+        avatar_url: profile.avatarUrl,
       }
     });
   } catch (error: any) {
