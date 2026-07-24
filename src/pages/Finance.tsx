@@ -1843,7 +1843,7 @@ export default function Finance() {
           {/* CARDS DE CAIXA SEPAREDOS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* CARD CAIXA FINANCEIRA */}
-            <div className="bg-gradient-to-br from-[#0f1f18] to-[#0f0f1a] p-8 rounded-4xl border border-emerald-500/20 relative overflow-hidden shadow-2xl">
+            <div className="bg-linear-to-br from-[#0f1f18] to-[#0f0f1a] p-8 rounded-4xl border border-emerald-500/20 relative overflow-hidden shadow-2xl">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
@@ -1894,7 +1894,7 @@ export default function Finance() {
             </div>
 
             {/* CARD CAIXA LOJA */}
-            <div className="bg-gradient-to-br from-[#180f24] to-[#0f0f1a] p-8 rounded-4xl border border-purple-500/20 relative overflow-hidden shadow-2xl">
+            <div className="bg-linear-to-br from-[#180f24] to-[#0f0f1a] p-8 rounded-4xl border border-purple-500/20 relative overflow-hidden shadow-2xl">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">

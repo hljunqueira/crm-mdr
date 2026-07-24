@@ -858,7 +858,10 @@ router.get("/dashboard/:profile_id", async (req, res) => {
     }
 
     const totalInitialCapital = legacyCapitalInvested + primeCapitalInvested + rendaCapitalInvested;
-    const capitalInvested = Math.max(0, totalInitialCapital - capitalRecovered);
+    const productsCapitalReturned = [...myProducts, ...primeProductsList].reduce((sum, p) => sum + Number(p.capitalReturned || 0), 0);
+    const effectiveCapitalRecovered = Math.max(capitalRecovered, productsCapitalReturned);
+    const capitalInvested = Math.max(0, totalInitialCapital - effectiveCapitalRecovered);
+    const effectiveTotalReceived = effectiveCapitalRecovered + interestReceived;
     const roi = totalInitialCapital > 0 ? (interestReceived / totalInitialCapital) * 100 : 0;
     const delinquencyRate = totalRendaReceivable > 0 ? (totalRendaOverdue / totalRendaReceivable) * 100 : 0;
 
@@ -890,11 +893,11 @@ router.get("/dashboard/:profile_id", async (req, res) => {
       wallet: {
         balance: Number(walletData.balance),
         futureReceipts: Number(calculatedFutureReceipts.toFixed(2)),
-        capitalInvested,
-        capitalRecovered,
-        interestReceived,
-        totalReceived,
-        roi,
+        capitalInvested: Number(capitalInvested.toFixed(2)),
+        capitalRecovered: Number(effectiveCapitalRecovered.toFixed(2)),
+        interestReceived: Number(interestReceived.toFixed(2)),
+        totalReceived: Number(effectiveTotalReceived.toFixed(2)),
+        roi: Number(roi.toFixed(2)),
         activeDevicesCount,
         paidDevicesCount,
         defaultedDevicesCount,
