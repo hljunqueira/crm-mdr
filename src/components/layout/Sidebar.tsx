@@ -289,7 +289,7 @@ export default function Sidebar() {
         {/* Toggle Collapse Button */}
         <button
           onClick={handleToggleCollapse}
-          className="absolute -right-3.5 top-12 z-50 bg-[#121214] border border-white/10 hover:border-primary/50 text-white rounded-full p-1.5 shadow-md hover:scale-105 active:scale-95 transition-all hidden md:flex items-center justify-center cursor-pointer"
+          className="absolute -right-3.5 top-7 z-50 bg-[#121214] border border-white/10 hover:border-primary/50 text-white rounded-full p-1.5 shadow-md hover:scale-105 active:scale-95 transition-all hidden md:flex items-center justify-center cursor-pointer"
           title={isCollapsed ? "Expandir menu" : "Recolher menu"}
         >
           {isCollapsed ? <ChevronRight size={12} strokeWidth={3} /> : <ChevronLeft size={12} strokeWidth={3} />}

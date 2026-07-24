@@ -433,7 +433,7 @@ export default function Commissions() {
   const isSocio = selectedColProfile?.role === 'admin';
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="p-6 space-y-8 animate-in fade-in duration-300">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
