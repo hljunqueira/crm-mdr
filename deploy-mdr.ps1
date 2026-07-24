@@ -25,11 +25,11 @@ $REMOTE_PATH = "/root/crm-mdr"
 $ARCHIVE_NAME = "deploy_package.tar.gz"
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "         DEPLOY MDR - MODO: $Mode.ToUpper()      " -ForegroundColor Cyan
+Write-Host "         DEPLOY MDR - MODO: $Mode          " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
 # ---------------------------------------------------------
-# MODO 1: DEPLOY APENAS FRONTEND (Muito Rápido - 3 segundos)
+# MODO 1: DEPLOY APENAS FRONTEND (Ultrarrápido - ~3 segundos)
 # ---------------------------------------------------------
 if ($Mode -eq "frontend") {
   Write-Host "--- 1. Compilando o Frontend localmente (npm run build) ---" -ForegroundColor Yellow
@@ -53,7 +53,6 @@ mkdir -p dist
 tar -xzf $FRONTEND_ARCHIVE -C dist/
 rm $FRONTEND_ARCHIVE
 
-# Copia a dist atualizada para dentro do container do app em execução sem reiniciar nada
 CONTAINER_ID=`$(docker ps -q -f name=crm-mdr-app-1)
 if [ -n "`$CONTAINER_ID" ]; then
   docker cp dist/. `$CONTAINER_ID:/app/dist/
@@ -73,19 +72,26 @@ echo "Deploy do Frontend concluído com sucesso!"
 }
 
 # ---------------------------------------------------------
-# MODO 2: DEPLOY SOMENTE BACKEND (Reconstrói apenas o container App)
+# MODO 2: DEPLOY SOMENTE BACKEND / APP (~10 segundos)
 # ---------------------------------------------------------
 if ($Mode -eq "backend") {
-  Write-Host "--- 1. Compactando arquivos do projeto (incluindo .env) ---" -ForegroundColor Cyan
-  tar --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='dist-electron' --exclude='dist-server' --exclude='scratch' --exclude='*.db' --exclude='*.sqlite*' --exclude='*.log' --exclude='*.xls' --exclude='*.xlsx' --exclude=$ARCHIVE_NAME -czf $ARCHIVE_NAME . .env
+  Write-Host "--- 1. Compilando dist localmente para evitar uso de CPU na VPS ---" -ForegroundColor Cyan
+  npm run build
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Erro na compilação local. Abortando deploy." -ForegroundColor Red
+    exit 1
+  }
 
-  Write-Host "--- 2. Enviando código do Backend para a VPS via SCP ---" -ForegroundColor Cyan
+  Write-Host "--- 2. Compactando arquivos do projeto (incluindo dist e .env) ---" -ForegroundColor Cyan
+  tar --exclude='node_modules' --exclude='.git' --exclude='dist-electron' --exclude='dist-server' --exclude='scratch' --exclude='*.db' --exclude='*.sqlite*' --exclude='*.log' --exclude='*.xls' --exclude='*.xlsx' --exclude=$ARCHIVE_NAME -czf $ARCHIVE_NAME . .env
+
+  Write-Host "--- 3. Enviando código para a VPS via SCP ---" -ForegroundColor Cyan
   scp -i $SSH_KEY $ARCHIVE_NAME "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
 
-  Write-Host "--- 3. Reconstruindo e reiniciando apenas o container do App ---" -ForegroundColor Cyan
+  Write-Host "--- 4. Reconstruindo e reiniciando apenas o container do App ---" -ForegroundColor Cyan
   $REMOTE_BACKEND_CMD = @"
 cd $REMOTE_PATH
-rm -rf src server
+rm -rf src server dist
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
@@ -99,7 +105,7 @@ fi
 docker image prune -f
 echo "Status do container App:"
 docker ps --format 'table {{.Names}}\t{{.Status}}' | grep crm-mdr
-echo "Deploy do Backend finalizado com sucesso!"
+echo "Deploy do Backend/App finalizado com sucesso!"
 "@
 
   $REMOTE_BACKEND_CMD | ssh -i $SSH_KEY "${SSH_USER}@${SSH_HOST}" "bash"
@@ -110,19 +116,26 @@ echo "Deploy do Backend finalizado com sucesso!"
 }
 
 # ---------------------------------------------------------
-# MODO 3: DEPLOY ALL GERAL (Reconstrói toda a infraestrutura Docker)
+# MODO 3: DEPLOY ALL GERAL (Infraestrutura Completa Docker)
 # ---------------------------------------------------------
 if ($Mode -eq "all") {
-  Write-Host "--- 1. Compactando todos os arquivos da aplicação ---" -ForegroundColor Yellow
-  tar --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='dist-electron' --exclude='dist-server' --exclude='scratch' --exclude='*.db' --exclude='*.sqlite*' --exclude='*.log' --exclude='*.xls' --exclude='*.xlsx' --exclude=$ARCHIVE_NAME -czf $ARCHIVE_NAME . .env
+  Write-Host "--- 1. Compilando dist localmente ---" -ForegroundColor Yellow
+  npm run build
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Erro na compilação local. Abortando deploy." -ForegroundColor Red
+    exit 1
+  }
 
-  Write-Host "--- 2. Enviando pacote completo para a VPS ---" -ForegroundColor Yellow
+  Write-Host "--- 2. Compactando todos os arquivos da aplicação ---" -ForegroundColor Yellow
+  tar --exclude='node_modules' --exclude='.git' --exclude='dist-electron' --exclude='dist-server' --exclude='scratch' --exclude='*.db' --exclude='*.sqlite*' --exclude='*.log' --exclude='*.xls' --exclude='*.xlsx' --exclude=$ARCHIVE_NAME -czf $ARCHIVE_NAME . .env
+
+  Write-Host "--- 3. Enviando pacote completo para a VPS ---" -ForegroundColor Yellow
   scp -i $SSH_KEY $ARCHIVE_NAME "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
 
-  Write-Host "--- 3. Reiniciando Toda a Infraestrutura Docker na VPS ---" -ForegroundColor Yellow
+  Write-Host "--- 4. Reiniciando Toda a Infraestrutura Docker na VPS ---" -ForegroundColor Yellow
   $REMOTE_ALL_CMD = @"
 cd $REMOTE_PATH
-rm -rf src dist
+rm -rf src dist server
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
