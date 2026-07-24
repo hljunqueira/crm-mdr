@@ -29,6 +29,7 @@ import billingRoutes from "./server/routes/billing.js";
 import scpRoutes from "./server/routes/scp.js";
 import financialDashboardRoutes from "./server/routes/financial_dashboard.js";
 import commissionRoutes from "./server/routes/commissions.js";
+import { cashierRouter } from "./server/routes/cashier.js";
 import { checkAndReactivateAsaasWebhook } from "./server/services/asaasService.js";
 
 
@@ -119,6 +120,7 @@ async function startServer() {
   app.use("/api/scp", scpRoutes);
   app.use("/api/financial-dashboard", financialDashboardRoutes);
   app.use("/api/commissions", commissionRoutes);
+  app.use("/api/cashier", cashierRouter);
 
 
   // Vite middleware for development

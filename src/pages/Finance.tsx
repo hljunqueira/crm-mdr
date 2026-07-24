@@ -617,7 +617,13 @@ function BatchPaymentConfirmationContent({
 export default function Finance() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'payable_cards'>('receivables');
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'payable_cards'>('receivables');
+  const [cashierSummary, setCashierSummary] = useState<any>(null);
+  const [cashierTransfers, setCashierTransfers] = useState<any[]>([]);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferAmountInput, setTransferAmountInput] = useState('');
+  const [transferDescInput, setTransferDescInput] = useState('');
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
@@ -828,6 +834,64 @@ export default function Finance() {
       fetchDashboardData(selectedMonth, selectedYear, selectedUnitId);
     }
   }, [selectedMonth, selectedYear, selectedUnitId, activeFinanceTab, fetchDashboardData]);
+
+  const fetchCashierData = async () => {
+    try {
+      const res = await fetch(`/api/cashier/summary${selectedUnitId && selectedUnitId !== 'all' ? `?storeId=${selectedUnitId}` : ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCashierSummary(data);
+        setCashierTransfers(data.recentTransfers || []);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar resumo dos caixas:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchCashierData();
+  }, [selectedUnitId, activeFinanceTab]);
+
+  const handleExecuteTransfer = async () => {
+    const numAmount = Number(transferAmountInput);
+    if (!numAmount || numAmount <= 0) {
+      showNotification('error', 'Informe um valor de repasse válido maior que zero.');
+      return;
+    }
+    if (cashierSummary?.financeira?.balance && numAmount > cashierSummary.financeira.balance) {
+      showNotification('error', 'Saldo no Caixa Financeira insuficiente para este repasse.');
+      return;
+    }
+
+    setIsSubmittingTransfer(true);
+    try {
+      const res = await fetch('/api/cashier/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: numAmount,
+          description: transferDescInput || 'Repasse de valores da Financeira para o Caixa Loja',
+          storeId: selectedUnitId !== 'all' ? selectedUnitId : null,
+          transferredBy: profile?.id
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showNotification('success', 'Repasse Concluído!', data.message);
+        setIsTransferModalOpen(false);
+        setTransferAmountInput('');
+        setTransferDescInput('');
+        fetchCashierData();
+      } else {
+        showNotification('error', 'Falha no Repasse', data.error || 'Erro ao processar transferência.');
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro de Conexão', err.message);
+    } finally {
+      setIsSubmittingTransfer(false);
+    }
+  };
 
   useEffect(() => {
     if (forecast) {
@@ -1389,6 +1453,17 @@ export default function Finance() {
             Recebíveis
           </button>
           <button
+            onClick={() => setActiveFinanceTab('caixas')}
+            className={cn(
+              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+              activeFinanceTab === 'caixas'
+                ? "bg-white text-black shadow-lg"
+                : "text-on-surface-variant hover:text-white"
+            )}
+          >
+            🏦 Gestão de Caixas (Financeira vs. Loja)
+          </button>
+          <button
             onClick={() => setActiveFinanceTab('payable_cards')}
             className={cn(
               "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
@@ -1763,6 +1838,206 @@ export default function Finance() {
           </div>
         </div>
       </>
+      ) : activeFinanceTab === 'caixas' ? (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          {/* CARDS DE CAIXA SEPAREDOS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* CARD CAIXA FINANCEIRA */}
+            <div className="bg-gradient-to-br from-[#0f1f18] to-[#0f0f1a] p-8 rounded-4xl border border-emerald-500/20 relative overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <Store size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tight">Caixa Financeira</h3>
+                    <p className="text-[10px] text-emerald-400 font-mono font-black uppercase tracking-widest">Recebimentos de Clientes Final</p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                  Ativo
+                </span>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <span className="text-xs text-on-surface-variant font-medium">Total Arrecadado (Parcelas + Entradas)</span>
+                  <span className="text-sm font-black text-white font-mono">
+                    R$ {(cashierSummary?.financeira?.totalArrecadado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <span className="text-xs text-on-surface-variant font-medium">Total Já Repassado à Loja</span>
+                  <span className="text-sm font-black text-warning font-mono">
+                    - R$ {(cashierSummary?.financeira?.totalRepassado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-sm font-black text-white uppercase tracking-wider">Saldo Disponível no Caixa</span>
+                  <span className="text-2xl font-black text-emerald-400 font-mono">
+                    R$ {(cashierSummary?.financeira?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setTransferAmountInput((cashierSummary?.financeira?.balance || 0).toString());
+                  setIsTransferModalOpen(true);
+                }}
+                disabled={(cashierSummary?.financeira?.balance || 0) <= 0}
+                className="w-full py-4 bg-emerald-500 text-black hover:bg-emerald-400 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <DollarSign size={18} />
+                💸 Realizar Repasse para o Caixa Loja
+              </button>
+            </div>
+
+            {/* CARD CAIXA LOJA */}
+            <div className="bg-gradient-to-br from-[#180f24] to-[#0f0f1a] p-8 rounded-4xl border border-purple-500/20 relative overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                    <DollarSign size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tight">Caixa Loja</h3>
+                    <p className="text-[10px] text-purple-400 font-mono font-black uppercase tracking-widest">Caixa Operacional da Loja Física</p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                  Ativo
+                </span>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <span className="text-xs text-on-surface-variant font-medium">Repasses Recebidos da Financeira</span>
+                  <span className="text-sm font-black text-purple-300 font-mono">
+                    + R$ {(cashierSummary?.loja?.totalRepassesRecebidos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-white/5">
+                  <span className="text-xs text-on-surface-variant font-medium">Entradas Diretas e Vendas à Vista</span>
+                  <span className="text-sm font-black text-white font-mono">
+                    + R$ {(cashierSummary?.loja?.totalEntradasDiretas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-sm font-black text-white uppercase tracking-wider">Saldo em Caixa da Loja</span>
+                  <span className="text-2xl font-black text-purple-400 font-mono">
+                    R$ {(cashierSummary?.loja?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* HISTÓRICO DE REPASSES */}
+          <div className="bg-white/2 rounded-4xl border border-white/10 p-6">
+            <h4 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <History size={18} className="text-primary" />
+              Histórico de Repasses (Financeira ➔ Loja)
+            </h4>
+
+            {cashierTransfers.length === 0 ? (
+              <p className="text-xs text-on-surface-variant py-8 text-center">Nenhum repasse registrado até o momento.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 text-on-surface-variant uppercase text-[10px] tracking-wider font-black">
+                      <th className="py-3 px-4">Data/Hora</th>
+                      <th className="py-3 px-4">Origem</th>
+                      <th className="py-3 px-4">Destino</th>
+                      <th className="py-3 px-4 text-right">Valor Repassado</th>
+                      <th className="py-3 px-4">Descrição</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashierTransfers.map((t: any) => (
+                      <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 font-mono">
+                        <td className="py-3 px-4 text-white">
+                          {new Date(t.created_at || t.createdAt).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="py-3 px-4 text-emerald-400 font-bold">Caixa Financeira</td>
+                        <td className="py-3 px-4 text-purple-400 font-bold">Caixa Loja</td>
+                        <td className="py-3 px-4 text-right text-success font-black text-sm">
+                          R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-on-surface-variant font-sans text-xs">
+                          {t.description || 'Repasse efetuado'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* MODAL DE REPASSE DE VALORES */}
+          {isTransferModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+              <div className="bg-[#0f0f1a] border border-white/10 rounded-4xl p-8 max-w-md w-full space-y-6">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">💸 Realizar Repasse para a Loja</h3>
+                  <button onClick={() => setIsTransferModalOpen(false)} className="p-2 text-on-surface-variant hover:text-white">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest block mb-1">
+                      Valor a Repassar (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={transferAmountInput}
+                      onChange={(e) => setTransferAmountInput(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-lg font-mono font-black text-emerald-400 outline-none focus:border-emerald-500"
+                    />
+                    <p className="text-[10px] text-on-surface-variant/80 mt-1">
+                      Saldo disponível na Financeira: <span className="text-white font-mono font-bold">R$ {(cashierSummary?.financeira?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest block mb-1">
+                      Descrição / Observações
+                    </label>
+                    <input
+                      type="text"
+                      value={transferDescInput}
+                      onChange={(e) => setTransferDescInput(e.target.value)}
+                      placeholder="Ex: Repasse de recebimentos da semana para o caixa da loja"
+                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-white/10">
+                  <button
+                    onClick={() => setIsTransferModalOpen(false)}
+                    className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-wider"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleExecuteTransfer}
+                    disabled={isSubmittingTransfer || !transferAmountInput}
+                    className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-wider rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  >
+                    {isSubmittingTransfer ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Confirmar Repasse'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/2 border border-white/5 p-6 rounded-4xl">

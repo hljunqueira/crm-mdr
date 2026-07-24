@@ -386,6 +386,7 @@ export const cashShifts = sqliteTable('cash_shifts', {
   closedAt: text('closed_at'),
   openingBalance: real('opening_balance').notNull(),
   closingBalance: real('closing_balance'),
+  cashierType: text('cashier_type').default('LOJA'), // 'FINANCEIRA', 'LOJA'
   status: text('status').default('open'),
   notes: text('notes'),
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
@@ -400,7 +401,21 @@ export const cashTransactions = sqliteTable('cash_transactions', {
   amount: real('amount').notNull(),
   description: text('description').notNull(),
   paymentMethod: text('payment_method'),
+  cashierType: text('cashier_type').default('LOJA'), // 'FINANCEIRA', 'LOJA'
   voucherId: text('voucher_id').references(() => employeeVouchers.id),
+  createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
+  ...syncColumns
+});
+
+// 25B. CASHIER TRANSFERS (Repasses Financeira -> Loja)
+export const cashierTransfers = sqliteTable('cashier_transfers', {
+  id: text('id').primaryKey(),
+  storeId: text('store_id').references(() => stores.id),
+  fromCashier: text('from_cashier').default('FINANCEIRA'),
+  toCashier: text('to_cashier').default('LOJA'),
+  amount: real('amount').notNull(),
+  description: text('description'),
+  transferredBy: text('transferred_by').references(() => profiles.id),
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
   ...syncColumns
 });
