@@ -520,7 +520,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
                 projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
                 saleTotalValue: saleTotal,
-                status: devStatus
+                status: devStatus,
+                isProfitOnly: false
               });
             } else {
               // In stock
@@ -537,7 +538,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
                 projectedTotalProfit: 0,
                 projectedTotalContract: 0,
                 saleTotalValue: 0,
-                status: "estoque"
+                status: "estoque",
+                isProfitOnly: false
               });
               activeDevicesCount++;
             }
@@ -725,7 +727,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           projectedTotalProfit: Number(projectedTotalProfit.toFixed(2)),
           projectedTotalContract: Number(projectedTotalContract.toFixed(2)),
           saleTotalValue: saleTotal,
-          status: devStatus
+          status: devStatus,
+          isProfitOnly: true
         });
       } else {
         primeProductsList.push({
@@ -742,7 +745,8 @@ router.get("/dashboard/:profile_id", async (req, res) => {
           projectedTotalProfit: 0,
           projectedTotalContract: 0,
           saleTotalValue: 0,
-          status: "estoque"
+          status: "estoque",
+          isProfitOnly: true
         });
         activeDevicesCount++;
       }

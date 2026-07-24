@@ -49,6 +49,7 @@ interface Product {
   saleId?: string;
   saleTotalValue?: number;
   status: 'estoque' | 'ativo' | 'quitado' | 'inadimplente';
+  isProfitOnly?: boolean;
 }
 
 export default function InvestorDashboard() {
@@ -1061,69 +1062,90 @@ export default function InvestorDashboard() {
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl p-12 text-center text-zinc-500">
                   Nenhum aparelho associado aos lotes investidos.
                 </div>
-              ) : (
-                <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-225">
-                    <thead>
-                      <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
-                        <th className="py-4 px-6">Aparelho</th>
-                        <th className="py-4 px-6">Cliente Final</th>
-                        <th className="py-4 px-6 text-center">Parcelas</th>
-                        <th className="py-4 px-6 text-right">Capital Recuperado</th>
-                        <th className="py-4 px-6 text-right">Juros Recebidos</th>
-                        <th className="py-4 px-6 text-right">Total Repassado</th>
-                        <th className="py-4 px-6 text-right">Capital Restante</th>
-                        <th className="py-4 px-6 text-right">Total Venda Cliente</th>
-                        <th className="py-4 px-6 text-right">Lucro Previsto</th>
-                        <th className="py-4 px-6 text-center">Status</th>
-                        <th className="py-4 px-6 text-center">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800/40">
-                      {products.map((p) => (
-                        <tr key={p.id} className="hover:bg-zinc-800/10 transition-colors">
-                          <td className="py-4 px-6">
-                            <span className="font-bold text-white block">{p.model}</span>
-                            <span className="text-[10px] text-zinc-500 font-mono">IMEI: {p.imei}</span>
-                          </td>
-                          <td className="py-4 px-6 text-zinc-300 font-medium">{p.client}</td>
-                          <td className="py-4 px-6 text-center font-mono text-zinc-400">{p.installments}</td>
-                          <td className="py-4 px-6 text-right font-mono text-zinc-300">R$ {p.capitalReturned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {p.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono font-bold text-emerald-400">R$ {p.totalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono text-zinc-400">R$ {p.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono text-indigo-400">R$ {(p.saleTotalValue || p.projectedTotalContract || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {(p.projectedTotalProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          <td className="py-4 px-6 text-center">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${p.status === 'estoque'
-                                ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                                : p.status === 'quitado'
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : p.status === 'inadimplente'
-                                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                              }`}>
-                              {p.status === 'estoque' ? 'Estoque' : p.status === 'quitado' ? 'Quitado' : p.status === 'inadimplente' ? 'Inadimplente' : 'Ativo'}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6 text-center">
-                            {p.saleId ? (
-                              <button
-                                onClick={() => handleViewClientContract(p.saleId!)}
-                                className="px-2 py-1 bg-zinc-850 hover:bg-zinc-750 text-emerald-400 hover:text-emerald-300 border border-zinc-800 hover:border-zinc-700 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
-                              >
-                                Ver Contrato
-                              </button>
-                            ) : (
-                              <span className="text-zinc-500">-</span>
-                            )}
-                          </td>
+              ) : (() => {
+                const isAllProfitOnly = products.length > 0 && products.every(p => p.isProfitOnly);
+                return (
+                  <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse min-w-175">
+                      <thead>
+                        <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
+                          <th className="py-4 px-6">Aparelho</th>
+                          <th className="py-4 px-6">Cliente Final</th>
+                          <th className="py-4 px-6 text-center">Parcelas</th>
+                          {isAllProfitOnly ? (
+                            <>
+                              <th className="py-4 px-6 text-right">Lucro Recebido (Carteira)</th>
+                              <th className="py-4 px-6 text-right">Lucro Previsto Total</th>
+                            </>
+                          ) : (
+                            <>
+                              <th className="py-4 px-6 text-right">Capital Recuperado</th>
+                              <th className="py-4 px-6 text-right">Juros Recebidos</th>
+                              <th className="py-4 px-6 text-right">Total Gerado (Capital + Lucro)</th>
+                              <th className="py-4 px-6 text-right">Capital Restante</th>
+                              <th className="py-4 px-6 text-right">Total Venda Cliente</th>
+                              <th className="py-4 px-6 text-right">Lucro Previsto</th>
+                            </>
+                          )}
+                          <th className="py-4 px-6 text-center">Status</th>
+                          <th className="py-4 px-6 text-center">Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/40">
+                        {products.map((p) => (
+                          <tr key={p.id} className="hover:bg-zinc-800/10 transition-colors">
+                            <td className="py-4 px-6">
+                              <span className="font-bold text-white block">{p.model}</span>
+                              <span className="text-[10px] text-zinc-500 font-mono">IMEI: {p.imei}</span>
+                            </td>
+                            <td className="py-4 px-6 text-zinc-300 font-medium">{p.client}</td>
+                            <td className="py-4 px-6 text-center font-mono text-zinc-400">{p.installments}</td>
+                            {isAllProfitOnly ? (
+                              <>
+                                <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {p.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {(p.projectedTotalProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-4 px-6 text-right font-mono text-zinc-300">{p.isProfitOnly ? "-" : `R$ ${p.capitalReturned.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</td>
+                                <td className="py-4 px-6 text-right font-mono text-emerald-400">R$ {p.interestReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-4 px-6 text-right font-mono font-bold text-emerald-400">{p.isProfitOnly ? "-" : `R$ ${p.totalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</td>
+                                <td className="py-4 px-6 text-right font-mono text-zinc-400">{p.isProfitOnly ? "-" : `R$ ${p.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}</td>
+                                <td className="py-4 px-6 text-right font-mono text-indigo-400">R$ {(p.saleTotalValue || p.projectedTotalContract || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-4 px-6 text-right font-mono text-emerald-400 font-bold">R$ {(p.projectedTotalProfit || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                              </>
+                            )}
+                            <td className="py-4 px-6 text-center">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${p.status === 'estoque'
+                                  ? 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                                  : p.status === 'quitado'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    : p.status === 'inadimplente'
+                                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                      : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                }`}>
+                                {p.status === 'estoque' ? 'Estoque' : p.status === 'quitado' ? 'Quitado' : p.status === 'inadimplente' ? 'Inadimplente' : 'Ativo'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              {p.saleId ? (
+                                <button
+                                  onClick={() => handleViewClientContract(p.saleId!)}
+                                  className="px-2 py-1 bg-zinc-850 hover:bg-zinc-750 text-emerald-400 hover:text-emerald-300 border border-zinc-800 hover:border-zinc-700 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                  Ver Contrato
+                                </button>
+                              ) : (
+                                <span className="text-zinc-500">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </section>
 
             {/* Renda Purchases Table */}
