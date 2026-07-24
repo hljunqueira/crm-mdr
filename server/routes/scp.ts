@@ -620,12 +620,16 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         const isOverdue = insts ? insts.some(i => i.status === "overdue" || i.status === "blocked") : false;
 
         const devTxs = credits.filter(t => t.description && t.description.includes(`Celular #${dev.id}`));
-        const devCapReturned = devTxs.reduce((sum, t) => {
+        let devCapReturned = devTxs.reduce((sum, t) => {
           if (t.type === "AMORTIZATION") return sum + Number(t.amount || 0);
           if (t.type === "CREDIT") return sum + Number(t.capital_portion || 0);
           return sum;
         }, 0);
         
+        if (devCapReturned === 0 && paidInst > 0 && totalInst > 0 && dev.prime_profit_share_type !== 'profit_only') {
+          devCapReturned = paidInst * (cappedDeviceSalePrice / totalInst);
+        }
+
         const devIntReceived = devTxs.reduce((sum, t) => {
           if (t.type === "PROFIT") return sum + Number(t.amount || 0);
           if (t.type === "CREDIT") return sum + Number(t.interest_portion || 0);
@@ -901,7 +905,10 @@ router.get("/dashboard/:profile_id", async (req, res) => {
         totalOverdue: totalRendaOverdue,
         delinquencyRate: Number(delinquencyRate.toFixed(2))
       },
-      transactions: (allTransactions || []).slice(0, 30).map((t: any) => ({
+      transactions: (allTransactions || [])
+        .filter((t: any) => t.type !== 'AMORTIZATION')
+        .slice(0, 30)
+        .map((t: any) => ({
         id: t.id,
         type: t.type,
         amount: Number(t.amount),

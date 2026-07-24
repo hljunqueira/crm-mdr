@@ -69,7 +69,6 @@ export default function Sidebar() {
       icon: Users,
       items: [
         { name: 'Vendas & Celulares', icon: ShoppingBag, path: '/sales' },
-        { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Clientes', icon: Users, path: '/customers' },
         { name: 'Leads', icon: UserSearch, path: '/leads' },
         { name: 'Simulador de Parcelas', icon: Calculator, path: '/simulator' },

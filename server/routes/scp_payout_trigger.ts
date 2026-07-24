@@ -272,22 +272,10 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
             });
         }
 
-        // Create transaction log
+        // Create transaction log for wallet credit (only PROFIT is credited to withdrawable balance)
         const txsToInsert = [];
-        const amrt = Number(amortization.toFixed(2));
         const prft = Number(investorProfit.toFixed(2));
 
-        if (amrt > 0) {
-          txsToInsert.push({
-            profile_id: investorId,
-            type: "AMORTIZATION",
-            amount: amrt,
-            capital_portion: amrt,
-            interest_portion: 0,
-            installment_id: installmentId,
-            description: `Amortização Parcela #${installment.installment_number} do celular Prime ${device.brand || ""} ${device.model || ""} (${customerName}) (Celular #${device.id})`
-          });
-        }
         if (prft > 0) {
           txsToInsert.push({
             profile_id: investorId,
@@ -307,14 +295,14 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
         if (txErr) {
           console.error(`[SCP Payout] Error inserting Prime transaction log:`, txErr);
         } else {
-          console.log(`[SCP Payout] Successfully credited Prime R$ ${investorRepasse} to ${investorName}`);
+          console.log(`[SCP Payout] Successfully credited Prime profit R$ ${prft} to ${investorName}`);
 
           // Send WhatsApp Notification via n8n
           if (investorPhone) {
             const cleanPhone = investorPhone.replace(/\D/g, "");
             if (cleanPhone) {
               const targetPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-              const message = `*MDR PARCEIROS* 📈\n\nOlá, *${investorName}*!\nSeu dinheiro está trabalhando. Um novo repasse foi creditado na sua carteira (Celular Prime):\n\n📱 *Aparelho:* ${device.brand || ""} ${device.model || ""}\n👤 *Cliente:* ${customerName}\n🔢 *Parcela:* ${installment.installment_number}/${totalInstallments}\n💵 *Crédito Recebido:* R$ ${investorRepasse.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n└ _Capital amortizado: R$ ${amortization.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n└ _Juros recebidos: R$ ${investorProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\nAcesse seu painel em: mdrinformaticaecelulares.com.br/parceiros`;
+              const message = `*MDR PARCEIROS* 📈\n\nOlá, *${investorName}*!\nSeu dinheiro está trabalhando. Um novo rendimento foi creditado na sua carteira (Celular Prime):\n\n📱 *Aparelho:* ${device.brand || ""} ${device.model || ""}\n👤 *Cliente:* ${customerName}\n🔢 *Parcela:* ${installment.installment_number}/${totalInstallments}\n💵 *Lucro Creditado:* R$ ${prft.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n\nAcesse seu painel em: mdrinformaticaecelulares.com.br/parceiros`;
 
               const n8nUrl = process.env.N8N_SCP_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/scp-notification`;
               try {
