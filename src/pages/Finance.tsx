@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   TrendingUp, CreditCard, AlertCircle, CheckCircle2,
   Search, Download, Calendar, DollarSign, ArrowUpRight,
@@ -616,8 +616,10 @@ function BatchPaymentConfirmationContent({
 
 export default function Finance() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'payable_cards') || 'receivables';
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'payable_cards'>('receivables');
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'payable_cards'>(initialTab);
   const [cashierSummary, setCashierSummary] = useState<any>(null);
   const [cashierTransfers, setCashierTransfers] = useState<any[]>([]);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
