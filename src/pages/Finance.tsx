@@ -620,6 +620,13 @@ export default function Finance() {
   const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'payable_cards') || 'receivables';
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'payable_cards'>(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'caixas' || tabParam === 'receivables' || tabParam === 'payable_cards') {
+      setActiveFinanceTab(tabParam);
+    }
+  }, [searchParams]);
   const [cashierSummary, setCashierSummary] = useState<any>(null);
   const [cashierTransfers, setCashierTransfers] = useState<any[]>([]);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);

@@ -113,7 +113,6 @@ export default function Sidebar() {
         { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares (MDM)', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Financeiro', displayName: 'Financeira da Loja (Boletos)', icon: CreditCard, path: '/finance' },
         ...(profile?.role === 'admin' ? [
-          { name: 'Gestão de Caixas', displayName: 'Caixa Financeira vs. Loja', icon: Store, path: '/finance?tab=caixas' },
           { name: 'Investimentos SCP', displayName: 'Financeira do Investidor (SCP)', icon: TrendingUp, path: '/scp' },
           { name: 'Relatórios da Financeira', displayName: 'Relatórios Consolidados', icon: FileText, path: '/financeira-reports' }
         ] : []),
