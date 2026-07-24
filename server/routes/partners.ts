@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { db } from "../db/connection.js";
-import { partners, syncQueue } from "../db/schema.js";
+import { partners } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -94,12 +94,7 @@ router.post("/", async (req, res) => {
       pgPayload[camelToSnake(k)] = newPartner[k];
     }
 
-    await db.insert(syncQueue).values({
-      tableName: 'partners',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (error: any) {
@@ -142,12 +137,7 @@ router.patch("/:id", async (req, res) => {
       pgPayload[camelToSnake(k)] = (updatedPartner as any)[k];
     }
 
-    await db.insert(syncQueue).values({
-      tableName: 'partners',
-      action: 'UPDATE',
-      recordId: req.params.id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -174,12 +164,7 @@ router.delete("/:id", async (req, res) => {
 
     await db.delete(partners).where(eq(partners.id, req.params.id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'partners',
-      action: 'DELETE',
-      recordId: req.params.id,
-      payload: JSON.stringify({ id: req.params.id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(204).send();
   } catch (error: any) {

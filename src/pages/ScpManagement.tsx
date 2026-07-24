@@ -1454,7 +1454,7 @@ export default function ScpManagement() {
                     <th className="py-4 px-4">E-mail</th>
                     <th className="py-4 px-4">Parâmetros Juros</th>
                     <th className="py-4 px-4">Perfil</th>
-                    <th className="py-4 px-4 text-right">Saldo Disponível</th>
+                    <th className="py-4 px-4 text-right">Saldo Disponível (Lucro)</th>
                     <th className="py-4 px-4 text-right">Recebíveis Futuros</th>
                     <th className="py-4 px-4 text-center">Ações</th>
                   </tr>

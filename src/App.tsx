@@ -32,6 +32,7 @@ import PartnersLogin from './pages/PartnersLogin';
 import InvestorDashboard from './pages/InvestorDashboard';
 import ScpManagement from './pages/ScpManagement';
 import Commissions from './pages/Commissions';
+import FinanceiraReports from './pages/FinanceiraReports';
 
 import PrivateRoute from './components/layout/PrivateRoute';
 import { useAuthStore } from './store/useAuthStore';
@@ -110,6 +111,7 @@ export default function App() {
           <Route path="/suppliers" element={<PrivateRoute pageName="Fornecedores"><AppLayout><Suppliers /></AppLayout></PrivateRoute>} />
           <Route path="/partners" element={<PrivateRoute pageName="Parceiros"><AppLayout><Partners /></AppLayout></PrivateRoute>} />
           <Route path="/scp" element={<PrivateRoute requireAdmin={true}><AppLayout><ScpManagement /></AppLayout></PrivateRoute>} />
+          <Route path="/financeira-reports" element={<PrivateRoute pageName="Relatórios da Financeira" requireAdmin={true}><AppLayout><FinanceiraReports /></AppLayout></PrivateRoute>} />
           <Route path="/finance" element={<PrivateRoute pageName="Financeiro"><AppLayout><Finance /></AppLayout></PrivateRoute>} />
           <Route path="/commissions" element={<PrivateRoute requireAdmin={true}><AppLayout><Commissions /></AppLayout></PrivateRoute>} />
           <Route path="/cash-control" element={<PrivateRoute pageName="Controle de Caixa"><AppLayout><CashControl /></AppLayout></PrivateRoute>} />

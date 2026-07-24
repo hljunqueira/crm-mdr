@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db/connection.js";
-import { customers, syncQueue, notificationQueue } from "../db/schema.js";
+import { customers, notificationQueue } from "../db/schema.js";
 import { eq, or, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { supabase } from "../lib/supabase.js";
@@ -284,12 +284,7 @@ router.post("/", async (req, res) => {
       pgPayload[pgKey] = newCustomer[k];
     }
 
-    await db.insert(syncQueue).values({
-      tableName: 'customers',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload),
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     if (req.body.credit_status === 'EM_ANALISE') {
       notifyMaykonOfAnalysis(pgPayload, true);
@@ -426,12 +421,7 @@ router.patch("/:id", async (req, res) => {
       pgPayload[pgKey] = (updatedCust as any)[k];
     }
 
-    await db.insert(syncQueue).values({
-      tableName: 'customers',
-      action: 'UPDATE',
-      recordId: req.params.id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     if (req.body.credit_status === 'EM_ANALISE' && oldCust.creditStatus !== 'EM_ANALISE') {
       notifyMaykonOfAnalysis(pgPayload, true);
@@ -462,12 +452,7 @@ router.delete("/:id", async (req, res) => {
 
     await db.delete(customers).where(eq(customers.id, req.params.id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'customers',
-      action: 'DELETE',
-      recordId: req.params.id,
-      payload: JSON.stringify({ id: req.params.id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(204).send();
   } catch (err: any) {

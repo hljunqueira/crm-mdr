@@ -150,7 +150,7 @@ export default function CashControl() {
   const handleDeleteShift = async (shift: CashShift) => {
     showModal({
       title: 'Confirmar Exclusão de Fechamento',
-      type: 'warning',
+      type: 'danger',
       children: (
         <div className="space-y-4">
           <p className="text-sm">Tem certeza de que deseja excluir o fechamento de caixa do dia <span className="text-white font-black">{shift.closed_at ? new Date(shift.closed_at).toLocaleDateString('pt-BR') : ''}</span>?</p>
@@ -422,7 +422,7 @@ export default function CashControl() {
         <div className="flex items-center gap-3 w-full md:w-auto">
           {/* Unit Selector for Admins */}
           {isAdmin && units.length > 0 && (
-            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] w-full md:w-auto">
+            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-50 w-full md:w-auto">
               <Store size={16} className="text-primary shrink-0" />
               <select
                 value={selectedUnitId}
@@ -445,7 +445,7 @@ export default function CashControl() {
 
       <div className="space-y-8">
         {/* Estado do Caixa Ativo */}
-        <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
+        <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
           {!activeShift ? (
             <div className="text-center py-10 max-w-md mx-auto space-y-4">
               <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center text-error mx-auto">
@@ -656,7 +656,7 @@ export default function CashControl() {
                         </tr>
                       ) : (
                         currentShiftTransactions.map((tx) => (
-                          <tr key={tx.id} className="hover:bg-white/[0.01] transition-colors">
+                          <tr key={tx.id} className="hover:bg-white/1 transition-colors">
                             <td className="py-3 pl-4 text-[9px] font-mono text-on-surface-variant">
                               {new Date(tx.created_at).toLocaleTimeString('pt-BR')}
                             </td>
@@ -673,7 +673,7 @@ export default function CashControl() {
                                tx.category === 'despesa_luz' ? 'Despesa Luz' :
                                tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
                             </td>
-                            <td className="py-3 text-[10px] text-on-surface-variant max-w-[200px] truncate" title={tx.description}>
+                            <td className="py-3 text-[10px] text-on-surface-variant max-w-50 truncate" title={tx.description}>
                               {tx.description || '—'}
                             </td>
                             <td className="py-3 text-[9px] font-black uppercase text-on-surface-variant">
@@ -696,7 +696,7 @@ export default function CashControl() {
         </div>
 
         {/* Histórico de Fechamentos Recentes */}
-        <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
+        <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 p-6 space-y-6">
           <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
             <History size={16} /> Histórico de Fechamentos de Caixa
           </h3>
@@ -723,7 +723,7 @@ export default function CashControl() {
                   shiftHistory.map((shift) => {
                     const hasDiscrepancy = Number(shift.difference || 0) !== 0;
                     return (
-                      <tr key={shift.id} className="hover:bg-white/[0.01] transition-colors">
+                      <tr key={shift.id} className="hover:bg-white/1 transition-colors">
                         <td className="py-4 pl-4 text-[10px] font-mono text-on-surface-variant">
                           {shift.closed_at ? new Date(shift.closed_at).toLocaleString('pt-BR') : '—'}
                         </td>
@@ -799,7 +799,7 @@ export default function CashControl() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl z-10"
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl z-10"
             >
               <div className="flex items-center justify-between p-6 border-b border-white/10">
                 <div>
@@ -906,7 +906,7 @@ export default function CashControl() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl z-10"
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl z-10"
             >
               <div className="flex items-center justify-between p-6 border-b border-white/10">
                 <div>

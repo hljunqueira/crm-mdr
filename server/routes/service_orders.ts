@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { updateCollaboratorGoalProgress } from "../lib/goalsHelper.js";
 import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 import { db } from "../db/connection.js";
-import { repairOrders, repairOrderParts, outsourcedOrders, syncQueue, notificationQueue, customers, profiles } from "../db/schema.js";
+import { repairOrders, repairOrderParts, outsourcedOrders, notificationQueue, customers, profiles } from "../db/schema.js";
 import { eq, or, and, inArray } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -72,12 +72,7 @@ async function updateOsPartsValue(osId: string, isOffline = false) {
       const [updatedOs] = await db.select().from(repairOrders).where(eq(repairOrders.id, osId)).limit(1);
       if (updatedOs) {
         const pgPayload = mapLocalToCloud('repair_orders', updatedOs);
-        await db.insert(syncQueue).values({
-          tableName: 'service_orders',
-          action: 'UPDATE',
-          recordId: osId,
-          payload: JSON.stringify(pgPayload)
-        });
+        // syncQueue insert removed (Supabase native mode)
       }
     }
   } catch (err) {
@@ -294,12 +289,7 @@ router.post("/", async (req, res) => {
 
     const pgPayload = mapLocalToCloud('repair_orders', newOs);
 
-    await db.insert(syncQueue).values({
-      tableName: 'service_orders',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (err: any) {
@@ -419,12 +409,7 @@ router.patch("/:id", async (req, res) => {
 
     const pgPayload = mapLocalToCloud('repair_orders', updatedOs);
 
-    await db.insert(syncQueue).values({
-      tableName: 'service_orders',
-      action: 'UPDATE',
-      recordId: req.params.id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (err: any) {
@@ -470,12 +455,7 @@ router.delete("/:id", async (req, res) => {
 
     await db.delete(repairOrders).where(eq(repairOrders.id, req.params.id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'service_orders',
-      action: 'DELETE',
-      recordId: req.params.id,
-      payload: JSON.stringify({ id: req.params.id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(204).send();
   } catch (err: any) {
@@ -524,12 +504,7 @@ router.post("/:id/parts", async (req, res) => {
       created_at: newPart.updatedAt
     };
 
-    await db.insert(syncQueue).values({
-      tableName: 'service_order_parts',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     await updateOsPartsValue(req.params.id, true);
 
@@ -560,12 +535,7 @@ router.delete("/:id/parts/:partId", async (req, res) => {
 
     await db.delete(repairOrderParts).where(eq(repairOrderParts.id, req.params.partId));
 
-    await db.insert(syncQueue).values({
-      tableName: 'service_order_parts',
-      action: 'DELETE',
-      recordId: req.params.partId,
-      payload: JSON.stringify({ id: req.params.partId })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     await updateOsPartsValue(req.params.id, true);
 
@@ -870,12 +840,7 @@ router.post("/:id/outsource", async (req, res) => {
       sent_at: newOutsourced.sentAt
     };
 
-    await db.insert(syncQueue).values({
-      tableName: 'outsourced_orders',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (err: any) {
@@ -931,12 +896,7 @@ router.patch("/:id/outsource/:outsourceId", async (req, res) => {
 
     const pgPayload = mapLocalToCloud('outsourced_orders', updatedOut);
 
-    await db.insert(syncQueue).values({
-      tableName: 'outsourced_orders',
-      action: 'UPDATE',
-      recordId: req.params.outsourceId,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (err: any) {
@@ -962,12 +922,7 @@ router.delete("/:id/outsource/:outsourceId", async (req, res) => {
 
     await db.delete(outsourcedOrders).where(eq(outsourcedOrders.id, req.params.outsourceId));
 
-    await db.insert(syncQueue).values({
-      tableName: 'outsourced_orders',
-      action: 'DELETE',
-      recordId: req.params.outsourceId,
-      payload: JSON.stringify({ id: req.params.outsourceId })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(204).send();
   } catch (err: any) {

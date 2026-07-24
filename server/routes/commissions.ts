@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { db } from "../db/connection.js";
-import { commissionSettings, employeeVouchers, profiles, cashShifts, cashTransactions, syncQueue } from "../db/schema.js";
+import { commissionSettings, employeeVouchers, profiles, cashShifts, cashTransactions } from "../db/schema.js";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -155,12 +155,7 @@ router.post("/settings", async (req, res) => {
     }
 
     const pgPayload = mapLocalToCloud('commission_settings', upsertData);
-    await db.insert(syncQueue).values({
-      tableName: 'commission_settings',
-      action: existing ? 'UPDATE' : 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -338,12 +333,7 @@ router.post("/vouchers", async (req, res) => {
     await db.insert(employeeVouchers).values(newVoucher);
 
     const pgPayload = mapLocalToCloud('employee_vouchers', newVoucher);
-    await db.insert(syncQueue).values({
-      tableName: 'employee_vouchers',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -382,12 +372,7 @@ router.delete("/vouchers/:id", async (req, res) => {
 
     await db.delete(employeeVouchers).where(eq(employeeVouchers.id, id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'employee_vouchers',
-      action: 'DELETE',
-      recordId: id,
-      payload: JSON.stringify({ id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json({ success: true, message: "Vale excluído com sucesso." });
   } catch (error: any) {

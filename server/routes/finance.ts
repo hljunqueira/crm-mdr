@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import crypto from "crypto";
-import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix } from "../services/asaasService.js";
+import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix, deleteAsaasPayment } from "../services/asaasService.js";
 import { processScpInstallmentPayout } from "./scp_payout_trigger.js";
 import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 import { updateCustomerStatus } from "../utils/customerStatus.js";
 
 import { db } from "../db/connection.js";
-import { installments, sales, customers, cashShifts, cashTransactions, syncQueue, notificationQueue, profiles } from "../db/schema.js";
+import { installments, sales, customers, cashShifts, cashTransactions, notificationQueue, profiles } from "../db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
 
 const router = Router();
@@ -268,12 +268,7 @@ router.post("/installments", async (req, res) => {
       await db.insert(installments).values(localInst);
 
       const pgPayload = mapLocalToCloud('installments', localInst);
-      await db.insert(syncQueue).values({
-        tableName: 'installments',
-        action: 'INSERT',
-        recordId: instId,
-        payload: JSON.stringify(pgPayload)
-      });
+      // syncQueue insert removed (Supabase native mode)
       localPayloads.push(pgPayload);
     }
     res.status(201).json(localPayloads);
@@ -387,6 +382,12 @@ router.patch("/installments/:id", async (req, res) => {
         }
       }
 
+      if (current.asaas_payment_id) {
+        deleteAsaasPayment(current.asaas_payment_id).catch(err => {
+          console.warn(`[Finance Route] Erro ao cancelar cobrança ${current.asaas_payment_id} no Asaas ao receber parcela manualmente:`, err);
+        });
+      }
+
       processScpInstallmentPayout(req.params.id, amount).catch(err => {
         console.error("[SCP Payout Trigger Error]", err);
       });
@@ -452,12 +453,7 @@ router.patch("/installments/:id", async (req, res) => {
 
     const pgPayload = mapLocalToCloud('installments', updatedInst);
 
-    await db.insert(syncQueue).values({
-      tableName: 'installments',
-      action: 'UPDATE',
-      recordId: req.params.id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -555,12 +551,7 @@ router.post("/shifts/open", async (req, res) => {
     await db.insert(cashShifts).values(newShift);
 
     const pgPayload = mapLocalToCloud('cash_shifts', newShift);
-    await db.insert(syncQueue).values({
-      tableName: 'cash_shifts',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (err: any) {
@@ -626,12 +617,7 @@ router.post("/shifts/close", async (req, res) => {
     const [updated] = await db.select().from(cashShifts).where(eq(cashShifts.id, shift_id)).limit(1);
 
     const pgPayload = mapLocalToCloud('cash_shifts', updated);
-    await db.insert(syncQueue).values({
-      tableName: 'cash_shifts',
-      action: 'UPDATE',
-      recordId: shift_id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (err: any) {
@@ -737,12 +723,7 @@ router.patch("/shifts/:id", async (req, res) => {
     const [updated] = await db.select().from(cashShifts).where(eq(cashShifts.id, id)).limit(1);
 
     const pgPayload = mapLocalToCloud('cash_shifts', updated);
-    await db.insert(syncQueue).values({
-      tableName: 'cash_shifts',
-      action: 'UPDATE',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (err: any) {
@@ -771,12 +752,7 @@ router.delete("/shifts/:id", async (req, res) => {
 
     await db.delete(cashShifts).where(eq(cashShifts.id, id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'cash_shifts',
-      action: 'DELETE',
-      recordId: id,
-      payload: JSON.stringify({ id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json({ success: true });
   } catch (err: any) {
@@ -931,12 +907,7 @@ router.post("/transactions", async (req, res) => {
       created_by
     };
 
-    await db.insert(syncQueue).values({
-      tableName: 'cash_transactions',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (err: any) {
@@ -1000,12 +971,7 @@ router.delete("/transactions/:id", async (req, res) => {
 
     await db.delete(cashTransactions).where(eq(cashTransactions.id, id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'cash_transactions',
-      action: 'DELETE',
-      recordId: id,
-      payload: JSON.stringify({ id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json({ success: true });
   } catch (err: any) {

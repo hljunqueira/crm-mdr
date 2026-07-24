@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { db } from "../db/connection.js";
-import { inventoryAudits, inventoryAuditItems, profiles, devices, syncQueue } from "../db/schema.js";
+import { inventoryAudits, inventoryAuditItems, profiles, devices } from "../db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -213,12 +213,7 @@ router.post("/", async (req, res) => {
     await db.insert(inventoryAudits).values(newAudit);
 
     const pgPayload = mapLocalToCloud('inventory_audits', newAudit);
-    await db.insert(syncQueue).values({
-      tableName: 'inventory_audits',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (error: any) {
@@ -376,12 +371,7 @@ router.post("/:id/items", async (req, res) => {
       const [updated] = await db.select().from(inventoryAuditItems).where(eq(inventoryAuditItems.id, existingItem.id)).limit(1);
       result = mapLocalToCloud('inventory_audit_items', updated);
 
-      await db.insert(syncQueue).values({
-        tableName: 'inventory_audit_items',
-        action: 'UPDATE',
-        recordId: existingItem.id,
-        payload: JSON.stringify(result)
-      });
+      // syncQueue insert removed (Supabase native mode)
     } else {
       const newId = crypto.randomUUID();
       const newAuditItem = {
@@ -400,12 +390,7 @@ router.post("/:id/items", async (req, res) => {
       await db.insert(inventoryAuditItems).values(newAuditItem);
 
       result = mapLocalToCloud('inventory_audit_items', newAuditItem);
-      await db.insert(syncQueue).values({
-        tableName: 'inventory_audit_items',
-        action: 'INSERT',
-        recordId: newId,
-        payload: JSON.stringify(result)
-      });
+      // syncQueue insert removed (Supabase native mode)
     }
 
     res.json(result);
@@ -509,12 +494,7 @@ router.post("/:id/finalize", async (req, res) => {
     const [finalizedAudit] = await db.select().from(inventoryAudits).where(eq(inventoryAudits.id, id)).limit(1);
 
     const pgPayload = mapLocalToCloud('inventory_audits', finalizedAudit);
-    await db.insert(syncQueue).values({
-      tableName: 'inventory_audits',
-      action: 'UPDATE',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -559,12 +539,7 @@ router.post("/:id/cancel", async (req, res) => {
     const [updated] = await db.select().from(inventoryAudits).where(eq(inventoryAudits.id, id)).limit(1);
 
     const pgPayload = mapLocalToCloud('inventory_audits', updated);
-    await db.insert(syncQueue).values({
-      tableName: 'inventory_audits',
-      action: 'UPDATE',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -607,12 +582,7 @@ router.delete("/:id", async (req, res) => {
 
     await db.delete(inventoryAudits).where(eq(inventoryAudits.id, id));
 
-    await db.insert(syncQueue).values({
-      tableName: 'inventory_audits',
-      action: 'DELETE',
-      recordId: id,
-      payload: JSON.stringify({ id })
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(204).send();
   } catch (error: any) {

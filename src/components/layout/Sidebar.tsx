@@ -104,16 +104,27 @@ export default function Sidebar() {
       ]
     },
     {
+      title: 'Módulo Financeira',
+      subtitle: 'Crédito, Bloqueios e Recebíveis',
+      icon: CreditCard,
+      items: [
+        { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
+        { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares (MDM)', icon: ShieldCheck, path: '/device-locks' },
+        { name: 'Financeiro', displayName: 'Financeira da Loja (Boletos)', icon: CreditCard, path: '/finance' },
+        ...(profile?.role === 'admin' ? [
+          { name: 'Investimentos SCP', displayName: 'Financeira do Investidor (SCP)', icon: TrendingUp, path: '/scp' },
+          { name: 'Relatórios da Financeira', displayName: 'Relatórios Consolidados', icon: FileText, path: '/financeira-reports' }
+        ] : []),
+      ]
+    },
+    {
       title: 'Financeiro & Fiscal',
       subtitle: 'Controle e Emissão',
       icon: CreditCard,
       items: [
-        { name: 'Financeiro', displayName: 'Recebíveis', icon: CreditCard, path: '/finance' },
         { name: 'Controle de Caixa', icon: DollarSign, path: '/cash-control' },
-        { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares', icon: ShieldCheck, path: '/device-locks' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
         ...(profile?.role === 'admin' ? [
-          { name: 'Investimentos SCP', displayName: 'Investimentos SCP', icon: TrendingUp, path: '/scp' },
           { name: 'Comissões & Vales', displayName: 'Comissões & Vales', icon: DollarSign, path: '/commissions' }
         ] : []),
       ]
@@ -208,7 +219,7 @@ export default function Sidebar() {
                 {!isCollapsed && (
                   <div className="min-w-0">
                     <span className="font-display text-xs font-black uppercase tracking-wider block leading-none">{group.title}</span>
-                    <span className="text-[9px] text-on-surface-variant/40 block mt-0.5 leading-none truncate max-w-[150px] font-medium">{group.subtitle}</span>
+                    <span className="text-[9px] text-on-surface-variant/40 block mt-0.5 leading-none truncate max-w-37.5 font-medium">{group.subtitle}</span>
                   </div>
                 )}
               </div>
@@ -227,7 +238,7 @@ export default function Sidebar() {
             <div 
               className={cn(
                 "overflow-hidden transition-all duration-300 ease-in-out",
-                isExpanded && !isCollapsed ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 pointer-events-none"
+                isExpanded && !isCollapsed ? "max-h-125 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
               )}
             >
               <div className="space-y-1 pt-1.5 pl-2 border-l border-outline-variant/30 ml-5">
@@ -240,7 +251,7 @@ export default function Sidebar() {
                       className={cn(
                         "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group/item relative border-l-2",
                         isActive 
-                          ? "bg-primary-container text-on-primary-container font-semibold border-primary pl-[14px]" 
+                          ? "bg-primary-container text-on-primary-container font-semibold border-primary pl-3.5" 
                           : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest border-transparent"
                       )}
                     >

@@ -534,7 +534,7 @@ export default function InvestorDashboard() {
                   </span>
                   <p className="text-[10px] text-zinc-400 mt-2 flex items-center gap-1.5">
                     <ShieldCheck size={14} className="text-emerald-400" />
-                    Pronto para saque Pix
+                    Lucro disponível para saque Pix
                   </p>
                 </div>
                 <button
@@ -576,7 +576,7 @@ export default function InvestorDashboard() {
                     Capital ativo sob gestão
                   </p>
                 </div>
-                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                <div className="h-9.5 flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
                   <span>Recebido de volta:</span>
                   <span className="font-bold text-zinc-300">R$ {wallet.capitalRecovered.toLocaleString('pt-BR')}</span>
                 </div>
@@ -600,7 +600,7 @@ export default function InvestorDashboard() {
                     Lucro previsto de parcelas em aberto
                   </p>
                 </div>
-                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                <div className="h-9.5 flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
                   <span>Recebíveis Totais:</span>
                   <span className="font-bold text-zinc-300">
                     R$ {(wallet.futureReceipts || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -627,7 +627,7 @@ export default function InvestorDashboard() {
                       Recebíveis futuros da carteira
                     </p>
                   </div>
-                  <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                  <div className="h-9.5 flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
                     <span>Inadimplência Renda:</span>
                     <span className={`font-bold ${renda.delinquencyRate > 10 ? 'text-rose-400' : 'text-zinc-300'}`}>
                       {renda.delinquencyRate.toFixed(1)}% (R$ {renda.totalOverdue.toLocaleString('pt-BR')})
@@ -710,7 +710,7 @@ export default function InvestorDashboard() {
                     Retorno: {fintechCategory.rate.toFixed(1)}% a.m.
                   </p>
                 </div>
-                <div className="h-[38px] flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
+                <div className="h-9.5 flex items-center justify-between text-[10px] text-zinc-500 mt-4 border-t border-zinc-800/60 pt-3">
                   <span className="text-[9px]">Reinvestir:</span>
                   <button
                     onClick={async () => {
@@ -1063,7 +1063,7 @@ export default function InvestorDashboard() {
                 </div>
               ) : (
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-225">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Aparelho</th>
@@ -1134,7 +1134,7 @@ export default function InvestorDashboard() {
                 </h3>
 
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[800px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-200">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Contrato</th>
@@ -1197,7 +1197,7 @@ export default function InvestorDashboard() {
                 </div>
               ) : (
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-175">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Aparelho / Lote</th>
@@ -1248,7 +1248,7 @@ export default function InvestorDashboard() {
                 </h3>
 
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[600px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-150">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Valor</th>
@@ -1325,7 +1325,7 @@ export default function InvestorDashboard() {
                 </div>
               ) : (
                 <div className="bg-[#121214] border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[600px]">
+                  <table className="w-full text-left text-xs border-collapse min-w-150">
                     <thead>
                       <tr className="border-b border-zinc-800 bg-white/2 text-zinc-500 uppercase tracking-widest text-[9px] font-black">
                         <th className="py-4 px-6">Transação</th>
@@ -1383,7 +1383,7 @@ export default function InvestorDashboard() {
 
             <h3 className="text-sm font-bold text-white uppercase tracking-wider pr-6">Solicitar Resgate Pix</h3>
             <p className="text-xs text-zinc-400">
-              Insira o valor que deseja resgatar e os dados da sua chave Pix. O saldo disponível na sua carteira é de: <strong>R$ {wallet.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+              Insira o valor que deseja resgatar e os dados da sua chave Pix. O saldo de lucro disponível para saque é de: <strong>R$ {wallet.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
             </p>
 
             {withdrawalError && (

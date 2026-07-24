@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { db } from "../db/connection.js";
-import { invoices, stores, syncQueue } from "../db/schema.js";
+import { invoices, stores } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -101,12 +101,7 @@ router.post("/", async (req, res) => {
     await db.insert(invoices).values(newInvoice);
 
     const pgPayload = mapLocalToCloud('invoices', newInvoice);
-    await db.insert(syncQueue).values({
-      tableName: 'invoices',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (error: any) {
@@ -145,12 +140,7 @@ router.patch("/:id", async (req, res) => {
     if (!updatedInvoice) return res.status(404).json({ error: "Nota Fiscal não encontrada" });
 
     const pgPayload = mapLocalToCloud('invoices', updatedInvoice);
-    await db.insert(syncQueue).values({
-      tableName: 'invoices',
-      action: 'UPDATE',
-      recordId: req.params.id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -232,12 +222,7 @@ router.post("/config/:storeId", async (req, res) => {
     const [updatedStore] = await db.select().from(stores).where(eq(stores.id, req.params.storeId)).limit(1);
 
     const pgPayload = mapLocalToCloud('stores', updatedStore);
-    await db.insert(syncQueue).values({
-      tableName: 'stores',
-      action: 'UPDATE',
-      recordId: req.params.storeId,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json({
       cnpj: updatedStore.cnpj,

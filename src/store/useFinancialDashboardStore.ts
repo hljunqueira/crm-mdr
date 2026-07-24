@@ -33,6 +33,7 @@ export interface MonthlyCardReportItem {
   month: number;
   year: number;
   monthLabel: string;
+  initialTotalDebt: number;
   fixedValue: number;
   paidValue: number;
   remainingValue: number;

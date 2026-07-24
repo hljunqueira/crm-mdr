@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { google } from "googleapis";
 import path from "path";
 import { db } from "../db/connection.js";
-import { deviceLocks, deviceBlockLogs, automationSettings, syncQueue } from "../db/schema.js";
+import { deviceLocks, deviceBlockLogs, automationSettings } from "../db/schema.js";
 import { eq, desc } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -310,12 +310,7 @@ router.post("/", async (req, res) => {
     await db.insert(deviceLocks).values(newLock);
 
     const pgPayload = mapLocalToCloud('device_locks', newLock);
-    await db.insert(syncQueue).values({
-      tableName: 'device_locks',
-      action: 'INSERT',
-      recordId: id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (error: any) {
@@ -356,12 +351,7 @@ router.patch("/:id", async (req, res) => {
     if (!updatedLock) return res.status(404).json({ error: "Bloqueio não encontrado" });
 
     const pgPayload = mapLocalToCloud('device_locks', updatedLock);
-    await db.insert(syncQueue).values({
-      tableName: 'device_locks',
-      action: 'UPDATE',
-      recordId: req.params.id,
-      payload: JSON.stringify(pgPayload)
-    });
+    // syncQueue insert removed (Supabase native mode)
 
     res.json(pgPayload);
   } catch (error: any) {
@@ -459,12 +449,7 @@ router.post("/:id/lock", async (req, res) => {
       const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
       updatedLock = mapLocalToCloud('device_locks', updated);
 
-      await db.insert(syncQueue).values({
-        tableName: 'device_locks',
-        action: 'UPDATE',
-        recordId: id,
-        payload: JSON.stringify(updatedLock)
-      });
+      // syncQueue insert removed (Supabase native mode)
     } else {
       await db.update(deviceLocks)
         .set({
@@ -479,12 +464,7 @@ router.post("/:id/lock", async (req, res) => {
       const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
       updatedLock = mapLocalToCloud('device_locks', updated);
 
-      await db.insert(syncQueue).values({
-        tableName: 'device_locks',
-        action: 'UPDATE',
-        recordId: id,
-        payload: JSON.stringify(updatedLock)
-      });
+      // syncQueue insert removed (Supabase native mode)
     }
 
     res.json({ success: true, data: updatedLock });
@@ -579,12 +559,7 @@ router.post("/:id/unlock", async (req, res) => {
       const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
       updatedLock = mapLocalToCloud('device_locks', updated);
 
-      await db.insert(syncQueue).values({
-        tableName: 'device_locks',
-        action: 'UPDATE',
-        recordId: id,
-        payload: JSON.stringify(updatedLock)
-      });
+      // syncQueue insert removed (Supabase native mode)
     } else {
       await db.update(deviceLocks)
         .set({
@@ -599,12 +574,7 @@ router.post("/:id/unlock", async (req, res) => {
       const [updated] = await db.select().from(deviceLocks).where(eq(deviceLocks.id, id)).limit(1);
       updatedLock = mapLocalToCloud('device_locks', updated);
 
-      await db.insert(syncQueue).values({
-        tableName: 'device_locks',
-        action: 'UPDATE',
-        recordId: id,
-        payload: JSON.stringify(updatedLock)
-      });
+      // syncQueue insert removed (Supabase native mode)
     }
 
     res.json({ success: true, data: updatedLock });

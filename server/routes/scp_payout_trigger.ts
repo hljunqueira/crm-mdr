@@ -58,6 +58,13 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
       const investorRepasse = Number((amountPaid * pct).toFixed(2));
 
       if (investorRepasse > 0) {
+        // Calcular fracao de lucro vs capital para Renda
+        const purchaseCost = Number(purchase.purchase_price || 0);
+        const totalReceivable = Number(purchase.total_receivable || purchaseCost || 1);
+        const costFraction = totalReceivable > 0 ? purchaseCost / totalReceivable : 0;
+        const rendaAmortization = investorRepasse * costFraction;
+        const rendaProfit = Number((investorRepasse - rendaAmortization).toFixed(2));
+
         // Verificar se transação já foi processada
         const { data: existingTx } = await supabase
           .from("wallet_transactions")
@@ -71,7 +78,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
           return;
         }
 
-        // Atualizar carteira
+        // Atualizar carteira (apenas o lucro vai para o balance disponível para saque)
         const { data: wallet } = await supabase
           .from("wallets")
           .select("*")
@@ -82,7 +89,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
           await supabase
             .from("wallets")
             .update({
-              balance: Number((Number(wallet.balance) + investorRepasse).toFixed(2)),
+              balance: Number((Number(wallet.balance) + rendaProfit).toFixed(2)),
               future_receipts: Math.max(0, Number((Number(wallet.future_receipts) - investorRepasse).toFixed(2))),
               updated_at: new Date().toISOString()
             })
@@ -92,7 +99,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
             .from("wallets")
             .insert({
               profile_id: investorId,
-              balance: investorRepasse,
+              balance: rendaProfit,
               future_receipts: 0
             });
         }
@@ -237,18 +244,20 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
           return;
         }
 
-        // Update Wallet Balance
+        // Update Wallet Balance (only profit is credited to withdrawable balance)
         const { data: wallet } = await supabase
           .from("wallets")
           .select("*")
           .eq("profile_id", investorId)
           .maybeSingle();
 
+        const profitToCredit = Number(investorProfit.toFixed(2));
+
         if (wallet) {
           await supabase
             .from("wallets")
             .update({
-              balance: Number((Number(wallet.balance) + investorRepasse).toFixed(2)),
+              balance: Number((Number(wallet.balance) + profitToCredit).toFixed(2)),
               future_receipts: Math.max(0, Number((Number(wallet.future_receipts) - amortization).toFixed(2))),
               updated_at: new Date().toISOString()
             })
@@ -258,7 +267,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
             .from("wallets")
             .insert({
               profile_id: investorId,
-              balance: investorRepasse,
+              balance: profitToCredit,
               future_receipts: Math.max(0, Number(((device.prime_profit_share_type === 'profit_only' ? 0 : deviceSalePrice) - amortization).toFixed(2)))
             });
         }
@@ -421,18 +430,20 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
         continue;
       }
 
-      // Update wallet balance and future receipts
+      // Update wallet balance (only interest/profit credited to withdrawable balance) and future receipts
       const { data: wallet } = await supabase
         .from("wallets")
         .select("*")
         .eq("profile_id", q.profile_id)
         .maybeSingle();
 
+      const profitToCredit = Number(investorShareInterest.toFixed(2));
+
       if (wallet) {
         await supabase
           .from("wallets")
           .update({
-            balance: Number((Number(wallet.balance) + investorRepasse).toFixed(2)),
+            balance: Number((Number(wallet.balance) + profitToCredit).toFixed(2)),
             future_receipts: Math.max(0, Number((Number(wallet.future_receipts) - investorShareCapital).toFixed(2))),
             updated_at: new Date().toISOString()
           })
@@ -442,7 +453,7 @@ export async function processScpInstallmentPayout(installmentId: string, amountP
           .from("wallets")
           .insert({
             profile_id: q.profile_id,
-            balance: investorRepasse,
+            balance: profitToCredit,
             future_receipts: Math.max(0, Number((Number(q.amount_invested) - investorShareCapital).toFixed(2)))
           });
       }

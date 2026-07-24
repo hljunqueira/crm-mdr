@@ -271,10 +271,10 @@ export default function DeviceLockPanel() {
         <div>
           <h1 className="text-2xl font-display font-bold text-white flex items-center gap-3">
             <ShieldCheck className="text-primary w-8 h-8" />
-            Controle de Bloqueio de Celulares
+            Controle de Bloqueio de Celulares (MDM)
           </h1>
           <p className="text-xs text-on-surface-variant max-w-xl">
-            Gestão de adimplência do crediário MDR: Controle manual de bloqueio para iPhones (iCloud) e Androids (Google Device Lock Controller).
+            Plataforma Financeira: Controle manual das ordens de trava e destrava remota para smartphones (Android MDM / Knox & iPhone) vinculados a boletos em atraso.
           </p>
         </div>
         
@@ -300,7 +300,7 @@ export default function DeviceLockPanel() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white/2 border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
+        <div className="p-6 bg-white/2 border border-white/5 rounded-4xl flex items-center gap-5 relative overflow-hidden group">
           <div className="absolute inset-0 bg-linear-to-tr from-white/1 to-white/3 opacity-0 group-hover:opacity-100 transition-all duration-500" />
           <div className="p-4 bg-primary/10 rounded-2xl text-primary">
             <Smartphone size={24} />
@@ -311,7 +311,7 @@ export default function DeviceLockPanel() {
           </div>
         </div>
 
-        <div className="p-6 bg-white/2 border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
+        <div className="p-6 bg-white/2 border border-white/5 rounded-4xl flex items-center gap-5 relative overflow-hidden group">
           <div className="absolute inset-0 bg-linear-to-tr from-white/1 to-white/3 opacity-0 group-hover:opacity-100 transition-all duration-500" />
           <div className="p-4 bg-red-500/10 rounded-2xl text-red-500">
             <Lock size={24} />
@@ -322,7 +322,7 @@ export default function DeviceLockPanel() {
           </div>
         </div>
 
-        <div className="p-6 bg-white/2 border border-white/5 rounded-[32px] flex items-center gap-5 relative overflow-hidden group">
+        <div className="p-6 bg-white/2 border border-white/5 rounded-4xl flex items-center gap-5 relative overflow-hidden group">
           <div className="absolute inset-0 bg-linear-to-tr from-white/1 to-white/3 opacity-0 group-hover:opacity-100 transition-all duration-500" />
           <div className="p-4 bg-amber-500/10 rounded-2xl text-amber-500">
             <Clock size={24} />
@@ -468,7 +468,7 @@ export default function DeviceLockPanel() {
 
                         {/* Vínculo Corporativo */}
                         <td className="px-6 py-4">
-                          <div className="text-xs text-white max-w-[180px] truncate font-medium">
+                          <div className="text-xs text-white max-w-45 truncate font-medium">
                             {isIos ? (
                               <span className="flex items-center gap-1" title={lock.icloud_email}>
                                 <Building size={12} className="text-on-surface-variant" />
@@ -662,7 +662,7 @@ export default function DeviceLockPanel() {
                         <img 
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(enrollmentQr)}`} 
                           alt="Android Enterprise Provisioning QR Code" 
-                          className="w-[160px] h-[160px]"
+                          className="w-40 h-40"
                         />
                       </div>
                       <div className="space-y-3 text-left">

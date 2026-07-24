@@ -936,16 +936,42 @@ router.post("/withdraw", async (req, res) => {
       return res.status(400).json({ error: "O valor do resgate deve ser maior que zero." });
     }
 
-    // Verificar se o saldo do investidor é suficiente
+    // Verificar se o saldo do investidor é suficiente (deduzindo saques pendentes se houver)
     const { data: wallet } = await supabase
       .from("wallets")
-      .select("balance")
+      .select("id, balance")
       .eq("profile_id", profile_id)
       .maybeSingle();
 
     const balance = wallet ? Number(wallet.balance) : 0;
-    if (balance < Number(amount)) {
-      return res.status(400).json({ error: "Saldo insuficiente para solicitar este saque." });
+    
+    // Obter saques pendentes
+    const { data: pendingRequests } = await supabase
+      .from("withdrawal_requests")
+      .select("amount")
+      .eq("profile_id", profile_id)
+      .eq("status", "PENDING");
+
+    const pendingTotal = (pendingRequests || []).reduce((acc, r) => acc + Number(r.amount || 0), 0);
+    const effectiveBalance = balance - pendingTotal;
+
+    if (balance < Number(amount) || effectiveBalance < Number(amount)) {
+      return res.status(400).json({ 
+        error: `Saldo insuficiente para solicitar este saque. Saldo livre: R$ ${Math.max(0, effectiveBalance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.` 
+      });
+    }
+
+    // Deduzir o valor da carteira imediatamente (reserva de saldo para o saque pendente)
+    if (wallet) {
+      const { error: walletUpErr } = await supabase
+        .from("wallets")
+        .update({
+          balance: Number((balance - Number(amount)).toFixed(2)),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", wallet.id);
+
+      if (walletUpErr) throw walletUpErr;
     }
 
     const { data, error } = await supabase
@@ -960,7 +986,16 @@ router.post("/withdraw", async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Reverter a dedução da carteira caso a inserção falhe
+      if (wallet) {
+        await supabase
+          .from("wallets")
+          .update({ balance, updated_at: new Date().toISOString() })
+          .eq("id", wallet.id);
+      }
+      throw error;
+    }
 
     // Disparar notificações de saque por WhatsApp (não-bloqueante)
     (async () => {
@@ -1093,31 +1128,10 @@ router.post("/withdrawals/:id/approve", async (req, res) => {
       return res.status(400).json({ error: "Esta solicitação já foi processada." });
     }
 
-    // Obter saldo atual do investidor
-    const { data: wallet, error: wallErr } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("profile_id", request.profile_id)
-      .single();
-
-    if (wallErr || !wallet) {
-      return res.status(400).json({ error: "Carteira do investidor não encontrada." });
-    }
-
     const val = Number(request.amount);
 
-    // Deduzir o valor da carteira do investidor
-    const { error: walletUpErr } = await supabase
-      .from("wallets")
-      .update({
-        balance: Number(wallet.balance) - val,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", wallet.id);
-
-    if (walletUpErr) throw walletUpErr;
-
-    // Registrar transação de WITHDRAWAL no extrato
+    // O saldo da carteira já foi deduzido na criação do saque (PENDING).
+    // Registrar transação de WITHDRAWAL no extrato para histórico definitivo.
     const { error: txErr } = await supabase
       .from("wallet_transactions")
       .insert({
@@ -1154,6 +1168,40 @@ router.post("/withdrawals/:id/approve", async (req, res) => {
 router.post("/withdrawals/:id/reject", async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Buscar dados do saque para saber o valor e investidor
+    const { data: request, error: reqErr } = await supabase
+      .from("withdrawal_requests")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (reqErr || !request) {
+      return res.status(404).json({ error: "Solicitação de saque não encontrada." });
+    }
+
+    if (request.status !== "PENDING") {
+      return res.status(400).json({ error: "Esta solicitação já foi processada." });
+    }
+
+    const refundAmount = Number(request.amount);
+
+    // Reembolsar o valor retido de volta para a carteira do investidor
+    const { data: wallet } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("profile_id", request.profile_id)
+      .maybeSingle();
+
+    if (wallet) {
+      await supabase
+        .from("wallets")
+        .update({
+          balance: Number((Number(wallet.balance) + refundAmount).toFixed(2)),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", wallet.id);
+    }
 
     const { data: updatedReq, error } = await supabase
       .from("withdrawal_requests")

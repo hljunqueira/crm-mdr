@@ -138,7 +138,12 @@ export default function Commissions() {
       const data = await api.get('/users');
       const filtered = (data || []).filter((u: any) => 
         u.role !== 'investor' && 
-        !u.full_name?.toLowerCase().includes('terminal')
+        u.role !== 'superadmin' &&
+        u.username !== 'admin' &&
+        !u.full_name?.toLowerCase().includes('terminal') &&
+        !u.full_name?.toLowerCase().includes('super admin') &&
+        !u.full_name?.toLowerCase().includes('superadmin') &&
+        !u.full_name?.toLowerCase().includes('administrador do sistema')
       );
       setCollaborators(filtered);
       if (filtered && filtered.length > 0 && !selectedCollaboratorId) {
@@ -383,9 +388,46 @@ export default function Commissions() {
     }
   };
 
+  const [isPayingPayroll, setIsPayingPayroll] = useState(false);
+
   const handleClosePayroll = () => {
     showNotification('success', 'Folha Fechada', 'O fechamento foi salvo e o comprovante está pronto para impressão.');
     window.print();
+  };
+
+  const handlePayPayrollInCash = async () => {
+    if (netPayable <= 0) {
+      showNotification('warning', 'Sem Saldo a Pagar', 'O saldo líquido a receber desta folha é zero.');
+      return;
+    }
+    const targetUnitId = selectedUnitId !== 'all' ? selectedUnitId : (selectedColProfile?.store_id || units[0]?.id);
+    if (!targetUnitId) {
+      showNotification('error', 'Unidade Indefinida', 'Selecione uma unidade/loja para registrar a saída no caixa.');
+      return;
+    }
+
+    if (!window.confirm(`Confirma a quitação e saída no Caixa do valor de R$ ${netPayable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} para ${selectedColProfile?.full_name}?`)) {
+      return;
+    }
+
+    setIsPayingPayroll(true);
+    try {
+      const { addTransaction } = useCashStore.getState();
+      await addTransaction({
+        unit_id: targetUnitId,
+        type: 'outflow',
+        category: 'sangria',
+        amount: netPayable,
+        payment_method: 'pix',
+        description: `Quitação de Folha/Comissão - ${selectedColProfile?.full_name} (${monthsList.find(m => m.value === selectedMonth)?.label}/${selectedYear})`,
+        created_by: profile?.id || ''
+      });
+      showNotification('success', 'Folha Quitada no Caixa', `Saída de R$ ${netPayable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} registrada com sucesso no caixa da unidade.`);
+    } catch (err: any) {
+      showNotification('error', 'Falha na Quitação', err.message || 'Não foi possível registrar a saída no caixa.');
+    } finally {
+      setIsPayingPayroll(false);
+    }
   };
 
   const isSocio = selectedColProfile?.role === 'admin';
@@ -749,13 +791,21 @@ export default function Commissions() {
               </div>
 
               {/* Closure controls */}
-              <div className="flex gap-4 justify-end print:hidden">
+              <div className="flex flex-wrap gap-4 justify-end print:hidden">
+                <button
+                  onClick={handlePayPayrollInCash}
+                  disabled={isPayingPayroll || netPayable <= 0}
+                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPayingPayroll ? <Loader2 size={16} className="animate-spin" /> : <DollarSign size={16} />}
+                  Quitar Folha / Baixar no Caixa
+                </button>
                 <button
                   onClick={handleClosePayroll}
-                  className="flex items-center gap-2 bg-primary text-on-primary px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
+                  className="flex items-center gap-2 bg-primary text-on-primary px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 cursor-pointer"
                 >
                   <CheckCircle2 size={16} />
-                  Fechar Folha / Imprimir Recibo
+                  Imprimir Holerite / Recibo
                 </button>
               </div>
 
@@ -916,7 +966,7 @@ export default function Commissions() {
       {/* MODAL: REGISTRAR NOVO VALE / RETIRADA */}
       {isVoucherModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-white/10 rounded-[32px] w-full max-w-md p-8 space-y-6">
+          <div className="bg-neutral-900 border border-white/10 rounded-4xl w-full max-w-md p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-white/5 pb-4">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-tight text-white">Novo Vale / Retirada</h3>
@@ -1065,7 +1115,7 @@ export default function Commissions() {
       {/* MODAL: EDITAR REGRAS DE COMISSÃO */}
       {editingSetting && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-white/10 rounded-[32px] w-full max-w-md p-8 space-y-6">
+          <div className="bg-neutral-900 border border-white/10 rounded-4xl w-full max-w-md p-8 space-y-6">
             <div className="flex items-center justify-between border-b border-white/5 pb-4">
               <div>
                 <h3 className="text-lg font-black uppercase tracking-tight text-white">Editar Regras de Comissão</h3>

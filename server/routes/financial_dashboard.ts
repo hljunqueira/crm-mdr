@@ -36,21 +36,18 @@ router.get("/bills", async (req, res) => {
       const elapsedMonths = (year - bill.start_year) * 12 + (month - bill.start_month);
       const currentInstallment = elapsedMonths + 1;
       
-      const paymentsForBill = allPayments.filter(p => p.bill_id === bill.id);
-      const isPaid = paymentsForBill.some(p => p.month === month && p.year === year);
-      const remainingInstallments = Math.max(0, bill.total_installments - paymentsForBill.length);
-
-      // A bill is active in the selected month if:
-      // 1. It is within its scheduled timeline
-      // 2. OR its schedule has elapsed but it still has outstanding debt (unpaid installments)
+      // Um cartão gera parcela mensal em (month, year) APENAS SE estiver dentro de sua vigência
       const isWithinTimeline = currentInstallment >= 1 && currentInstallment <= bill.total_installments;
-      const hasPendingDebt = currentInstallment > bill.total_installments && remainingInstallments > 0;
 
-      if (isWithinTimeline || hasPendingDebt) {
+      if (isWithinTimeline) {
+        const paymentsForBill = allPayments.filter(p => p.bill_id === bill.id);
+        const isPaid = paymentsForBill.some(p => p.month === month && p.year === year);
+        const scheduledRemaining = Math.max(0, bill.total_installments - (currentInstallment - 1));
+
         activeBills.push({
           ...bill,
-          current_installment: Math.min(bill.total_installments, Math.max(1, currentInstallment)),
-          remaining_installments: remainingInstallments,
+          current_installment: currentInstallment,
+          remaining_installments: scheduledRemaining,
           is_active: true,
           is_paid: isPaid
         });
@@ -270,20 +267,17 @@ router.get("/bills/monthly-report", async (req, res) => {
 
       let fixedValue = 0;
       let paidValue = 0;
+      let initialTotalDebt = 0;
 
       for (const bill of bills) {
         const elapsedMonths = (y - bill.start_year) * 12 + (m - bill.start_month);
         const installmentNum = elapsedMonths + 1;
-
-        // Calculate total payments for this bill up to the CURRENT projected month 'm' / 'y'
-        const paymentsUpToThisMonth = allPayments.filter(p => p.bill_id === bill.id && (p.year < y || (p.year === y && p.month <= m)));
-        const remainingInstallments = Math.max(0, bill.total_installments - paymentsUpToThisMonth.length);
-
         const isWithinTimeline = installmentNum >= 1 && installmentNum <= bill.total_installments;
-        const hasPendingDebt = installmentNum > bill.total_installments && remainingInstallments > 0;
 
-        if (isWithinTimeline || hasPendingDebt) {
+        if (isWithinTimeline) {
           fixedValue += Number(bill.value);
+          const remainingInstallmentsAtStart = Math.max(0, bill.total_installments - (installmentNum - 1));
+          initialTotalDebt += Number(bill.value) * remainingInstallmentsAtStart;
           const isPaidInThisMonth = allPayments.some(p => p.bill_id === bill.id && p.month === m && p.year === y);
           if (isPaidInThisMonth) {
             paidValue += Number(bill.value);
@@ -295,6 +289,7 @@ router.get("/bills/monthly-report", async (req, res) => {
         month: m,
         year: y,
         monthLabel: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).toUpperCase().replace('.', ''),
+        initialTotalDebt: Number(initialTotalDebt.toFixed(2)),
         fixedValue: Number(fixedValue.toFixed(2)),
         paidValue: Number(paidValue.toFixed(2)),
         remainingValue: Number(Math.max(0, fixedValue - paidValue).toFixed(2))
@@ -304,6 +299,74 @@ router.get("/bills/monthly-report", async (req, res) => {
     res.json(report);
   } catch (error: any) {
     console.error("[Financial Dashboard] Error getting monthly bills report:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /reports-consolidated — Módulo Financeira: Relatórios dos 4 Pilares Financeiros
+router.get("/reports-consolidated", async (req, res) => {
+  try {
+    // 1. Recebidos (Boletos/Parcelas pagas)
+    const { data: paidInsts } = await supabase
+      .from("installments")
+      .select("value")
+      .eq("status", "paid");
+
+    const recebidos = (paidInsts || []).reduce((acc, i) => acc + Number(i.value || 0), 0);
+
+    // 2. A Receber (Parcelas futuras a vencer e atrasadas)
+    const { data: pendingInsts } = await supabase
+      .from("installments")
+      .select("value")
+      .in("status", ["pending", "overdue"]);
+
+    const aReceber = (pendingInsts || []).reduce((acc, i) => acc + Number(i.value || 0), 0);
+
+    // 3. Em Conta para Saque Investidor (Saldo livre nas carteiras)
+    const { data: walletsData } = await supabase
+      .from("wallets")
+      .select("balance");
+
+    const emContaSaqueInvestidor = (walletsData || []).reduce((acc, w) => acc + Number(w.balance || 0), 0);
+
+    // 4. Saques Efetuados e Saques Pendentes (Pix)
+    const { data: withdrawalsData } = await supabase
+      .from("withdrawal_requests")
+      .select("amount, status");
+
+    const saqueEfetuado = (withdrawalsData || [])
+      .filter(w => w.status === "APPROVED")
+      .reduce((acc, w) => acc + Number(w.amount || 0), 0);
+
+    const saquesPendentes = (withdrawalsData || [])
+      .filter(w => w.status === "PENDING")
+      .reduce((acc, w) => acc + Number(w.amount || 0), 0);
+
+    // 5. Total repassado investidores no histórico
+    const { data: txsData } = await supabase
+      .from("wallet_transactions")
+      .select("amount, capital_portion, interest_portion, type");
+
+    const repasseInvestidoresTotal = (txsData || []).reduce((acc, t) => {
+      if (t.type === "PROFIT" || t.type === "AMORTIZATION" || t.type === "CREDIT") {
+        return acc + Number(t.amount || 0);
+      }
+      return acc;
+    }, 0);
+
+    const rendimentoLiquidoFinanceira = Math.max(0, recebidos - repasseInvestidoresTotal);
+
+    res.json({
+      recebidos: Number(recebidos.toFixed(2)),
+      aReceber: Number(aReceber.toFixed(2)),
+      emContaSaqueInvestidor: Number(emContaSaqueInvestidor.toFixed(2)),
+      saqueEfetuado: Number(saqueEfetuado.toFixed(2)),
+      saquesPendentes: Number(saquesPendentes.toFixed(2)),
+      repasseInvestidoresTotal: Number(repasseInvestidoresTotal.toFixed(2)),
+      rendimentoLiquidoFinanceira: Number(rendimentoLiquidoFinanceira.toFixed(2))
+    });
+  } catch (error: any) {
+    console.error("[Financial Dashboard] Error getting consolidated reports:", error);
     res.status(500).json({ error: error.message });
   }
 });

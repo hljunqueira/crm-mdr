@@ -498,15 +498,20 @@ router.post("/", async (req, res) => {
         if (saleData.device_id) {
           const { data: dev } = await supabase
             .from('devices')
-            .select('id, stock_quantity, category')
+            .select('id, stock_quantity, category, investor_id, imei')
             .eq('id', saleData.device_id)
             .maybeSingle();
             
           if (dev && dev.category !== 'service') {
-            const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+            const isSinglePhoneUnit = dev.category === 'smartphone' || !!dev.investor_id || !!dev.imei;
+            const newQty = isSinglePhoneUnit ? 0 : Math.max(0, (dev.stock_quantity || 0) - 1);
             await supabase
               .from('devices')
-              .update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' })
+              .update({
+                stock_quantity: newQty,
+                status: (isSinglePhoneUnit || newQty === 0) ? 'sold' : 'available',
+                updated_at: new Date().toISOString()
+              })
               .eq('id', dev.id);
             decrementedDeviceIds.add(dev.id);
           }
@@ -518,15 +523,20 @@ router.post("/", async (req, res) => {
             if (imei !== 'N/A' && imei !== '0000000') {
               const { data: dev } = await supabase
                 .from('devices')
-                .select('id, stock_quantity, category')
+                .select('id, stock_quantity, category, investor_id, imei')
                 .eq('imei', imei)
                 .maybeSingle();
                 
               if (dev && dev.category !== 'service' && !decrementedDeviceIds.has(dev.id)) {
-                const newQty = Math.max(0, (dev.stock_quantity || 0) - 1);
+                const isSinglePhoneUnit = dev.category === 'smartphone' || !!dev.investor_id || !!dev.imei;
+                const newQty = isSinglePhoneUnit ? 0 : Math.max(0, (dev.stock_quantity || 0) - 1);
                 await supabase
                   .from('devices')
-                  .update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' })
+                  .update({
+                    stock_quantity: newQty,
+                    status: (isSinglePhoneUnit || newQty === 0) ? 'sold' : 'available',
+                    updated_at: new Date().toISOString()
+                  })
                   .eq('id', dev.id);
                 decrementedDeviceIds.add(dev.id);
               }
@@ -543,17 +553,22 @@ router.post("/", async (req, res) => {
             if (cleanName) {
               const { data: devs } = await supabase
                 .from('devices')
-                .select('id, stock_quantity, category')
+                .select('id, stock_quantity, category, investor_id, imei')
                 .eq('model', cleanName)
                 .eq('store_id', store_id);
                 
               if (devs && devs.length > 0) {
                 const dev = devs[0];
                 if (dev.category !== 'service' && !decrementedDeviceIds.has(dev.id)) {
-                  const newQty = Math.max(0, (dev.stock_quantity || 0) - quantity);
+                  const isSinglePhoneUnit = dev.category === 'smartphone' || !!dev.investor_id || !!dev.imei;
+                  const newQty = isSinglePhoneUnit ? 0 : Math.max(0, (dev.stock_quantity || 0) - quantity);
                   await supabase
                     .from('devices')
-                    .update({ stock_quantity: newQty, status: newQty === 0 ? 'sold' : 'available' })
+                    .update({
+                      stock_quantity: newQty,
+                      status: (isSinglePhoneUnit || newQty === 0) ? 'sold' : 'available',
+                      updated_at: new Date().toISOString()
+                    })
                     .eq('id', dev.id);
                   decrementedDeviceIds.add(dev.id);
                 }

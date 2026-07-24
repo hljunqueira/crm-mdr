@@ -66,12 +66,36 @@ export default function Reports() {
     });
   };
   const { profile } = useAuthStore();
-  const { bills, forecast, fetchDashboardData } = useFinancialDashboardStore();
+  const { bills, forecast, monthlyReport, fetchDashboardData } = useFinancialDashboardStore();
   const [selectedCardDay, setSelectedCardDay] = useState<string>('all');
 
   const filteredCardBills = useMemo(() => {
     return bills.filter(b => selectedCardDay === 'all' || b.day === Number(selectedCardDay));
   }, [bills, selectedCardDay]);
+
+  // Lucro Presumido & Controle de Cartões filters
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    new Date().getMonth() + 1
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  const currentMonthReportItem = useMemo(() => {
+    return monthlyReport.find(r => r.month === selectedMonth && r.year === selectedYear);
+  }, [monthlyReport, selectedMonth, selectedYear]);
+
+  const displayedMonthlyReport = useMemo(() => {
+    if (!monthlyReport || monthlyReport.length === 0) return [];
+    const selectedIndex = monthlyReport.findIndex(
+      item => item.month === selectedMonth && item.year === selectedYear
+    );
+
+    let startIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    if (startIndex + 3 > monthlyReport.length) {
+      startIndex = Math.max(0, monthlyReport.length - 3);
+    }
+
+    return monthlyReport.slice(startIndex, startIndex + 3);
+  }, [monthlyReport, selectedMonth, selectedYear]);
 
   // Navigation tab
   const [activeTab, setActiveTab] = useState<'overview' | 'lucro_presumido' | 'laboratorio' | 'fluxo_caixa' | 'auditoria' | 'metas' | 'liquidacoes' | 'controle_cartoes'>('overview');
@@ -97,11 +121,7 @@ export default function Reports() {
   const [goalSalesInput, setGoalSalesInput] = useState<string>('0');
   const [goalOSInput, setGoalOSInput] = useState<string>('0');
 
-  // Lucro Presumido filters
-  const [selectedMonth, setSelectedMonth] = useState<number>(
-    new Date().getMonth() + 1
-  );
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
   const lucroPresumidoYears = useMemo(() => {
     const startYear = 2026;
     const currentYear = new Date().getFullYear();
@@ -1122,7 +1142,7 @@ export default function Reports() {
 
         {/* Global Branch Filter */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[180px]">
+          <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-45">
             <span className="text-[10px] font-black uppercase text-on-surface-variant">Filial:</span>
             <select
               value={selectedUnitId}
@@ -1180,7 +1200,7 @@ export default function Reports() {
       </div>
 
       {/* TABS SELECTOR (HIDDEN ON PRINT) */}
-      <div className="flex p-1 bg-white/2 rounded-[24px] mb-8 gap-1 border border-white/5 max-w-4xl print:hidden overflow-x-auto scrollbar-none">
+      <div className="flex p-1 bg-white/2 rounded-3xl mb-8 gap-1 border border-white/5 max-w-4xl print:hidden overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Visão Geral', icon: BarChart2 },
           { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
@@ -1210,7 +1230,7 @@ export default function Reports() {
         <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
             {/* Period Selector */}
-            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
+            <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-50 flex-1 sm:flex-initial">
               <Calendar size={14} className="text-on-surface-variant" />
               <select
                 value={dateRange}
@@ -1233,7 +1253,7 @@ export default function Reports() {
 
             {/* Brand Selector - Only for Overview & Laboratorio */}
             {['overview', 'laboratorio'].includes(activeTab) && (
-              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[180px] flex-1 sm:flex-initial">
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-45 flex-1 sm:flex-initial">
                 <Smartphone size={14} className="text-on-surface-variant" />
                 <select
                   value={selectedBrand}
@@ -1293,7 +1313,7 @@ export default function Reports() {
       {['metas', 'controle_cartoes'].includes(activeTab) && (
         <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-wrap gap-4 print:hidden">
           {/* Month Filter */}
-          <div className="flex flex-col gap-1.5 min-w-[150px]">
+          <div className="flex flex-col gap-1.5 min-w-37.5">
             <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Mês</span>
             <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
               <select
@@ -1323,7 +1343,7 @@ export default function Reports() {
           </div>
 
           {/* Year Filter */}
-          <div className="flex flex-col gap-1.5 min-w-[100px]">
+          <div className="flex flex-col gap-1.5 min-w-25">
             <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Ano</span>
             <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
               <select
@@ -1345,7 +1365,7 @@ export default function Reports() {
 
           {/* Day Filter (Only for Card Control) */}
           {activeTab === 'controle_cartoes' && (
-            <div className="flex flex-col gap-1.5 min-w-[120px]">
+            <div className="flex flex-col gap-1.5 min-w-30">
               <span className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest">Dia</span>
               <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-2">
                 <select
@@ -1393,7 +1413,7 @@ export default function Reports() {
           </div>
 
           {/* Revenue Evolution Chart */}
-          <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:p-8 space-y-6">
+          <div className="bg-white/1 border border-white/5 rounded-4xl p-6 lg:p-8 space-y-6">
             <div>
               <h3 className="text-sm font-black text-white uppercase tracking-wider font-display">Evolução do Faturamento no Período</h3>
               <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Entradas diárias combinadas de vendas e assistência</p>
@@ -1435,7 +1455,7 @@ export default function Reports() {
 
             {/* Sales Goal Card */}
             {profile?.role === 'admin' && (
-              <div className="bg-white/1 border border-white/5 rounded-[32px] p-8 space-y-6">
+              <div className="bg-white/1 border border-white/5 rounded-4xl p-8 space-y-6">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-sm font-black text-white uppercase tracking-wider">Meta Mensal da Loja</h3>
@@ -1499,7 +1519,7 @@ export default function Reports() {
             )}
 
             {/* Payment Type Distribution Bar */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-8 space-y-6">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-8 space-y-6">
               <div>
                 <h3 className="text-sm font-black text-white uppercase tracking-wider">Meios de Pagamento de Aparelhos</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Fração Comercial por Tipo</p>
@@ -1534,7 +1554,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* Stock Turnover Metric Card */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[220px]">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-55">
               <div>
                 <div className="w-9 h-9 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary mb-3">
                   <Clock size={16} />
@@ -1555,7 +1575,7 @@ export default function Reports() {
             </div>
 
             {/* Top Customers Card */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-2 flex flex-col justify-between min-h-[220px]">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 lg:col-span-2 flex flex-col justify-between min-h-55">
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -1596,7 +1616,7 @@ export default function Reports() {
         <div className="space-y-8 animate-in fade-in duration-500">
           {/* Dashboard de Métricas */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-[#6C63FF]/10 flex items-center justify-center text-[#6C63FF] mb-4 border border-white/10">
                 <TrendingUp size={20} />
               </div>
@@ -1606,7 +1626,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success mb-4 border border-white/10">
                 <ArrowUpRight size={20} />
               </div>
@@ -1616,7 +1636,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error mb-4 border border-white/10">
                 <ArrowDownRight size={20} />
               </div>
@@ -1626,7 +1646,7 @@ export default function Reports() {
               </h3>
             </div>
 
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning mb-4 border border-white/10">
                 <Smartphone size={20} />
               </div>
@@ -1692,7 +1712,7 @@ export default function Reports() {
                                   tx.category === 'despesa_luz' ? 'Despesa Luz' :
                                     tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
                         </td>
-                        <td className="py-4 text-xs text-on-surface-variant max-w-[200px] truncate" title={tx.description}>
+                        <td className="py-4 text-xs text-on-surface-variant max-w-50 truncate" title={tx.description}>
                           {tx.description || '—'}
                         </td>
                         <td className="py-4 text-[10px] font-black uppercase text-on-surface-variant">
@@ -1734,7 +1754,7 @@ export default function Reports() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
                 >
                   <div className="flex items-center gap-3 pb-4 border-b border-white/10 text-error">
                     <AlertCircle size={24} />
@@ -1789,7 +1809,7 @@ export default function Reports() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-6"
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-lg overflow-hidden shadow-2xl p-6 space-y-6"
                 >
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Novo Lançamento Manual</h3>
@@ -1899,7 +1919,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
             {/* Total Sale Card */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Faturamento do Período (Venda)</h4>
               </div>
@@ -1911,7 +1931,7 @@ export default function Reports() {
             </div>
 
             {/* Total Cost Card */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Valor de Custo Geral</h4>
               </div>
@@ -1923,7 +1943,7 @@ export default function Reports() {
             </div>
 
             {/* Total Profit Card */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Lucro do Período</h4>
               </div>
@@ -1935,7 +1955,7 @@ export default function Reports() {
             </div>
 
             {/* Average Margin Card */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 flex flex-col justify-between min-h-[140px] print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
               <div>
                 <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Rentabilidade Média</h4>
               </div>
@@ -1948,7 +1968,7 @@ export default function Reports() {
           </div>
 
           {/* Detailed monthly items table */}
-          <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 overflow-hidden print:border-black print:text-black">
+          <div className="bg-white/1 border border-white/5 rounded-4xl p-6 overflow-hidden print:border-black print:text-black">
             <div className="mb-4 print:hidden">
               <h3 className="text-sm font-black text-white uppercase tracking-wider">Itens e Serviços Vendidos</h3>
               <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Detalhamento unitário com custos e margens</p>
@@ -2151,7 +2171,7 @@ export default function Reports() {
             <div className="space-y-6">
 
               {/* Card de Sessão Ativa */}
-              <div className="bg-white/2 border border-[#6C63FF]/30 rounded-[32px] p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="bg-white/2 border border-[#6C63FF]/30 rounded-4xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                   <span className="bg-[#6C63FF]/20 text-[#6C63FF] border border-[#6C63FF]/30 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full">Auditoria Ativa</span>
                   <h2 className="text-xl font-black text-white uppercase mt-2">
@@ -2284,7 +2304,7 @@ export default function Reports() {
                 {/* Filtros da Tabela */}
                 <div className="flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
                   <div className="flex flex-wrap items-center gap-3 grow">
-                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex-1 min-w-[200px]">
+                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex-1 min-w-50">
                       <Search size={14} className="text-on-surface-variant mr-2" />
                       <input
                         type="text"
@@ -2300,7 +2320,7 @@ export default function Reports() {
                       )}
                     </div>
 
-                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[160px]">
+                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-40">
                       <select
                         value={auditCategory}
                         onChange={(e) => setAuditCategory(e.target.value)}
@@ -2320,7 +2340,7 @@ export default function Reports() {
                       </select>
                     </div>
 
-                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[180px]">
+                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-45">
                       <select
                         value={auditDivergence}
                         onChange={(e) => setAuditDivergence(e.target.value as any)}
@@ -2463,7 +2483,7 @@ export default function Reports() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Card Iniciar Sessão */}
-              <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-1 flex flex-col justify-between min-h-[300px]">
+              <div className="bg-white/1 border border-white/5 rounded-4xl p-6 lg:col-span-1 flex flex-col justify-between min-h-75">
                 <div className="space-y-4">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
                     <CheckCircle2 size={20} />
@@ -2503,7 +2523,7 @@ export default function Reports() {
               </div>
 
               {/* Tabela de Histórico de Auditorias passadas */}
-              <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 lg:col-span-2 space-y-6">
+              <div className="bg-white/1 border border-white/5 rounded-4xl p-6 lg:col-span-2 space-y-6">
                 <div>
                   <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Auditorias Concluídas</h3>
                   <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Sessões finalizadas nesta filial</p>
@@ -2585,7 +2605,7 @@ export default function Reports() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
                 >
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Cancelar Auditoria</h3>
@@ -2642,7 +2662,7 @@ export default function Reports() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
                 >
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Finalizar Auditoria</h3>
@@ -2702,7 +2722,7 @@ export default function Reports() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.9, opacity: 0 }}
-                  className="relative bg-[#0f0f1a] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
+                  className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-6"
                 >
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <h3 className="text-sm font-black uppercase tracking-widest text-white">Excluir Auditoria</h3>
@@ -2765,7 +2785,7 @@ export default function Reports() {
 
             {/* Period selector */}
             <div className="flex items-center gap-4">
-              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[150px]">
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-37.5">
                 <span className="text-[10px] font-black uppercase text-on-surface-variant">Mês:</span>
                 <select
                   value={selectedMonth}
@@ -2792,7 +2812,7 @@ export default function Reports() {
                 </select>
               </div>
 
-              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[120px]">
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-30">
                 <span className="text-[10px] font-black uppercase text-on-surface-variant">Ano:</span>
                 <select
                   value={selectedYear}
@@ -2828,7 +2848,7 @@ export default function Reports() {
 
           {/* Goals KPIs Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6">
               <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total Vendas (Colaboradores)</p>
               <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
                 R$ {collaboratorData.reduce((acc, c) => acc + c.sales, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -2838,7 +2858,7 @@ export default function Reports() {
               </p>
             </div>
 
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6">
               <p className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">Total OS Finalizadas (Colaboradores)</p>
               <h3 className="text-2xl font-black text-white font-mono leading-none tracking-tight my-1.5">
                 {collaboratorData.reduce((acc, c) => acc + c.osCount, 0)} OS
@@ -2852,7 +2872,7 @@ export default function Reports() {
           {/* Graphics Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sales Chart */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 space-y-4">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 space-y-4">
               <div>
                 <h3 className="text-xs font-black text-white uppercase tracking-wider">Vendas por Colaborador (Faturamento)</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Comparação em R$ contra metas individuais</p>
@@ -2888,7 +2908,7 @@ export default function Reports() {
             </div>
 
             {/* OS Chart */}
-            <div className="bg-white/1 border border-white/5 rounded-[32px] p-6 space-y-4">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 space-y-4">
               <div>
                 <h3 className="text-xs font-black text-white uppercase tracking-wider">OS Concluídas por Técnico</h3>
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5 opacity-60">Comparação em quantidade contra metas individuais</p>
@@ -3047,7 +3067,7 @@ export default function Reports() {
           <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
               {/* Period Selector */}
-              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-[200px] flex-1 sm:flex-initial">
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-50 flex-1 sm:flex-initial">
                 <Calendar size={14} className="text-on-surface-variant" />
                 <select
                   value={dateRange}
@@ -3178,18 +3198,71 @@ export default function Reports() {
 
       {activeTab === 'controle_cartoes' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-4">
-                <CreditCard size={20} />
-              </div>
-              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Total a pagar cartão (Dívida Total)</p>
-              <h3 className="text-2xl font-black text-white leading-none font-mono">
-                R$ {filteredCardBills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
+
+          {/* Sub Toolbar para Mês e Ano de Seleção */}
+          <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-black text-white uppercase tracking-wider">Controle e Projeção de Cartões</h3>
+              <p className="text-[9px] text-on-surface-variant uppercase tracking-widest">Acompanhamento do valor inicial de dívida e faturas mensais</p>
             </div>
 
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white">
+                <Calendar size={14} className="text-primary" />
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer pr-4"
+                >
+                  {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, idx) => (
+                    <option key={idx} value={idx + 1} className="bg-[#0f0f1a] text-white">
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 text-xs text-white">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="bg-transparent text-xs font-bold text-white outline-none cursor-pointer pr-4"
+                >
+                  {lucroPresumidoYears.map((y) => (
+                    <option key={y} value={y} className="bg-[#0f0f1a] text-white">
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-primary/5 p-6 rounded-4xl border border-primary/20 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary mb-4">
+                <TrendingUp size={20} />
+              </div>
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 opacity-90">Valor Inicial de Dívida (Mês)</p>
+              <h3 className="text-2xl font-black text-white leading-none font-mono">
+                R$ {(currentMonthReportItem?.initialTotalDebt || filteredCardBills.reduce((sum, b) => sum + (Number(b.value) * Math.max(0, b.remaining_installments || 0)), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-2">Saldo devedor total no 1º dia do mês</p>
+            </div>
+
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
+              <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white mb-4">
+                <CreditCard size={20} />
+              </div>
+              <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Fatura Prevista do Mês</p>
+              <h3 className="text-2xl font-black text-white leading-none font-mono">
+                R$ {(currentMonthReportItem?.fixedValue ?? filteredCardBills.reduce((sum, b) => sum + Number(b.value), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-2">Compromisso do mês selecionado</p>
+            </div>
+
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center text-success mb-4">
                 <CheckCircle2 size={20} />
               </div>
@@ -3197,18 +3270,78 @@ export default function Reports() {
               <h3 className="text-2xl font-black text-success leading-none font-mono">
                 R$ {filteredCardBills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
+              <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-2">Baixas efetuadas</p>
             </div>
 
-            <div className="bg-white/2 p-6 rounded-[32px] border border-white/5 relative overflow-hidden">
+            <div className="bg-white/2 p-6 rounded-4xl border border-white/5 relative overflow-hidden">
               <div className="w-10 h-10 rounded-xl bg-error/10 border border-error/20 flex items-center justify-center text-error mb-4">
                 <AlertCircle size={20} />
               </div>
               <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-70">Pendente este Mês</p>
               <h3 className="text-2xl font-black text-error leading-none font-mono">
-                R$ {filteredCardBills.filter(b => !b.is_paid).reduce((sum, b) => sum + Number(b.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {Math.max(0, (currentMonthReportItem?.fixedValue ?? filteredCardBills.reduce((sum, b) => sum + Number(b.value), 0)) - filteredCardBills.filter(b => b.is_paid).reduce((sum, b) => sum + Number(b.value), 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
+              <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-2">Aguardando pagamento</p>
             </div>
           </div>
+
+          {/* Bloco de Projeção Mensal do Valor Inicial de Dívida */}
+          {displayedMonthlyReport.length > 0 && (
+            <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
+              <div>
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">
+                  Evolução do Valor Inicial de Dívida por Mês
+                </h3>
+                <p className="text-[8px] text-on-surface-variant uppercase tracking-widest mt-1">
+                  Projeção do saldo devedor inicial acumulado e compromisso mensal dos cartões
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {displayedMonthlyReport.map((item) => {
+                  const isSelected = item.month === selectedMonth && item.year === selectedYear;
+                  return (
+                    <div
+                      key={`${item.year}-${item.month}`}
+                      onClick={() => {
+                        setSelectedMonth(item.month);
+                        setSelectedYear(item.year);
+                      }}
+                      className={cn(
+                        "p-4 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between space-y-3",
+                        isSelected
+                          ? "bg-primary/10 border-primary shadow-lg shadow-primary/10"
+                          : "bg-white/1 border-white/5 hover:bg-white/3"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-white font-mono">{item.monthLabel}</span>
+                        {isSelected && <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />}
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-black uppercase text-on-surface-variant tracking-wider block">Dívida Inicial</span>
+                        <span className="text-xs font-black text-primary font-mono block">
+                          R$ {item.initialTotalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 pt-2 border-t border-white/5">
+                        <span className="text-[8px] font-black uppercase text-on-surface-variant tracking-wider block">Fatura Mês</span>
+                        <span className="text-xs font-black text-white font-mono block">
+                          R$ {item.fixedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-[8px] font-mono text-on-surface-variant pt-1">
+                        <span className="text-success font-bold">Pago: R$ {item.paidValue.toLocaleString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             <div className="xl:col-span-8 bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-6">
