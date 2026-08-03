@@ -2,7 +2,8 @@ import { useNetworkStore } from '../store/useNetworkStore';
 
 async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const isOffline = useNetworkStore.getState().isOfflineMode;
-  const baseUrl = isOffline ? 'http://localhost:3009/api' : (import.meta.env.VITE_API_URL || '/api');
+  const isWebProduction = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const baseUrl = (isOffline && !isWebProduction) ? 'http://localhost:3009/api' : (import.meta.env.VITE_API_URL || '/api');
 
   const response = await fetch(`${baseUrl}${endpoint}`, {
     ...options,

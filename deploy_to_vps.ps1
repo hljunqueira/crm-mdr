@@ -27,29 +27,19 @@ scp -i $SSH_KEY $ARCHIVE_NAME "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
 
 # 4. Executar comandos remotos
 if ($Full) {
-  Write-Host "--- Executando Deploy COMPLETO na VPS (Reiniciando toda a infraestrutura) ---" -ForegroundColor Yellow
+  Write-Host "--- Executando Deploy Infraestrutura na VPS ---" -ForegroundColor Yellow
   $REMOTE_COMMANDS = @"
 cd $REMOTE_PATH
 rm -rf src dist server
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
-echo "Reconstruindo toda a infraestrutura..."
-docker compose -f docker-compose.infra.yml down --remove-orphans 2>/dev/null || true
-docker compose down --remove-orphans 2>/dev/null || true
-
-for c in crm-mdr-app-1 crm-mdr-caddy-1 crm-mdr-db-1 crm-mdr-redis-1 crm-mdr-n8n-1 crm-mdr-evolution-1 crm-mdr-chatwoot-web-1 crm-mdr-chatwoot-worker-1; do
-  docker rm -f "`$c" 2>/dev/null || true
-done
-
+echo "Atualizando infraestrutura completa..."
 if docker compose version >/dev/null 2>&1; then
     docker compose -f docker-compose.infra.yml up -d --build
 else
     docker-compose -f docker-compose.infra.yml up -d --build
 fi
-
-echo "Aguardando banco de dados estabilizar..."
-sleep 5
 
 docker image prune -f
 echo "Status dos containers:"
@@ -64,7 +54,7 @@ rm -rf src dist server
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
-echo "Atualizando e reconstruindo apenas o container do App..."
+echo "Atualizando apenas o container do App..."
 if docker compose version >/dev/null 2>&1; then
     docker compose -f docker-compose.infra.yml up -d --build app
 else

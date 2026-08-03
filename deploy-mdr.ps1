@@ -3,7 +3,8 @@ param(
   [string]$Target = "",
   [switch]$Backend,
   [switch]$Frontend,
-  [switch]$All
+  [switch]$All,
+  [switch]$Full
 )
 
 # Determinar o modo de deploy
@@ -11,7 +12,7 @@ $Mode = "backend" # padrão
 
 if ($Frontend -or $Target -eq "frontend") {
   $Mode = "frontend"
-} elseif ($All -or $Target -eq "all" -or $Target -eq "full") {
+} elseif ($All -or $Full -or $Target -eq "all" -or $Target -eq "full") {
   $Mode = "all"
 } elseif ($Backend -or $Target -eq "backend") {
   $Mode = "backend"
@@ -58,7 +59,7 @@ if [ -n "`$CONTAINER_ID" ]; then
   docker cp dist/. `$CONTAINER_ID:/app/dist/
   echo "Frontend atualizado no container instantaneamente!"
 else
-  echo "Container crm-mdr-app-1 não encontrado. Reconstruindo app..."
+  echo "Container crm-mdr-app-1 não encontrado. Subindo app..."
   docker compose -f docker-compose.infra.yml up -d --build app
 fi
 echo "Deploy do Frontend concluído com sucesso!"
@@ -95,7 +96,7 @@ rm -rf src server dist
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
-echo "Atualizando e reconstruindo apenas o container do App..."
+echo "Atualizando apenas o container do App..."
 if docker compose version >/dev/null 2>&1; then
     docker compose -f docker-compose.infra.yml up -d --build app
 else
@@ -116,7 +117,7 @@ echo "Deploy do Backend/App finalizado com sucesso!"
 }
 
 # ---------------------------------------------------------
-# MODO 3: DEPLOY ALL GERAL (Infraestrutura Completa Docker)
+# MODO 3: DEPLOY ALL GERAL (Sem derrubar containers em execução)
 # ---------------------------------------------------------
 if ($Mode -eq "all") {
   Write-Host "--- 1. Compilando dist localmente ---" -ForegroundColor Yellow
@@ -132,29 +133,19 @@ if ($Mode -eq "all") {
   Write-Host "--- 3. Enviando pacote completo para a VPS ---" -ForegroundColor Yellow
   scp -i $SSH_KEY $ARCHIVE_NAME "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}"
 
-  Write-Host "--- 4. Reiniciando Toda a Infraestrutura Docker na VPS ---" -ForegroundColor Yellow
+  Write-Host "--- 4. Atualizando a Infraestrutura Docker na VPS ---" -ForegroundColor Yellow
   $REMOTE_ALL_CMD = @"
 cd $REMOTE_PATH
 rm -rf src dist server
 tar -xzf $ARCHIVE_NAME
 rm $ARCHIVE_NAME
 
-echo "Reconstruindo toda a infraestrutura..."
-docker compose -f docker-compose.infra.yml down --remove-orphans 2>/dev/null || true
-docker compose down --remove-orphans 2>/dev/null || true
-
-for c in crm-mdr-app-1 crm-mdr-caddy-1 crm-mdr-db-1 crm-mdr-redis-1 crm-mdr-n8n-1 crm-mdr-evolution-1 crm-mdr-chatwoot-web-1 crm-mdr-chatwoot-worker-1; do
-  docker rm -f "`$c" 2>/dev/null || true
-done
-
+echo "Atualizando infraestrutura..."
 if docker compose version >/dev/null 2>&1; then
     docker compose -f docker-compose.infra.yml up -d --build
 else
     docker-compose -f docker-compose.infra.yml up -d --build
 fi
-
-echo "Aguardando banco de dados estabilizar..."
-sleep 5
 
 docker image prune -f
 echo "Status dos containers:"

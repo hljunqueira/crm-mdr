@@ -25,15 +25,13 @@ import usersRoutes from "./server/routes/users.js";
 import serviceOrderRoutes from "./server/routes/service_orders.js";
 import fiscalRoutes from "./server/routes/fiscal.js";
 import deviceLockRoutes from "./server/routes/device_locks.js";
-import billingRoutes from "./server/routes/billing.js";
+import billingRoutes, { runDailyBillingCronTask } from "./server/routes/billing.js";
 import scpRoutes from "./server/routes/scp.js";
 import financialDashboardRoutes from "./server/routes/financial_dashboard.js";
 import commissionRoutes from "./server/routes/commissions.js";
 import { cashierRouter } from "./server/routes/cashier.js";
 import { checkAndReactivateAsaasWebhook } from "./server/services/asaasService.js";
-
-
-
+import { processNotificationQueue } from "./server/services/syncService.js";
 
 let activeFilename = '';
 let activeDirname = '';
@@ -122,7 +120,6 @@ async function startServer() {
   app.use("/api/commissions", commissionRoutes);
   app.use("/api/cashier", cashierRouter);
 
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
@@ -143,17 +140,32 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    
-// Sincronização offline desativada - Operando 100% via Supabase (Nuvem)
-    
+
     // Monitoramento do webhook do Asaas para auto-reativação em caso de instabilidades
     checkAndReactivateAsaasWebhook().catch(err => console.error("Erro na ativação inicial do webhook Asaas:", err));
-    // Checar a cada 4 horas
     setInterval(() => {
       checkAndReactivateAsaasWebhook().catch(err => console.error("Erro no intervalo do webhook Asaas:", err));
     }, 4 * 60 * 60 * 1000);
+
+    // 1. Agendador Automático da Régua Diária de Cobrança (Executa às 09:00 BRT)
+    let lastCronDateRun = '';
+    setInterval(() => {
+      const now = new Date();
+      const brDateStr = new Date(now.getTime() - 3 * 3600 * 1000).toISOString().split('T')[0];
+      const brHours = new Date(now.getTime() - 3 * 3600 * 1000).getUTCHours();
+
+      if (brHours === 9 && lastCronDateRun !== brDateStr) {
+        lastCronDateRun = brDateStr;
+        console.log('[Scheduler] Iniciando régua de cobrança automática às 09:00 BRT...');
+        runDailyBillingCronTask().catch(err => console.error('[Scheduler] Erro na régua diária:', err.message));
+      }
+    }, 15 * 60 * 1000);
+
+    // 2. Loop de processamento de notificações da fila local
+    setInterval(() => {
+      processNotificationQueue().catch(err => console.error("[Sync] Erro na fila de notificações:", err));
+    }, 60 * 1000);
   });
 }
-
 
 startServer();

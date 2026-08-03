@@ -32,6 +32,8 @@ export interface Sale {
   trade_in_sale_price_estimate?: number;
   payment_method?: string;
   device_cost_price?: number;
+  device_sale_price?: number;
+  origin_type?: 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR';
   created_at?: string;
 }
 
@@ -81,6 +83,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         trade_in_valuation: Number(s.trade_in_valuation) || 0,
         trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0,
         device_cost_price: Number(s.devices?.cost_price) || 0,
+        device_sale_price: Number(s.devices?.sale_price) || 0,
+        origin_type: s.origin_type || (s.device_id || s.device_model_manual ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA'),
         created_at: s.created_at
       }));
 
@@ -93,6 +97,9 @@ export const useSaleStore = create<SaleState>()((set) => ({
   },
   addSale: async (sale) => {
     try {
+      const modelLower = (sale.device_model || '').toLowerCase();
+      const isCellKeywords = modelLower.includes('celular') || modelLower.includes('iphone') || modelLower.includes('galaxy') || modelLower.includes('xiaomi') || modelLower.includes('poco') || modelLower.includes('redmi') || modelLower.includes('samsung') || modelLower.includes('motorola') || modelLower.includes('moto');
+      const originType = sale.origin_type || (sale.device_id || sale.imei || isCellKeywords ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA');
       const dbSale = {
         store_id: sale.unit_id,
         customer_id: sale.customer_id,
@@ -116,7 +123,8 @@ export const useSaleStore = create<SaleState>()((set) => ({
         trade_in_device_model: sale.trade_in_device_model || null,
         trade_in_device_imei: sale.trade_in_device_imei || null,
         trade_in_valuation: sale.trade_in_valuation || 0,
-        trade_in_sale_price_estimate: sale.trade_in_sale_price_estimate || 0
+        trade_in_sale_price_estimate: sale.trade_in_sale_price_estimate || 0,
+        origin_type: originType
       };
       const data = await api.post('/sales', dbSale);
       

@@ -58,7 +58,7 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
   const currentUnit = resolveUnitInfo(unit || { name: 'MDR Informática' });
 
   return (
-    <div id="contract-print-area" className="p-8 text-black bg-white font-sans max-w-[800px] mx-auto text-xs leading-relaxed">
+    <div id="contract-print-area" className="p-8 text-black bg-white font-sans max-w-200 mx-auto text-xs leading-relaxed">
       <style dangerouslySetInnerHTML={{
         __html: `
         #contract-print-area table.ccb-table {

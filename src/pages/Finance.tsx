@@ -434,8 +434,8 @@ function PaymentConfirmationContent({
                 type="button"
                 onClick={() => setMethod(m)}
                 className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active
-                    ? 'bg-white text-black border-white'
-                    : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                  ? 'bg-white text-black border-white'
+                  : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
                   }`}
               >
                 {label}
@@ -517,7 +517,7 @@ function BatchPaymentConfirmationContent({
       <p className="text-xs">
         Liquidação antecipada de <span className="text-white font-black">{items.length} parcelas</span> de <span className="text-white font-black">{items[0]?.customer_name}</span>.
       </p>
-      
+
       <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-2">
         <div className="flex justify-between text-xs">
           <span className="text-on-surface-variant uppercase tracking-widest font-black">Valor Original Total</span>
@@ -575,8 +575,8 @@ function BatchPaymentConfirmationContent({
                 type="button"
                 onClick={() => setMethod(m)}
                 className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${active
-                    ? 'bg-white text-black border-white'
-                    : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                  ? 'bg-white text-black border-white'
+                  : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
                   }`}
               >
                 {label}
@@ -617,14 +617,17 @@ function BatchPaymentConfirmationContent({
 export default function Finance() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'payable_cards') || 'receivables';
+  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards') || 'caixa_loja';
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'payable_cards'>(initialTab);
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards'>(initialTab);
+  const [cashTypeFilter, setCashTypeFilter] = useState<'all' | 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'>('all');
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'caixas' || tabParam === 'receivables' || tabParam === 'payable_cards') {
-      setActiveFinanceTab(tabParam);
+    if (tabParam === 'caixas' || tabParam === 'caixa_financeira' || tabParam === 'caixa_loja' || tabParam === 'payable_cards') {
+      setActiveFinanceTab(tabParam as any);
+    } else if (!tabParam || tabParam === 'receivables') {
+      setActiveFinanceTab('caixa_loja');
     }
   }, [searchParams]);
   const [cashierSummary, setCashierSummary] = useState<any>(null);
@@ -636,16 +639,16 @@ export default function Finance() {
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
-  const { 
-    bills, 
-    forecast, 
+  const {
+    bills,
+    forecast,
     monthlyReport,
-    fetchDashboardData, 
-    createBill, 
-    updateBill, 
-    deleteBill, 
-    toggleBillPayment, 
-    saveForecast 
+    fetchDashboardData,
+    createBill,
+    updateBill,
+    deleteBill,
+    toggleBillPayment,
+    saveForecast
   } = useFinancialDashboardStore();
 
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
@@ -936,51 +939,6 @@ export default function Finance() {
   const pixName = DEFAULT_PIX_NAME;
   const pixPhone = unit?.phone || DEFAULT_PIX_PHONE;
 
-  const handleExportCSV = () => {
-    const filteredInstallments = filteredGroups.flatMap(group => group.displayedInstallments);
-
-    if (filteredInstallments.length === 0) {
-      showNotification('error', 'Sem dados', 'Não há parcelas filtradas para exportar.');
-      return;
-    }
-
-    const headers = ['ID Parcela', 'Cliente', 'Parcela', 'Vencimento', 'Valor Original', 'Valor Atual com Mora', 'Status', 'Data Pagto', 'Método Pagto'];
-    const rows = filteredInstallments.map(inst => {
-      const fees = calculateOverdueFees(inst);
-      return [
-        `#${inst.id.split('-')[0]}`,
-        inst.customer_name || 'Cliente Sem Nome',
-        `${inst.number}/${inst.total}`,
-        inst.due_date,
-        inst.value.toFixed(2),
-        fees.total.toFixed(2),
-        inst.status === 'paid' ? 'Pago' : inst.status === 'blocked' ? 'Bloqueado' : fees.isLate ? 'Atrasado' : 'Pendente',
-        inst.paid_at ? formatPaymentDate(inst.paid_at) : '',
-        inst.payment_method ? (
-          inst.payment_method === 'pix' ? 'PIX' :
-            inst.payment_method === 'money' ? 'Dinheiro' :
-              inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
-        ) : ''
-      ];
-    });
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `recebiveis_unidade_${selectedUnitId}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    showNotification('success', 'Relatório CSV exportado com sucesso!');
-  };
-
   const calculateOverdueFees = (inst: Installment) => {
     const dueDate = new Date(inst.due_date + 'T12:00:00');
     const today = new Date();
@@ -999,10 +957,40 @@ export default function Finance() {
     return { multa, juros, total, daysLate, isLate: true };
   };
 
+  const relevantInstallments = useMemo(() => {
+    return installments.filter(inst => {
+      const sale = (inst as any).sales;
+      const isFinanc = inst.origin_type === 'FINANCIAMENTO_CELULAR' || sale?.origin_type === 'FINANCIAMENTO_CELULAR';
+
+      // 1. Se estiver na aba Caixa Financiamento Celular, retornar apenas financiamentos de celular
+      if (activeFinanceTab === 'caixa_financeira') {
+        return isFinanc;
+      }
+
+      // Se não estiver na aba de financiamento, excluir Financiamento de Celular (pertence ao Caixa Financeira)
+      if (isFinanc) return false;
+
+      const pm = ((inst.payment_method || sale?.payment_method || '') as string).toLowerCase();
+      const pt = (sale?.payment_type || '').toLowerCase();
+      const totalInsts = inst.total || (inst as any).total_installments || sale?.installments || 1;
+
+      // 2. Excluir vendas no cartão de crédito/débito (pertencem ao Controle de Cartões)
+      const isCard = pm === 'card' || pm === 'debit' || pt === 'card' || pt === 'debit';
+      if (isCard) return false;
+
+      // 3. Excluir vendas à vista (dinheiro/pix) e vendas de 1 parcela única do balcão (pertencem ao Caixa Diário)
+      const isVista = pt === 'vista' || pm === 'vista';
+      const isSingleNonCrediario = totalInsts === 1 && pt !== 'crediario';
+      if (isVista || isSingleNonCrediario) return false;
+
+      return true;
+    });
+  }, [installments, activeFinanceTab]);
+
   const customerGroups = useMemo(() => {
     const groups: { [key: string]: CustomerGroup } = {};
 
-    installments.forEach(inst => {
+    relevantInstallments.forEach(inst => {
       const groupKey = inst.sale_id || inst.customer_id || 'unknown';
       const custId = inst.customer_id || 'unknown';
       let custName = inst.customer_name || 'Cliente Sem Nome';
@@ -1061,7 +1049,13 @@ export default function Finance() {
 
       return group;
     });
-  }, [installments]);
+  }, [relevantInstallments]);
+
+  const effectiveCashTypeFilter = useMemo(() => {
+    if (activeFinanceTab === 'caixa_financeira') return 'FINANCIAMENTO_CELULAR';
+    if (activeFinanceTab === 'caixa_loja') return 'CREDIARIO_LOJA';
+    return cashTypeFilter;
+  }, [activeFinanceTab, cashTypeFilter]);
 
   const filteredGroups = useMemo(() => {
     const matchesDateFilter = (dueDateStr: string) => {
@@ -1116,7 +1110,8 @@ export default function Finance() {
           matchesStatus = inst.status !== 'paid'; // Exclude paid installments under Total a Receber tab
         }
 
-        return matchesDate && matchesStatus;
+        const matchesCashType = effectiveCashTypeFilter === 'all' || inst.origin_type === effectiveCashTypeFilter;
+        return matchesDate && matchesStatus && matchesCashType;
       });
 
       return {
@@ -1128,7 +1123,52 @@ export default function Finance() {
       const hasMatchingInstallments = group.displayedInstallments.length > 0;
       return matchesSearch && hasMatchingInstallments;
     });
-  }, [customerGroups, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate]);
+  }, [customerGroups, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate, effectiveCashTypeFilter]);
+
+  const handleExportCSV = () => {
+    const filteredInstallments = filteredGroups.flatMap(group => group.displayedInstallments);
+
+    if (filteredInstallments.length === 0) {
+      showNotification('error', 'Sem dados', 'Não há parcelas filtradas para exportar.');
+      return;
+    }
+
+    const headers = ['ID Parcela', 'Cliente', 'Parcela', 'Vencimento', 'Valor Original', 'Valor Atual com Mora', 'Status', 'Data Pagto', 'Método Pagto'];
+    const rows = filteredInstallments.map(inst => {
+      const fees = calculateOverdueFees(inst);
+      return [
+        `#${inst.id.split('-')[0]}`,
+        inst.customer_name || 'Cliente Sem Nome',
+        `${inst.number}/${inst.total}`,
+        inst.due_date,
+        inst.value.toFixed(2),
+        fees.total.toFixed(2),
+        inst.status === 'paid' ? 'Pago' : inst.status === 'blocked' ? 'Bloqueado' : fees.isLate ? 'Atrasado' : 'Pendente',
+        inst.paid_at ? formatPaymentDate(inst.paid_at) : '',
+        inst.payment_method ? (
+          inst.payment_method === 'pix' ? 'PIX' :
+            inst.payment_method === 'money' ? 'Dinheiro' :
+              inst.payment_method === 'card' ? 'Cartão' : inst.payment_method
+        ) : ''
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `recebiveis_unidade_${selectedUnitId}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showNotification('success', 'Relatório CSV exportado com sucesso!');
+  };
 
   const dateFilteredInstallments = useMemo(() => {
     const matchesDateFilter = (dueDateStr: string) => {
@@ -1167,8 +1207,12 @@ export default function Finance() {
       return true;
     };
 
-    return installments.filter(inst => matchesDateFilter(inst.due_date));
-  }, [installments, dateFilter, customStartDate, customEndDate]);
+    return relevantInstallments.filter(inst => {
+      const matchesDate = matchesDateFilter(inst.due_date);
+      const matchesCashType = effectiveCashTypeFilter === 'all' || inst.origin_type === effectiveCashTypeFilter;
+      return matchesDate && matchesCashType;
+    });
+  }, [relevantInstallments, dateFilter, customStartDate, customEndDate, effectiveCashTypeFilter]);
 
   const totalReceivable = useMemo(() => dateFilteredInstallments.filter(i => i.status !== 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
   const totalPaid = useMemo(() => dateFilteredInstallments.filter(i => i.status === 'paid').reduce((acc, current) => acc + current.value, 0), [dateFilteredInstallments]);
@@ -1256,7 +1300,7 @@ export default function Finance() {
           </div>
         ),
         confirmText: '', // Hide default confirm button
-        onConfirm: () => {}
+        onConfirm: () => { }
       });
     } else {
       showManualPayment();
@@ -1312,7 +1356,7 @@ export default function Finance() {
 
           showNotification('success', 'Parcelas Liquidadas com Sucesso');
           setSelectedInstIds(prev => prev.filter(id => !items.map(item => item.id).includes(id)));
-          
+
           if (selectedUnitId && selectedUnitId !== 'all') {
             await fetchActiveShift(selectedUnitId);
             await fetchTransactions(selectedUnitId);
@@ -1405,10 +1449,22 @@ export default function Finance() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">
-            {activeFinanceTab === 'receivables' ? 'Recebíveis' : 'Contas a Pagar (Cartões)'}
+            {activeFinanceTab === 'caixa_financeira'
+              ? 'Caixa Financiamento Celular'
+              : activeFinanceTab === 'caixa_loja'
+                ? 'Caixa Crediário Loja'
+                : activeFinanceTab === 'receivables'
+                  ? 'Recebíveis Gerais'
+                  : 'Contas a Pagar (Cartões)'}
           </h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">
-            {activeFinanceTab === 'receivables' ? 'Gestão de Parcelas e Recebimentos' : 'Mensal Fixo de Cartões de Crédito e Custos'}
+            {activeFinanceTab === 'caixa_financeira'
+              ? 'Gestão de Recebimentos de Contratos de Aparelhos e MDM'
+              : activeFinanceTab === 'caixa_loja'
+                ? 'Gestão de Recebimentos do Balcão e Crediário da Loja Física'
+                : activeFinanceTab === 'receivables'
+                  ? 'Gestão de Parcelas e Recebimentos Globais'
+                  : 'Mensal Fixo de Cartões de Crédito e Custos'}
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -1435,618 +1491,395 @@ export default function Finance() {
               </select>
             </div>
           )}
-          {activeFinanceTab === 'receivables' && (
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center justify-center gap-2 px-5 py-3.5 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto"
-            >
-              <Download size={16} />
-              Exportar CSV
-            </button>
+          {(activeFinanceTab === 'receivables' || activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_loja') && (
+            <div className="flex flex-wrap items-center gap-2">
+              {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'receivables') && (
+                <button
+                  onClick={() => {
+                    setTransferAmountInput((cashierSummary?.financeira?.balance || 0).toString());
+                    setIsTransferModalOpen(true);
+                  }}
+                  disabled={(cashierSummary?.financeira?.balance || 0) <= 0}
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed w-full md:w-auto"
+                >
+                  <DollarSign size={16} />
+                  Repasse Caixa Loja
+                </button>
+              )}
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center justify-center gap-2 px-5 py-3.5 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto"
+              >
+                <Download size={16} />
+                Exportar CSV
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* TABS DE SELEÇÃO FINANCEIRA */}
-      {isAdmin && (
-        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-fit mb-8 gap-1">
-          <button
-            onClick={() => setActiveFinanceTab('receivables')}
-            className={cn(
-              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-              activeFinanceTab === 'receivables'
-                ? "bg-white text-black shadow-lg"
-                : "text-on-surface-variant hover:text-white"
-            )}
-          >
-            Recebíveis
-          </button>
-          <button
-            onClick={() => setActiveFinanceTab('caixas')}
-            className={cn(
-              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-              activeFinanceTab === 'caixas'
-                ? "bg-white text-black shadow-lg"
-                : "text-on-surface-variant hover:text-white"
-            )}
-          >
-            🏦 Gestão de Caixas (Financeira vs. Loja)
-          </button>
-          <button
-            onClick={() => setActiveFinanceTab('payable_cards')}
-            className={cn(
-              "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-              activeFinanceTab === 'payable_cards'
-                ? "bg-white text-black shadow-lg"
-                : "text-on-surface-variant hover:text-white"
-            )}
-          >
-            Contas a Pagar (Cartões)
-          </button>
-        </div>
-      )}
-
       {/* RENDER CONTEÚDO */}
-      {activeFinanceTab === 'receivables' || !isAdmin ? (
+      {activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_loja' || activeFinanceTab === 'receivables' || !isAdmin ? (
         <>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-          {[
-            { id: 'all', label: 'Total a Receber', value: `R$ ${totalReceivable.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
-            { id: 'paid', label: 'Recebido (Total)', value: `R$ ${totalPaid.toLocaleString('pt-BR')}`, icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
-            { id: 'overdue', label: 'Em Atraso', value: `R$ ${totalOverdue.toLocaleString('pt-BR')}`, icon: AlertCircle, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
-            { id: 'blocked', label: 'Bloqueados', value: dateFilteredInstallments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error', activeBorder: 'border-red-500/50 shadow-red-500/5', activeBar: 'bg-red-500' },
-          ].map((stat, idx) => {
-            const isActive = statusFilter === stat.id;
-            return (
-              <div
-                key={idx}
-                onClick={() => setStatusFilter(stat.id as any)}
-                className={`bg-white/2 p-6 rounded-4xl border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
-              >
-                {isActive && (
-                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
-                )}
-                <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${stat.color} mb-4 border border-white/10`}>
-                  <stat.icon size={20} />
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            {[
+              { id: 'all', label: 'Total a Receber', value: `R$ ${totalReceivable.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
+              { id: 'paid', label: 'Recebido (Total)', value: `R$ ${totalPaid.toLocaleString('pt-BR')}`, icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
+              { id: 'overdue', label: 'Em Atraso', value: `R$ ${totalOverdue.toLocaleString('pt-BR')}`, icon: AlertCircle, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
+              { id: 'blocked', label: 'Bloqueados', value: dateFilteredInstallments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error', activeBorder: 'border-red-500/50 shadow-red-500/5', activeBar: 'bg-red-500' },
+            ].map((stat, idx) => {
+              const isActive = statusFilter === stat.id;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => setStatusFilter(stat.id as any)}
+                  className={`bg-white/2 p-6 rounded-4xl border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
+                >
+                  {isActive && (
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
+                  )}
+                  <div className={`w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center ${stat.color} mb-4 border border-white/10`}>
+                    <stat.icon size={20} />
+                  </div>
+                  <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
+                  <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{stat.value}</h3>
                 </div>
-                <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest mb-1 opacity-60">{stat.label}</p>
-                <h3 className="text-2xl font-black text-on-surface leading-none tracking-tight">{stat.value}</h3>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Search Input and Cards List Container */}
-        <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
-          <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
-            <div className="relative flex-1 group">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
-              <input
-                type="text"
-                placeholder="Buscar por cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
-              />
-            </div>
-
-             {/* Period Filter Dropdown */}
-            <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-55">
-              <Calendar size={16} className="text-on-surface-variant shrink-0" />
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value as any)}
-                className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-8 font-display font-black uppercase tracking-wider"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right center',
-                }}
-              >
-                <option value="all" className="bg-[#0f0f1a] text-white">Todos os Períodos</option>
-                <option value="today" className="bg-[#0f0f1a] text-white">Vencendo Hoje</option>
-                <option value="week" className="bg-[#0f0f1a] text-white">Vencendo nesta Semana</option>
-                <option value="month" className="bg-[#0f0f1a] text-white">Vencendo neste Mês</option>
-                <option value="custom" className="bg-[#0f0f1a] text-white">Período Personalizado</option>
-              </select>
-            </div>
-
-            {dateFilter === 'custom' && (
-              <div className="flex flex-wrap gap-2 items-center bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-2">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="bg-transparent text-xs text-white outline-none font-mono focus:text-primary transition-all"
-                />
-                <span className="text-on-surface-variant text-[10px] uppercase font-black tracking-widest">até</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-transparent text-xs text-white outline-none font-mono focus:text-primary transition-all"
-                />
-              </div>
-            )}
+              );
+            })}
           </div>
 
-          <div className="p-6 space-y-4">
-            {filteredGroups.length === 0 ? (
-              <div className="text-center py-20">
-                <AlertCircle className="mx-auto text-on-surface-variant opacity-40 mb-4 animate-bounce" size={40} />
-                <h3 className="text-base font-black uppercase tracking-wider text-white">Nenhum recebível</h3>
-                <p className="text-xs text-on-surface-variant max-w-xs mx-auto mt-2 leading-relaxed">
-                  Não encontramos parcelas ou contratos correspondentes aos filtros selecionados para esta filial.
-                </p>
+          {/* Search Input and Cards List Container */}
+          <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
+            <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
+              <div className="relative flex-1 group">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
+                />
               </div>
-            ) : (
-              filteredGroups.map(group => {
-                const isExpanded = expandedGroupId === group.id;
-                const paidPercent = group.totalCount > 0 ? (group.paidCount / group.totalCount) * 100 : 0;
 
-                return (
-                  <div key={group.id} className="bg-white/1 hover:bg-white/2 border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
-                    <div
-                      onClick={() => toggleExpand(group.id)}
-                      className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant font-display font-black text-sm uppercase">
-                          {group.customerName.charAt(0)}
+              {/* Period Filter Dropdown */}
+              <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-55">
+                <Calendar size={16} className="text-on-surface-variant shrink-0" />
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as any)}
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-8 font-display font-black uppercase tracking-wider"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                  }}
+                >
+                  <option value="all" className="bg-[#0f0f1a] text-white">Todos os Períodos</option>
+                  <option value="today" className="bg-[#0f0f1a] text-white">Vencendo Hoje</option>
+                  <option value="week" className="bg-[#0f0f1a] text-white">Vencendo nesta Semana</option>
+                  <option value="month" className="bg-[#0f0f1a] text-white">Vencendo neste Mês</option>
+                  <option value="custom" className="bg-[#0f0f1a] text-white">Período Personalizado</option>
+                </select>
+              </div>
+
+              {dateFilter === 'custom' && (
+                <div className="flex flex-wrap gap-2 items-center bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="bg-transparent text-xs text-white outline-none font-mono focus:text-primary transition-all"
+                  />
+                  <span className="text-on-surface-variant text-[10px] uppercase font-black tracking-widest">até</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="bg-transparent text-xs text-white outline-none font-mono focus:text-primary transition-all"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 space-y-4">
+              {filteredGroups.length === 0 ? (
+                <div className="text-center py-20">
+                  <AlertCircle className="mx-auto text-on-surface-variant opacity-40 mb-4 animate-bounce" size={40} />
+                  <h3 className="text-base font-black uppercase tracking-wider text-white">Nenhum recebível</h3>
+                  <p className="text-xs text-on-surface-variant max-w-xs mx-auto mt-2 leading-relaxed">
+                    Não encontramos parcelas ou contratos correspondentes aos filtros selecionados para esta filial.
+                  </p>
+                </div>
+              ) : (
+                filteredGroups.map(group => {
+                  const isExpanded = expandedGroupId === group.id;
+                  const paidPercent = group.totalCount > 0 ? (group.paidCount / group.totalCount) * 100 : 0;
+
+                  return (
+                    <div key={group.id} className="bg-white/1 hover:bg-white/2 border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
+                      <div
+                        onClick={() => toggleExpand(group.id)}
+                        className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant font-display font-black text-sm uppercase">
+                            {group.customerName.charAt(0)}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm uppercase text-white leading-none">{group.customerName}</h4>
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${group.status === 'paid'
+                                ? 'bg-success/10 border-success/20 text-success'
+                                : group.status === 'blocked'
+                                  ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                                  : group.status === 'overdue'
+                                    ? 'bg-error/10 border-error/20 text-error'
+                                    : 'bg-warning/10 border-warning/20 text-warning'
+                                }`}>
+                                {group.status === 'paid' ? 'Em dia / Quitada' : group.status === 'blocked' ? 'Bloqueado' : group.status === 'overdue' ? 'Parcelas em Atraso' : 'Financeiro Pendente'}
+                              </span>
+                              <span className="text-[10px] text-on-surface-variant font-medium">
+                                ({group.paidCount} de {group.totalCount} parcelas pagas)
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-bold text-sm uppercase text-white leading-none">{group.customerName}</h4>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${group.status === 'paid'
-                              ? 'bg-success/10 border-success/20 text-success'
-                              : group.status === 'blocked'
-                                ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                                : group.status === 'overdue'
-                                  ? 'bg-error/10 border-error/20 text-error'
-                                  : 'bg-warning/10 border-warning/20 text-warning'
-                              }`}>
-                              {group.status === 'paid' ? 'Em dia / Quitada' : group.status === 'blocked' ? 'Bloqueado' : group.status === 'overdue' ? 'Parcelas em Atraso' : 'Financeiro Pendente'}
-                            </span>
-                            <span className="text-[10px] text-on-surface-variant font-medium">
-                              ({group.paidCount} de {group.totalCount} parcelas pagas)
-                            </span>
+
+                        <div className="flex items-center justify-between md:justify-end gap-6">
+                          <div className="text-right">
+                            <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Total Geral de Contrato</p>
+                            <p className="text-sm font-black text-white font-mono">R$ {group.totalValue.toLocaleString('pt-BR')}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[9px] text-error uppercase tracking-widest font-black mb-1">Valor Vencido</p>
+                            <p className="text-sm font-black text-error font-mono">
+                              {group.totalOverdue > 0 ? `R$ ${group.totalOverdue.toLocaleString('pt-BR')}` : 'R$ 0,00'}
+                            </p>
+                          </div>
+                          <div className="p-1 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-on-surface-variant hover:text-white">
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between md:justify-end gap-6">
-                        <div className="text-right">
-                          <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Total Geral de Contrato</p>
-                          <p className="text-sm font-black text-white font-mono">R$ {group.totalValue.toLocaleString('pt-BR')}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[9px] text-error uppercase tracking-widest font-black mb-1">Valor Vencido</p>
-                          <p className="text-sm font-black text-error font-mono">
-                            {group.totalOverdue > 0 ? `R$ ${group.totalOverdue.toLocaleString('pt-BR')}` : 'R$ 0,00'}
-                          </p>
-                        </div>
-                        <div className="p-1 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-on-surface-variant hover:text-white">
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </div>
+                      {/* Progress Bar under group */}
+                      <div className="h-1 bg-white/5 w-full relative overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 ${group.status === 'paid' ? 'bg-success' : 'bg-primary'}`}
+                          style={{ width: `${paidPercent}%` }}
+                        />
                       </div>
-                    </div>
 
-                    {/* Progress Bar under group */}
-                    <div className="h-1 bg-white/5 w-full relative overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-500 ${group.status === 'paid' ? 'bg-success' : 'bg-primary'}`}
-                        style={{ width: `${paidPercent}%` }}
-                      />
-                    </div>
-
-                    {/* Expansion area for individual installments */}
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: 'auto' }}
-                          exit={{ height: 0 }}
-                          className="overflow-hidden bg-black/10"
-                        >
-                          <div className="p-5 border-t border-white/5 space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/2 p-4 border border-white/5 rounded-2xl">
-                              <div>
-                                <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Resumo de Cobrança</p>
-                                <p className="text-xs text-white mt-1 flex flex-wrap items-center gap-2">
-                                  Envie o extrato completo ou liquide várias parcelas selecionadas de uma vez com desconto.
+                      {/* Expansion area for individual installments */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: 'auto' }}
+                            exit={{ height: 0 }}
+                            className="overflow-hidden bg-black/10"
+                          >
+                            <div className="p-5 border-t border-white/5 space-y-4">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/2 p-4 border border-white/5 rounded-2xl">
+                                <div>
+                                  <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Resumo de Cobrança</p>
+                                  <p className="text-xs text-white mt-1 flex flex-wrap items-center gap-2">
+                                    Envie o extrato completo ou liquide várias parcelas selecionadas de uma vez com desconto.
+                                    {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length > 0 && (
+                                      <span className="bg-success/20 text-success text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-success/30 animate-pulse">
+                                        {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length} Selecionada(s)
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
                                   {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length > 0 && (
-                                    <span className="bg-success/20 text-success text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-success/30 animate-pulse">
-                                      {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length} Selecionada(s)
-                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBatchPayment(group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)))}
+                                      className="px-4 py-2.5 bg-success hover:scale-[1.02] active:scale-[0.98] text-white border border-success/25 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-success/15"
+                                    >
+                                      <DollarSign size={14} />
+                                      Liquidar Selecionadas
+                                    </button>
                                   )}
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                {group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)).length > 0 && (
                                   <button
                                     type="button"
-                                    onClick={() => handleBatchPayment(group.displayedInstallments.filter(i => selectedInstIds.includes(i.id)))}
-                                    className="px-4 py-2.5 bg-success hover:scale-[1.02] active:scale-[0.98] text-white border border-success/25 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-success/15"
+                                    disabled={sendingWa === `statement-${group.customerId}`}
+                                    onClick={() => handleSendStatement(group.customerId, group.customerName)}
+                                    className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                                   >
-                                    <DollarSign size={14} />
-                                    Liquidar Selecionadas
+                                    <Send size={14} className={sendingWa === `statement-${group.customerId}` ? "animate-pulse" : ""} />
+                                    {sendingWa === `statement-${group.customerId}` ? 'Enviando Extrato...' : 'Enviar Extrato WhatsApp'}
                                   </button>
-                                )}
-                                <button
-                                  type="button"
-                                  disabled={sendingWa === `statement-${group.customerId}`}
-                                  onClick={() => handleSendStatement(group.customerId, group.customerName)}
-                                  className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Send size={14} className={sendingWa === `statement-${group.customerId}` ? "animate-pulse" : ""} />
-                                  {sendingWa === `statement-${group.customerId}` ? 'Enviando Extrato...' : 'Enviar Extrato WhatsApp'}
-                                </button>
+                                </div>
                               </div>
-                            </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse">
-                                <thead>
-                                  <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
-                                    <th className="pb-3 pl-4 w-10">
-                                      <input
-                                        type="checkbox"
-                                        checked={group.displayedInstallments.filter(i => i.status !== 'paid').length > 0 && group.displayedInstallments.filter(i => i.status !== 'paid').every(i => selectedInstIds.includes(i.id))}
-                                        onChange={(e) => {
-                                          const pendingIds = group.displayedInstallments.filter(i => i.status !== 'paid').map(i => i.id);
-                                          if (e.target.checked) {
-                                            setSelectedInstIds(prev => [...new Set([...prev, ...pendingIds])]);
-                                          } else {
-                                            setSelectedInstIds(prev => prev.filter(id => !pendingIds.includes(id)));
-                                          }
-                                        }}
-                                        className="rounded border-white/10 bg-white/5 text-primary focus:ring-0"
-                                      />
-                                    </th>
-                                    <th className="pb-3 pl-2">Nº Parcela</th>
-                                    <th className="pb-3">Data de Vencimento</th>
-                                    <th className="pb-3">Status Interno</th>
-                                    <th className="pb-3 text-right">Valor Original</th>
-                                    <th className="pb-3 text-right">Mora / Atualizado</th>
-                                    <th className="pb-3 text-right pr-4">Ações Financeiras</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {group.displayedInstallments.map((inst) => {
-                                    const fees = calculateOverdueFees(inst);
-                                    return (
-                                      <tr key={inst.id} className="border-b border-white/2 last:border-0 hover:bg-white/1 transition-all">
-                                        <td className="py-4 pl-4">
-                                          {inst.status !== 'paid' ? (
-                                            <input
-                                              type="checkbox"
-                                              checked={selectedInstIds.includes(inst.id)}
-                                              onChange={(e) => {
-                                                if (e.target.checked) {
-                                                  setSelectedInstIds(prev => [...prev, inst.id]);
-                                                } else {
-                                                  setSelectedInstIds(prev => prev.filter(id => id !== inst.id));
-                                                }
-                                              }}
-                                              className="rounded border-white/10 bg-white/5 text-primary focus:ring-0"
-                                            />
-                                          ) : null}
-                                        </td>
-                                        <td className="py-4 pl-2 text-xs font-black text-white">
-                                          Parcela {inst.number} de {inst.total}
-                                        </td>
-                                        <td className="py-4 text-xs font-mono text-on-surface-variant">
-                                          {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
-                                        </td>
-                                        <td className="py-4">
-                                          {inst.status === 'paid' ? (
-                                            <div className="flex flex-col">
-                                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-success tracking-wider">
-                                                <CheckCircle2 size={10} /> Pago
-                                              </span>
-                                              <span className="text-[8px] text-on-surface-variant mt-0.5">
-                                                {formatPaymentDate(inst.paid_at)} via {inst.payment_method === 'money' ? 'Dinheiro' : inst.payment_method === 'pix' ? 'PIX' : 'Cartão'}
-                                              </span>
-                                            </div>
-                                          ) : inst.status === 'blocked' ? (
-                                            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-red-400 tracking-wider">
-                                              <Lock size={10} /> Aparelho Bloqueado
-                                            </span>
-                                          ) : fees.isLate ? (
-                                            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-error tracking-wider animate-pulse">
-                                              <AlertTriangle size={10} /> Vencida (+{fees.daysLate}d)
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-warning tracking-wider">
-                                              <AlertCircle size={10} /> Pendente
-                                            </span>
-                                          )}
-                                        </td>
-                                        <td className="py-4 text-right font-mono text-xs text-on-surface-variant">
-                                          R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </td>
-                                        <td className={`py-4 text-right font-mono text-xs font-black ${fees.isLate ? 'text-error' : 'text-white'}`}>
-                                          R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </td>
-                                        <td className="py-4 text-right pr-4">
-                                          <div className="flex items-center justify-end gap-1.5">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
+                                      <th className="pb-3 pl-4 w-10">
+                                        <input
+                                          type="checkbox"
+                                          checked={group.displayedInstallments.filter(i => i.status !== 'paid').length > 0 && group.displayedInstallments.filter(i => i.status !== 'paid').every(i => selectedInstIds.includes(i.id))}
+                                          onChange={(e) => {
+                                            const pendingIds = group.displayedInstallments.filter(i => i.status !== 'paid').map(i => i.id);
+                                            if (e.target.checked) {
+                                              setSelectedInstIds(prev => [...new Set([...prev, ...pendingIds])]);
+                                            } else {
+                                              setSelectedInstIds(prev => prev.filter(id => !pendingIds.includes(id)));
+                                            }
+                                          }}
+                                          className="rounded border-white/10 bg-white/5 text-primary focus:ring-0"
+                                        />
+                                      </th>
+                                      <th className="pb-3 pl-2">Nº Parcela</th>
+                                      <th className="pb-3">Data de Vencimento</th>
+                                      <th className="pb-3">Status Interno</th>
+                                      <th className="pb-3 text-right">Valor Original</th>
+                                      <th className="pb-3 text-right">Mora / Atualizado</th>
+                                      <th className="pb-3 text-right pr-4">Ações Financeiras</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {group.displayedInstallments.map((inst) => {
+                                      const fees = calculateOverdueFees(inst);
+                                      return (
+                                        <tr key={inst.id} className="border-b border-white/2 last:border-0 hover:bg-white/1 transition-all">
+                                          <td className="py-4 pl-4">
                                             {inst.status !== 'paid' ? (
-                                              <>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => handlePayment(inst)}
-                                                  className="px-3 py-1.5 bg-success hover:scale-[1.03] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer"
-                                                >
-                                                  Receber
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setPixModalItem(inst)}
-                                                  title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Gerar Cobrança QR Code"}
-                                                  className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
-                                                >
-                                                  <QrCode size={13} />
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  disabled={sendingWa === inst.id}
-                                                  onClick={() => handleWhatsApp(inst)}
-                                                  title="Enviar Link de Cobrança WhatsApp"
-                                                  className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/20 cursor-pointer disabled:opacity-50"
-                                                >
-                                                  {sendingWa === inst.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                                                </button>
-                                              </>
+                                              <input
+                                                type="checkbox"
+                                                checked={selectedInstIds.includes(inst.id)}
+                                                onChange={(e) => {
+                                                  if (e.target.checked) {
+                                                    setSelectedInstIds(prev => [...prev, inst.id]);
+                                                  } else {
+                                                    setSelectedInstIds(prev => prev.filter(id => id !== inst.id));
+                                                  }
+                                                }}
+                                                className="rounded border-white/10 bg-white/5 text-primary focus:ring-0"
+                                              />
+                                            ) : null}
+                                          </td>
+                                          <td className="py-4 pl-2 text-xs font-black text-white">
+                                            Parcela {inst.number} de {inst.total}
+                                          </td>
+                                          <td className="py-4 text-xs font-mono text-on-surface-variant">
+                                            {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                          </td>
+                                          <td className="py-4">
+                                            {inst.status === 'paid' ? (
+                                              <div className="flex flex-col">
+                                                <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-success tracking-wider">
+                                                  <CheckCircle2 size={10} /> Pago
+                                                </span>
+                                                <span className="text-[8px] text-on-surface-variant mt-0.5">
+                                                  {formatPaymentDate(inst.paid_at)} via {inst.payment_method === 'money' ? 'Dinheiro' : inst.payment_method === 'pix' ? 'PIX' : 'Cartão'}
+                                                </span>
+                                              </div>
+                                            ) : inst.status === 'blocked' ? (
+                                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-red-400 tracking-wider">
+                                                <Lock size={10} /> Aparelho Bloqueado
+                                              </span>
+                                            ) : fees.isLate ? (
+                                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-error tracking-wider animate-pulse">
+                                                <AlertTriangle size={10} /> Vencida (+{fees.daysLate}d)
+                                              </span>
                                             ) : (
-                                              <>
-                                                {isAdmin && (
+                                              <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-warning tracking-wider">
+                                                <AlertCircle size={10} /> Pendente
+                                              </span>
+                                            )}
+                                          </td>
+                                          <td className="py-4 text-right font-mono text-xs text-on-surface-variant">
+                                            R$ {inst.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </td>
+                                          <td className={`py-4 text-right font-mono text-xs font-black ${fees.isLate ? 'text-error' : 'text-white'}`}>
+                                            R$ {fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </td>
+                                          <td className="py-4 text-right pr-4">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              {inst.status !== 'paid' ? (
+                                                <>
                                                   <button
                                                     type="button"
-                                                    onClick={() => handleRevertPayment(inst)}
-                                                    title="Estornar/Cancelar Recebimento"
-                                                    className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all border border-red-500/20 cursor-pointer"
+                                                    onClick={() => handlePayment(inst)}
+                                                    className="px-3 py-1.5 bg-success hover:scale-[1.03] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer"
                                                   >
-                                                    <RotateCcw size={13} />
+                                                    Receber
                                                   </button>
-                                                )}
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setPixModalItem(inst)}
-                                                  title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Reimprimir Recibo"}
-                                                  className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
-                                                >
-                                                  <Printer size={13} />
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  disabled={sendingWa === inst.id}
-                                                  onClick={() => handleWhatsApp(inst)}
-                                                  title="Enviar Comprovante via WhatsApp"
-                                                  className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/20 cursor-pointer disabled:opacity-50"
-                                                >
-                                                  {sendingWa === inst.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                                                </button>
-                                              </>
-                                            )}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setPixModalItem(inst)}
+                                                    title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Gerar Cobrança QR Code"}
+                                                    className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
+                                                  >
+                                                    <QrCode size={13} />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    disabled={sendingWa === inst.id}
+                                                    onClick={() => handleWhatsApp(inst)}
+                                                    title="Enviar Link de Cobrança WhatsApp"
+                                                    className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/20 cursor-pointer disabled:opacity-50"
+                                                  >
+                                                    {sendingWa === inst.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  {isAdmin && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleRevertPayment(inst)}
+                                                      title="Estornar/Cancelar Recebimento"
+                                                      className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all border border-red-500/20 cursor-pointer"
+                                                    >
+                                                      <RotateCcw size={13} />
+                                                    </button>
+                                                  )}
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setPixModalItem(inst)}
+                                                    title={inst.asaas_invoice_url ? "Visualizar Boleto / Pix da MDR" : "Reimprimir Recibo"}
+                                                    className="p-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all border border-white/10 cursor-pointer"
+                                                  >
+                                                    <Printer size={13} />
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    disabled={sendingWa === inst.id}
+                                                    onClick={() => handleWhatsApp(inst)}
+                                                    title="Enviar Comprovante via WhatsApp"
+                                                    className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/20 cursor-pointer disabled:opacity-50"
+                                                  >
+                                                    {sendingWa === inst.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                                                  </button>
+                                                </>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </>
-      ) : activeFinanceTab === 'caixas' ? (
-        <div className="space-y-8 animate-in fade-in duration-500">
-          {/* CARDS DE CAIXA SEPAREDOS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* CARD CAIXA FINANCEIRA */}
-            <div className="bg-linear-to-br from-[#0f1f18] to-[#0f0f1a] p-8 rounded-4xl border border-emerald-500/20 relative overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                    <Store size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-white uppercase tracking-tight">Caixa Financeira</h3>
-                    <p className="text-[10px] text-emerald-400 font-mono font-black uppercase tracking-widest">Recebimentos de Clientes Final</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-full">
-                  Ativo
-                </span>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center py-2 border-b border-white/5">
-                  <span className="text-xs text-on-surface-variant font-medium">Total Arrecadado (Parcelas + Entradas)</span>
-                  <span className="text-sm font-black text-white font-mono">
-                    R$ {(cashierSummary?.financeira?.totalArrecadado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-white/5">
-                  <span className="text-xs text-on-surface-variant font-medium">Total Já Repassado à Loja</span>
-                  <span className="text-sm font-black text-warning font-mono">
-                    - R$ {(cashierSummary?.financeira?.totalRepassado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pt-2">
-                  <span className="text-sm font-black text-white uppercase tracking-wider">Saldo Disponível no Caixa</span>
-                  <span className="text-2xl font-black text-emerald-400 font-mono">
-                    R$ {(cashierSummary?.financeira?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setTransferAmountInput((cashierSummary?.financeira?.balance || 0).toString());
-                  setIsTransferModalOpen(true);
-                }}
-                disabled={(cashierSummary?.financeira?.balance || 0) <= 0}
-                className="w-full py-4 bg-emerald-500 text-black hover:bg-emerald-400 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <DollarSign size={18} />
-                💸 Realizar Repasse para o Caixa Loja
-              </button>
-            </div>
-
-            {/* CARD CAIXA LOJA */}
-            <div className="bg-linear-to-br from-[#180f24] to-[#0f0f1a] p-8 rounded-4xl border border-purple-500/20 relative overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                    <DollarSign size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-white uppercase tracking-tight">Caixa Loja</h3>
-                    <p className="text-[10px] text-purple-400 font-mono font-black uppercase tracking-widest">Caixa Operacional da Loja Física</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-full">
-                  Ativo
-                </span>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center py-2 border-b border-white/5">
-                  <span className="text-xs text-on-surface-variant font-medium">Repasses Recebidos da Financeira</span>
-                  <span className="text-sm font-black text-purple-300 font-mono">
-                    + R$ {(cashierSummary?.loja?.totalRepassesRecebidos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-white/5">
-                  <span className="text-xs text-on-surface-variant font-medium">Entradas Diretas e Vendas à Vista</span>
-                  <span className="text-sm font-black text-white font-mono">
-                    + R$ {(cashierSummary?.loja?.totalEntradasDiretas || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center pt-2">
-                  <span className="text-sm font-black text-white uppercase tracking-wider">Saldo em Caixa da Loja</span>
-                  <span className="text-2xl font-black text-purple-400 font-mono">
-                    R$ {(cashierSummary?.loja?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
-
-          {/* HISTÓRICO DE REPASSES */}
-          <div className="bg-white/2 rounded-4xl border border-white/10 p-6">
-            <h4 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-              <History size={18} className="text-primary" />
-              Histórico de Repasses (Financeira ➔ Loja)
-            </h4>
-
-            {cashierTransfers.length === 0 ? (
-              <p className="text-xs text-on-surface-variant py-8 text-center">Nenhum repasse registrado até o momento.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-white/10 text-on-surface-variant uppercase text-[10px] tracking-wider font-black">
-                      <th className="py-3 px-4">Data/Hora</th>
-                      <th className="py-3 px-4">Origem</th>
-                      <th className="py-3 px-4">Destino</th>
-                      <th className="py-3 px-4 text-right">Valor Repassado</th>
-                      <th className="py-3 px-4">Descrição</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cashierTransfers.map((t: any) => (
-                      <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 font-mono">
-                        <td className="py-3 px-4 text-white">
-                          {new Date(t.created_at || t.createdAt).toLocaleString('pt-BR')}
-                        </td>
-                        <td className="py-3 px-4 text-emerald-400 font-bold">Caixa Financeira</td>
-                        <td className="py-3 px-4 text-purple-400 font-bold">Caixa Loja</td>
-                        <td className="py-3 px-4 text-right text-success font-black text-sm">
-                          R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-3 px-4 text-on-surface-variant font-sans text-xs">
-                          {t.description || 'Repasse efetuado'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* MODAL DE REPASSE DE VALORES */}
-          {isTransferModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-              <div className="bg-[#0f0f1a] border border-white/10 rounded-4xl p-8 max-w-md w-full space-y-6">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <h3 className="text-base font-black text-white uppercase tracking-wider">💸 Realizar Repasse para a Loja</h3>
-                  <button onClick={() => setIsTransferModalOpen(false)} className="p-2 text-on-surface-variant hover:text-white">
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest block mb-1">
-                      Valor a Repassar (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={transferAmountInput}
-                      onChange={(e) => setTransferAmountInput(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-lg font-mono font-black text-emerald-400 outline-none focus:border-emerald-500"
-                    />
-                    <p className="text-[10px] text-on-surface-variant/80 mt-1">
-                      Saldo disponível na Financeira: <span className="text-white font-mono font-bold">R$ {(cashierSummary?.financeira?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-on-surface-variant uppercase font-black tracking-widest block mb-1">
-                      Descrição / Observações
-                    </label>
-                    <input
-                      type="text"
-                      value={transferDescInput}
-                      onChange={(e) => setTransferDescInput(e.target.value)}
-                      placeholder="Ex: Repasse de recebimentos da semana para o caixa da loja"
-                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-4 border-t border-white/10">
-                  <button
-                    onClick={() => setIsTransferModalOpen(false)}
-                    className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-wider"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleExecuteTransfer}
-                    disabled={isSubmittingTransfer || !transferAmountInput}
-                    className="flex-1 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-xs tracking-wider rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-                  >
-                    {isSubmittingTransfer ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Confirmar Repasse'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        </>
       ) : (
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/2 border border-white/5 p-6 rounded-4xl">
@@ -2210,6 +2043,49 @@ export default function Finance() {
             </div>
 
             <div className="xl:col-span-4 space-y-6">
+              {/* Widget de Relatório Mensal de Cartões */}
+              <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
+                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
+                  Relatório Mensal de Cartões
+                </h3>
+                <div className="overflow-x-auto max-h-87.5 pr-2 custom-scrollbar">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-wider pb-2">
+                        <th className="pb-2">Mês</th>
+                        <th className="pb-2 text-right">Fixado</th>
+                        <th className="pb-2 text-right">Abatido</th>
+                        <th className="pb-2 text-right">A Pagar</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {monthlyReport.map((item, idx) => {
+                        const isCurrentMonth = item.month === new Date().getMonth() + 1 && item.year === new Date().getFullYear();
+                        return (
+                          <tr key={idx} className={cn("hover:bg-white/5 transition-all", isCurrentMonth && "bg-white/5 font-bold")}>
+                            <td className="py-2.5 font-bold text-white uppercase flex items-center gap-1">
+                              {item.monthLabel}
+                              {isCurrentMonth && (
+                                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[7px] font-black uppercase px-1 py-0.2 rounded scale-90">Atual</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-zinc-400">
+                              R$ {item.fixedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-emerald-400">
+                              R$ {item.paidValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-error">
+                              R$ {item.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <div className="bg-white/5 border border-white/5 rounded-[40px] p-6 space-y-6">
                 <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
                   Relatório Mensal
@@ -2320,49 +2196,6 @@ export default function Finance() {
                   >
                     Salvar Relatório & Previsões
                   </button>
-                </div>
-              </div>
-
-              {/* Widget de Relatório Mensal de Cartões */}
-              <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
-                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
-                  Relatório Mensal de Cartões
-                </h3>
-                <div className="overflow-x-auto max-h-87.5 pr-2 custom-scrollbar">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-wider pb-2">
-                        <th className="pb-2">Mês</th>
-                        <th className="pb-2 text-right">Fixado</th>
-                        <th className="pb-2 text-right">Abatido</th>
-                        <th className="pb-2 text-right">A Pagar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {monthlyReport.map((item, idx) => {
-                        const isCurrentMonth = item.month === new Date().getMonth() + 1 && item.year === new Date().getFullYear();
-                        return (
-                          <tr key={idx} className={cn("hover:bg-white/5 transition-all", isCurrentMonth && "bg-white/5 font-bold")}>
-                            <td className="py-2.5 font-bold text-white uppercase flex items-center gap-1">
-                              {item.monthLabel}
-                              {isCurrentMonth && (
-                                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[7px] font-black uppercase px-1 py-0.2 rounded scale-90">Atual</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 text-right font-mono text-zinc-400">
-                              R$ {item.fixedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2.5 text-right font-mono text-emerald-400">
-                              R$ {item.paidValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2.5 text-right font-mono text-error">
-                              R$ {item.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
                 </div>
               </div>
             </div>
@@ -2502,6 +2335,102 @@ export default function Finance() {
                   {editingBill ? 'Atualizar Conta' : 'Adicionar Conta'}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Repasse (Financeira -> Loja) */}
+      <AnimatePresence>
+        {isTransferModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsTransferModalOpen(false)}>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-[#0f1f18] border border-emerald-500/30 rounded-4xl w-full max-w-md p-6 shadow-2xl space-y-6 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
+                    <DollarSign size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                      Repasse para Caixa Loja
+                    </h3>
+                    <p className="text-[10px] text-emerald-400 font-mono font-black uppercase tracking-widest">
+                      Transferência de saldo arrecadado
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTransferModalOpen(false)}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-white cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 space-y-1">
+                <span className="text-[9px] text-emerald-300 font-black uppercase tracking-widest block">Saldo Disponível na Financeira</span>
+                <span className="text-xl font-black text-emerald-400 font-mono">
+                  R$ {(cashierSummary?.financeira?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">
+                    Valor do Repasse (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={cashierSummary?.financeira?.balance || 0}
+                    value={transferAmountInput}
+                    onChange={(e) => setTransferAmountInput(e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-400 font-mono font-black"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">
+                    Observação / Descrição
+                  </label>
+                  <input
+                    type="text"
+                    value={transferDescInput}
+                    onChange={(e) => setTransferDescInput(e.target.value)}
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-emerald-400 font-sans"
+                    placeholder="Repasse de valores para o Caixa Loja"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSubmittingTransfer || !Number(transferAmountInput) || Number(transferAmountInput) <= 0}
+                  onClick={handleExecuteTransfer}
+                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isSubmittingTransfer ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Processando Repasse...
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign size={16} />
+                      Confirmar Repasse de R$ {Number(transferAmountInput || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </>
+                  )}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

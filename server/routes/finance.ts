@@ -52,6 +52,7 @@ function mapLocalToCloud(tableName: string, data: any): any {
     else if (k === 'closedAt') pgKey = 'closed_at';
     else if (k === 'openingBalance') pgKey = 'opening_balance';
     else if (k === 'closingBalance') pgKey = 'closing_balance';
+    else if (k === 'originType') pgKey = 'origin_type';
     result[pgKey] = data[k];
   }
   return result;
@@ -143,7 +144,7 @@ router.post("/installments", async (req, res) => {
       const firstInst = list[0];
       const { data: sale } = await supabase
         .from('sales')
-        .select('payment_type, customer_id, store_id, device_model_manual')
+        .select('payment_type, customer_id, store_id, device_model_manual, origin_type')
         .eq('id', firstInst.sale_id)
         .maybeSingle();
 
@@ -221,7 +222,8 @@ router.post("/installments", async (req, res) => {
           status: inst.status || 'pending',
           asaas_payment_id: asaasPaymentId,
           asaas_invoice_url: asaasInvoiceUrl,
-          asaas_sync_status: asaasSyncStatus
+          asaas_sync_status: asaasSyncStatus,
+          origin_type: inst.origin_type || sale?.origin_type || 'CREDIARIO_LOJA'
         });
       }
 
@@ -353,6 +355,9 @@ router.patch("/installments/:id", async (req, res) => {
           customerName = data.sales.customers.name;
         }
 
+        const originType = data.origin_type || data.sales?.origin_type || 'CREDIARIO_LOJA';
+        const cashierType = originType === 'FINANCIAMENTO_CELULAR' ? 'FINANCEIRA' : 'LOJA';
+
         await supabase
           .from('cash_transactions')
           .insert({
@@ -362,7 +367,8 @@ router.patch("/installments/:id", async (req, res) => {
             category: 'installment',
             amount,
             payment_method: pm,
-            description: `Recebimento de parcela #${data.installment_number} de ${customerName}`,
+            cashier_type: cashierType,
+            description: `Recebimento de parcela #${data.installment_number} de ${customerName} (${cashierType === 'FINANCEIRA' ? 'Financeira' : 'Loja'})`,
             installment_id: data.id,
             created_by: created_by || activeShift?.opened_by || data.sales?.created_by || '00000000-0000-0000-0000-000000000000'
           });

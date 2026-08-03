@@ -7,71 +7,121 @@ export const cashierRouter = Router();
 cashierRouter.get('/summary', async (req, res) => {
   try {
     const { storeId } = req.query;
+    const targetUnitId = (storeId && storeId !== 'all') ? String(storeId) : null;
 
-    // 1. Buscar todas as parcelas pagas no Supabase (Entradas no Caixa Financeira)
+    // 1. Buscar parcelas pagas no Supabase com relação sales!inner e filtro de unidade
     let installmentsQuery = supabase
       .from('installments')
-      .select('value')
+      .select('value, origin_type, payment_method, sales!inner(origin_type, store_id, payment_type, payment_method)')
       .eq('status', 'paid');
     
+    if (targetUnitId) {
+      installmentsQuery = installmentsQuery.eq('sales.store_id', targetUnitId);
+    }
+
     const { data: paidInstallments, error: instErr } = await installmentsQuery;
     if (instErr) console.warn('Aviso ao buscar parcelas pagas:', instErr.message);
 
-    const totalPaidInstallments = (paidInstallments || []).reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+    let totalFinanceiraInstallments = 0;
+    let totalLojaInstallments = 0;
 
-    // 2. Buscar entradas de crediário/entradas de vendas
+    (paidInstallments || []).forEach((inst: any) => {
+      const val = Number(inst.value) || 0;
+      const isCard = inst.payment_method === 'card' ||
+                     inst.payment_method === 'debit' ||
+                     inst.sales?.payment_type === 'card' ||
+                     inst.sales?.payment_type === 'debit' ||
+                     inst.sales?.payment_method === 'card' ||
+                     inst.sales?.payment_method === 'debit';
+
+      // Vendas no cartão pertencem ao Controle de Cartões, não ao Crediário Próprio da Loja
+      if (isCard) return;
+
+      const isFinanc = inst.origin_type === 'FINANCIAMENTO_CELULAR' ||
+        inst.sales?.origin_type === 'FINANCIAMENTO_CELULAR';
+
+      if (isFinanc) {
+        totalFinanceiraInstallments += val;
+      } else {
+        totalLojaInstallments += val;
+      }
+    });
+
+    // 2. Buscar entradas de todas as vendas concluídas (Entradas de Aparelhos + Balcão entram no Caixa Loja)
     let salesQuery = supabase
       .from('sales')
-      .select('down_payment')
+      .select('down_payment, origin_type, store_id')
       .eq('status', 'completed');
     
+    if (targetUnitId) {
+      salesQuery = salesQuery.eq('store_id', targetUnitId);
+    }
+
     const { data: salesData, error: salesErr } = await salesQuery;
     if (salesErr) console.warn('Aviso ao buscar vendas:', salesErr.message);
 
-    const totalDownPayments = (salesData || []).reduce((acc, curr) => acc + (Number(curr.down_payment) || 0), 0);
+    let totalLojaDownPayments = 0;
 
-    // 3. Buscar transações diretas de caixa por cashier_type
-    const { data: cashTxs, error: cashErr } = await supabase
+    (salesData || []).forEach((sale: any) => {
+      const down = Number(sale.down_payment) || 0;
+      totalLojaDownPayments += down;
+    });
+
+    // 3. Buscar transações de caixa diretas com filtro de unidade
+    let cashTxsQuery = supabase
       .from('cash_transactions')
       .select('*');
+
+    if (targetUnitId) {
+      cashTxsQuery = cashTxsQuery.eq('unit_id', targetUnitId);
+    }
+
+    const { data: cashTxs, error: cashErr } = await cashTxsQuery;
     if (cashErr) console.warn('Aviso ao buscar transações de caixa:', cashErr.message);
 
+    // Filtrar transações diretas sem duplicar as lançadas por vendas/parcelas ou repasses em cashier_transfers
     const extraFinanceiraIn = (cashTxs || [])
-      .filter((t: any) => t.cashier_type === 'FINANCEIRA' && t.type === 'in')
+      .filter((t: any) => t.cashier_type === 'FINANCEIRA' && (t.type === 'in' || t.type === 'inflow') && !t.sale_id && !t.installment_id && !(t.description || '').includes('[REPASSE'))
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
 
     const extraFinanceiraOut = (cashTxs || [])
-      .filter((t: any) => t.cashier_type === 'FINANCEIRA' && t.type === 'out')
+      .filter((t: any) => t.cashier_type === 'FINANCEIRA' && (t.type === 'out' || t.type === 'outflow') && !(t.description || '').includes('[REPASSE'))
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
 
-    // 4. Buscar histórico de repasses (Financeira -> Loja)
-    const { data: transfersData, error: transErr } = await supabase
+    // 4. Buscar histórico de repasses (Financeira -> Loja) com filtro de unidade
+    let transfersQuery = supabase
       .from('cashier_transfers')
       .select('*')
       .order('created_at', { ascending: false });
 
+    if (targetUnitId) {
+      transfersQuery = transfersQuery.eq('store_id', targetUnitId);
+    }
+
+    const { data: transfersData, error: transErr } = await transfersQuery;
     if (transErr && transErr.code !== '42P01') {
       console.warn('Aviso ao buscar cashier_transfers:', transErr.message);
     }
 
     const totalTransferred = (transfersData || []).reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
 
-    // Saldo Bruto Arrecadado pela Financeira
-    const totalFinanceiraArrecadado = totalPaidInstallments + totalDownPayments + extraFinanceiraIn - extraFinanceiraOut;
+    // Saldo Bruto Arrecadado pela Financeira (Parcelas de Financiamento cobradas no Asaas)
+    const totalFinanceiraArrecadado = totalFinanceiraInstallments + extraFinanceiraIn - extraFinanceiraOut;
 
     // Saldo Líquido Disponível no Caixa Financeira (Aguardando Repasse)
     const financeiraBalance = Math.max(0, totalFinanceiraArrecadado - totalTransferred);
 
-    // Saldo no Caixa Loja
+    // Saldo no Caixa Loja (Entradas de Aparelhos + Vendas Balcão + Parcelas Crediário Loja + Transações Diretas Loja + Repasses Recebidos - Saídas)
     const extraLojaIn = (cashTxs || [])
-      .filter((t: any) => (t.cashier_type === 'LOJA' || !t.cashier_type) && t.type === 'in')
+      .filter((t: any) => (t.cashier_type === 'LOJA' || !t.cashier_type) && (t.type === 'in' || t.type === 'inflow') && !t.sale_id && !t.installment_id && !(t.description || '').includes('[REPASSE'))
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
 
     const extraLojaOut = (cashTxs || [])
-      .filter((t: any) => (t.cashier_type === 'LOJA' || !t.cashier_type) && t.type === 'out')
+      .filter((t: any) => (t.cashier_type === 'LOJA' || !t.cashier_type) && (t.type === 'out' || t.type === 'outflow') && !(t.description || '').includes('[REPASSE'))
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
 
-    const lojaBalance = (extraLojaIn + totalTransferred) - extraLojaOut;
+    const totalLojaEntradasDiretas = totalLojaInstallments + totalLojaDownPayments + extraLojaIn;
+    const lojaBalance = (totalLojaEntradasDiretas + totalTransferred) - extraLojaOut;
 
     return res.json({
       success: true,
@@ -79,14 +129,16 @@ cashierRouter.get('/summary', async (req, res) => {
         totalArrecadado: totalFinanceiraArrecadado,
         totalRepassado: totalTransferred,
         balance: financeiraBalance,
-        totalPaidInstallments,
-        totalDownPayments
+        totalPaidInstallments: totalFinanceiraInstallments,
+        totalDownPayments: 0
       },
       loja: {
         totalRepassesRecebidos: totalTransferred,
-        totalEntradasDiretas: extraLojaIn,
+        totalEntradasDiretas: totalLojaEntradasDiretas,
         totalSaidas: extraLojaOut,
-        balance: lojaBalance
+        balance: lojaBalance,
+        totalPaidInstallments: totalLojaInstallments,
+        totalDownPayments: totalLojaDownPayments
       },
       recentTransfers: (transfersData || []).slice(0, 20)
     });
@@ -118,7 +170,7 @@ cashierRouter.post('/transfer', async (req, res) => {
       created_at: new Date().toISOString()
     };
 
-    // 1. Tentar salvar em cashier_transfers no Supabase
+    // 1. Salvar em cashier_transfers no Supabase
     const { data: createdTransfer, error: insertErr } = await supabase
       .from('cashier_transfers')
       .insert([newTransfer])
@@ -132,6 +184,7 @@ cashierRouter.post('/transfer', async (req, res) => {
     // 2. Registrar saída no Caixa Financeira e entrada no Caixa Loja
     const txFinanceiraOut = {
       id: 'ctx_fin_' + Date.now(),
+      unit_id: storeId || null,
       type: 'out',
       amount: transferAmount,
       description: `[REPASSE] ${description || 'Repasse para Caixa Loja'}`,
@@ -141,6 +194,7 @@ cashierRouter.post('/transfer', async (req, res) => {
 
     const txLojaIn = {
       id: 'ctx_loj_' + Date.now(),
+      unit_id: storeId || null,
       type: 'in',
       amount: transferAmount,
       description: `[REPASSE RECEBIDO] ${description || 'Recebimento de Repasse da Financeira'}`,
@@ -164,10 +218,17 @@ cashierRouter.post('/transfer', async (req, res) => {
 // GET /api/cashier/transfers - Retorna o histórico de repasses efetuados
 cashierRouter.get('/transfers', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { storeId } = req.query;
+    let query = supabase
       .from('cashier_transfers')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (storeId && storeId !== 'all') {
+      query = query.eq('store_id', storeId);
+    }
+
+    const { data, error } = await query;
 
     if (error && error.code !== '42P01') {
       console.warn('Aviso ao consultar cashier_transfers:', error.message);

@@ -356,7 +356,9 @@ export default function ContractPrint({ sale, customer, unit, installmentValue, 
           </div>
           <div className="text-right">
             <h1 className="text-base font-black text-black uppercase tracking-tight leading-none">Cédula de Crédito Bancário</h1>
-            <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider">Nº {contractNumber} | Tipo: CDC</span>
+            <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider">
+              Nº {contractNumber} | Modalidade: {(sale as any).origin_type === 'FINANCIAMENTO_CELULAR' || (sale.device_model && sale.device_model !== 'Geral') ? '📱 Financiamento Celular (Financeira/MDM)' : '🏬 Crediário Loja'}
+            </span>
           </div>
         </div>
 

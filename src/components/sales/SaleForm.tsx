@@ -1250,6 +1250,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       }
 
       const primaryDeviceId = selectedDevices[0]?.id || undefined;
+      const calculatedOriginType: 'FINANCIAMENTO_CELULAR' | 'CREDIARIO_LOJA' =
+        (saleType === 'cellphone' || isSellingCellphone) ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA';
 
       if (initialData) {
         await updateSale(initialData.id, {
@@ -1273,7 +1275,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           trade_in_device_imei: formData.trade_in_device_imei,
           trade_in_valuation: formData.trade_in_valuation,
           trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
-          payment_method: formData.payment_method
+          payment_method: formData.payment_method,
+          origin_type: calculatedOriginType
         });
 
         // Clear and re-save installments preserving payment statuses
@@ -1290,7 +1293,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             total: totalInstCount,
             value: formData.down_payment,
             due_date: new Date().toLocaleDateString('en-CA'),
-            status: matchedOriginal ? matchedOriginal.status : 'paid'
+            status: matchedOriginal ? matchedOriginal.status : 'paid',
+            origin_type: calculatedOriginType
           });
         }
 
@@ -1304,7 +1308,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             total: 1,
             value: finalValue,
             due_date: new Date().toLocaleDateString('en-CA'),
-            status: matchedOriginal ? matchedOriginal.status : 'paid'
+            status: matchedOriginal ? matchedOriginal.status : 'paid',
+            origin_type: calculatedOriginType
           });
         } else if (formData.installments > 0) {
           const startNum = formData.down_payment > 0 ? 2 : 1;
@@ -1319,7 +1324,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               total: totalInstCount,
               value: inst.value,
               due_date: inst.dueDate,
-              status: matchedOriginal ? matchedOriginal.status : 'pending'
+              status: matchedOriginal ? matchedOriginal.status : 'pending',
+              origin_type: calculatedOriginType
             });
           });
         }
@@ -1355,7 +1361,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
           trade_in_device_imei: formData.trade_in_device_imei,
           trade_in_valuation: formData.trade_in_valuation,
           trade_in_sale_price_estimate: formData.trade_in_sale_price_estimate,
-          payment_method: formData.payment_method
+          payment_method: formData.payment_method,
+          origin_type: calculatedOriginType
         });
 
         setCreatedSale(newSale);
@@ -1395,7 +1402,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             total: totalInstCount,
             value: formData.down_payment,
             due_date: new Date().toLocaleDateString('en-CA'),
-            status: 'paid' as const
+            status: 'paid' as const,
+            origin_type: calculatedOriginType
           });
         }
 
@@ -1408,7 +1416,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             total: 1,
             value: finalValue,
             due_date: new Date().toLocaleDateString('en-CA'),
-            status: 'paid' as const
+            status: 'paid' as const,
+            origin_type: calculatedOriginType
           });
         } else if (formData.installments > 0) {
           const startNum = formData.down_payment > 0 ? 2 : 1;
@@ -1421,7 +1430,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               total: totalInstCount,
               value: inst.value,
               due_date: inst.dueDate,
-              status: 'pending' as const
+              status: 'pending' as const,
+              origin_type: calculatedOriginType
             });
           });
         }
@@ -1610,7 +1620,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     };
     return (
       <div className="text-center py-12 space-y-8 animate-in zoom-in duration-500">
-        <div className="w-24 h-24 bg-success/10 rounded-[32px] flex items-center justify-center mx-auto border border-success/20 text-success">
+        <div className="w-24 h-24 bg-success/10 rounded-4xl flex items-center justify-center mx-auto border border-success/20 text-success">
           <CheckCircle2 size={48} />
         </div>
         <div className="space-y-2">
@@ -1804,11 +1814,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 setApplyAutoDiscount(false);
               }}
               className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
                 saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
               )}
             >
-              Vendas Em Geral
+              🏬 Crediário Loja
             </button>
             <button
               type="button"
@@ -1818,11 +1828,11 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 setApplyAutoDiscount(false);
               }}
               className={cn(
-                "flex-1 py-2 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                "flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5",
                 saleType === 'cellphone' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
               )}
             >
-              Crediário Loja
+              📱 Financiamento Celular
             </button>
           </div>
         </div>
@@ -2082,7 +2092,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                           >
                             −
                           </button>
-                          <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-[24px] text-center">
+                          <span className="px-2 py-1 text-xs font-black text-white font-mono min-w-6 text-center">
                             {device.quantity}
                           </span>
                           <button
@@ -2294,7 +2304,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
               {/* Sub-formulário Trade-in */}
               {formData.is_trade_in && (
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-[32px] animate-in fade-in duration-300">
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-4xl animate-in fade-in duration-300">
                   <div className="md:col-span-3 pb-2 border-b border-white/5">
                     <span className="text-[10px] font-black text-primary uppercase tracking-wider block">📱 Dados do Celular Recebido (Troca)</span>
                   </div>
@@ -2379,7 +2389,8 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                     ...prev,
                     payment_type: val as any,
                     installments: isCashLike ? 0 : 12,
-                    down_payment: isCashLike ? 0 : prev.down_payment
+                    down_payment: isCashLike ? 0 : prev.down_payment,
+                    interest_table: saleType === 'general' ? 'no_interest' : prev.interest_table
                   };
                 });
               }}
@@ -2387,6 +2398,13 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
             >
               {saleType === 'general' ? (
                 <>
+                  <option
+                    value="crediario"
+                    disabled={selectedCustomer?.classification === 'BLOQUEADO' || selectedCustomer?.classification === 'BLOQUEADO_CREDIARIO' || hasCashOnlyDevice}
+                    className="bg-surface-container-high"
+                  >
+                    Crediário da Loja (Parcelado A Prazo) {(selectedCustomer?.classification === 'BLOQUEADO' || selectedCustomer?.classification === 'BLOQUEADO_CREDIARIO') ? '(Bloqueado - Compra Bloqueada)' : hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}
+                  </option>
                   <option value="vista" className="bg-surface-container-high">À Vista (Dinheiro/Pix)</option>
                   <option value="card" disabled={hasCashOnlyDevice} className="bg-surface-container-high">Cartão de Crédito {hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}</option>
                   <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
@@ -2395,10 +2413,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 <>
                   <option
                     value="crediario"
-                    disabled={selectedCustomer?.classification === 'A_VISTA' || hasCashOnlyDevice}
+                    disabled={selectedCustomer?.classification === 'A_VISTA' || selectedCustomer?.classification === 'BLOQUEADO' || selectedCustomer?.classification === 'BLOQUEADO_CREDIARIO' || hasCashOnlyDevice}
                     className="bg-surface-container-high"
                   >
-                    Crediário da Loja {selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}
+                    Financiamento Celular (Parcelado MDM) {(selectedCustomer?.classification === 'BLOQUEADO' || selectedCustomer?.classification === 'BLOQUEADO_CREDIARIO') ? '(Bloqueado - Cadastro Bloqueado)' : selectedCustomer?.classification === 'A_VISTA' ? '(Bloqueado - Somente À Vista)' : hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}
                   </option>
                   <option value="card" disabled={hasCashOnlyDevice} className="bg-surface-container-high">Cartão de Crédito {hasCashOnlyDevice ? '(Bloqueado - À Vista Somente)' : ''}</option>
                   <option value="debit" className="bg-surface-container-high">Cartão de Débito</option>
@@ -2406,11 +2424,19 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 </>
               )}
             </select>
-            {selectedCustomer?.classification === 'A_VISTA' && (
+            {selectedCustomer?.classification === 'A_VISTA' && saleType !== 'general' && (
               <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl mt-1 animate-pulse">
                 <AlertCircle size={14} className="shrink-0" />
                 <span className="font-bold text-[10px] uppercase tracking-wider">
-                  Aviso: Cliente classificado como 'Somente À Vista'. Vendas parceladas não permitidas (sujeito a análise de crédito).
+                  Aviso: Cliente classificado como 'Somente À Vista' para Financiamento de Aparelhos (sujeito a análise de crédito).
+                </span>
+              </div>
+            )}
+            {(selectedCustomer?.classification === 'BLOQUEADO' || selectedCustomer?.classification === 'BLOQUEADO_CREDIARIO') && (
+              <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl mt-1 animate-pulse">
+                <AlertCircle size={14} className="shrink-0" />
+                <span className="font-bold text-[10px] uppercase tracking-wider">
+                  Aviso: Cliente com cadastro bloqueado para compras no Crediário.
                 </span>
               </div>
             )}
@@ -2612,7 +2638,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
         {/* Preview Section */}
         {formData.payment_type !== 'vista' && generatedInstallments.length > 0 && (
-          <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
+          <div className="mt-8 p-6 bg-white/5 rounded-4xl border border-white/10 space-y-6">
             {formData.payment_type !== 'card' && (
               <>
                 <div className="flex items-center justify-between pb-6 border-b border-white/5">
@@ -2745,7 +2771,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
         {/* Preview Section for cash/pix sale (À Vista) or Debit with Change (Troco) Calculator */}
         {isCashLike && formData.total_value > 0 && (
-          <div className="mt-8 p-6 bg-white/5 rounded-[32px] border border-white/10 space-y-6 animate-in fade-in duration-300">
+          <div className="mt-8 p-6 bg-white/5 rounded-4xl border border-white/10 space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between pb-6 border-b border-white/5">
               <h4 className="text-[10px] font-black text-white uppercase tracking-[0.2em]">{paymentType === 'debit' ? "Resumo da Negociação (Débito)" : "Resumo da Negociação (À Vista)"}</h4>
               <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full">
@@ -2829,7 +2855,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       {/* Modal de Cadastro Rápido de Cliente */}
       {isQuickCustomerOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-          <div className="bg-[#121224] border border-white/10 rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-[#121224] border border-white/10 rounded-4xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">
@@ -2916,7 +2942,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       {/* Modal de Cadastro Rápido de Produto */}
       {isQuickProductOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto animate-in fade-in duration-300">
-          <div className="bg-[#121224] border border-white/10 rounded-[32px] w-full max-w-lg my-8 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="bg-[#121224] border border-white/10 rounded-4xl w-full max-w-lg my-8 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 border border-primary/20 rounded-xl text-primary">

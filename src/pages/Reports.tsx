@@ -1905,62 +1905,62 @@ export default function Reports() {
 
       {/* ─── TAB 2: LUCRO PRESUMIDO (VALOR DE VENDA X VALOR DE CUSTO) ─────── */}
       {activeTab === 'lucro_presumido' && (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-8 print:space-y-2 animate-in fade-in duration-500">
 
           {/* PRINT-ONLY TITLE (VISIBLE ON PRINT) */}
-          <div className="hidden print:block border-b border-black pb-4 mb-4 text-black">
-            <h1 className="text-2xl font-black uppercase">Lucro Presumido de Venda de Serviços/Itens Avulsos ou do Estoque</h1>
-            <p className="text-[10px] text-gray-700 uppercase tracking-wider font-bold">
+          <div className="hidden print:block border-b border-black pb-2 mb-2 text-black">
+            <h1 className="text-2xl print:text-sm font-black uppercase leading-tight">Lucro Presumido de Venda de Serviços/Itens Avulsos ou do Estoque</h1>
+            <p className="text-[10px] print:text-[8px] text-gray-700 uppercase tracking-wider font-bold mt-0.5">
               Referência: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')} | Período: {getFormattedPeriodText()}
             </p>
           </div>
 
           {/* Profit Summary Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 print:grid-cols-4 print:gap-2 print:mb-2">
 
             {/* Total Sale Card */}
-            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 print:p-2.5 flex flex-col justify-between min-h-35 print:min-h-0 print:border-black print:text-black print:rounded-lg">
               <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Faturamento do Período (Venda)</h4>
+                <h4 className="text-[10px] print:text-[8px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Faturamento do Período (Venda)</h4>
               </div>
-              <div className="my-2">
-                <h3 className="text-2xl font-black text-white print:text-black font-mono leading-none tracking-tight">
+              <div className="my-2 print:my-0.5">
+                <h3 className="text-2xl print:text-sm font-black text-white print:text-black font-mono leading-none tracking-tight">
                   R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
               </div>
             </div>
 
             {/* Total Cost Card */}
-            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 print:p-2.5 flex flex-col justify-between min-h-35 print:min-h-0 print:border-black print:text-black print:rounded-lg">
               <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Valor de Custo Geral</h4>
+                <h4 className="text-[10px] print:text-[8px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Valor de Custo Geral</h4>
               </div>
-              <div className="my-2">
-                <h3 className="text-2xl font-black text-white print:text-black font-mono leading-none tracking-tight">
+              <div className="my-2 print:my-0.5">
+                <h3 className="text-2xl print:text-sm font-black text-white print:text-black font-mono leading-none tracking-tight">
                   R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
               </div>
             </div>
 
             {/* Total Profit Card */}
-            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 print:p-2.5 flex flex-col justify-between min-h-35 print:min-h-0 print:border-black print:text-black print:rounded-lg">
               <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Lucro do Período</h4>
+                <h4 className="text-[10px] print:text-[8px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Lucro do Período</h4>
               </div>
-              <div className="my-2">
-                <h3 className="text-2xl font-black text-success print:text-black font-mono leading-none tracking-tight">
+              <div className="my-2 print:my-0.5">
+                <h3 className="text-2xl print:text-sm font-black text-success print:text-black font-mono leading-none tracking-tight">
                   R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </h3>
               </div>
             </div>
 
             {/* Average Margin Card */}
-            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 flex flex-col justify-between min-h-35 print:border-black print:text-black">
+            <div className="bg-white/1 border border-white/5 rounded-4xl p-6 print:p-2.5 flex flex-col justify-between min-h-35 print:min-h-0 print:border-black print:text-black print:rounded-lg">
               <div>
-                <h4 className="text-[10px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Rentabilidade Média</h4>
+                <h4 className="text-[10px] print:text-[8px] font-black text-on-surface-variant print:text-black uppercase tracking-widest">Rentabilidade Média</h4>
               </div>
-              <div className="my-2">
-                <h3 className="text-2xl font-black text-primary print:text-black font-mono leading-none tracking-tight">
+              <div className="my-2 print:my-0.5">
+                <h3 className="text-2xl print:text-sm font-black text-primary print:text-black font-mono leading-none tracking-tight">
                   {totals.margin.toFixed(2)}%
                 </h3>
               </div>
@@ -1968,58 +1968,58 @@ export default function Reports() {
           </div>
 
           {/* Detailed monthly items table */}
-          <div className="bg-white/1 border border-white/5 rounded-4xl p-6 overflow-hidden print:border-black print:text-black">
+          <div className="bg-white/1 border border-white/5 rounded-4xl p-6 print:p-2.5 overflow-hidden print:border-black print:text-black print:rounded-lg">
             <div className="mb-4 print:hidden">
               <h3 className="text-sm font-black text-white uppercase tracking-wider">Itens e Serviços Vendidos</h3>
               <p className="text-[8px] text-on-surface-variant uppercase tracking-widest">Detalhamento unitário com custos e margens</p>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs print:text-[9px]">
                 <thead>
-                  <tr className="border-b border-white/5 print:border-black text-[9px] font-black text-on-surface-variant print:text-black uppercase tracking-widest pb-3">
-                    <th className="pb-3 pl-4">Nº Venda</th>
-                    <th className="pb-3">Código</th>
-                    <th className="pb-3">Produto</th>
-                    <th className="pb-3 text-center">QTD</th>
-                    <th className="pb-3 text-right">Custo</th>
-                    <th className="pb-3 text-right">Venda</th>
-                    <th className="pb-3 text-right">Lucro</th>
-                    <th className="pb-3 text-right pr-4">%</th>
+                  <tr className="border-b border-white/5 print:border-black text-[9px] print:text-[8px] font-black text-on-surface-variant print:text-black uppercase tracking-widest pb-3 print:pb-1">
+                    <th className="pb-3 print:pb-1 pl-4 print:pl-1">Nº Venda</th>
+                    <th className="pb-3 print:pb-1">Código</th>
+                    <th className="pb-3 print:pb-1">Produto</th>
+                    <th className="pb-3 print:pb-1 text-center">QTD</th>
+                    <th className="pb-3 print:pb-1 text-right">Custo</th>
+                    <th className="pb-3 print:pb-1 text-right">Venda</th>
+                    <th className="pb-3 print:pb-1 text-right">Lucro</th>
+                    <th className="pb-3 print:pb-1 text-right pr-4 print:pr-1">%</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 print:divide-black">
                   {monthlyProfitItems.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-10 text-on-surface-variant/60 text-[10px] uppercase font-black tracking-widest print:text-black">
+                      <td colSpan={8} className="text-center py-10 print:py-4 text-on-surface-variant/60 text-[10px] print:text-[9px] uppercase font-black tracking-widest print:text-black">
                         Nenhuma movimentação registrada no período.
                       </td>
                     </tr>
                   ) : (
                     monthlyProfitItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-white/1 print:hover:bg-transparent">
-                        <td className="py-4 pl-4 font-mono font-bold text-white print:text-black">
+                        <td className="py-4 print:py-1 pl-4 print:pl-1 font-mono font-bold text-white print:text-black">
                           {item.saleNumber}
                         </td>
-                        <td className="py-4 font-mono text-on-surface-variant print:text-black">
+                        <td className="py-4 print:py-1 font-mono text-on-surface-variant print:text-black">
                           {item.code}
                         </td>
-                        <td className="py-4 font-bold text-white print:text-black uppercase">
+                        <td className="py-4 print:py-1 font-bold text-white print:text-black uppercase">
                           {item.product}
                         </td>
-                        <td className="py-4 text-center font-bold text-white print:text-black">
+                        <td className="py-4 print:py-1 text-center font-bold text-white print:text-black">
                           {item.qtd}
                         </td>
-                        <td className="py-4 text-right font-mono print:text-black">
+                        <td className="py-4 print:py-1 text-right font-mono print:text-black">
                           R$ {item.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-4 text-right font-mono print:text-black">
+                        <td className="py-4 print:py-1 text-right font-mono print:text-black">
                           R$ {item.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-4 text-right font-mono font-bold text-white print:text-black">
+                        <td className="py-4 print:py-1 text-right font-mono font-bold text-white print:text-black">
                           R$ {item.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="py-4 text-right pr-4 font-mono font-black text-primary print:text-black">
+                        <td className="py-4 print:py-1 text-right pr-4 print:pr-1 font-mono font-black text-primary print:text-black">
                           {item.cost > 0 ? `${item.margin.toFixed(2)}%` : '-'}
                         </td>
                       </tr>
@@ -2030,23 +2030,23 @@ export default function Reports() {
                 {/* Total Row */}
                 {monthlyProfitItems.length > 0 && (
                   <tfoot>
-                    <tr className="border-t-2 border-white/10 print:border-black font-black text-xs text-white print:text-black bg-white/2 print:bg-transparent">
-                      <td colSpan={3} className="py-4 pl-4 uppercase">
+                    <tr className="border-t-2 border-white/10 print:border-black font-black text-xs print:text-[9px] text-white print:text-black bg-white/2 print:bg-transparent">
+                      <td colSpan={3} className="py-4 print:py-1.5 pl-4 print:pl-1 uppercase">
                         Totais Consolidados
                       </td>
-                      <td className="py-4 text-center">
+                      <td className="py-4 print:py-1.5 text-center">
                         {monthlyProfitItems.reduce((acc, item) => acc + item.qtd, 0)}
                       </td>
-                      <td className="py-4 text-right font-mono">
+                      <td className="py-4 print:py-1.5 text-right font-mono">
                         R$ {totals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-4 text-right font-mono">
+                      <td className="py-4 print:py-1.5 text-right font-mono">
                         R$ {totals.sale.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-4 text-right font-mono">
+                      <td className="py-4 print:py-1.5 text-right font-mono">
                         R$ {totals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="py-4 text-right pr-4 font-mono text-primary print:text-black">
+                      <td className="py-4 print:py-1.5 text-right pr-4 print:pr-1 font-mono text-primary print:text-black">
                         {totals.margin.toFixed(2)}%
                       </td>
                     </tr>

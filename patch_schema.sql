@@ -89,3 +89,8 @@ CREATE POLICY "Permitir leitura publica de aparelhos disponiveis" ON devices
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS desired_device TEXT;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS needed_credit DECIMAL(12, 2) DEFAULT 0;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS desired_installment_value DECIMAL(12, 2) DEFAULT 0;
+
+-- 9. Colunas de Idempotência da Régua de Cobrança em Installments
+ALTER TABLE installments ADD COLUMN IF NOT EXISTS last_reminder_sent_at TIMESTAMPTZ;
+ALTER TABLE installments ADD COLUMN IF NOT EXISTS last_reminder_type TEXT;
+

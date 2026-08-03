@@ -47,7 +47,20 @@ async function notifyMaykonOfAnalysis(customer: any, forceOfflineQueue = false) 
     linkPreview: true
   };
 
-  const instance = 'MDR';
+  let instance = 'MDR';
+  try {
+    const { data: channels } = await supabase
+      .from('automation_channels')
+      .select('instance_name')
+      .eq('status', 'connected')
+      .limit(1);
+    if (channels && channels.length > 0 && channels[0].instance_name) {
+      instance = channels[0].instance_name;
+    }
+  } catch (e) {
+    console.warn('[Notify Maykon] Erro ao buscar canal ativo no banco, utilizando fallback MDR:', e);
+  }
+
   const url = `${EVOLUTION_URL}/message/sendText/${instance}`;
 
   if (forceOfflineQueue) {

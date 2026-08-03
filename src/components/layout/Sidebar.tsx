@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  UserSearch, 
-  MessageCircle, 
-  Settings, 
+import {
+  LayoutDashboard,
+  UserSearch,
+  MessageCircle,
+  Settings,
   Users,
   Calculator,
   Smartphone,
@@ -111,7 +111,8 @@ export default function Sidebar() {
       items: [
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares (MDM)', icon: ShieldCheck, path: '/device-locks' },
-        { name: 'Financeiro', displayName: 'Financeira da Loja (Boletos)', icon: CreditCard, path: '/finance' },
+        { name: 'Caixa Financeira', displayName: 'Caixa Financiamento Celular', icon: Store, path: '/finance?tab=caixa_financeira' },
+        { name: 'Controle de Cartões', displayName: 'Contas a Pagar (Cartões)', icon: CreditCard, path: '/finance?tab=payable_cards' },
         ...(profile?.role === 'admin' ? [
           { name: 'Investimentos SCP', displayName: 'Financeira do Investidor (SCP)', icon: TrendingUp, path: '/scp' },
           { name: 'Relatórios da Financeira', displayName: 'Relatórios Consolidados', icon: FileText, path: '/financeira-reports' }
@@ -123,7 +124,8 @@ export default function Sidebar() {
       subtitle: 'Controle e Emissão',
       icon: CreditCard,
       items: [
-        { name: 'Controle de Caixa', icon: DollarSign, path: '/cash-control' },
+        { name: 'Turno e Caixa Diário', displayName: 'Turno & Caixa Diário', icon: Store, path: '/cash-control' },
+        { name: 'Controle de Caixa', displayName: 'Caixa Crediário Loja', icon: DollarSign, path: '/finance?tab=caixa_loja' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
         ...(profile?.role === 'admin' ? [
           { name: 'Comissões & Vales', displayName: 'Comissões & Vales', icon: DollarSign, path: '/commissions' }
@@ -168,7 +170,7 @@ export default function Sidebar() {
       const hasActive = group.items.some(item => location.pathname === item.path);
       initial[group.title] = hasActive;
     });
-    
+
     // Fallback: If no group has active items, expand the first one by default
     const hasAnyActive = Object.values(initial).some(Boolean);
     if (!hasAnyActive && menuGroups[0]) {
@@ -225,18 +227,18 @@ export default function Sidebar() {
                 )}
               </div>
               {!isCollapsed && (
-                <ChevronDown 
-                  size={16} 
+                <ChevronDown
+                  size={16}
                   className={cn(
                     "text-on-surface-variant/40 group-hover:text-on-surface transition-transform duration-300",
                     isExpanded ? "transform rotate-180 text-primary" : ""
-                  )} 
+                  )}
                 />
               )}
             </button>
 
             {/* Group Sub-Items Collapsible Content */}
-            <div 
+            <div
               className={cn(
                 "overflow-hidden transition-all duration-300 ease-in-out",
                 isExpanded && !isCollapsed ? "max-h-125 opacity-100" : "max-h-0 opacity-0 pointer-events-none"
@@ -244,15 +246,18 @@ export default function Sidebar() {
             >
               <div className="space-y-1 pt-1.5 pl-2 border-l border-outline-variant/30 ml-5">
                 {group.items.map((item: any) => {
-                  const isActive = location.pathname === item.path;
+                  const currentFullPath = location.pathname + location.search;
+                  const isActive = item.path.includes('?')
+                    ? currentFullPath === item.path
+                    : (location.pathname === item.path && (!location.search || !location.search.includes('tab=')));
                   return (
                     <Link
                       key={item.path}
                       to={item.path}
                       className={cn(
                         "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group/item relative border-l-2",
-                        isActive 
-                          ? "bg-primary-container text-on-primary-container font-semibold border-primary pl-3.5" 
+                        isActive
+                          ? "bg-primary-container text-on-primary-container font-semibold border-primary pl-3.5"
                           : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest border-transparent"
                       )}
                     >
@@ -312,8 +317,8 @@ export default function Sidebar() {
         {renderNavContent()}
 
         <div className={cn("mt-auto py-4 border-t border-outline-variant/10 transition-all duration-300", isCollapsed ? "px-1 text-center" : "px-3")}>
-          <button 
-            onClick={() => signOut()} 
+          <button
+            onClick={() => signOut()}
             title="Sair do Sistema"
             className={cn(
               "flex items-center text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all duration-200 group w-full",
@@ -330,7 +335,7 @@ export default function Sidebar() {
       {isMobileOpen && (
         <div className="fixed inset-0 z-70 md:hidden flex animate-in fade-in duration-200">
           {/* Backdrop */}
-          <div 
+          <div
             onClick={() => setIsMobileOpen(false)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
           />
@@ -339,7 +344,7 @@ export default function Sidebar() {
           <aside translate="no" className="notranslate relative w-64 max-w-[80vw] h-full bg-[#121214] border-r border-outline-variant/30 flex flex-col py-6 z-80 animate-in slide-in-from-left duration-300">
             <div className="flex justify-between items-center px-6 mb-8">
               <img src="/logo-mdr.png" alt="MDR" className="h-16 w-auto object-contain" />
-              <button 
+              <button
                 onClick={() => setIsMobileOpen(false)}
                 className="text-on-surface-variant hover:text-white p-2 hover:bg-white/5 rounded-xl transition-all"
               >
@@ -350,8 +355,8 @@ export default function Sidebar() {
             {renderNavContent()}
 
             <div className="mt-auto px-3 py-4 border-t border-outline-variant/10">
-              <button 
-                onClick={() => signOut()} 
+              <button
+                onClick={() => signOut()}
                 className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-error hover:bg-error/10 rounded-xl transition-all duration-200 w-full group"
               >
                 <LogOut size={20} className="group-hover:rotate-12 transition-transform" />

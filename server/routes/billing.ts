@@ -4,7 +4,77 @@ import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
-// Endpoint to trigger manual/individual billing reminder via n8n
+/**
+ * Função utilitária para envio unificado de mensagem WhatsApp:
+ * 1. Tenta envio pelo Webhook do n8n com timeout de 6s.
+ * 2. Se o n8n falhar ou estiver fora, faz fallback automático direto para a Evolution API.
+ */
+export async function sendWhatsAppMessageWithFallback(payload: {
+  instanceName: string;
+  remoteJid: string;
+  text: string;
+  [key: string]: any;
+}): Promise<{ success: boolean; channel: 'n8n' | 'evolution'; error?: string }> {
+  const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+
+  // 1. Tentar envio via n8n
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const n8nRes = await fetch(n8nWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (n8nRes.ok) {
+      console.log(`[Messaging] Mensagem entregue via n8n para ${payload.remoteJid}`);
+      return { success: true, channel: 'n8n' };
+    }
+    console.warn(`[Messaging] n8n retornou HTTP ${n8nRes.status}. Acionando fallback direto da Evolution API...`);
+  } catch (err: any) {
+    console.warn(`[Messaging] n8n webhook indisponível (${err.message}). Acionando fallback direto da Evolution API...`);
+  }
+
+  // 2. Fallback direto via Evolution API
+  const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+  const evolutionApiKey = process.env.EVOLUTION_API_KEY || 'MDR_SECRET_TOKEN_2024';
+
+  try {
+    const evoRes = await fetch(`${evolutionUrl}/message/sendText/${payload.instanceName}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': evolutionApiKey
+      },
+      body: JSON.stringify({
+        number: payload.remoteJid,
+        text: payload.text,
+        linkPreview: true
+      })
+    });
+
+    if (evoRes.ok) {
+      console.log(`[Messaging] Mensagem entregue via Evolution API (${payload.instanceName}) para ${payload.remoteJid}`);
+      return { success: true, channel: 'evolution' };
+    }
+
+    const evoErrText = await evoRes.text();
+    console.error(`[Messaging] Falha no disparo direto da Evolution API (${evoRes.status}):`, evoErrText);
+    return { success: false, channel: 'evolution', error: evoErrText };
+  } catch (err: any) {
+    console.error(`[Messaging] Exceção no disparo direto da Evolution API:`, err.message);
+    return { success: false, channel: 'evolution', error: err.message };
+  }
+}
+
+// Endpoint to trigger manual/individual billing reminder via n8n/Evolution
 router.post("/send-warning", async (req, res) => {
   try {
     const { installmentId } = req.body;
@@ -82,7 +152,7 @@ router.post("/send-warning", async (req, res) => {
 
     // Decide which template to use based on installment status
     let templateText = store?.billing_reminder_template || DEFAULT_BILLING_REMINDER_TEMPLATE;
-    
+
     if (installment.status === 'overdue' || installment.status === 'blocked') {
       templateText = store?.billing_reminder_overdue_template || templateText;
     } else if (installment.status === 'pending') {
@@ -107,7 +177,6 @@ router.post("/send-warning", async (req, res) => {
       .limit(1);
 
     if (!channels || channels.length === 0) {
-      // Fallback to any connected channel
       const { data: fallbackChannels } = await supabase
         .from('automation_channels')
         .select('*')
@@ -123,8 +192,8 @@ router.post("/send-warning", async (req, res) => {
     const instance = channels[0].instance_name;
     const remoteJid = formatWhatsAppJid(customer.phone);
 
-    // 2. n8n webhook payload
-    const n8nPayload = {
+    // 2. Dispatch payload with fallback
+    const payload = {
       instanceName: instance,
       remoteJid: remoteJid,
       text: messageText,
@@ -142,27 +211,13 @@ router.post("/send-warning", async (req, res) => {
       store_phone: store?.phone || ""
     };
 
-    const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+    const dispatchResult = await sendWhatsAppMessageWithFallback(payload);
 
-    console.log(`[Billing Webhook] Sending payload to n8n:`, n8nPayload);
-
-    // 3. Post to n8n webhook
-    const response = await fetch(n8nWebhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
-      },
-      body: JSON.stringify(n8nPayload)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Billing Webhook] n8n responded with error:`, errorText);
-      return res.status(502).json({ error: "Falha na comunicação com o n8n." });
+    if (!dispatchResult.success) {
+      return res.status(502).json({ error: dispatchResult.error || "Falha no envio da mensagem via WhatsApp." });
     }
 
-    res.json({ success: true, message: "Comando de cobrança enviado para o n8n!" });
+    res.json({ success: true, message: `Cobrança enviada com sucesso via ${dispatchResult.channel.toUpperCase()}!` });
   } catch (err: any) {
     console.error("[Billing Webhook] Error triggering billing warning:", err);
     res.status(500).json({ error: err.message });
@@ -230,7 +285,7 @@ router.post("/send-statement", async (req, res) => {
 
     if (openInsts.length > 0) {
       messageText += `*PARCELAS EM ABERTO:*\n`;
-      openInsts.forEach((inst, idx) => {
+      openInsts.forEach((inst) => {
         const dueDate = new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
         const valStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const device = inst.sales?.device_model_manual || "Celular";
@@ -241,7 +296,6 @@ router.post("/send-statement", async (req, res) => {
 
     if (paidInsts.length > 0) {
       messageText += `*ÚLTIMAS PARCELAS QUITADAS:*\n`;
-      // Show up to 5 last paid installments to avoid message bloating
       paidInsts.slice(-5).forEach((inst) => {
         const valStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         messageText += `• Parcela ${inst.installment_number}/${inst.total_installments}: *${valStr}* - ✅ Pago\n`;
@@ -251,7 +305,7 @@ router.post("/send-statement", async (req, res) => {
 
     messageText += `Caso necessite de atendimento ou queira efetuar o pagamento via PIX, responda a esta mensagem. Obrigado! 🙏`;
 
-    // 4. Get connected WhatsApp channel (try filtering by unit/store first)
+    // 4. Get connected WhatsApp channel
     const unitId = customer.unit_id || installments[0]?.sales?.store_id;
     let { data: channels } = await supabase
       .from('automation_channels')
@@ -261,7 +315,6 @@ router.post("/send-statement", async (req, res) => {
       .limit(1);
 
     if (!channels || channels.length === 0) {
-      // Fallback to any connected channel
       const { data: fallbackChannels } = await supabase
         .from('automation_channels')
         .select('*')
@@ -277,8 +330,8 @@ router.post("/send-statement", async (req, res) => {
     const instance = channels[0].instance_name;
     const remoteJid = formatWhatsAppJid(customer.phone);
 
-    // 5. Post to n8n webhook
-    const n8nPayload = {
+    // 5. Post payload with fallback
+    const payload = {
       instanceName: instance,
       remoteJid: remoteJid,
       text: messageText,
@@ -287,26 +340,307 @@ router.post("/send-statement", async (req, res) => {
       store_name: storeName
     };
 
-    const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+    const dispatchResult = await sendWhatsAppMessageWithFallback(payload);
 
-    const response = await fetch(n8nWebhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
-      },
-      body: JSON.stringify(n8nPayload)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Statement Webhook] n8n responded with error:`, errorText);
-      return res.status(502).json({ error: "Falha na comunicação com o n8n ao enviar extrato." });
+    if (!dispatchResult.success) {
+      return res.status(502).json({ error: dispatchResult.error || "Falha ao enviar extrato via WhatsApp." });
     }
 
-    res.json({ success: true, message: "Extrato consolidado enviado via WhatsApp com sucesso!" });
+    res.json({ success: true, message: `Extrato consolidado enviado via WhatsApp (${dispatchResult.channel.toUpperCase()}) com sucesso!` });
   } catch (err: any) {
     console.error("[Statement Webhook] Error triggering statement send:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Função exportada da Régua Diária de Cobrança (usada pela rota e pelo agendador automático)
+ */
+export async function runDailyBillingCronTask(): Promise<{
+  success: boolean;
+  processed: number;
+  sent: number;
+  errorsCount: number;
+  errors: any[];
+  message: string;
+}> {
+  console.log("[Billing Cron] Iniciando execução da régua diária de cobrança...");
+
+  // 1. Fetch connected WhatsApp channels
+  const { data: activeChannels } = await supabase
+    .from('automation_channels')
+    .select('*')
+    .eq('status', 'connected');
+
+  const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://whatsapp.mdrinformaticaecelulares.com.br';
+  const evolutionApiKey = process.env.EVOLUTION_API_KEY || 'MDR_SECRET_TOKEN_2024';
+
+  const validInstances = new Set<string>();
+
+  for (const ch of activeChannels || []) {
+    try {
+      const stateRes = await fetch(`${evolutionUrl}/instance/connectionState/${ch.instance_name}`, {
+        headers: { 'apikey': evolutionApiKey }
+      });
+      if (stateRes.ok) {
+        const stateData: any = await stateRes.json();
+        const state = stateData?.instance?.state || stateData?.state;
+        if (state === 'open' || state === 'connecting' || state === 'connected') {
+          validInstances.add(ch.instance_name);
+        } else {
+          console.warn(`[Billing Cron] Instância ${ch.instance_name} estado '${state}'. Mantendo canal no banco.`);
+          validInstances.add(ch.instance_name);
+        }
+      } else {
+        validInstances.add(ch.instance_name);
+      }
+    } catch (err: any) {
+      console.error(`[Billing Cron] Healthcheck falhou para instância ${ch.instance_name}:`, err.message);
+      validInstances.add(ch.instance_name);
+    }
+  }
+
+  // 2. Fetch all unpaid installments (pending or overdue)
+  const { data: installments, error: instErr } = await supabase
+    .from('installments')
+    .select(`
+      *,
+      sales!inner (
+        customer_id,
+        device_model_manual,
+        imei_manual,
+        store_id,
+        customer:customers (
+          name,
+          phone,
+          unit_id
+        ),
+        store:stores (
+          name,
+          phone,
+          billing_reminder_template,
+          billing_reminder_pre_due_template,
+          billing_reminder_overdue_template,
+          billing_reminder_payment_confirmed_template
+        )
+      )
+    `)
+    .in('status', ['pending', 'overdue'])
+    .order('due_date', { ascending: true });
+
+  if (instErr) {
+    console.error("[Billing Cron] Erro ao buscar parcelas:", instErr);
+    return { success: false, processed: 0, sent: 0, errorsCount: 1, errors: [instErr], message: "Erro ao buscar parcelas." };
+  }
+
+  if (!installments || installments.length === 0) {
+    console.log("[Billing Cron] Nenhuma parcela pendente ou vencida encontrada.");
+    return { success: true, processed: 0, sent: 0, errorsCount: 0, errors: [], message: "Nenhuma parcela pendente ou vencida para processar hoje." };
+  }
+
+  const now = new Date();
+  const brDateStr = new Date(now.getTime() - 3 * 3600 * 1000).toISOString().split('T')[0];
+  const todayTimestamp = new Date(`${brDateStr}T12:00:00Z`).getTime();
+
+  let processedCount = 0;
+  let sentCount = 0;
+  const errors: any[] = [];
+
+  for (const inst of installments) {
+    processedCount++;
+    const sale = (inst as any).sales;
+    const customer = sale?.customer;
+    const store = sale?.store;
+
+    if (!customer?.phone) continue;
+
+    const dueTimestamp = new Date(`${inst.due_date}T12:00:00Z`).getTime();
+    const diffDays = Math.round((dueTimestamp - todayTimestamp) / (1000 * 60 * 60 * 24));
+
+    let templateTag = '';
+    let isDueRuleTriggered = false;
+    let daysOverdue = 0;
+
+    if (diffDays === 3) {
+      isDueRuleTriggered = true;
+      templateTag = 'pre_due_3';
+    } else if (diffDays === 2) {
+      isDueRuleTriggered = true;
+      templateTag = 'pre_due_2';
+    } else if (diffDays === 1) {
+      isDueRuleTriggered = true;
+      templateTag = 'pre_due_1';
+    } else if (diffDays === 0) {
+      isDueRuleTriggered = true;
+      templateTag = 'due_today';
+    } else if (diffDays < 0) {
+      daysOverdue = Math.abs(diffDays);
+      if (daysOverdue % 2 === 0) {
+        isDueRuleTriggered = true;
+        templateTag = `overdue_${daysOverdue}d`;
+      }
+    }
+
+    if (!isDueRuleTriggered) continue;
+
+    // Check Idempotency: Skip if already sent today for this exact rule
+    if (inst.last_reminder_sent_at && String(inst.last_reminder_sent_at).startsWith(brDateStr) && inst.last_reminder_type === templateTag) {
+      console.log(`[Billing Cron] Idempotência: Parcela ${inst.id} já recebeu ${templateTag} hoje.`);
+      continue;
+    }
+
+    // Compile Message Text
+    const storeName = (store?.name || "MDR Celulares").trim();
+    const valueStr = Number(inst.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formattedDueDate = new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR');
+    const deviceModel = (sale?.device_model_manual || "Aparelho Celular").replace(/\s*\(x\d+\)/gi, "").trim().toUpperCase();
+
+    // Anti-Ban & Anti-Spam Protections:
+    // 1. Varição dinâmica de saudações para evitar textos idênticos repetidos
+    const GREETINGS = [
+      `Olá, *${(customer.name || "").trim().toUpperCase()}*! Tudo bem com você? 😊`,
+      `Oi, *${(customer.name || "").trim().toUpperCase()}*! Como vai? Esperamos que esteja tendo um ótimo dia! 😊`,
+      `Olá, *${(customer.name || "").trim().toUpperCase()}*! Passando por aqui com um lembrete amigável:`,
+      `Oi, *${(customer.name || "").trim().toUpperCase()}*! Tudo certinho por aí? 😊`
+    ];
+    const randomGreeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+
+    let messageText = '';
+
+    if (diffDays === 3) {
+      messageText = `🔔 *Lembrete de Vencimento - ${storeName}*\n\n${randomGreeting}\n\nPassando para lembrar que a sua parcela *${inst.installment_number}/${inst.total_installments}* vence em *3 dias* (data: *${formattedDueDate}*).\n\n📱 *Aparelho:* ${deviceModel}\n💵 *Valor:* *${valueStr}*\n`;
+      if (inst.asaas_invoice_url) messageText += `\n🔗 *Link de Pagamento (PIX/Boleto):* ${inst.asaas_invoice_url}\n`;
+      messageText += `\nAntecipe seu pagamento com facilidade pelo link acima ou diretamente em nossa loja física.\nTenha um ótimo dia! 🤝\n*${storeName}*`;
+    } else if (diffDays === 2) {
+      messageText = `⏳ *Faltam 2 Dias para o Vencimento - ${storeName}*\n\n${randomGreeting}\n\nLembrete: a sua parcela *${inst.installment_number}/${inst.total_installments}* vence em *2 dias* (data: *${formattedDueDate}*).\n\n📱 *Aparelho:* ${deviceModel}\n💵 *Valor:* *${valueStr}*\n`;
+      if (inst.asaas_invoice_url) messageText += `\n🔗 *Link de Pagamento (PIX/Boleto):* ${inst.asaas_invoice_url}\n`;
+      messageText += `\nPague pelo PIX ou Boleto no link acima para evitar correria no dia do vencimento.\nAgradecemos sua atenção! 🤝\n*${storeName}*`;
+    } else if (diffDays === 1) {
+      messageText = `⚠️ *Vence Amanhã! - ${storeName}*\n\n${randomGreeting}\n\nPassando para avisar que a sua parcela *${inst.installment_number}/${inst.total_installments}* vence *AMANHÃ* (*${formattedDueDate}*).\n\n📱 *Aparelho:* ${deviceModel}\n💵 *Valor:* *${valueStr}*\n`;
+      if (inst.asaas_invoice_url) messageText += `\n🔗 *Link de Pagamento (PIX/Boleto):* ${inst.asaas_invoice_url}\n`;
+      messageText += `\nGarantia de quitação em dia pelo link de pagamento acima! Estamos à disposição. 😊\n*${storeName}*`;
+    } else if (diffDays === 0) {
+      messageText = `📄 *Sua Fatura Vence Hoje! - ${storeName}*\n\n${randomGreeting}\n\nSua parcela *${inst.installment_number}/${inst.total_installments}* vence *HOJE* (*${formattedDueDate}*).\n\n📱 *Aparelho:* ${deviceModel}\n💵 *Valor:* *${valueStr}*\n`;
+      if (inst.asaas_invoice_url) messageText += `\n🔗 *Link da Fatura (PIX/Boleto):* ${inst.asaas_invoice_url}\n`;
+      messageText += `\n⚠️ *Atenção:* O pagamento em dia evita multas, juros de atraso ou restrições no dispositivo.\nQualquer dúvida, responder a esta mensagem. Obrigado pela parceria! 🤝\n*${storeName}*`;
+    } else if (diffDays < 0) {
+      messageText = `🚨 *Aviso de Parcela em Atraso (${daysOverdue} dias) - ${storeName}*\n\n${randomGreeting}\n\nConstamos em nosso sistema que a parcela *${inst.installment_number}/${inst.total_installments}* no valor de *${valueStr}* venceu no dia *${formattedDueDate}* e está em atraso há *${daysOverdue} dias*.\n\n📱 *Aparelho:* ${deviceModel}\n`;
+      if (inst.asaas_invoice_url) messageText += `\n🔗 *Link para Regularização (PIX/Boleto):* ${inst.asaas_invoice_url}\n`;
+      messageText += `\n⚠️ *Importante:* Mantenha seu crediário em dia para evitar juros adicionais e o bloqueio do aparelho.\nSe você já realizou o pagamento, favor desconsiderar este aviso e nos enviar o comprovante.\n*${storeName}*`;
+    }
+
+    // Resolve WhatsApp instance
+    const unitId = sale?.store_id || customer?.unit_id;
+    let targetInstance = '';
+
+    let { data: channelList } = await supabase
+      .from('automation_channels')
+      .select('*')
+      .eq('status', 'connected')
+      .eq('unit_id', unitId)
+      .limit(1);
+
+    if (!channelList || channelList.length === 0) {
+      const { data: fallbackList } = await supabase
+        .from('automation_channels')
+        .select('*')
+        .eq('status', 'connected')
+        .limit(1);
+      channelList = fallbackList;
+    }
+
+    if (channelList && channelList.length > 0) {
+      targetInstance = channelList[0].instance_name;
+    }
+
+    if (!targetInstance) {
+      console.warn(`[Billing Cron] Nenhum canal WhatsApp conectado para a loja/unidade ${unitId}.`);
+      continue;
+    }
+
+    const remoteJid = formatWhatsAppJid(customer.phone);
+
+    const payload = {
+      instanceName: targetInstance,
+      remoteJid: remoteJid,
+      text: messageText,
+      installment_id: inst.id,
+      installment_number: inst.installment_number,
+      total_installments: inst.total_installments,
+      value: inst.value,
+      due_date: inst.due_date,
+      status: inst.status,
+      rule_tag: templateTag,
+      days_diff: diffDays,
+      customer_name: (customer.name || "").trim().toUpperCase(),
+      customer_phone: customer.phone,
+      device_model: deviceModel,
+      device_imei: sale?.imei_manual || "Não Informado",
+      store_name: storeName,
+      store_phone: store?.phone || ""
+    };
+
+    console.log(`[Billing Cron] Disparando lembrete [${templateTag}] para cliente ${customer.name} (Parcela ${inst.installment_number}/${inst.total_installments})...`);
+
+    const dispatchRes = await sendWhatsAppMessageWithFallback(payload);
+
+    if (dispatchRes.success) {
+      sentCount++;
+      try {
+        await supabase
+          .from('installments')
+          .update({
+            last_reminder_sent_at: new Date().toISOString(),
+            last_reminder_type: templateTag
+          })
+          .eq('id', inst.id);
+      } catch (e) {
+        console.warn(`[Billing Cron] Não foi possível atualizar idempotência na parcela ${inst.id}:`, e);
+      }
+    } else {
+      console.error(`[Billing Cron] Falha para parcela ${inst.id}:`, dispatchRes.error);
+      errors.push({ installmentId: inst.id, customer: customer.name, error: dispatchRes.error });
+    }
+
+    // Anti-Ban & Anti-Spam Protections:
+    // A) Pausa a cada 5 mensagens enviadas (pausa longa de 45s a 75s)
+    if (sentCount > 0 && sentCount % 5 === 0) {
+      const batchPauseMs = Math.floor(Math.random() * (75000 - 45000 + 1)) + 45000;
+      console.log(`[Billing Cron Anti-Spam] Lote de 5 mensagens atingido. Pausando por ${Math.round(batchPauseMs / 1000)}s para proteção da conta...`);
+      await new Promise(r => setTimeout(r, batchPauseMs));
+    } else {
+      // B) Delay aleatório individual (entre 10s e 22s por mensagem)
+      const randomDelayMs = Math.floor(Math.random() * (22000 - 10000 + 1)) + 10000;
+      console.log(`[Billing Cron Anti-Spam] Aguardando ${Math.round(randomDelayMs / 1000)}s antes do próximo disparo...`);
+      await new Promise(r => setTimeout(r, randomDelayMs));
+    }
+
+    // C) Teto de segurança diário: Máximo de 40 disparos automáticos por execução
+    if (sentCount >= 40) {
+      console.warn(`[Billing Cron Anti-Spam] Limite máximo de segurança diário atingido (40 mensagens). Interrompendo régua de hoje.`);
+      break;
+    }
+  }
+
+  console.log(`[Billing Cron] Execução diária concluída. Processadas: ${processedCount}, Enviadas: ${sentCount}, Erros: ${errors.length}`);
+
+  return {
+    success: true,
+    processed: processedCount,
+    sent: sentCount,
+    errorsCount: errors.length,
+    errors: errors.slice(0, 10),
+    message: `Régua diária executada com sucesso! ${sentCount} lembretes disparados.`
+  };
+}
+
+// Endpoint to run automated daily billing cron rule for all due/overdue installments
+router.post("/run-daily-cron", async (req, res) => {
+  try {
+    const result = await runDailyBillingCronTask();
+    res.json(result);
+  } catch (err: any) {
+    console.error("[Billing Cron] Exceção na régua de cobrança:", err);
     res.status(500).json({ error: err.message });
   }
 });

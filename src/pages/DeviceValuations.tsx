@@ -87,7 +87,7 @@ export default function DeviceValuations() {
           { label: 'Aparelhos Pendentes', value: pendingItems.length.toString(), icon: Smartphone, color: 'text-warning' },
           { label: 'Total em Créditos (Custos)', value: `R$ ${pendingItems.reduce((sum, item) => sum + (item.cost_price || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-primary' },
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/[0.02]">
+          <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/2">
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center ${stat.color} border border-white/10`}>
                 <stat.icon size={24} />
@@ -110,7 +110,7 @@ export default function DeviceValuations() {
               "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
               selectedStore === 'all'
                 ? 'bg-white text-black border-white shadow-lg'
-                : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
+                : 'bg-white/1 border-white/10 text-on-surface-variant hover:bg-white/5'
             )}
           >
             <Building2 size={13} /> Todas as Empresas
@@ -123,7 +123,7 @@ export default function DeviceValuations() {
                 "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
                 selectedStore === store.id
                   ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/20'
-                  : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
+                  : 'bg-white/1 border-white/10 text-on-surface-variant hover:bg-white/5'
               )}
             >
               <Store size={13} /> {store.name}
@@ -141,7 +141,7 @@ export default function DeviceValuations() {
             placeholder="Buscar por marca, modelo ou IMEI..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#121214] border border-white/5 rounded-2xl pl-12 pr-5 py-4 text-xs text-white focus:border-primary focus:bg-white/[0.02] outline-none transition-all placeholder:text-on-surface-variant/30"
+            className="w-full bg-[#121214] border border-white/5 rounded-2xl pl-12 pr-5 py-4 text-xs text-white focus:border-primary focus:bg-white/2 outline-none transition-all placeholder:text-on-surface-variant/30"
           />
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function DeviceValuations() {
           <p className="text-xs text-on-surface-variant font-display uppercase tracking-widest">Carregando Avaliações...</p>
         </div>
       ) : pendingItems.length === 0 ? (
-        <div className="glass-card rounded-3xl p-12 text-center border border-white/5 bg-white/[0.01]">
+        <div className="glass-card rounded-3xl p-12 text-center border border-white/5 bg-white/1">
           <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-on-surface-variant/40 mx-auto mb-4 border border-white/5">
             <Smartphone size={28} />
           </div>
@@ -166,7 +166,7 @@ export default function DeviceValuations() {
             <motion.div
               key={item.id}
               layout
-              className="glass-card rounded-3xl border border-white/5 bg-white/[0.01] p-6 hover:border-white/10 transition-all flex flex-col justify-between space-y-6"
+              className="glass-card rounded-3xl border border-white/5 bg-white/1 p-6 hover:border-white/10 transition-all flex flex-col justify-between space-y-6"
             >
               <div className="space-y-4">
                 <div className="flex justify-between items-start">

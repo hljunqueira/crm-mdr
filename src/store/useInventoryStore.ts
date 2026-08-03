@@ -10,6 +10,7 @@ export interface InventoryItem {
   brand: string;
   imei: string;
   price: number;
+  sale_price?: number;
   trade_in_price?: number;
   cost_price: number;
   condition: 'new' | 'used' | 'refurbished' | 'vitrine';

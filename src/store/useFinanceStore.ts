@@ -25,6 +25,7 @@ export interface Installment {
   discount_value?: number;
   interest_value?: number;
   device_model?: string;
+  origin_type?: 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR';
 }
 
 interface FinanceState {
@@ -47,30 +48,35 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
     try {
       const url = unitId && unitId !== 'all' ? `/finance/installments?unit_id=${unitId}` : '/finance/installments';
       const data = await api.get(url);
-      const mapped = (data || []).map((i: any) => ({
-        id: i.id,
-        unit_id: i.sales?.store_id || i.unit_id || undefined,
-        sale_id: i.sale_id,
-        customer_id: i.sales?.customer_id || i.customer_id,
-        customer_name: i.sales?.customers?.name || 'Cliente Sem Nome',
-        customer_cpf: i.sales?.customers?.cpf,
-        customer_phone: i.sales?.customers?.phone,
-        customer_address: i.sales?.customers?.address,
-        number: i.installment_number,
-        total: i.total_installments,
-        value: Number(i.value),
-        due_date: i.due_date,
-        paid_at: i.payment_date,
-        status: i.status,
-        payment_method: i.payment_method,
-        asaas_payment_id: i.asaas_payment_id,
-        asaas_invoice_url: i.asaas_invoice_url,
-        asaas_sync_status: i.asaas_sync_status,
-        paid_value: i.paid_value ? Number(i.paid_value) : undefined,
-        discount_value: i.discount_value ? Number(i.discount_value) : 0,
-        interest_value: i.interest_value ? Number(i.interest_value) : 0,
-        device_model: i.sales?.device_model_manual || undefined
-      }));
+      const mapped = (data || []).map((i: any) => {
+        const derivedOrigin = i.origin_type || i.sales?.origin_type ||
+          (i.sales?.device_id || i.sales?.device_model_manual ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA');
+        return {
+          id: i.id,
+          unit_id: i.sales?.store_id || i.unit_id || undefined,
+          sale_id: i.sale_id,
+          customer_id: i.sales?.customer_id || i.customer_id,
+          customer_name: i.sales?.customers?.name || 'Cliente Sem Nome',
+          customer_cpf: i.sales?.customers?.cpf,
+          customer_phone: i.sales?.customers?.phone,
+          customer_address: i.sales?.customers?.address,
+          number: i.installment_number,
+          total: i.total_installments,
+          value: Number(i.value),
+          due_date: i.due_date,
+          paid_at: i.payment_date,
+          status: i.status,
+          payment_method: i.payment_method,
+          asaas_payment_id: i.asaas_payment_id,
+          asaas_invoice_url: i.asaas_invoice_url,
+          asaas_sync_status: i.asaas_sync_status,
+          paid_value: i.paid_value ? Number(i.paid_value) : undefined,
+          discount_value: i.discount_value ? Number(i.discount_value) : 0,
+          interest_value: i.interest_value ? Number(i.interest_value) : 0,
+          device_model: i.sales?.device_model_manual || undefined,
+          origin_type: derivedOrigin as 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'
+        };
+      });
 
       set({ installments: mapped });
     } catch (error) {
@@ -188,7 +194,8 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
         total_installments: i.total,
         value: i.value,
         due_date: i.due_date,
-        status: i.status || 'pending'
+        status: i.status || 'pending',
+        origin_type: (i as any).origin_type
       }));
       
       const data = await api.post('/finance/installments', dbInstallments);

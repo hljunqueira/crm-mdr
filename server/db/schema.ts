@@ -142,7 +142,7 @@ export const sales = sqliteTable('sales', {
   tradeInDeviceModel: text('trade_in_device_model'),
   tradeInDeviceImei: text('trade_in_device_imei'),
   tradeInValuation: real('trade_in_valuation').default(0),
-  tradeInSalePriceEstimate: real('trade_in_sale_price_estimate').default(0),
+  originType: text('origin_type').default('CREDIARIO_LOJA'), // 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
   ...syncColumns,
 });
@@ -161,6 +161,7 @@ export const installments = sqliteTable('installments', {
   asaasPaymentId: text('asaas_payment_id'),
   asaasInvoiceUrl: text('asaas_invoice_url'),
   asaasSyncStatus: text('asaas_sync_status').default('synced'),
+  originType: text('origin_type').default('CREDIARIO_LOJA'), // 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
   ...syncColumns,
 });

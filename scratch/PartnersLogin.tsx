@@ -90,13 +90,13 @@ export default function PartnersLogin() {
   return (
     <div className="min-h-screen bg-[#09090b] text-[#fafafa] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans antialiased">
       {/* Background Glows */}
-      <div className="absolute top-1/4 left-1/4 h-[350px] w-[350px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 h-[350px] w-[350px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute top-1/4 left-1/4 h-87.5 w-87.5 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+      <div className="absolute bottom-1/4 right-1/4 h-87.5 w-87.5 bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <div className="w-full max-w-[420px] z-10 space-y-8">
+      <div className="w-full max-w-105 z-10 space-y-8">
         {/* Brand Logo Header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex h-14 w-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 p-0.5 shadow-xl shadow-emerald-500/10 items-center justify-center">
+          <div className="inline-flex h-14 w-14 rounded-2xl bg-linear-to-tr from-emerald-500 to-indigo-600 p-0.5 shadow-xl shadow-emerald-500/10 items-center justify-center">
             <div className="h-full w-full bg-[#09090b] rounded-[14px] flex items-center justify-center">
               <Lock className="text-emerald-400" size={24} />
             </div>
@@ -108,7 +108,7 @@ export default function PartnersLogin() {
         </div>
 
         {/* Card de Autenticação */}
-        <div className="bg-[#121214]/60 border border-zinc-800/80 backdrop-blur-xl rounded-[32px] p-8 shadow-2xl space-y-6">
+        <div className="bg-[#121214]/60 border border-zinc-800/80 backdrop-blur-xl rounded-4xl p-8 shadow-2xl space-y-6">
           <div className="space-y-1">
             <h2 className="text-base font-bold text-white">
               {step === 'phone' ? 'Acessar Conta' : 'Verificar WhatsApp'}
@@ -197,7 +197,7 @@ export default function PartnersLogin() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-indigo-600 hover:from-emerald-400 hover:to-indigo-500 text-white font-extrabold uppercase tracking-widest text-[10px] rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full py-4 bg-linear-to-r from-emerald-500 to-indigo-600 hover:from-emerald-400 hover:to-indigo-500 text-white font-extrabold uppercase tracking-widest text-[10px] rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <>

@@ -352,6 +352,9 @@ router.post('/asaas', async (req, res) => {
           customerName = updatedInst.sales.customers.name;
         }
 
+        const originType = updatedInst.origin_type || updatedInst.sales?.origin_type || 'CREDIARIO_LOJA';
+        const cashierType = originType === 'FINANCIAMENTO_CELULAR' ? 'FINANCEIRA' : 'LOJA';
+
         await supabase
           .from('cash_transactions')
           .insert({
@@ -361,7 +364,8 @@ router.post('/asaas', async (req, res) => {
             category: 'installment',
             amount: Number(payment.value),
             payment_method: 'pix',
-            description: `Recebimento Asaas (Webhook): Parcela #${updatedInst.installment_number} de ${customerName}`,
+            cashier_type: cashierType,
+            description: `Recebimento Asaas (Webhook): Parcela #${updatedInst.installment_number} de ${customerName} (${cashierType === 'FINANCEIRA' ? 'Financeira' : 'Loja'})`,
             installment_id: updatedInst.id,
             created_by: activeShift?.opened_by || updatedInst.sales?.created_by || '00000000-0000-0000-0000-000000000000'
           });

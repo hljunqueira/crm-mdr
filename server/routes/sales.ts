@@ -14,7 +14,7 @@ const validSalesColumns = [
   'service_fee', 'original_price', 'sale_date', 'status', 'payment_type', 
   'accessories', 'is_trade_in', 'trade_in_device_brand', 'trade_in_device_model', 
   'trade_in_device_imei', 'trade_in_valuation', 'trade_in_sale_price_estimate',
-  'payment_method'
+  'payment_method', 'origin_type'
 ];
 
 const syncDeviceLocks = async (sale: any) => {
@@ -171,7 +171,7 @@ router.get("/", async (req, res) => {
   const { unit_id } = req.query;
   let query = supabase
     .from('sales')
-    .select('*, customers(name), profiles(full_name), devices(cost_price)');
+    .select('*, customers(name), profiles(full_name), devices(cost_price, sale_price)');
 
   if (unit_id && unit_id !== 'all') {
     query = query.eq('store_id', unit_id);
@@ -292,6 +292,35 @@ router.post("/", async (req, res) => {
             }
           }
         }
+      }
+    }
+
+    // Automatic origin_type determination if not explicitly passed
+    if (!cleanSaleBody['origin_type']) {
+      let isCelular = false;
+      const targetDevId = cleanSaleBody['device_id'] || req.body.device_id;
+      if (targetDevId) {
+        const { data: devCat } = await supabase.from('devices').select('category').eq('id', targetDevId).maybeSingle();
+        if (devCat && (devCat.category === 'smartphone' || devCat.category === 'celular')) {
+          isCelular = true;
+        }
+      }
+      const modelLower = (cleanSaleBody['device_model_manual'] || req.body.device_model || '').toLowerCase();
+      const hasValidImei = imeiManual && imeiManual.toUpperCase() !== 'N/A' && imeiManual !== '0000000';
+      const isCellKeywords = modelLower.includes('celular') || 
+                             modelLower.includes('iphone') || 
+                             modelLower.includes('galaxy') || 
+                             modelLower.includes('xiaomi') || 
+                             modelLower.includes('poco') || 
+                             modelLower.includes('redmi') || 
+                             modelLower.includes('samsung') || 
+                             modelLower.includes('motorola') || 
+                             modelLower.includes('moto');
+
+      if (isCelular || hasValidImei || isCellKeywords) {
+        cleanSaleBody['origin_type'] = 'FINANCIAMENTO_CELULAR';
+      } else {
+        cleanSaleBody['origin_type'] = 'CREDIARIO_LOJA';
       }
     }
 
@@ -1335,6 +1364,17 @@ router.patch("/:id/confirm-pickup", async (req, res) => {
       .single();
 
     if (updateError) return res.status(500).json({ error: updateError.message });
+
+    // 3.5. Synchronize installment records in installments table
+    await supabase
+      .from('installments')
+      .update({
+        status: 'paid',
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: updatedPaymentMethod,
+        paid_value: Number(updatedSale.total_value)
+      })
+      .eq('sale_id', req.params.id);
 
     // 4. Record Cash Transaction
     const isCash = updatedPaymentMethod === 'money';

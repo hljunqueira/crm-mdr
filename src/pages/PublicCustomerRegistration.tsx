@@ -191,7 +191,7 @@ export default function PublicCustomerRegistration() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-[#07070c] text-white flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#0f0f1a] border border-white/5 rounded-[32px] p-8 text-center space-y-6 shadow-2xl">
+        <div className="w-full max-w-md bg-[#0f0f1a] border border-white/5 rounded-4xl p-8 text-center space-y-6 shadow-2xl">
           <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto">
             <ShieldCheck size={36} />
           </div>
@@ -230,7 +230,7 @@ export default function PublicCustomerRegistration() {
       )}
 
       {/* FORMULÁRIO */}
-      <form onSubmit={handleSubmit} className="w-full max-w-xl bg-[#0f0f1a] border border-white/5 rounded-[32px] p-6 md:p-8 space-y-6 shadow-2xl">
+      <form onSubmit={handleSubmit} className="w-full max-w-xl bg-[#0f0f1a] border border-white/5 rounded-4xl p-6 md:p-8 space-y-6 shadow-2xl">
         
         {/* DADOS PESSOAIS */}
         <div className="space-y-4">

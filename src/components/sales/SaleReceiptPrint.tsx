@@ -179,6 +179,10 @@ export default function SaleReceiptPrint({
           <span>Pagamento:</span>
           <span className="align-right">{getPaymentLabel(sale.payment_type)}</span>
         </div>
+        <div className="row">
+          <span>Caixa / Operação:</span>
+          <span className="align-right">{((sale as any).origin_type === 'FINANCIAMENTO_CELULAR' || (sale.device_model && sale.device_model !== 'Geral')) ? '📱 Financiamento Celular' : '🏬 Crediário Loja'}</span>
+        </div>
 
         <div className="divider"></div>
 
