@@ -1032,12 +1032,12 @@ router.post("/withdraw", async (req, res) => {
           const instanceName = channels && channels.length > 0 ? channels[0].instance_name : "mdr";
           const n8nUrl = process.env.N8N_SCP_WEBHOOK_URL || `${process.env.N8N_API_URL}/webhook/scp-notification`;
 
-          // A. Notificar Investidor
+          // A. Notificar Investidor (prazo de até 2 dias úteis)
           if (investorProfile.phone) {
             const cleanPhone = investorProfile.phone.replace(/\D/g, "");
             if (cleanPhone) {
               const targetPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-              const investorMessage = `*MDR PARCEIROS* 💰\n\nOlá, *${investorProfile.full_name}*!\nConfirmamos a sua solicitação de resgate:\n\n💵 *Valor:* R$ ${Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n🔑 *Chave Pix:* ${pix_key} (${pix_key_type})\n\n⏳ *Prazo de depósito:* O valor será creditado em sua conta em até *2 dias úteis*.\n\nAcompanhe o status no seu painel.`;
+              const investorMessage = `*MDR INVESTIMENTOS (SCP)* 💰\n\nOlá, *${investorProfile.full_name}*!\nRecebemos sua solicitação de resgate:\n\n💵 *Valor:* R$ ${Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n🔑 *Chave Pix:* ${pix_key} (${pix_key_type})\n\n⏳ *Prazo de Liberação:* Seu saque estará liberado e transferido para sua conta em até *2 dias úteis*.\n\nAgradecemos a parceria!`;
 
               await fetch(n8nUrl, {
                 method: "POST",
@@ -1056,37 +1056,40 @@ router.post("/withdraw", async (req, res) => {
             }
           }
 
-          // B. Notificar Administradores
+          // B. Notificar Administradores (cliente definiu saque)
+          const adminPhonesSet = new Set<string>(['5548999035854']); // Garantir número principal do Maykon
+          
           const { data: admins } = await supabase
             .from("profiles")
             .select("full_name, phone")
             .eq("role", "admin");
 
           if (admins && admins.length > 0) {
-            for (const admin of admins) {
-              if (admin.phone) {
-                const cleanAdminPhone = admin.phone.replace(/\D/g, "");
-                if (cleanAdminPhone) {
-                  const targetAdminPhone = cleanAdminPhone.startsWith("55") ? cleanAdminPhone : `55${cleanAdminPhone}`;
-                  const adminMessage = `*MDR GESTÃO SCP* ⚠️\n\nOlá, *${admin.full_name}*!\nUma nova solicitação de resgate Pix foi recebida:\n\n👤 *Investidor:* ${investorProfile.full_name}\n💵 *Valor:* R$ ${Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n🔑 *Chave Pix:* ${pix_key} (${pix_key_type})\n\nPor favor, acesse o painel administrativo para aprovar ou rejeitar.`;
-
-                  await fetch(n8nUrl, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
-                    },
-                    body: JSON.stringify({
-                      instanceName,
-                      remoteJid: `${targetAdminPhone}@s.whatsapp.net`,
-                      text: adminMessage,
-                      phone: targetAdminPhone,
-                      name: admin.full_name
-                    })
-                  }).catch(e => console.error("[Withdrawal Notify Admin] Error:", e));
-                }
+            admins.forEach(a => {
+              if (a.phone) {
+                const c = a.phone.replace(/\D/g, "");
+                if (c) adminPhonesSet.add(c.startsWith("55") ? c : `55${c}`);
               }
-            }
+            });
+          }
+
+          for (const targetAdminPhone of Array.from(adminPhonesSet)) {
+            const adminMessage = `*ALERTA DE RESGATE SCP - MDR* 🚨\n\n⚠️ *Cliente definiu saque do investimento!*\n\n👤 *Investidor:* ${investorProfile.full_name}\n💵 *Valor do Resgate:* R$ ${Number(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\n🔑 *Chave Pix:* ${pix_key} (${pix_key_type})\n\nPor favor, acesse o painel administrativo para autorizar o resgate Pix.`;
+
+            await fetch(n8nUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+              },
+              body: JSON.stringify({
+                instanceName,
+                remoteJid: `${targetAdminPhone}@s.whatsapp.net`,
+                text: adminMessage,
+                phone: targetAdminPhone,
+                name: "Administrador MDR"
+              })
+            }).catch(e => console.error("[Withdrawal Notify Admin] Error:", e));
           }
         }
       } catch (notifyErr) {

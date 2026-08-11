@@ -26,18 +26,21 @@ export interface Installment {
   interest_value?: number;
   device_model?: string;
   origin_type?: 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR';
+  sales?: any;
+  down_payment?: number;
 }
 
 interface FinanceState {
   installments: Installment[];
   isLoading: boolean;
   fetchInstallments: (unitId?: string) => Promise<void>;
-  markAsPaid: (id: string, finalValue?: number, paymentMethod?: 'pix' | 'money' | 'card') => Promise<void>;
+  markAsPaid: (id: string, finalValue?: number, paymentMethod?: 'pix' | 'money' | 'card', bypassShiftValidation?: boolean) => Promise<void>;
   markAsBlocked: (id: string) => Promise<void>;
   revertPayment: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<any>;
   syncAsaas: (id: string) => Promise<void>;
   fetchAsaasDetails: (id: string) => Promise<{ barcode: string | null; barCodeNumber: string | null; pixPayload: string | null; pixImage: string | null; invoiceUrl: string | null }>;
+  updateDueDate: (id: string, newDueDate: string) => Promise<void>;
 }
 
 export const useFinanceStore = create<FinanceState>()((set) => ({
@@ -49,8 +52,8 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       const url = unitId && unitId !== 'all' ? `/finance/installments?unit_id=${unitId}` : '/finance/installments';
       const data = await api.get(url);
       const mapped = (data || []).map((i: any) => {
-        const derivedOrigin = i.origin_type || i.sales?.origin_type ||
-          (i.sales?.device_id || i.sales?.device_model_manual ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA');
+        const derivedOrigin = i.sales?.origin_type || i.origin_type ||
+          (i.sales?.device_id ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA');
         return {
           id: i.id,
           unit_id: i.sales?.store_id || i.unit_id || undefined,
@@ -74,7 +77,9 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
           discount_value: i.discount_value ? Number(i.discount_value) : 0,
           interest_value: i.interest_value ? Number(i.interest_value) : 0,
           device_model: i.sales?.device_model_manual || undefined,
-          origin_type: derivedOrigin as 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'
+          origin_type: derivedOrigin as 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR',
+          sales: i.sales,
+          down_payment: i.sales?.down_payment ? Number(i.sales.down_payment) : 0
         };
       });
 
@@ -85,7 +90,7 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       set({ isLoading: false });
     }
   },
-  markAsPaid: async (id, finalValue, paymentMethod) => {
+  markAsPaid: async (id, finalValue, paymentMethod, bypassShiftValidation) => {
     try {
       const payload: Record<string, any> = {
         status: 'paid',
@@ -97,6 +102,9 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       }
       if (paymentMethod !== undefined) {
         payload.payment_method = paymentMethod;
+      }
+      if (bypassShiftValidation) {
+        payload.bypassShiftValidation = true;
       }
       const data = await api.patch(`/finance/installments/${id}`, payload);
       
@@ -241,6 +249,21 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       return response;
     } catch (error) {
       console.error('Error fetching Asaas details:', error);
+      throw error;
+    }
+  },
+  updateDueDate: async (id, newDueDate) => {
+    try {
+      const data = await api.patch(`/finance/installments/${id}`, {
+        due_date: newDueDate
+      });
+      set((state) => ({
+        installments: state.installments.map((i) =>
+          i.id === id ? { ...i, due_date: data.due_date || newDueDate } : i
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating due date:', error);
       throw error;
     }
   },

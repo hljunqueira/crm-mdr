@@ -236,7 +236,9 @@ router.post("/installments", async (req, res) => {
 
       if (data && Array.isArray(data)) {
         for (const inst of data) {
-          if (inst.status === 'paid') {
+          // A entrada (parcela 1) recebida no balcão entra apenas no caixa da loja e NÃO gera comissão SCP
+          const isDownPaymentInst = inst.installment_number === 1;
+          if (inst.status === 'paid' && !isDownPaymentInst) {
             processScpInstallmentPayout(inst.id, Number(inst.value)).catch(err => {
               console.error("[SCP Payout Trigger Error]", err);
             });

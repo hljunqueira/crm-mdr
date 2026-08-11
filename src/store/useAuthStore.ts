@@ -6,7 +6,7 @@ interface Profile {
   id: string;
   unit_id: string | null;
   full_name: string;
-  role: 'admin' | 'attendant' | 'technician';
+  role: 'admin' | 'attendant' | 'technician' | 'investor';
   avatar_url?: string | null;
   phone?: string | null;
 }

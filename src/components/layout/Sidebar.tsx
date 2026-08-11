@@ -149,6 +149,12 @@ export default function Sidebar() {
 
     // Filter each individual sub-item (page)
     const filteredItems = group.items.filter(item => {
+      // Regra especial para Investidores: por padrão possuem acesso apenas à página "Parceiros"
+      if (profile?.role === 'investor' && item.name !== 'Parceiros') {
+        const perm = userPermissions.find(p => p.profile_id === profile?.id && p.page_name === item.name);
+        return perm ? perm.visible === true : false;
+      }
+
       // Find if permission visibility is explicitly marked as false for this specific user profile ID and page name
       const perm = userPermissions.find(p => p.profile_id === profile?.id && p.page_name === item.name);
       if (perm && perm.visible === false) {

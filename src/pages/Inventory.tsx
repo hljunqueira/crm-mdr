@@ -21,7 +21,8 @@ import {
   Upload,
   Download,
   ArrowRightLeft,
-  Printer
+  Printer,
+  RotateCcw
 } from 'lucide-react';
 import { useInventoryStore, InventoryItem } from '../store/useInventoryStore';
 import { useUnitStore } from '../store/useUnitStore';
@@ -31,9 +32,10 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useSupplierStore } from '../store/useSupplierStore';
 import InventoryForm from '../components/inventory/InventoryForm';
 import { cn } from '../lib/utils';
+import { api } from '../lib/api';
 
 export default function Inventory() {
-  const { inventory, deleteItem, fetchInventory, isLoading } = useInventoryStore();
+  const { inventory, deleteItem, deleteBatch, fetchInventory, isLoading } = useInventoryStore();
   const { units: allStores, fetchAllUnits } = useUnitStore();
   const { showModal, showNotification, hideModal } = useUI();
   const { profile } = useAuthStore();
@@ -199,10 +201,39 @@ export default function Inventory() {
       title: 'Importar Produtos em Lote (CSV)',
       children: (
         <CSVImporter
-          onSuccess={() => {
+          onSuccess={(batchId?: string) => {
             hideModal();
-            showNotification('success', 'Importação Concluída', 'Os produtos válidos foram cadastrados com sucesso!');
             fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
+
+            if (batchId) {
+              showModal({
+                title: 'Importação Concluída com Sucesso! 🎉',
+                children: (
+                  <div className="space-y-4 text-xs">
+                    <p className="text-white">Os produtos da sua planilha foram cadastrados no estoque com sucesso!</p>
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1">
+                      <p className="font-bold text-amber-400">Importou por engano ou a planilha estava errada?</p>
+                      <p className="text-zinc-300 text-[10px]">Você pode desfazer agora mesmo a importação deste lote inteiro com apenas um clique.</p>
+                    </div>
+                  </div>
+                ),
+                confirmText: 'Manter Produtos',
+                cancelText: '⚠️ Desfazer / Apagar Esta Importação',
+                type: 'primary',
+                onConfirm: () => hideModal(),
+                onCancel: async () => {
+                  try {
+                    await deleteBatch(batchId);
+                    showNotification('success', 'Importação Desfeita!', 'Todos os produtos deste lote foram removidos do estoque.');
+                    fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
+                  } catch (err) {
+                    showNotification('error', 'Erro ao Desfazer', 'Não foi possível apagar o lote importado.');
+                  }
+                }
+              });
+            } else {
+              showNotification('success', 'Importação Concluída', 'Os produtos foram cadastrados com sucesso!');
+            }
           }}
         />
       ),
@@ -252,6 +283,115 @@ export default function Inventory() {
     });
   };
 
+  const handleOpenUndoImportModal = async () => {
+    // 1. Coletar lotes via API para garantir todos os cadastrados no banco
+    let fetchedBatches: { id: string; count: number; date: string; sampleName: string }[] = [];
+    try {
+      const res = await api.get('/inventory/batches');
+      if (Array.isArray(res.data)) {
+        fetchedBatches = res.data;
+      }
+    } catch (err) {
+      console.error('Erro ao buscar lotes via API:', err);
+    }
+
+    // 2. Fallback / complemento a partir do estado local do estoque
+    const batchesMap = new Map<string, { count: number; date: string; sampleName: string }>();
+    
+    // Inserir os da API no mapa
+    fetchedBatches.forEach(b => {
+      batchesMap.set(b.id, { count: b.count, date: b.date, sampleName: b.sampleName });
+    });
+
+    // Complementar/validar com itens em estoque
+    inventory.forEach(item => {
+      if (item.import_batch_id) {
+        const batchId = item.import_batch_id;
+        if (!batchesMap.has(batchId)) {
+          let dateStr = 'Data recente';
+          const parts = batchId.split('_');
+          if (parts[1] && !isNaN(Number(parts[1]))) {
+            dateStr = new Date(Number(parts[1])).toLocaleString('pt-BR');
+          } else if (item.purchase_date) {
+            dateStr = new Date(item.purchase_date).toLocaleDateString('pt-BR');
+          }
+
+          batchesMap.set(batchId, {
+            count: 1,
+            date: dateStr,
+            sampleName: item.short_name || item.model || item.description || 'Produto'
+          });
+        }
+      }
+    });
+
+    const batches = Array.from(batchesMap.entries()).map(([id, info]) => ({
+      id,
+      ...info
+    }));
+
+    showModal({
+      title: 'Desfazer Importações em Lote',
+      children: (
+        <div className="space-y-4 text-xs">
+          <p className="text-on-surface-variant">
+            Selecione uma das importações recentes abaixo para remover todos os produtos cadastrados naquele lote.
+          </p>
+          {batches.length === 0 ? (
+            <div className="p-6 bg-white/5 border border-white/10 rounded-2xl text-center text-on-surface-variant">
+              Nenhum lote de importação recente encontrado no estoque.
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {batches.map(batch => (
+                <div
+                  key={batch.id}
+                  className="p-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between gap-4 hover:border-white/20 transition-all"
+                >
+                  <div>
+                    <p className="font-bold text-white text-sm">{batch.sampleName} <span className="text-xs font-normal text-on-surface-variant">(e outros)</span></p>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">
+                      📅 {batch.date} • <strong className="text-primary">{batch.count} produto(s)</strong> no lote
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      hideModal();
+                      showModal({
+                        title: 'Confirmar Exclusão do Lote',
+                        children: (
+                          <p className="text-xs text-white">
+                            Tem certeza que deseja apagar os <strong>{batch.count} produtos</strong> deste lote? Esta ação é irreversível.
+                          </p>
+                        ),
+                        confirmText: 'Sim, Apagar Lote',
+                        cancelText: 'Cancelar',
+                        type: 'danger',
+                        onConfirm: async () => {
+                          try {
+                            await deleteBatch(batch.id);
+                            showNotification('success', 'Lote Removido!', `${batch.count} produto(s) foram apagados com sucesso.`);
+                            fetchInventory(isAdmin ? undefined : (profile?.unit_id || undefined));
+                          } catch (err) {
+                            showNotification('error', 'Erro ao Apagar', 'Não foi possível apagar os itens deste lote.');
+                          }
+                        }
+                      });
+                    }}
+                    className="px-4 py-2 bg-error/20 hover:bg-error/30 text-error border border-error/30 rounded-xl font-bold text-[11px] flex items-center gap-1.5 transition-all"
+                  >
+                    <RotateCcw size={14} />
+                    Desfazer
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 p-8 pb-20">
       {/* Header */}
@@ -277,6 +417,14 @@ export default function Inventory() {
                 <Upload size={15} />
                 <span>Importar</span>
               </button>
+              <button
+                onClick={handleOpenUndoImportModal}
+                className="px-5 py-3 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-xl"
+                title="Desfazer Importação em Lote"
+              >
+                <RotateCcw size={15} />
+                <span>Desfazer Importação</span>
+              </button>
             </>
           )}
           {hasPermission(profile, 'Estoque - Adicionar Produto') && (
@@ -298,7 +446,7 @@ export default function Inventory() {
           { label: 'Quantidade em Estoque', value: statsInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.stock_quantity || 0), 0).toString(), icon: Package, color: 'text-success' },
           { label: 'Valor do Estoque (Venda)', value: `R$ ${statsInventory.filter(item => item.category !== 'service').reduce((sum, item) => sum + (item.price * (item.stock_quantity || 0)), 0).toLocaleString('pt-BR')}`, icon: DollarSign, color: 'text-warning' },
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/[0.02]">
+          <div key={i} className="glass-card p-6 rounded-3xl border border-outline-variant/30 bg-white/2">
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center ${stat.color} border border-white/10`}>
                 <stat.icon size={24} />
@@ -321,7 +469,7 @@ export default function Inventory() {
               "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
               selectedStore === 'all'
                 ? 'bg-white text-black border-white shadow-lg'
-                : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
+                : 'bg-white/1 border-white/10 text-on-surface-variant hover:bg-white/5'
             )}
           >
             <Building2 size={13} /> Todas as Empresas
@@ -334,7 +482,7 @@ export default function Inventory() {
                 "flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
                 selectedStore === store.id
                   ? 'bg-primary border-primary text-on-primary shadow-lg shadow-primary/20'
-                  : 'bg-white/[0.01] border-white/10 text-on-surface-variant hover:bg-white/5'
+                  : 'bg-white/1 border-white/10 text-on-surface-variant hover:bg-white/5'
               )}
             >
               <Store size={13} /> {store.name}
@@ -396,7 +544,7 @@ export default function Inventory() {
                 "flex items-center gap-2.5 px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-wider border transition-all shrink-0",
                 selectedCategory === cat.id
                   ? "bg-primary border-primary text-on-primary shadow-lg shadow-primary/10"
-                  : "bg-white/[0.01] border-white/5 text-on-surface-variant hover:bg-white/5"
+                  : "bg-white/1 border-white/5 text-on-surface-variant hover:bg-white/5"
               )}
             >
               <CatIcon size={14} />
@@ -468,7 +616,7 @@ export default function Inventory() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3].map(i => (
-            <div key={i} className="glass-card h-64 rounded-[32px] border border-white/5 animate-pulse bg-white/5"></div>
+            <div key={i} className="glass-card h-64 rounded-4xl border border-white/5 animate-pulse bg-white/5"></div>
           ))}
         </div>
       ) : !isListingActive ? (
@@ -500,7 +648,7 @@ export default function Inventory() {
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
                   className={cn(
-                    "p-6 rounded-[32px] border text-left flex flex-col justify-between h-40 transition-all hover:scale-[1.02] active:scale-98 shadow-xl bg-white/[0.01]",
+                    "p-6 rounded-4xl border text-left flex flex-col justify-between h-40 transition-all hover:scale-[1.02] active:scale-98 shadow-xl bg-white/1",
                     cat.color
                   )}
                 >
@@ -528,7 +676,7 @@ export default function Inventory() {
           </div>
         </div>
       ) : sortedInventory.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50 bg-white/[0.02] border border-outline-variant/30 rounded-[40px] w-full">
+        <div className="flex flex-col items-center justify-center p-20 gap-4 opacity-50 bg-white/2 border border-outline-variant/30 rounded-[40px] w-full">
           <Smartphone size={48} className="text-on-surface-variant mb-2 opacity-20" />
           <p className="text-sm font-display font-bold text-on-surface-variant uppercase tracking-widest">Estoque vazio</p>
           <p className="text-[10px] font-display text-on-surface-variant opacity-70">Nenhum aparelho encontrado no estoque atual.</p>
@@ -541,7 +689,7 @@ export default function Inventory() {
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-card overflow-hidden h-full flex flex-col border border-outline-variant/30 rounded-[32px] group hover:border-white/20 transition-all bg-white/[0.02]"
+              className="glass-card overflow-hidden h-full flex flex-col border border-outline-variant/30 rounded-4xl group hover:border-white/20 transition-all bg-white/2"
             >
               <div className="p-6 flex-1">
                 <div className="flex items-start justify-between mb-4">
@@ -691,7 +839,7 @@ export default function Inventory() {
   );
 }
 
-function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
+function CSVImporter({ onSuccess }: { onSuccess: (batchId?: string) => void }) {
   const { profile } = useAuthStore();
   const { units } = useUnitStore();
   const { addItem, updateItem, inventory } = useInventoryStore();
@@ -747,16 +895,16 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
 
         // Synonym lists mapped to keys
         const synonymsMap = {
-          desc: ['descrição', 'descricao', 'description', 'nome', 'item', 'modelo', 'model', 'produto', 'desc', 'titulo', 'título', 'nome do produto', 'descrica', 'descricã', 'descriçã', 'descriça', 'descri'],
-          shortName: ['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname', 'nome simplificado', 'nome_simplificado'],
+          desc: ['descrição', 'descricao', 'description', 'nome do produto', 'nome produto', 'item', 'desc', 'titulo', 'título'],
+          shortName: ['nome curto', 'nome_curto', 'apelido', 'short_name', 'shortname', 'nome simplificado'],
           brand: ['marca', 'brand', 'fabricante', 'brand_name'],
           category: ['categoria', 'category', 'grupo', 'tipo'],
           condition: ['condicao', 'condição', 'condition', 'estado'],
-          costPrice: ['precocusto', 'preço custo', 'custo_compra', 'custo', 'cost_price', 'preco_custo', 'valor_custo', 'valor custo'],
-          salePrice: ['precovenda', 'preço venda', 'valor', 'preco', 'preço', 'price', 'sale_price', 'preco_venda', 'valor_venda', 'valor venda'],
-          qty: ['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity', 'quant', 'estoque_atual', 'disponiv', 'disponivel', 'disponiv', 'disponível'],
+          costPrice: ['precocusto', 'preço custo', 'precovendacusto', 'custo_compra', 'custo', 'cost_price', 'preco_custo', 'valor_custo', 'valor custo', 'vlr custo'],
+          salePrice: ['precovenda', 'preço venda', 'preco_venda', 'valor_venda', 'valor venda', 'price', 'sale_price', 'valor', 'preco', 'preço', 'vlr venda'],
+          qty: ['quantidade', 'qtd', 'estoque', 'stock_quantity', 'quantity', 'quant', 'estoque_atual', 'disponivel', 'disponiv'],
           imei: ['imei', 'serial', 'serial_number', 'n_serie', 'num_serie', 'série'],
-          barcode: ['codigobarras', 'código barras', 'barcode', 'codigo_barras', 'cod_barras', 'ean', 'codigo'],
+          barcode: ['codigobarras', 'código barras', 'barcode', 'codigo_barras', 'cod_barras', 'ean', 'codigobarra', 'codbarra'],
           supplier: ['fornecedor', 'supplier', 'distribuidor'],
           purchaseDate: ['datacompra', 'data_compra', 'purchase_date', 'data']
         };
@@ -772,7 +920,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           
           Object.values(synonymsMap).forEach(syns => {
             const normalizedSyns = syns.map(s => normalizeString(s));
-            if (cells.some(cell => normalizedSyns.includes(cell) || normalizedSyns.some(syn => cell.includes(syn) || syn.includes(cell)))) {
+            if (cells.some(cell => normalizedSyns.includes(cell))) {
               score++;
             }
           });
@@ -796,11 +944,11 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           });
           if (exactIdx !== -1) return exactIdx;
 
-          // Pass 2: Fuzzy match (inclusion)
+          // Pass 2: Exact word inclusion (avoid 'preco' matching 'precocusto' when searching salePrice)
           return headers.findIndex(h => {
             const normH = normalizeString(h);
             if (!normH) return false;
-            return normalizedSynonyms.some(syn => normH.includes(syn) || syn.includes(normH));
+            return normalizedSynonyms.some(syn => normH === syn || normH.startsWith(syn) || normH.endsWith(syn));
           });
         };
 
@@ -857,14 +1005,18 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
           const rawSupplier = supplierIdx !== -1 ? (values[supplierIdx] || '') : '';
           const rawPurchaseDate = purchaseDateIdx !== -1 ? (values[purchaseDateIdx] || '') : '';
 
-          let description = rawDescription || 'Produto Importado';
-          let short_name = rawShortName;
+          let description = rawDescription || rawShortName || (rawBrand ? `${rawBrand} ${rawShortName || 'Produto'}` : '');
+          let short_name = rawShortName || rawDescription;
 
-          // If the sheet used Marca and Modelo columns instead of Descrição/Nome Curto
+          // Se a planilha possuir coluna de Marca e Modelo separadas
           const isLegacyModel = descIdx !== -1 && (headers[descIdx].toLowerCase().includes('model') || headers[descIdx].toLowerCase().includes('modelo'));
           if (rawBrand && rawDescription && !rawShortName && isLegacyModel) {
             description = `${rawBrand} ${rawDescription}`;
             short_name = rawDescription;
+          }
+
+          if (!description) {
+            description = 'Produto Importado';
           }
 
           if (!short_name) {
@@ -965,6 +1117,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
     setLoading(true);
     try {
       const activeSuppliers = [...suppliers];
+      const importBatchId = `import_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
       for (const row of validRows) {
         const isDevice = row.mappedCategory === 'smartphone';
@@ -1019,11 +1172,12 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
             purchase_date: row.purchaseDateVal || '',
             description: row.description,
             short_name: row.short_name,
-            status: 'available'
+            status: 'available',
+            import_batch_id: importBatchId
           });
         }
       }
-      onSuccess();
+      onSuccess(importBatchId);
     } catch (e) {
       console.error(e);
       alert('Erro ao importar itens.');
@@ -1096,7 +1250,7 @@ function CSVImporter({ onSuccess }: { onSuccess: () => void }) {
                       <td className="p-3 font-mono">{row.numQty}</td>
                       <td className="p-3 font-mono">R$ {row.numCost.toFixed(2)}</td>
                       <td className="p-3 font-mono">R$ {row.numSale.toFixed(2)}</td>
-                      <td className="p-3 font-semibold max-w-[200px] truncate">
+                      <td className="p-3 font-semibold max-w-50 truncate">
                         {hasRowErrors ? (
                           <span className="text-error" title={row._errors.join(' | ')}>{row._errors[0]}</span>
                         ) : (

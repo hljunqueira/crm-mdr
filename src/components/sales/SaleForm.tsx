@@ -619,19 +619,12 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     }
   }, [selectedDevices, applyAutoDiscount, formData.price_type, inventory, isInitialLoad]);
 
-  // Prevent crediario/card/debit on general/IT sales
+  // Regras de pagamento por tipo de venda
   React.useEffect(() => {
-    if (saleType === 'general') {
+    if (saleType === 'general' && formData.payment_type === 'crediario' && formData.installments === 0) {
       setFormData(prev => ({
         ...prev,
-        payment_type: 'vista',
-        installments: 0
-      }));
-    } else if (saleType === 'cellphone' && formData.payment_type === 'vista') {
-      setFormData(prev => ({
-        ...prev,
-        payment_type: 'crediario',
-        installments: 12
+        installments: 1
       }));
     }
   }, [saleType]);
@@ -1023,8 +1016,10 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
   const isOverLimit = useMemo(() => {
     if (formData.payment_type !== 'crediario' || !selectedCustomer) return false;
+    // Vendas em Geral / Crediário Loja não exigem limite de crédito cadastrado na financeira
+    if (saleType === 'general') return false;
     return newFinancedAmount > availableLimit;
-  }, [formData.payment_type, selectedCustomer, newFinancedAmount, availableLimit]);
+  }, [formData.payment_type, selectedCustomer, newFinancedAmount, availableLimit, saleType]);
 
   const minDownPayment = useMemo(() => {
     if (isCashLike || !selectedCustomer) return 0;
@@ -1540,22 +1535,15 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
       return;
     }
 
-    if (selectedCustomer && selectedCustomer.approved_for_purchase !== true) {
-      showNotification('error', 'Cliente Bloqueado', 'Este cliente não está liberado para compras. É necessária a aprovação de um administrador.');
+    // Para Vendas em Geral / Crediário Loja, o cliente não precisa passar por análise de crédito prévia
+    if (saleType === 'cellphone' && selectedCustomer && selectedCustomer.approved_for_purchase !== true) {
+      showNotification('error', 'Cliente em Análise de Crédito', 'Para financiamento de smartphones (MDM), este cliente necessita de aprovação prévia de crédito pela Financeira.');
       return;
     }
 
     if (selectedCustomer && selectedCustomer.is_simulation) {
       showNotification('warning', 'Apenas Simulação', 'Este é um cliente de simulação. Não é possível concluir e registrar vendas reais para ele.');
       return;
-    }
-
-    if (formData.payment_type === 'crediario') {
-      const hasCpf = selectedCustomer?.cpf && selectedCustomer.cpf.replace(/\D/g, '').length >= 11;
-      if (!hasCpf) {
-        showNotification('error', 'CPF/CNPJ Obrigatório', 'Para vendas no Crediário da Loja, é obrigatório que o cliente possua CPF ou CNPJ cadastrado. Por favor, atualize o cadastro do cliente antes de prosseguir.');
-        return;
-      }
     }
 
     if (!isCashLike && formData.down_payment < minDownPayment && !isAdminUnlocked) {
@@ -1818,7 +1806,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                 saleType === 'general' ? "bg-white text-black shadow-lg shadow-white/5" : "text-on-surface-variant hover:text-white"
               )}
             >
-              🏬 Crediário Loja
+              🏬 Vendas em Geral / Crediário Loja
             </button>
             <button
               type="button"
@@ -1870,7 +1858,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
                       <div className="p-4 text-center text-xs text-on-surface-variant">Nenhum cliente encontrado.</div>
                     ) : (
                       filteredCustomers.map((c) => {
-                        const isBlocked = c.approved_for_purchase !== true;
+                        const isBlocked = saleType === 'cellphone' && c.approved_for_purchase !== true;
                         return (
                           <button
                             key={c.id}

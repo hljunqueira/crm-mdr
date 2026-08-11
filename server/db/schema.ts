@@ -162,6 +162,8 @@ export const installments = sqliteTable('installments', {
   asaasInvoiceUrl: text('asaas_invoice_url'),
   asaasSyncStatus: text('asaas_sync_status').default('synced'),
   originType: text('origin_type').default('CREDIARIO_LOJA'), // 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'
+  repassedAt: text('repassed_at'),
+  transferId: text('transfer_id'),
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
   ...syncColumns,
 });
@@ -412,10 +414,13 @@ export const cashTransactions = sqliteTable('cash_transactions', {
 export const cashierTransfers = sqliteTable('cashier_transfers', {
   id: text('id').primaryKey(),
   storeId: text('store_id').references(() => stores.id),
+  destinationStoreId: text('destination_store_id').references(() => stores.id),
+  originAccount: text('origin_account').default('Asaas Financeira'),
   fromCashier: text('from_cashier').default('FINANCEIRA'),
   toCashier: text('to_cashier').default('LOJA'),
   amount: real('amount').notNull(),
   description: text('description'),
+  includedInstallments: text('included_installments'), // JSON array of installment IDs
   transferredBy: text('transferred_by').references(() => profiles.id),
   createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
   ...syncColumns

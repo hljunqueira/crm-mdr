@@ -18,7 +18,9 @@ import {
   Search,
   Download,
   Filter,
-  Store
+  Store,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSaleStore } from '../store/useSaleStore';
@@ -51,6 +53,7 @@ export default function FinanceiraReports() {
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isPaybackModalOpen, setIsPaybackModalOpen] = useState(false);
 
   const fetchConsolidatedData = async () => {
     try {
@@ -230,22 +233,34 @@ export default function FinanceiraReports() {
     let totalProfit = 0;
     let totalDown = 0;
 
+    let totalMonthlyInstallmentSum = 0;
+
     monthlyFinancingProfitItems.forEach(item => {
       totalCost += item.cost;
       totalFinanced += item.financedAmount;
       totalContract += item.totalContract;
       totalProfit += item.profit;
       totalDown += item.downPayment;
+
+      const monthlyInst = item.installmentsCount > 0 ? (item.financedAmount / item.installmentsCount) : item.financedAmount;
+      totalMonthlyInstallmentSum += monthlyInst;
     });
 
     const margin = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
+    // Payback em número de parcelas = Valor Total dos Aparelhos / Soma das Parcelas Mensais da Carteira
+    const avgPaybackInstallments = totalMonthlyInstallmentSum > 0 ? (totalCost / totalMonthlyInstallmentSum) : 0;
+    const monthlyReturnRate = totalCost > 0 ? (totalMonthlyInstallmentSum / totalCost) * 100 : 0;
+
     return { 
       cost: totalCost, 
       financed: totalFinanced, 
       contract: totalContract, 
       profit: totalProfit, 
       down: totalDown, 
-      margin 
+      margin,
+      avgPaybackInstallments,
+      monthlyReturnRate
     };
   }, [monthlyFinancingProfitItems]);
 
@@ -256,7 +271,7 @@ export default function FinanceiraReports() {
   const handleExportCSV = () => {
     if (monthlyFinancingProfitItems.length === 0) return;
 
-    const headers = ["Nº Venda", "Data", "Cliente", "Aparelho / Modelo", "IMEI", "Entrada (Loja)", "Parcelas", "Custo Aparelho", "Financiado (Parcelas)", "Lucro Financeira", "% Rentabilidade"];
+    const headers = ["Nº Venda", "Data", "Cliente", "Aparelho / Modelo", "IMEI", "Entrada (Loja)", "Parcelas", "Valor Aparelho", "Financiado (Parcelas)", "Lucro Financeira", "% Rentabilidade"];
     const rows = monthlyFinancingProfitItems.map(item => [
       item.saleNumber,
       item.dateStr,
@@ -274,10 +289,13 @@ export default function FinanceiraReports() {
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
       + [headers.join(";"), ...rows.map(r => r.join(";"))].join("\n");
 
+    const cleanPeriodLabel = periodDisplayLabel.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+    const filename = `lucro_presumido_financeira_${cleanPeriodLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `lucro_presumido_financeira_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -649,7 +667,7 @@ export default function FinanceiraReports() {
           </div>
 
           {/* CARDS DE RESUMO DO LUCRO DA FINANCEIRA */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:grid-cols-4 print:gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:grid-cols-5 print:gap-1.5">
             {/* Financiado (Parcelas) */}
             <div className="bg-linear-to-br from-[#18181b] to-[#121214] border border-white/10 rounded-3xl p-5 print:p-2 print:border-black print:text-black print:rounded-lg">
               <span className="text-[9px] print:text-[8px] font-black text-zinc-400 print:text-black uppercase tracking-widest">Financiado (Parcelas)</span>
@@ -658,9 +676,9 @@ export default function FinanceiraReports() {
               </h3>
             </div>
 
-            {/* Custo Aparelho */}
+            {/* Valor Aparelho */}
             <div className="bg-linear-to-br from-[#18181b] to-[#121214] border border-white/10 rounded-3xl p-5 print:p-2 print:border-black print:text-black print:rounded-lg">
-              <span className="text-[9px] print:text-[8px] font-black text-zinc-400 print:text-black uppercase tracking-widest">Custo Aparelho</span>
+              <span className="text-[9px] print:text-[8px] font-black text-zinc-400 print:text-black uppercase tracking-widest">Valor Aparelho</span>
               <h3 className="text-xl print:text-xs font-black text-zinc-300 print:text-black font-mono mt-1.5 print:mt-0">
                 R$ {financingTotals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
@@ -668,7 +686,12 @@ export default function FinanceiraReports() {
 
             {/* Lucro Financeira Total */}
             <div className="bg-linear-to-br from-[#18181b] to-[#121214] border border-emerald-500/30 rounded-3xl p-5 print:p-2 print:border-black print:text-black print:rounded-lg">
-              <span className="text-[9px] print:text-[8px] font-black text-emerald-400 print:text-black uppercase tracking-widest">Lucro Financeira Total</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] print:text-[8px] font-black text-emerald-400 print:text-black uppercase tracking-widest">Lucro Financeira Total</span>
+                <span title="Lucro bruto acumulado (Total Financiado - Valor dos Aparelhos)">
+                  <HelpCircle size={12} className="text-zinc-500 hover:text-emerald-400 cursor-help transition-colors" />
+                </span>
+              </div>
               <h3 className="text-xl print:text-xs font-black text-emerald-400 print:text-black font-mono mt-1.5 print:mt-0">
                 R$ {financingTotals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
@@ -676,10 +699,42 @@ export default function FinanceiraReports() {
 
             {/* Rentabilidade Financeira */}
             <div className="bg-linear-to-br from-[#18181b] to-[#121214] border border-indigo-500/30 rounded-3xl p-5 print:p-2 print:border-black print:text-black print:rounded-lg">
-              <span className="text-[9px] print:text-[8px] font-black text-indigo-400 print:text-black uppercase tracking-widest">% Rent. Financeira</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] print:text-[8px] font-black text-indigo-400 print:text-black uppercase tracking-widest">% Rent. Financeira</span>
+                <span title="Margem percentual sobre o valor investido nos aparelhos">
+                  <HelpCircle size={12} className="text-zinc-500 hover:text-indigo-400 cursor-help transition-colors" />
+                </span>
+              </div>
               <h3 className="text-xl print:text-xs font-black text-indigo-400 print:text-black font-mono mt-1.5 print:mt-0">
                 {financingTotals.margin.toFixed(2)}%
               </h3>
+            </div>
+
+            {/* Previsibilidade de Retorno / Payback */}
+            <div 
+              onClick={() => setIsPaybackModalOpen(true)}
+              className="bg-linear-to-br from-[#18181b] to-[#121214] border border-amber-500/30 hover:border-amber-500/60 rounded-3xl p-5 print:p-2 print:border-black print:text-black print:rounded-lg flex flex-col justify-between cursor-pointer group transition-all duration-200 hover:scale-[1.02] shadow-lg shadow-amber-500/5"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] print:text-[8px] font-black text-amber-400 print:text-black uppercase tracking-widest flex items-center gap-1">
+                    Retorno Valor Aparelho
+                    <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-md border border-amber-500/30 group-hover:bg-amber-500 group-hover:text-black transition-colors">
+                      Ver detalhes
+                    </span>
+                  </span>
+                  <span title="Clique para ver a projeção detalhada por mês e aparelhos">
+                    <HelpCircle size={12} className="text-amber-500/70 group-hover:text-amber-400 cursor-help transition-colors" />
+                  </span>
+                </div>
+                <h3 className="text-xl print:text-xs font-black text-amber-400 print:text-black font-mono mt-1.5 print:mt-0">
+                  {financingTotals.avgPaybackInstallments > 0 ? `${financingTotals.avgPaybackInstallments.toFixed(1)}ª Parcela` : '-'}
+                </h3>
+              </div>
+              <p className="text-[9px] print:text-[7px] text-zinc-400 print:text-black mt-1 flex justify-between items-center">
+                <span>{financingTotals.monthlyReturnRate > 0 ? `${financingTotals.monthlyReturnRate.toFixed(1)}% amortizado / mês` : 'Sem contratos'}</span>
+                <span className="text-amber-400/80 font-bold group-hover:translate-x-1 transition-transform">→</span>
+              </p>
             </div>
           </div>
 
@@ -703,7 +758,7 @@ export default function FinanceiraReports() {
                     <th className="pb-3 print:pb-1">Cliente</th>
                     <th className="pb-3 print:pb-1">Aparelho / Modelo</th>
                     <th className="pb-3 print:pb-1">IMEI</th>
-                    <th className="pb-3 print:pb-1 text-right">Custo Aparelho</th>
+                    <th className="pb-3 print:pb-1 text-right">Valor Aparelho</th>
                     <th className="pb-3 print:pb-1 text-right">Financiado (Parcelas)</th>
                     <th className="pb-3 print:pb-1 text-right">Lucro Financeira</th>
                     <th className="pb-3 print:pb-1 text-right pr-4 print:pr-1">% Rent. Financeira</th>
@@ -774,6 +829,197 @@ export default function FinanceiraReports() {
                   </tfoot>
                 )}
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETALHADO DE PROJEÇÃO DE PARCELAS E RETORNO POR APARELHO */}
+      {isPaybackModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-[#121214] border border-white/10 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header do Modal */}
+            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-linear-to-r from-[#18181b] to-[#121214]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Calculator size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    Cronograma de Retorno e Amortização de Aparelhos
+                  </h3>
+                  <p className="text-xs text-zinc-400 font-medium">
+                    Previsão de pagamento por parcela mensal dos {monthlyFinancingProfitItems.length} contrato(s) ({periodDisplayLabel})
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPaybackModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal Scrollável */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+              {/* Resumo de Metas de Retorno */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-[#18181b] border border-white/5 rounded-2xl p-4">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block mb-1">Custo Total dos Aparelhos</span>
+                  <p className="text-lg font-black text-white font-mono">
+                    R$ {financingTotals.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <span className="text-[10px] text-zinc-500">Capital investido na aquisição</span>
+                </div>
+
+                <div className="bg-[#18181b] border border-white/5 rounded-2xl p-4">
+                  <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block mb-1">Ponto de Equilíbrio (Payback)</span>
+                  <p className="text-lg font-black text-amber-400 font-mono">
+                    {financingTotals.avgPaybackInstallments > 0 ? `${financingTotals.avgPaybackInstallments.toFixed(1)}ª Parcela` : '-'}
+                  </p>
+                  <span className="text-[10px] text-amber-400/70">Custo 100% quitado nesta parcela</span>
+                </div>
+
+                <div className="bg-[#18181b] border border-white/5 rounded-2xl p-4">
+                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-1">Lucro Fixo Estimado</span>
+                  <p className="text-lg font-black text-emerald-400 font-mono">
+                    R$ {financingTotals.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <span className="text-[10px] text-emerald-400/70">Liberado 100% após a {Math.ceil(financingTotals.avgPaybackInstallments)}ª parcela</span>
+                </div>
+              </div>
+
+              {/* Tabela de Previsão Mês a Mês (Até 12 Parcelas) */}
+              <div>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Clock size={14} className="text-amber-400" />
+                  Evolução do Saldo Acumulado (Amortização Mês a Mês)
+                </h4>
+
+                <div className="border border-white/10 rounded-2xl overflow-hidden bg-[#18181b]/50">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-white/5 text-[10px] uppercase tracking-wider text-zinc-400 font-black">
+                        <th className="py-2.5 pl-4">Nº Parcela</th>
+                        <th className="py-2.5 text-right">Entrada Prevista (Mês)</th>
+                        <th className="py-2.5 text-right">Acumulado Recebido</th>
+                        <th className="py-2.5 text-right">Status do Investimento</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {Array.from({ length: 12 }, (_, idx) => {
+                        const parcelaNum = idx + 1;
+                        // Soma da parcela mensal de todos os aparelhos
+                        const recebimentoMensal = monthlyFinancingProfitItems.reduce((acc, item) => {
+                          if (parcelaNum <= item.installmentsCount) {
+                            return acc + (item.financedAmount / item.installmentsCount);
+                          }
+                          return acc;
+                        }, 0);
+
+                        // Acumulado até a parcela atual
+                        const acumulado = monthlyFinancingProfitItems.reduce((acc, item) => {
+                          const parcelasPagas = Math.min(parcelaNum, item.installmentsCount);
+                          return acc + (item.financedAmount / item.installmentsCount) * parcelasPagas;
+                        }, 0);
+
+                        const totalCusto = financingTotals.cost;
+                        const estaQuitado = acumulado >= totalCusto;
+                        const faltaCobrir = totalCusto - acumulado;
+
+                        return (
+                          <tr key={parcelaNum} className={`hover:bg-white/5 transition-colors ${estaQuitado ? 'bg-emerald-500/5' : ''}`}>
+                            <td className="py-2.5 pl-4 font-bold text-white font-mono">
+                              {parcelaNum}ª Parcela
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-zinc-300">
+                              R$ {recebimentoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 text-right font-mono text-white font-bold">
+                              R$ {acumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 text-right font-mono pr-4">
+                              {estaQuitado ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-md border border-emerald-500/30">
+                                  <CheckCircle2 size={10} /> 100% Custo Coberto + Lucro
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-400 font-bold">
+                                  Falta R$ {faltaCobrir.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} p/ amortizar
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Detalhamento Individual por Aparelho */}
+              <div>
+                <h4 className="text-xs font-black text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Smartphone size={14} className="text-indigo-400" />
+                  Detalhamento de Parcelamento por Aparelho
+                </h4>
+
+                <div className="space-y-3">
+                  {monthlyFinancingProfitItems.map((item, i) => {
+                    const valorParcela = item.installmentsCount > 0 ? (item.financedAmount / item.installmentsCount) : item.financedAmount;
+                    const parcelasParaPayback = item.cost > 0 && valorParcela > 0 ? (item.cost / valorParcela) : 0;
+
+                    return (
+                      <div key={i} className="bg-[#18181b] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold font-mono text-emerald-400">{item.saleNumber}</span>
+                            <span className="text-xs font-black text-white">{item.customerName}</span>
+                          </div>
+                          <p className="text-xs text-zinc-400 mt-0.5">
+                            {item.product} <span className="text-zinc-600">| IMEI: {item.imei}</span>
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-right">
+                          <div>
+                            <span className="text-[9px] font-bold text-zinc-500 uppercase block">Custo Aparelho</span>
+                            <span className="text-xs font-bold font-mono text-zinc-300">R$ {item.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[9px] font-bold text-zinc-500 uppercase block">Parcela ({item.installmentsCount}x)</span>
+                            <span className="text-xs font-bold font-mono text-white">R$ {valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[9px] font-bold text-amber-400 uppercase block">Retorno em</span>
+                            <span className="text-xs font-black font-mono text-amber-400">
+                              {parcelasParaPayback > 0 ? `${parcelasParaPayback.toFixed(1)}ª Parcela` : '-'}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-[9px] font-bold text-emerald-400 uppercase block">Lucro Total</span>
+                            <span className="text-xs font-black font-mono text-emerald-400">R$ {item.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="p-4 border-t border-white/10 bg-[#18181b] flex justify-end">
+              <button
+                onClick={() => setIsPaybackModalOpen(false)}
+                className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                Fechar Visualização
+              </button>
             </div>
           </div>
         </div>

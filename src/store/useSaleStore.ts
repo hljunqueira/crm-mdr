@@ -98,8 +98,9 @@ export const useSaleStore = create<SaleState>()((set) => ({
   addSale: async (sale) => {
     try {
       const modelLower = (sale.device_model || '').toLowerCase();
+      const isServiceOrPart = modelLower.includes('tela') || modelLower.includes('conserto') || modelLower.includes('reparo') || modelLower.includes('manutenção') || modelLower.includes('manutencao') || modelLower.includes('capa') || modelLower.includes('pelicula') || modelLower.includes('película') || modelLower.includes('troca') || modelLower.includes('serviço') || modelLower.includes('servico') || modelLower.includes('bateria');
       const isCellKeywords = modelLower.includes('celular') || modelLower.includes('iphone') || modelLower.includes('galaxy') || modelLower.includes('xiaomi') || modelLower.includes('poco') || modelLower.includes('redmi') || modelLower.includes('samsung') || modelLower.includes('motorola') || modelLower.includes('moto');
-      const originType = sale.origin_type || (sale.device_id || sale.imei || isCellKeywords ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA');
+      const originType = sale.origin_type || ((sale.device_id || sale.imei || isCellKeywords) && !isServiceOrPart ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA');
       const dbSale = {
         store_id: sale.unit_id,
         customer_id: sale.customer_id,

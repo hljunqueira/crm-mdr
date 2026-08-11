@@ -18,7 +18,14 @@ import {
   Loader2,
   Edit2,
   X,
-  RefreshCw
+  RefreshCw,
+  Search,
+  LayoutDashboard,
+  Users,
+  Wrench,
+  DollarSign,
+  ShoppingBag,
+  UserSearch
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUnitStore } from '../store/useUnitStore';
@@ -187,6 +194,7 @@ export default function Settings() {
   // States e ações para Gestão Matricial de Permissões (RBAC)
   const { userPermissions, fetchUserPermissions, toggleUserPermission } = usePermissionStore();
   const [selectedPermissionUserId, setSelectedPermissionUserId] = useState<string>('');
+  const [permissionSearch, setPermissionSearch] = useState<string>('');
 
   useEffect(() => {
     if (activeTab === 'rbac') {
@@ -197,12 +205,19 @@ export default function Settings() {
 
   const handleToggleUserRbac = async (pageName: string) => {
     if (!selectedPermissionUserId) return;
+    const targetUser = usersList.find(u => u.id === selectedPermissionUserId);
     const perm = userPermissions.find(p => p.profile_id === selectedPermissionUserId && p.page_name === pageName);
-    const currentVisible = perm ? perm.visible : true;
+    
+    let defaultVisible = true;
+    if (targetUser?.role === 'investor' && pageName !== 'Parceiros') {
+      defaultVisible = false;
+    }
+
+    const currentVisible = perm ? perm.visible : defaultVisible;
     const nextVisible = !currentVisible;
     try {
       await toggleUserPermission(selectedPermissionUserId, pageName, nextVisible);
-      showNotification('success', 'Permissão Atualizada', `A visibilidade da página "${pageName}" foi atualizada.`);
+      showNotification('success', 'Permissão Atualizada', `A visibilidade da funcionalidade "${pageName}" foi atualizada.`);
     } catch (err) {
       showNotification('error', 'Erro', 'Não foi possível alterar a permissão.');
     }
@@ -210,7 +225,13 @@ export default function Settings() {
 
   const isPageVisibleForUser = (pageName: string) => {
     if (!selectedPermissionUserId) return true;
+    const targetUser = usersList.find(u => u.id === selectedPermissionUserId);
     const perm = userPermissions.find(p => p.profile_id === selectedPermissionUserId && p.page_name === pageName);
+    
+    if (targetUser?.role === 'investor' && pageName !== 'Parceiros') {
+      return perm ? perm.visible : false;
+    }
+
     return perm ? perm.visible : true;
   };
 
@@ -665,7 +686,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
 
                 {/* Lista de Unidades para Admin */}
                 {profile?.role === 'admin' && units.length > 0 && (
-                  <div className="flex flex-wrap gap-4 mb-10 p-2 bg-white/5 rounded-[32px] border border-white/10">
+                  <div className="flex flex-wrap gap-4 mb-10 p-2 bg-white/5 rounded-4xl border border-white/10">
                     {units.map((u) => (
                       <button
                         key={u.id}
@@ -834,7 +855,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="notifications"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
+                className="glass-card p-10 border border-white/5 rounded-4xl space-y-8 bg-white/2"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
@@ -848,7 +869,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
 
                 {/* Loja selector for alerts */}
                 {profile?.role === 'admin' && units.length > 0 && (
-                  <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-[32px] border border-white/10">
+                  <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-4xl border border-white/10">
                     {units.map((u) => (
                       <button
                         key={u.id}
@@ -1166,7 +1187,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="chatbot"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
+                className="glass-card p-10 border border-white/5 rounded-4xl space-y-8 bg-white/2"
               >
                 <div className="flex items-center justify-between border-b border-white/5 pb-6">
                   <div className="flex items-center gap-4">
@@ -1196,7 +1217,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
 
                 {/* Loja selector for chatbot */}
                 {profile?.role === 'admin' && units.length > 0 && (
-                  <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-[32px] border border-white/10">
+                  <div className="flex flex-wrap gap-4 p-2 bg-white/5 rounded-4xl border border-white/10">
                     {units.map((u) => (
                       <button
                         key={u.id}
@@ -1508,185 +1529,290 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 animate={{ opacity: 1, x: 0 }}
                 className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
               >
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                    <ShieldCheck size={24} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-white uppercase tracking-tight">Permissões de Acesso por Usuário</h2>
-                    <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Escolha quais páginas cada colaborador pode visualizar no sistema</p>
+                {/* Permissões RBAC - Tabela e Mapeamento Completo */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                      <ShieldCheck size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-white uppercase tracking-tight">Permissões de Acesso por Colaborador (RBAC)</h2>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-black opacity-60">Gerencie a visibilidade de páginas e permissões de ação de cada colaborador</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-5 bg-primary/5 border border-primary/10 rounded-2xl text-[11px] leading-relaxed text-on-surface-variant/80">
-                  💡 <strong>Nota sobre Segurança Administrativa:</strong> Colaboradores com o cargo de <strong>Administrador (admin)</strong> possuem permissão implícita irrestrita e sempre visualizarão todas as telas do sistema, por segurança contra auto-bloqueios.
+                <div className="p-4 bg-primary/5 border border-primary/15 rounded-2xl text-[11px] leading-relaxed text-on-surface-variant/90 flex items-center gap-3">
+                  <span className="text-base">💡</span>
+                  <span><strong>Regra de Segurança:</strong> Usuários <strong>Administradores (admin)</strong> possuem permissão implícita global para evitar auto-bloqueio acidental. As regras abaixo aplicam-se a Atendentes, Técnicos e demais cargos.</span>
                 </div>
 
-                {/* Seleção do Colaborador */}
-                <div className="space-y-2 bg-white/5 border border-white/10 p-5 rounded-3xl">
-                  <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Selecione o Colaborador para Configurar</label>
-                  <select
-                    value={selectedPermissionUserId}
-                    onChange={(e) => setSelectedPermissionUserId(e.target.value)}
-                    className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-4 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none"
-                  >
-                    <option value="">-- Escolha um colaborador da lista --</option>
-                    {usersList.map(usr => (
-                      <option key={usr.id} value={usr.id}>
-                        {usr.full_name} ({usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : usr.role === 'investor' ? 'Investidor' : 'Atendente'}) - {usr.email}
-                      </option>
-                    ))}
-                  </select>
+                {/* Seleção do Colaborador & Busca */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-white/5 border border-white/10 rounded-3xl">
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Selecione o Colaborador para Configurar</label>
+                    <select
+                      value={selectedPermissionUserId}
+                      onChange={(e) => setSelectedPermissionUserId(e.target.value)}
+                      className="w-full bg-[#121214] border border-white/10 rounded-2xl px-5 py-3.5 text-xs text-on-surface focus:border-primary outline-none transition-all appearance-none font-bold"
+                    >
+                      <option value="">-- Escolha um colaborador da lista --</option>
+                      {usersList.filter(usr => usr.role !== 'investor').map(usr => (
+                        <option key={usr.id} value={usr.id}>
+                          👤 {usr.full_name} • [{usr.role === 'admin' ? 'Administrador' : usr.role === 'technician' ? 'Técnico' : 'Atendente'}] • {usr.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-on-surface-variant uppercase tracking-widest pl-1">Filtrar Permissões</label>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/60" />
+                      <input
+                        type="text"
+                        placeholder="Buscar módulo ou ação..."
+                        value={permissionSearch}
+                        onChange={(e) => setPermissionSearch(e.target.value)}
+                        className="w-full bg-[#121214] border border-white/10 rounded-2xl pl-10 pr-4 py-3.5 text-xs text-white placeholder:text-white/30 focus:border-primary outline-none transition-all"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {selectedPermissionUserId ? (
                   usersList.find(u => u.id === selectedPermissionUserId)?.role === 'admin' ? (
-                    <div className="p-8 bg-primary/5 border border-primary/20 rounded-[32px] text-center text-primary">
-                      <p className="font-bold text-xs uppercase tracking-wider">Este colaborador é Administrador</p>
-                      <p className="text-[10px] leading-relaxed mt-2 opacity-80">Administradores possuem privilégios de acesso globais e irrestritos para gerenciar toda a assistência, lojas e usuários. Não há necessidade de configurar restrições de visibilidade.</p>
+                    <div className="p-8 bg-primary/5 border border-primary/20 rounded-4xl text-center text-primary">
+                      <ShieldCheck size={36} className="mx-auto mb-2 opacity-80" />
+                      <p className="font-black text-sm uppercase tracking-wider">Este colaborador é Administrador Global</p>
+                      <p className="text-[11px] leading-relaxed mt-2 opacity-80 max-w-lg mx-auto">Administradores possuem privilégios irrestritos para gerenciar toda a assistência, lojas, fluxo financeiro e usuários. Não há necessidade de configurar restrições de visibilidade.</p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto w-full border border-white/5 rounded-3xl max-h-[600px] custom-scrollbar">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/5 bg-white/2">
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Funcionalidade / Permissão</th>
-                            <th className="px-6 py-4 text-[9px] font-black uppercase tracking-widest text-on-surface-variant text-center">Permissão de Acesso</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {[
-                            {
-                              title: 'Visibilidade de Páginas (Menu)',
-                              items: [
-                                { key: 'Dashboard', label: 'Dashboard' },
-                                { key: 'Relatórios', label: 'Relatórios' },
-                                { key: 'Leads', label: 'Leads' },
-                                { key: 'Simulador de Parcelas', label: 'Simulador de Parcelas' },
-                                { key: 'Clientes', label: 'Clientes' },
-                                { key: 'Vendas & Celulares', label: 'Vendas & Celulares' },
-                                { key: 'Análise de Crédito', label: 'Análise de Crédito' },
-                                { key: 'Estoque', label: 'Estoque' },
-                                { key: 'Fornecedores', label: 'Fornecedores' },
-                                { key: 'Parceiros', label: 'Parceiros' },
-                                { key: 'Assistência Técnica (OS)', label: 'Assistência Técnica (OS)' },
-                                { key: 'OS Terceirizadas', label: 'OS Terceirizadas' },
-                                { key: 'WPP / Instagram', label: 'WPP / Instagram' },
-                                { key: 'Gerenciar WPP/IG', label: 'Gerenciar WPP/IG' },
-                                { key: 'Financeiro', label: 'Recebíveis' },
-                                { key: 'Controle de Caixa', label: 'Controle de Caixa' },
-                                { key: 'Controle de Bloqueio', label: 'Controle de Bloqueio' },
-                                { key: 'Fiscal (NFe/NFSe)', label: 'Fiscal (NFe/NFSe)' },
-                                { key: 'Configurações', label: 'Configurações' }
-                              ]
-                            },
-                            {
-                              title: 'Ações do Estoque',
-                              items: [
-                                { key: 'Estoque - Adicionar Produto', label: 'Cadastrar Novo Produto' },
-                                { key: 'Estoque - Editar Produto', label: 'Editar Produto' },
-                                { key: 'Estoque - Excluir Produto', label: 'Excluir Produto' },
-                                { key: 'Estoque - Importar Planilha', label: 'Importar Planilha em Lote' },
-                                { key: 'Estoque - Transferir Produto', label: 'Transferir entre Unidades' }
-                              ]
-                            },
-                            {
-                              title: 'Ações de Fornecedores',
-                              items: [
-                                { key: 'Fornecedores - Cadastrar', label: 'Cadastrar Fornecedor' },
-                                { key: 'Fornecedores - Editar', label: 'Editar Fornecedor' },
-                                { key: 'Fornecedores - Excluir', label: 'Excluir Fornecedor' }
-                              ]
-                            },
-                            {
-                              title: 'Ações de Parceiros',
-                              items: [
-                                { key: 'Parceiros - Cadastrar', label: 'Cadastrar Parceiro' },
-                                { key: 'Parceiros - Editar', label: 'Editar Parceiro' },
-                                { key: 'Parceiros - Excluir', label: 'Excluir Parceiro' }
-                              ]
-                            },
-                            {
-                              title: 'Ações de Clientes',
-                              items: [
-                                { key: 'Clientes - Cadastrar', label: 'Cadastrar Novo Cliente' },
-                                { key: 'Clientes - Editar', label: 'Editar Cliente' },
-                                { key: 'Clientes - Excluir', label: 'Excluir Cliente' }
-                              ]
-                            },
-                            {
-                              title: 'Ações de Vendas & Celulares',
-                              items: [
-                                { key: 'Vendas - Registrar Nova Venda', label: 'Registrar Nova Venda' },
-                                { key: 'Vendas - Cancelar Venda', label: 'Estornar/Cancelar Venda' },
-                                { key: 'Vendas - Visualizar Contrato/Recibo', label: 'Visualizar/Reimprimir Contrato/Recibo' }
-                              ]
-                            },
-                            {
-                              title: 'Ações de Assistência Técnica (OS)',
-                              items: [
-                                { key: 'OS - Criar Nova OS', label: 'Abrir Nova OS' },
-                                { key: 'OS - Editar OS', label: 'Editar OS / Orçamento' },
-                                { key: 'OS - Excluir OS', label: 'Excluir OS' },
-                                { key: 'OS - Mudar Status de Bancada', label: 'Mudar Status da Bancada Técnica' }
-                              ]
-                            },
-                            {
-                              title: 'Ações do Financeiro',
-                              items: [
-                                { key: 'Financeiro - Registrar Pagamento', label: 'Baixar Parcela de Crediário' },
-                                { key: 'Financeiro - Lançar Caixa', label: 'Lançar Receita/Despesa Manual' },
-                                { key: 'Financeiro - Excluir Lançamentos', label: 'Excluir Lançamentos de Caixa' }
-                              ]
-                            },
-                            {
-                              title: 'Ações de Leads / CRM',
-                              items: [
-                                { key: 'Leads - Criar Lead', label: 'Cadastrar Novo Lead' },
-                                { key: 'Leads - Mover Kanban', label: 'Mover Kanban' },
-                                { key: 'Leads - Excluir Lead', label: 'Excluir Lead' }
-                              ]
-                            }
-                          ].map((group) => (
-                            <React.Fragment key={group.title}>
-                              <tr className="bg-white/4">
-                                <td colSpan={2} className="px-6 py-2 text-[9px] font-black text-primary uppercase tracking-widest bg-white/3 border-y border-white/5">
-                                  {group.title}
-                                </td>
-                              </tr>
-                              {group.items.map((item) => (
-                                <tr key={item.key} className="hover:bg-white/1 transition-all">
-                                  <td className="px-8 py-3.5 font-display font-semibold text-white text-xs">
-                                    {item.label}
-                                  </td>
-                                  <td className="px-6 py-3.5 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleUserRbac(item.key)}
-                                      className={cn(
-                                        "mx-auto w-10 h-6 rounded-full p-1 transition-all duration-300 relative cursor-pointer flex items-center border border-white/5",
-                                        isPageVisibleForUser(item.key) ? "bg-primary" : "bg-white/10"
-                                      )}
-                                    >
-                                      <div className={cn(
-                                        "w-4 h-4 rounded-full bg-white transition-all duration-300 shadow",
-                                        isPageVisibleForUser(item.key) ? "translate-x-4" : "translate-x-0"
-                                      )} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))}
-                            </React.Fragment>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-6">
+                      {/* Dashboard rápido do colaborador */}
+                      <div className="p-4 bg-white/2 border border-white/5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-primary">
+                            {usersList.find(u => u.id === selectedPermissionUserId)?.full_name?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-white text-sm">{usersList.find(u => u.id === selectedPermissionUserId)?.full_name}</p>
+                            <p className="text-[10px] text-on-surface-variant">{usersList.find(u => u.id === selectedPermissionUserId)?.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">Status:</span>
+                          <span className="px-3 py-1 bg-success/10 border border-success/20 text-success rounded-full text-[10px] font-black uppercase tracking-widest">
+                            Configurando Permissões
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto w-full border border-white/10 rounded-3xl max-h-162.5 custom-scrollbar bg-white/1">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="sticky top-0 z-10 bg-[#16161a] border-b border-white/10 shadow-lg">
+                            <tr>
+                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Módulo / Permissão</th>
+                              <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant text-center w-40">Status do Acesso</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {[
+                              {
+                                title: 'Painel & Resultados',
+                                icon: LayoutDashboard,
+                                items: [
+                                  { key: 'Dashboard', label: 'Dashboard Principal' },
+                                  { key: 'Relatórios', label: 'Relatórios & Metricas' }
+                                ]
+                              },
+                              {
+                                title: 'Comercial & CRM',
+                                icon: Users,
+                                items: [
+                                  { key: 'Vendas & Celulares', label: 'Página de Vendas & Aparelhos' },
+                                  { key: 'Clientes', label: 'Cadastro e Lista de Clientes' },
+                                  { key: 'Leads', label: 'Funil de Leads (Kanban)' },
+                                  { key: 'Simulador de Parcelas', label: 'Simulador de Parcelas' }
+                                ]
+                              },
+                              {
+                                title: 'Serviços & Estoque',
+                                icon: Wrench,
+                                items: [
+                                  { key: 'Assistência Técnica (OS)', label: 'Gestão de OS (Assistência Técnica)' },
+                                  { key: 'OS Terceirizadas', label: 'OS Terceirizadas' },
+                                  { key: 'Estoque', label: 'Gestão de Estoque e Produtos' },
+                                  { key: 'Avaliação de Celulares', label: 'Avaliação de Aparelhos Usados' },
+                                  { key: 'Fornecedores', label: 'Cadastro de Fornecedores' },
+                                  { key: 'Parceiros', label: 'Cadastro de Parceiros' }
+                                ]
+                              },
+                              {
+                                title: 'Canais & Comunicação',
+                                icon: MessageCircle,
+                                items: [
+                                  { key: 'WPP / Instagram', label: 'Automação WPP / Instagram' },
+                                  { key: 'Gerenciar WPP/IG', label: 'Conexão QrCode WhatsApp' }
+                                ]
+                              },
+                              {
+                                title: 'Módulo Financeira (Crédito & SCP)',
+                                icon: CreditCard,
+                                items: [
+                                  { key: 'Análise de Crédito', label: 'Análise de Crédito / Consulta CPF' },
+                                  { key: 'Controle de Bloqueio', label: 'Bloqueio de Celulares (MDM / Lock)' },
+                                  { key: 'Caixa Financeira', label: 'Caixa Financiamento Celulares' },
+                                  { key: 'Controle de Cartões', label: 'Contas a Pagar (Cartões)' },
+                                  { key: 'Investimentos SCP', label: 'Módulo de Investimentos (SCP)' },
+                                  { key: 'Relatórios da Financeira', label: 'Relatórios da Financeira' }
+                                ]
+                              },
+                              {
+                                title: 'Financeiro & Fiscal da Loja',
+                                icon: DollarSign,
+                                items: [
+                                  { key: 'Turno e Caixa Diário', label: 'Abertura/Fechamento de Turno & Caixa' },
+                                  { key: 'Controle de Caixa', label: 'Caixa Crediário da Loja' },
+                                  { key: 'Fiscal (NFe/NFSe)', label: 'Módulo Fiscal (Emissão NFe/NFSe)' },
+                                  { key: 'Comissões & Vales', label: 'Comissões de Vendedores & Vales' }
+                                ]
+                              },
+                              {
+                                title: 'Ações Específicas do Estoque',
+                                icon: Smartphone,
+                                items: [
+                                  { key: 'Estoque - Adicionar Produto', label: 'Cadastrar Novo Produto' },
+                                  { key: 'Estoque - Editar Produto', label: 'Editar Produto' },
+                                  { key: 'Estoque - Excluir Produto', label: 'Excluir Produto' },
+                                  { key: 'Estoque - Importar Planilha', label: 'Importar Planilha em Lote' },
+                                  { key: 'Estoque - Transferir Produto', label: 'Transferir entre Unidades' }
+                                ]
+                              },
+                              {
+                                title: 'Ações Específicas de Vendas',
+                                icon: ShoppingBag,
+                                items: [
+                                  { key: 'Vendas - Registrar Nova Venda', label: 'Registrar Nova Venda' },
+                                  { key: 'Vendas - Cancelar Venda', label: 'Estornar / Cancelar Venda' },
+                                  { key: 'Vendas - Visualizar Contrato/Recibo', label: 'Visualizar / Reimprimir Recibo e Contrato' }
+                                ]
+                              },
+                              {
+                                title: 'Ações de Assistência Técnica (OS)',
+                                icon: Wrench,
+                                items: [
+                                  { key: 'OS - Criar Nova OS', label: 'Abrir Nova OS' },
+                                  { key: 'OS - Editar OS', label: 'Editar Orçamento / Peças de OS' },
+                                  { key: 'OS - Excluir OS', label: 'Excluir OS' },
+                                  { key: 'OS - Mudar Status de Bancada', label: 'Alterar Status na Bancada Técnica' }
+                                ]
+                              },
+                              {
+                                title: 'Ações de Clientes & CRM',
+                                icon: UserSearch,
+                                items: [
+                                  { key: 'Clientes - Cadastrar', label: 'Cadastrar Novo Cliente' },
+                                  { key: 'Clientes - Editar', label: 'Editar Dados do Cliente' },
+                                  { key: 'Clientes - Excluir', label: 'Excluir Cliente' },
+                                  { key: 'Leads - Criar Lead', label: 'Cadastrar Novo Lead' },
+                                  { key: 'Leads - Mover Kanban', label: 'Mover Etapas do Kanban' },
+                                  { key: 'Leads - Excluir Lead', label: 'Excluir Lead' }
+                                ]
+                              },
+                              {
+                                title: 'Ações de Fornecedores & Parceiros',
+                                icon: Building2,
+                                items: [
+                                  { key: 'Fornecedores - Cadastrar', label: 'Cadastrar Fornecedor' },
+                                  { key: 'Fornecedores - Editar', label: 'Editar Fornecedor' },
+                                  { key: 'Fornecedores - Excluir', label: 'Excluir Fornecedor' },
+                                  { key: 'Parceiros - Cadastrar', label: 'Cadastrar Parceiro' },
+                                  { key: 'Parceiros - Editar', label: 'Editar Parceiro' },
+                                  { key: 'Parceiros - Excluir', label: 'Excluir Parceiro' }
+                                ]
+                              },
+                              {
+                                title: 'Ações do Financeiro',
+                                icon: DollarSign,
+                                items: [
+                                  { key: 'Financeiro - Registrar Pagamento', label: 'Baixar Parcela de Crediário' },
+                                  { key: 'Financeiro - Lançar Caixa', label: 'Lançar Entradas / Saídas Manuais' },
+                                  { key: 'Financeiro - Excluir Lançamentos', label: 'Excluir Registros do Caixa' }
+                                ]
+                              },
+                              {
+                                title: 'Configurações do Sistema',
+                                icon: Settings,
+                                items: [
+                                  { key: 'Configurações', label: 'Acesso à Tela de Configurações' }
+                                ]
+                              }
+                            ]
+                              .map(group => {
+                                const matchingItems = group.items.filter(i =>
+                                  !permissionSearch ||
+                                  i.label.toLowerCase().includes(permissionSearch.toLowerCase()) ||
+                                  i.key.toLowerCase().includes(permissionSearch.toLowerCase()) ||
+                                  group.title.toLowerCase().includes(permissionSearch.toLowerCase())
+                                );
+
+                                if (matchingItems.length === 0) return null;
+
+                                const GroupIcon = group.icon;
+
+                                return (
+                                  <React.Fragment key={group.title}>
+                                    <tr className="bg-white/4">
+                                      <td colSpan={2} className="px-6 py-2.5 text-[10px] font-black text-primary uppercase tracking-widest bg-[#1a1a20] border-y border-white/5 flex items-center gap-2">
+                                        <GroupIcon size={14} className="text-primary" />
+                                        <span>{group.title}</span>
+                                      </td>
+                                    </tr>
+                                    {matchingItems.map(item => {
+                                      const isVisible = isPageVisibleForUser(item.key);
+                                      return (
+                                        <tr key={item.key} className="hover:bg-white/5 transition-all border-b border-white/5">
+                                          <td className="px-8 py-3.5 font-display font-bold text-white text-xs">
+                                            <div className="flex items-center gap-2">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                                              <span>{item.label}</span>
+                                            </div>
+                                          </td>
+                                          <td className="px-6 py-3.5 text-center">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleToggleUserRbac(item.key)}
+                                              className={cn(
+                                                "mx-auto px-3 py-1.5 rounded-full transition-all duration-300 flex items-center justify-center gap-2 border font-bold text-[10px] uppercase tracking-wider cursor-pointer hover:scale-105 active:scale-95",
+                                                isVisible 
+                                                  ? "bg-success/15 border-success/30 text-success hover:bg-success/20" 
+                                                  : "bg-error/15 border-error/30 text-error hover:bg-error/20"
+                                              )}
+                                            >
+                                              <div className={cn(
+                                                "w-2 h-2 rounded-full",
+                                                isVisible ? "bg-success animate-pulse" : "bg-error"
+                                              )} />
+                                              <span>{isVisible ? 'Permitido' : 'Bloqueado'}</span>
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </React.Fragment>
+                                );
+                              })
+                              .filter(Boolean)}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )
                 ) : (
-                  <div className="p-8 bg-white/2 border border-white/5 rounded-[40px] text-center opacity-60 flex flex-col items-center gap-3">
-                    <ShieldCheck size={32} className="opacity-20 text-primary" />
-                    <p className="text-[10px] font-black uppercase tracking-wider">Aguardando Seleção de Colaborador</p>
-                    <p className="text-[9px] text-on-surface-variant max-w-[280px]">Escolha um colaborador no seletor acima para auditar e editar suas permissões de tela reativas.</p>
+                  <div className="p-12 bg-white/2 border border-white/5 rounded-4xl text-center opacity-60 flex flex-col items-center gap-3">
+                    <ShieldCheck size={40} className="opacity-30 text-primary" />
+                    <p className="text-xs font-black uppercase tracking-wider text-white">Nenhum Colaborador Selecionado</p>
+                    <p className="text-[10px] text-on-surface-variant max-w-sm">Selecione um colaborador no campo acima para visualizar e alterar a matriz de acesso às telas e ações do sistema.</p>
                   </div>
                 )}
               </motion.div>
@@ -1697,7 +1823,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                 key="android-enterprise"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="glass-card p-10 border border-white/5 rounded-[40px] space-y-8 bg-white/2"
+                className="glass-card p-10 border border-white/5 rounded-4xl space-y-8 bg-white/2"
               >
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
@@ -1716,7 +1842,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Verificando status do vínculo...</span>
                     </div>
                   ) : enterpriseId ? (
-                    <div className="p-8 bg-emerald-500/5 border border-emerald-500/20 rounded-[32px] space-y-6">
+                    <div className="p-8 bg-emerald-500/5 border border-emerald-500/20 rounded-4xl space-y-6">
                       <div className="flex items-center gap-4 text-emerald-400">
                         <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                           <CheckCircle2 size={20} />
@@ -1749,7 +1875,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       </div>
                     </div>
                   ) : (
-                    <div className="p-8 bg-white/1 border border-white/5 rounded-[32px] space-y-6">
+                    <div className="p-8 bg-white/1 border border-white/5 rounded-4xl space-y-6">
                       <div className="flex items-center gap-4 text-amber-500">
                         <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                           <AlertCircle size={20} />
@@ -1821,7 +1947,7 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
                       <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">Carregando configurações de segurança...</span>
                     </div>
                   ) : (
-                    <div className="p-8 bg-white/1 border border-white/5 rounded-[32px] space-y-6">
+                    <div className="p-8 bg-white/1 border border-white/5 rounded-4xl space-y-6">
                       <div className="flex items-center justify-between gap-6">
                         <div className="space-y-1">
                           <h3 className="text-sm font-black text-white uppercase tracking-tight">Autenticação de Dois Fatores (2FA) via WhatsApp</h3>

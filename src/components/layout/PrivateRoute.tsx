@@ -67,6 +67,14 @@ export default function PrivateRoute({ children, pageName, requireAdmin }: Priva
   // Check RBAC custom page visibility
   if (pageName && profile?.role !== 'admin') {
     const perm = userPermissions.find(p => p.profile_id === profile?.id && p.page_name === pageName);
+
+    // Bloqueio padrão para o cargo 'investor' (Apenas 'Parceiros' liberado por padrão)
+    if (profile?.role === 'investor' && pageName !== 'Parceiros') {
+      if (!perm || perm.visible !== true) {
+        return <Navigate to="/partners" replace />;
+      }
+    }
+
     if (perm && perm.visible === false) {
       const firstAllowedPage = PAGE_ROUTES.find(route => {
         const routePerm = userPermissions.find(p => p.profile_id === profile?.id && p.page_name === route.name);

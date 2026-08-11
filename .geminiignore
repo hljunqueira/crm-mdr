@@ -1,0 +1,34 @@
+# Dependências
+node_modules/
+**/node_modules/
+
+# Builds e Distribuições
+dist/
+**/dist/
+dist-server/
+**/dist-server/
+dist-electron/
+**/dist-electron/
+build/
+**/build/
+.next/
+.out/
+
+# Banco de dados local, logs e backups
+*.log
+*.tar.gz
+*.zip
+*.bak
+*.db
+server/*.db
+server/*.sqlite
+
+# Relatórios e planilhas temporárias
+*.xls
+*.xlsx
+*.csv
+
+# Git e editores
+.git/
+.vscode/
+.idea/

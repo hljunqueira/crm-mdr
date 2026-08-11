@@ -15,62 +15,73 @@ export async function sendWhatsAppMessageWithFallback(payload: {
   text: string;
   [key: string]: any;
 }): Promise<{ success: boolean; channel: 'n8n' | 'evolution'; error?: string }> {
-  const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+  // Extrair número de telefone limpo (somente dígitos)
+  const rawPhone = payload.remoteJid || payload.phone || payload.customer_phone || '';
+  const cleanDigits = rawPhone.replace(/\D/g, '');
+  const targetPhone = cleanDigits.startsWith('55') ? cleanDigits : `55${cleanDigits}`;
 
-  // 1. Tentar envio via n8n
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-    const n8nRes = await fetch(n8nWebhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (n8nRes.ok) {
-      console.log(`[Messaging] Mensagem entregue via n8n para ${payload.remoteJid}`);
-      return { success: true, channel: 'n8n' };
-    }
-    console.warn(`[Messaging] n8n retornou HTTP ${n8nRes.status}. Acionando fallback direto da Evolution API...`);
-  } catch (err: any) {
-    console.warn(`[Messaging] n8n webhook indisponível (${err.message}). Acionando fallback direto da Evolution API...`);
-  }
-
-  // 2. Fallback direto via Evolution API
   const evolutionUrl = process.env.EVOLUTION_API_URL || 'https://whatsapp.mdrinformaticaecelulares.com.br';
   const evolutionApiKey = process.env.EVOLUTION_API_KEY || 'MDR_SECRET_TOKEN_2024';
+  const instance = payload.instanceName || 'whatsapp_mdr_arroio';
 
+  // 1. Tentar envio direto e instantâneo via Evolution API
   try {
-    const evoRes = await fetch(`${evolutionUrl}/message/sendText/${payload.instanceName}`, {
+    console.log(`[Messaging] Disparando mensagem via Evolution API (${instance}) para ${targetPhone}...`);
+    const evoRes = await fetch(`${evolutionUrl}/message/sendText/${instance}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': evolutionApiKey
       },
       body: JSON.stringify({
-        number: payload.remoteJid,
+        number: targetPhone,
         text: payload.text,
-        linkPreview: true
+        linkPreview: false
       })
     });
 
     if (evoRes.ok) {
-      console.log(`[Messaging] Mensagem entregue via Evolution API (${payload.instanceName}) para ${payload.remoteJid}`);
+      console.log(`[Messaging] Sucesso! Mensagem entregue via Evolution API (${instance}) para ${targetPhone}`);
+      
+      // Notificar n8n em segundo plano se configurado
+      const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+      fetch(n8nWebhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+        },
+        body: JSON.stringify({ ...payload, targetPhone })
+      }).catch(() => {});
+
       return { success: true, channel: 'evolution' };
     }
 
     const evoErrText = await evoRes.text();
-    console.error(`[Messaging] Falha no disparo direto da Evolution API (${evoRes.status}):`, evoErrText);
-    return { success: false, channel: 'evolution', error: evoErrText };
+    console.warn(`[Messaging] Evolution API retornou HTTP ${evoRes.status}: ${evoErrText}. Tentando n8n...`);
   } catch (err: any) {
-    console.error(`[Messaging] Exceção no disparo direto da Evolution API:`, err.message);
-    return { success: false, channel: 'evolution', error: err.message };
+    console.warn(`[Messaging] Exceção na Evolution API: ${err.message}. Tentando n8n...`);
+  }
+
+  // 2. Fallback via n8n Webhook
+  const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
+  try {
+    const n8nRes = await fetch(n8nWebhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
+      },
+      body: JSON.stringify({ ...payload, targetPhone })
+    });
+
+    if (n8nRes.ok) {
+      console.log(`[Messaging] Mensagem entregue via n8n para ${targetPhone}`);
+      return { success: true, channel: 'n8n' };
+    }
+    return { success: false, channel: 'n8n', error: `n8n HTTP ${n8nRes.status}` };
+  } catch (err: any) {
+    return { success: false, channel: 'n8n', error: err.message };
   }
 }
 
@@ -415,7 +426,7 @@ export async function runDailyBillingCronTask(): Promise<{
           phone,
           unit_id
         ),
-        store:stores (
+        store:units (
           name,
           phone,
           billing_reminder_template,

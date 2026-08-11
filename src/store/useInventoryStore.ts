@@ -26,6 +26,7 @@ export interface InventoryItem {
   purchase_date?: string;
   description?: string;
   short_name?: string;
+  import_batch_id?: string;
 }
 
 interface InventoryState {
@@ -35,9 +36,10 @@ interface InventoryState {
   addItem: (item: Omit<InventoryItem, 'id'>) => Promise<InventoryItem>;
   updateItem: (id: string, item: Partial<InventoryItem> & { is_manual?: boolean; admin_password?: string }) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+  deleteBatch: (batchId: string) => Promise<void>;
 }
 
-export const useInventoryStore = create<InventoryState>()((set) => ({
+export const useInventoryStore = create<InventoryState>()((set, get) => ({
   inventory: [],
   isLoading: false,
   fetchInventory: async (unitId) => {
@@ -68,6 +70,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         purchase_date: item.purchase_date || '',
         description: item.description || '',
         short_name: item.short_name || '',
+        import_batch_id: item.import_batch_id || undefined,
       }));
       set({ inventory: mapped });
     } catch (error) {
@@ -98,6 +101,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         purchase_date: item.purchase_date || null,
         description: item.description || null,
         short_name: item.short_name || null,
+        import_batch_id: item.import_batch_id || null,
       };
       const data = await api.post('/inventory', dbItem);
       const newFrontendItem = {
@@ -112,6 +116,7 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
         purchase_date: data.purchase_date || '',
         description: data.description || '',
         short_name: data.short_name || '',
+        import_batch_id: data.import_batch_id || undefined,
       };
       set((state) => ({ inventory: [...state.inventory, newFrontendItem] }));
       return newFrontendItem;
@@ -184,4 +189,15 @@ export const useInventoryStore = create<InventoryState>()((set) => ({
       throw error;
     }
   },
+  deleteBatch: async (batchId) => {
+    try {
+      await api.delete(`/inventory/batch/${batchId}`);
+      set((state) => ({
+        inventory: state.inventory.filter((i) => i.import_batch_id !== batchId)
+      }));
+    } catch (error) {
+      console.error('Error deleting inventory batch:', error);
+      throw error;
+    }
+  }
 }));

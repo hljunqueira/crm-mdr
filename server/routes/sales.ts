@@ -307,6 +307,7 @@ router.post("/", async (req, res) => {
       }
       const modelLower = (cleanSaleBody['device_model_manual'] || req.body.device_model || '').toLowerCase();
       const hasValidImei = imeiManual && imeiManual.toUpperCase() !== 'N/A' && imeiManual !== '0000000';
+      const isServiceOrPart = modelLower.includes('tela') || modelLower.includes('conserto') || modelLower.includes('reparo') || modelLower.includes('manutenção') || modelLower.includes('manutencao') || modelLower.includes('capa') || modelLower.includes('pelicula') || modelLower.includes('película') || modelLower.includes('troca') || modelLower.includes('serviço') || modelLower.includes('servico') || modelLower.includes('bateria');
       const isCellKeywords = modelLower.includes('celular') || 
                              modelLower.includes('iphone') || 
                              modelLower.includes('galaxy') || 
@@ -317,7 +318,7 @@ router.post("/", async (req, res) => {
                              modelLower.includes('motorola') || 
                              modelLower.includes('moto');
 
-      if (isCelular || hasValidImei || isCellKeywords) {
+      if ((isCelular || hasValidImei || isCellKeywords) && !isServiceOrPart) {
         cleanSaleBody['origin_type'] = 'FINANCIAMENTO_CELULAR';
       } else {
         cleanSaleBody['origin_type'] = 'CREDIARIO_LOJA';
@@ -1405,6 +1406,40 @@ router.patch("/:id/confirm-pickup", async (req, res) => {
     }
 
     res.json(updatedSale);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to change origin_type of a sale and its installments
+router.patch("/:id/origin-type", async (req, res) => {
+  try {
+    const { origin_type } = req.body;
+    if (!origin_type || (origin_type !== 'CREDIARIO_LOJA' && origin_type !== 'FINANCIAMENTO_CELULAR')) {
+      return res.status(400).json({ error: "origin_type inválido. Use 'CREDIARIO_LOJA' ou 'FINANCIAMENTO_CELULAR'." });
+    }
+
+    const saleId = req.params.id;
+
+    // 1. Update sale
+    const { data: updatedSale, error: saleErr } = await supabase
+      .from('sales')
+      .update({ origin_type })
+      .eq('id', saleId)
+      .select()
+      .single();
+
+    if (saleErr || !updatedSale) {
+      return res.status(404).json({ error: saleErr?.message || "Venda não encontrada." });
+    }
+
+    // 2. Update all associated installments
+    await supabase
+      .from('installments')
+      .update({ origin_type })
+      .eq('sale_id', saleId);
+
+    res.json({ success: true, sale: updatedSale, message: `Modalidade atualizada para ${origin_type === 'CREDIARIO_LOJA' ? 'Crediário Loja' : 'Financeira'}` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

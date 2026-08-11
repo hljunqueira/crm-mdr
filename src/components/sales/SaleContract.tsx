@@ -55,7 +55,8 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
     }
   }
 
-  const currentUnit = resolveUnitInfo(unit || { name: 'MDR Informática' });
+  const currentUnit = resolveUnitInfo(unit || { name: 'FINANCEIRA MDR' });
+  const creditorName = 'FINANCEIRA MDR';
 
   return (
     <div id="contract-print-area" className="p-8 text-black bg-white font-sans max-w-200 mx-auto text-xs leading-relaxed">
@@ -142,7 +143,7 @@ export default function SaleContract({ sale, customer, installments }: SaleContr
           <tr>
             <td style={{ width: '40%' }}>
               <span className="label">Razão Social / Nome Fantasia</span>
-              <span className="value">{currentUnit.name}</span>
+              <span className="value">{creditorName}</span>
             </td>
             <td style={{ width: '30%' }}>
               <span className="label">CNPJ / CPF</span>

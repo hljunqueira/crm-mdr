@@ -6,7 +6,7 @@ import {
   ArrowDownRight, Smartphone, ShieldAlert, MessageSquare,
   FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
   X, Copy, Check, Printer, Send, RotateCcw, Lock, Unlock, AlertTriangle, Eye, EyeOff,
-  Store, Save, History, Pencil, Trash2
+  Store, Save, History, Pencil, Trash2, Edit
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
@@ -18,6 +18,8 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore, CashShift, CashTransaction } from '../store/useCashStore';
 import { formatCPF, formatPhone, printElement, cn } from '../lib/utils';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
+import FinanceiraCashier from './cashier/FinanceiraCashier';
+import StoreCrediarioCashier from './cashier/StoreCrediarioCashier';
 
 // PIX defaults — overridden by unit settings
 const DEFAULT_PIX_KEY = '00020126360014BR.GOV.BCB.PIX0114+55489990358545204000053039865802BR5901N6001C62160512MaykondaRosa6304AC2B';
@@ -25,7 +27,7 @@ const DEFAULT_PIX_NAME = 'Maykon da Rosa';
 const DEFAULT_PIX_PHONE = '';
 
 // Boleto/PIX Print Modal Component
-function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
+export function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
   item?: Installment;
   onClose: () => void;
   pixKey: string;
@@ -103,7 +105,7 @@ function PixBoletoModal({ item, onClose, pixKey, pixName, pixPhone }: {
               <div className="bg-white/5 rounded-2xl p-4 border border-white/10 text-center">
                 <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Valor a Receber</p>
                 <p className="text-3xl font-black text-white font-mono">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                <p className="text-[10px] text-on-surface-variant mt-1">Vencimento: {new Date(item.due_date).toLocaleDateString('pt-BR')}</p>
+                <p className="text-[10px] text-on-surface-variant mt-1">Vencimento: {new Date(item.due_date.includes('T') ? item.due_date : item.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
               </div>
             </div>
           )}
@@ -617,27 +619,163 @@ function BatchPaymentConfirmationContent({
 export default function Finance() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards') || 'caixa_loja';
+  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards' | 'despesas_financeira') || 'caixa_financeira';
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards'>(initialTab);
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards' | 'despesas_financeira'>(initialTab);
   const [cashTypeFilter, setCashTypeFilter] = useState<'all' | 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'>('all');
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'caixas' || tabParam === 'caixa_financeira' || tabParam === 'caixa_loja' || tabParam === 'payable_cards') {
+    if (tabParam === 'receivables' || tabParam === 'caixas' || tabParam === 'caixa_financeira' || tabParam === 'caixa_loja' || tabParam === 'payable_cards' || tabParam === 'despesas_financeira') {
       setActiveFinanceTab(tabParam as any);
-    } else if (!tabParam || tabParam === 'receivables') {
-      setActiveFinanceTab('caixa_loja');
+    } else {
+      setActiveFinanceTab('caixa_financeira');
     }
   }, [searchParams]);
   const [cashierSummary, setCashierSummary] = useState<any>(null);
   const [cashierTransfers, setCashierTransfers] = useState<any[]>([]);
+  const [isLoadingCashier, setIsLoadingCashier] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [transferAmountInput, setTransferAmountInput] = useState('');
   const [transferDescInput, setTransferDescInput] = useState('');
   const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  const [financeiraTxs, setFinanceiraTxs] = useState<any[]>([]);
+  const [isLoadingTxs, setIsLoadingTxs] = useState(false);
+  const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<any>(null);
+  const [txFormData, setTxFormData] = useState({
+    type: 'out' as 'in' | 'out',
+    amount: '',
+    description: '',
+    paymentMethod: 'pix'
+  });
+
+  const { installments, markAsPaid, revertPayment, fetchInstallments, updateDueDate } = useFinanceStore();
+
+  const [dueDateModalItem, setDueDateModalItem] = useState<Installment | null>(null);
+  const [newDueDateInput, setNewDueDateInput] = useState<string>('');
+  const [isUpdatingDueDate, setIsUpdatingDueDate] = useState<boolean>(false);
+
+  const handleSaveDueDate = async () => {
+    if (!dueDateModalItem || !newDueDateInput) return;
+    setIsUpdatingDueDate(true);
+    try {
+      await updateDueDate(dueDateModalItem.id, newDueDateInput);
+      showNotification('success', 'Vencimento Atualizado', 'Data de vencimento alterada com sucesso!');
+      setDueDateModalItem(null);
+    } catch (err: any) {
+      showNotification('error', 'Erro ao Atualizar Vencimento', err.message || 'Tente novamente');
+    } finally {
+      setIsUpdatingDueDate(false);
+    }
+  };
+  const { units, fetchAllUnits, unit } = useUnitStore();
+  const { showModal, showNotification, hideModal } = useUI();
+  const { profile } = useAuthStore();
+  const { fetchUserPermissions } = usePermissionStore();
+
+  const {
+    activeShift, fetchActiveShift, fetchTransactions
+  } = useCashStore();
+
+  const isAdmin = profile?.role === 'admin';
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
+  const [selectedInstallmentIds, setSelectedInstallmentIds] = useState<Set<string>>(new Set());
+
+  const fetchCashierData = async () => {
+    try {
+      const res = await fetch(`/api/cashier/summary${selectedUnitId && selectedUnitId !== 'all' ? `?storeId=${selectedUnitId}` : ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCashierSummary(data);
+        setCashierTransfers(data.recentTransfers || []);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar resumo dos caixas:', e);
+    }
+  };
+
+  const fetchFinanceiraTxs = async () => {
+    try {
+      setIsLoadingTxs(true);
+      const url = selectedUnitId && selectedUnitId !== 'all'
+        ? `/api/cashier/transactions?cashierType=FINANCEIRA&storeId=${selectedUnitId}`
+        : `/api/cashier/transactions?cashierType=FINANCEIRA`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        setFinanceiraTxs(json.transactions || []);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar transações da financeira:', err);
+    } finally {
+      setIsLoadingTxs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCashierData();
+    if (activeFinanceTab === 'despesas_financeira' || activeFinanceTab === 'caixa_financeira') {
+      fetchFinanceiraTxs();
+    }
+  }, [activeFinanceTab, selectedUnitId]);
+
+  const handleSaveTx = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!txFormData.description || !Number(txFormData.amount) || Number(txFormData.amount) <= 0) {
+      showNotification('error', 'Preencha os campos', 'Informe uma descrição e um valor válido.');
+      return;
+    }
+
+    try {
+      const url = editingTx ? `/api/cashier/transactions/${editingTx.id}` : '/api/cashier/transactions';
+      const method = editingTx ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: txFormData.type,
+          amount: Number(txFormData.amount),
+          description: txFormData.description,
+          paymentMethod: txFormData.paymentMethod,
+          cashierType: 'FINANCEIRA',
+          unitId: selectedUnitId === 'all' ? null : selectedUnitId
+        })
+      });
+
+      if (res.ok) {
+        showNotification('success', editingTx ? 'Lançamento Atualizado' : 'Novo Lançamento Criado');
+        setIsTxModalOpen(false);
+        setEditingTx(null);
+        setTxFormData({ type: 'out', amount: '', description: '', paymentMethod: 'pix' });
+        fetchFinanceiraTxs();
+        fetchCashierData();
+      } else {
+        const errJson = await res.json();
+        showNotification('error', 'Erro ao salvar', errJson.error || 'Falha na operação.');
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro ao salvar', err.message);
+    }
+  };
+
+  const handleDeleteTx = async (id: string) => {
+    if (!confirm('Deseja realmente excluir esta despesa/lançamento da financeira?')) return;
+    try {
+      const res = await fetch(`/api/cashier/transactions/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showNotification('success', 'Lançamento Removido');
+        fetchFinanceiraTxs();
+        fetchCashierData();
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro ao excluir', err.message);
+    }
+  };
 
   const {
     bills,
@@ -804,19 +942,8 @@ export default function Finance() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedInstIds, setSelectedInstIds] = useState<string[]>([]);
 
-  const { installments, markAsPaid, revertPayment, fetchInstallments } = useFinanceStore();
-  const { units, fetchAllUnits, unit } = useUnitStore();
-  const { showModal, showNotification, hideModal } = useUI();
-  const { profile } = useAuthStore();
-  const { fetchUserPermissions } = usePermissionStore();
-
-  // Cashier stores and states (only what's needed for shift payment validations)
-  const {
-    activeShift, fetchActiveShift, fetchTransactions
-  } = useCashStore();
-
-  const isAdmin = profile?.role === 'admin';
-  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+  const [txSearchTerm, setTxSearchTerm] = useState('');
+  const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'in' | 'out'>('all');
 
   useEffect(() => {
     fetchAllUnits();
@@ -847,19 +974,6 @@ export default function Finance() {
     }
   }, [selectedMonth, selectedYear, selectedUnitId, activeFinanceTab, fetchDashboardData]);
 
-  const fetchCashierData = async () => {
-    try {
-      const res = await fetch(`/api/cashier/summary${selectedUnitId && selectedUnitId !== 'all' ? `?storeId=${selectedUnitId}` : ''}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCashierSummary(data);
-        setCashierTransfers(data.recentTransfers || []);
-      }
-    } catch (e) {
-      console.warn('Erro ao carregar resumo dos caixas:', e);
-    }
-  };
-
   useEffect(() => {
     fetchCashierData();
   }, [selectedUnitId, activeFinanceTab]);
@@ -884,7 +998,8 @@ export default function Finance() {
           amount: numAmount,
           description: transferDescInput || 'Repasse de valores da Financeira para o Caixa Loja',
           storeId: selectedUnitId !== 'all' ? selectedUnitId : null,
-          transferredBy: profile?.id
+          transferredBy: profile?.id,
+          selectedInstallmentIds: Array.from(selectedInstallmentIds)
         })
       });
 
@@ -960,28 +1075,30 @@ export default function Finance() {
   const relevantInstallments = useMemo(() => {
     return installments.filter(inst => {
       const sale = (inst as any).sales;
-      const isFinanc = inst.origin_type === 'FINANCIAMENTO_CELULAR' || sale?.origin_type === 'FINANCIAMENTO_CELULAR';
-
-      // 1. Se estiver na aba Caixa Financiamento Celular, retornar apenas financiamentos de celular
-      if (activeFinanceTab === 'caixa_financeira') {
-        return isFinanc;
-      }
-
-      // Se não estiver na aba de financiamento, excluir Financiamento de Celular (pertence ao Caixa Financeira)
-      if (isFinanc) return false;
+      const effectiveOrigin = sale?.origin_type || inst.origin_type || 'CREDIARIO_LOJA';
+      const isFinanc = effectiveOrigin === 'FINANCIAMENTO_CELULAR';
+      const isCrediarioLoja = effectiveOrigin === 'CREDIARIO_LOJA';
 
       const pm = ((inst.payment_method || sale?.payment_method || '') as string).toLowerCase();
       const pt = (sale?.payment_type || '').toLowerCase();
-      const totalInsts = inst.total || (inst as any).total_installments || sale?.installments || 1;
-
-      // 2. Excluir vendas no cartão de crédito/débito (pertencem ao Controle de Cartões)
       const isCard = pm === 'card' || pm === 'debit' || pt === 'card' || pt === 'debit';
-      if (isCard) return false;
+      const isDownPayment = inst.number === 0 ||
+        (inst as any).is_down_payment === true ||
+        (inst.number === 1 && (sale?.down_payment > 0 || (inst as any).down_payment > 0) && Number(inst.value) === Number(sale?.down_payment || (inst as any).down_payment));
 
-      // 3. Excluir vendas à vista (dinheiro/pix) e vendas de 1 parcela única do balcão (pertencem ao Caixa Diário)
-      const isVista = pt === 'vista' || pm === 'vista';
-      const isSingleNonCrediario = totalInsts === 1 && pt !== 'crediario';
-      if (isVista || isSingleNonCrediario) return false;
+      // 1. Se estiver na aba Caixa Financiamento Celular ou Recebíveis (MDM), retornar exclusivamente financiamentos de celular
+      if (activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'receivables') {
+        return isFinanc && !isDownPayment;
+      }
+
+      // 2. Se estiver na aba Caixa Crediário Loja, retornar exclusivamente parcelas do Crediário Próprio
+      if (activeFinanceTab === 'caixa_loja') {
+        return isCrediarioLoja && !isDownPayment;
+      }
+
+      // 3. Demais abas: excluir Financiamento de Celular e cartão
+      if (isFinanc) return false;
+      if (isCard) return false;
 
       return true;
     });
@@ -1058,34 +1175,37 @@ export default function Finance() {
   }, [activeFinanceTab, cashTypeFilter]);
 
   const filteredGroups = useMemo(() => {
-    const matchesDateFilter = (dueDateStr: string) => {
+    const matchesDateFilter = (inst: any) => {
       if (dateFilter === 'all') return true;
-      const dueDate = new Date(dueDateStr + 'T12:00:00');
+      const targetDateStr = (inst.status === 'paid' && inst.paid_at) ? inst.paid_at : inst.due_date;
+      if (!targetDateStr) return true;
+
+      const dateObj = new Date(targetDateStr + (targetDateStr.includes('T') ? '' : 'T12:00:00'));
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       if (dateFilter === 'today') {
-        return dueDate.getFullYear() === today.getFullYear() &&
-          dueDate.getMonth() === today.getMonth() &&
-          dueDate.getDate() === today.getDate();
+        return dateObj.getFullYear() === today.getFullYear() &&
+          dateObj.getMonth() === today.getMonth() &&
+          dateObj.getDate() === today.getDate();
       }
 
       if (dateFilter === 'week') {
         const nextWeek = new Date(today);
         nextWeek.setDate(today.getDate() + 7);
-        const dueMs = dueDate.getTime();
+        const dueMs = dateObj.getTime();
         return dueMs >= today.getTime() && dueMs <= nextWeek.getTime();
       }
 
       if (dateFilter === 'month') {
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
-        return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
+        return dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear;
       }
 
       if (dateFilter === 'custom') {
         if (!customStartDate && !customEndDate) return true;
-        const dueMs = dueDate.getTime();
+        const dueMs = dateObj.getTime();
         const start = customStartDate ? new Date(customStartDate + 'T00:00:00').getTime() : 0;
         const end = customEndDate ? new Date(customEndDate + 'T23:59:59').getTime() : Infinity;
         return dueMs >= start && dueMs <= end;
@@ -1096,7 +1216,7 @@ export default function Finance() {
 
     return customerGroups.map(group => {
       const matchingInstallments = group.installments.filter(inst => {
-        const matchesDate = matchesDateFilter(inst.due_date);
+        const matchesDate = matchesDateFilter(inst);
 
         let matchesStatus = true;
         if (statusFilter === 'paid') {
@@ -1171,34 +1291,37 @@ export default function Finance() {
   };
 
   const dateFilteredInstallments = useMemo(() => {
-    const matchesDateFilter = (dueDateStr: string) => {
+    const matchesDateFilter = (inst: any) => {
       if (dateFilter === 'all') return true;
-      const dueDate = new Date(dueDateStr + 'T12:00:00');
+      const targetDateStr = (inst.status === 'paid' && inst.paid_at) ? inst.paid_at : inst.due_date;
+      if (!targetDateStr) return true;
+
+      const dateObj = new Date(targetDateStr + (targetDateStr.includes('T') ? '' : 'T12:00:00'));
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       if (dateFilter === 'today') {
-        return dueDate.getFullYear() === today.getFullYear() &&
-          dueDate.getMonth() === today.getMonth() &&
-          dueDate.getDate() === today.getDate();
+        return dateObj.getFullYear() === today.getFullYear() &&
+          dateObj.getMonth() === today.getMonth() &&
+          dateObj.getDate() === today.getDate();
       }
 
       if (dateFilter === 'week') {
         const nextWeek = new Date(today);
         nextWeek.setDate(today.getDate() + 7);
-        const dueMs = dueDate.getTime();
+        const dueMs = dateObj.getTime();
         return dueMs >= today.getTime() && dueMs <= nextWeek.getTime();
       }
 
       if (dateFilter === 'month') {
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
-        return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
+        return dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear;
       }
 
       if (dateFilter === 'custom') {
         if (!customStartDate && !customEndDate) return true;
-        const dueMs = dueDate.getTime();
+        const dueMs = dateObj.getTime();
         const start = customStartDate ? new Date(customStartDate + 'T00:00:00').getTime() : 0;
         const end = customEndDate ? new Date(customEndDate + 'T23:59:59').getTime() : Infinity;
         return dueMs >= start && dueMs <= end;
@@ -1208,7 +1331,7 @@ export default function Finance() {
     };
 
     return relevantInstallments.filter(inst => {
-      const matchesDate = matchesDateFilter(inst.due_date);
+      const matchesDate = matchesDateFilter(inst);
       const matchesCashType = effectiveCashTypeFilter === 'all' || inst.origin_type === effectiveCashTypeFilter;
       return matchesDate && matchesCashType;
     });
@@ -1223,10 +1346,7 @@ export default function Finance() {
   };
 
   const handlePayment = (item: Installment) => {
-    if (!activeShift) {
-      showNotification('error', 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.');
-      return;
-    }
+    const isBypassNeeded = !activeShift || activeFinanceTab === 'receivables' || activeFinanceTab === 'caixa_financeira' || isAdmin;
 
     const showManualPayment = () => {
       const fees = calculateOverdueFees(item);
@@ -1252,7 +1372,7 @@ export default function Finance() {
         confirmText: isOverdue ? `Receber R$ ${fees.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'Confirmar Recebimento',
         onConfirm: async () => {
           try {
-            await markAsPaid(item.id, finalValueToPay, selectedMethod);
+            await markAsPaid(item.id, finalValueToPay, selectedMethod, isBypassNeeded);
             showNotification('success', 'Pagamento Confirmado');
             if (selectedUnitId && selectedUnitId !== 'all') {
               await fetchActiveShift(selectedUnitId);
@@ -1260,7 +1380,7 @@ export default function Finance() {
             }
             hideModal();
           } catch (error: any) {
-            showNotification('error', error?.response?.data?.error || 'Erro no Servidor');
+            showNotification('error', error?.response?.data?.error || error?.message || 'Erro no Servidor');
           }
         }
       });
@@ -1308,12 +1428,8 @@ export default function Finance() {
   };
 
   const handleBatchPayment = (items: Installment[]) => {
-    if (!activeShift) {
-      showNotification('error', 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.');
-      return;
-    }
-
     if (items.length === 0) return;
+    const isBypassNeeded = !activeShift || activeFinanceTab === 'receivables' || activeFinanceTab === 'caixa_financeira' || isAdmin;
 
     let selectedMethod: 'pix' | 'money' | 'card' = 'money';
     let finalTotalValue = items.reduce((sum, item) => sum + item.value, 0);
@@ -1351,7 +1467,7 @@ export default function Finance() {
             const item = items[i];
             const propDiscount = totalOriginal > 0 ? (item.value / totalOriginal) * totalDiscount : 0;
             const finalVal = Math.max(0, item.value - propDiscount);
-            await markAsPaid(item.id, finalVal, selectedMethod);
+            await markAsPaid(item.id, finalVal, selectedMethod, isBypassNeeded);
           }
 
           showNotification('success', 'Parcelas Liquidadas com Sucesso');
@@ -1442,8 +1558,64 @@ export default function Finance() {
     }
   };
 
+  const handleChangeSaleOrigin = async (saleId: string, currentOrigin: string) => {
+    const newOrigin = currentOrigin === 'CREDIARIO_LOJA' ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA';
+    const newLabel = newOrigin === 'CREDIARIO_LOJA' ? 'Crediário Loja' : 'Financeira (MDM)';
+
+    if (!window.confirm(`Deseja alterar a modalidade deste contrato para "${newLabel}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/sales/${saleId}/origin-type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin_type: newOrigin })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showNotification('success', 'Modalidade Alterada!', `O contrato agora pertence a ${newLabel}.`);
+        if (selectedUnitId) {
+          await fetchInstallments(selectedUnitId);
+        }
+      } else {
+        showNotification('error', 'Falha ao alterar', data.error || 'Erro na requisição');
+      }
+    } catch (err: any) {
+      showNotification('error', 'Erro de conexão', err.message);
+    }
+  };
+
   return (
     <div className="p-8 pb-20 animate-in fade-in duration-700">
+
+      {/* NAVEGAÇÃO DE ABAS EXCLUSIVAS DO MÓDULO FINANCEIRA */}
+      {activeFinanceTab !== 'caixa_loja' && (
+        <div className="mb-8 border-b border-white/10 pb-4 flex flex-wrap items-center gap-2">
+          {[
+            { id: 'caixa_financeira', label: '🏦 Caixa Financiamento Celular', desc: 'Gestão de Caixa & Repasses da Financeira' },
+            { id: 'receivables', label: '📱 Recebíveis de Financiamento (MDM)', desc: 'Carteira de Contratos & Aparelhos Financiados' },
+            { id: 'despesas_financeira', label: '💸 Lançamentos & Despesas Financeira', desc: 'Custos Operacionais & Despesas da Financeira' },
+          ].map(tab => {
+            const isActive = activeFinanceTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => navigate(`/finance?tab=${tab.id}`)}
+                className={cn(
+                  "px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex flex-col items-start gap-0.5 border cursor-pointer",
+                  isActive
+                    ? "bg-[#161625] text-white border-primary shadow-lg shadow-primary/20 scale-[1.02] border-2"
+                    : "bg-white/5 text-zinc-400 border-white/5 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                <span className={cn(isActive ? "text-primary font-black" : "text-white")}>{tab.label}</span>
+                <span className={cn("text-[8px] tracking-normal font-medium opacity-80", isActive ? "text-zinc-300" : "text-zinc-500")}>
+                  {tab.desc}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* HEADER E SELETOR DE UNIDADE */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -1453,23 +1625,27 @@ export default function Finance() {
               ? 'Caixa Financiamento Celular'
               : activeFinanceTab === 'caixa_loja'
                 ? 'Caixa Crediário Loja'
-                : activeFinanceTab === 'receivables'
-                  ? 'Recebíveis Gerais'
-                  : 'Contas a Pagar (Cartões)'}
+                : activeFinanceTab === 'despesas_financeira'
+                  ? 'Lançamentos & Despesas da Financeira'
+                  : activeFinanceTab === 'receivables'
+                    ? 'Recebíveis de Financiamento (MDM)'
+                    : 'Contas a Pagar (Cartões)'}
           </h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">
             {activeFinanceTab === 'caixa_financeira'
               ? 'Gestão de Recebimentos de Contratos de Aparelhos e MDM'
               : activeFinanceTab === 'caixa_loja'
-                ? 'Gestão de Recebimentos do Balcão e Crediário da Loja Física'
-                : activeFinanceTab === 'receivables'
-                  ? 'Gestão de Parcelas e Recebimentos Globais'
-                  : 'Mensal Fixo de Cartões de Crédito e Custos'}
+                ? 'Gestão de Entradas, Repasses e Crediário Próprio da Loja Física'
+                : activeFinanceTab === 'despesas_financeira'
+                  ? 'Lançamentos Manuais de Entradas, Saídas e Custos Operacionais da Financeira'
+                  : activeFinanceTab === 'receivables'
+                    ? 'Gestão de Carteira Globais de Parcelas de Celulares'
+                    : 'Mensal Fixo de Cartões de Crédito e Custos'}
           </p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          {/* Unit Selector for Admins */}
-          {isAdmin && units.length > 0 && (
+          {/* Unit Selector for Admins - Exclusivo para Caixa Crediário Loja */}
+          {isAdmin && units.length > 0 && activeFinanceTab === 'caixa_loja' && (
             <div className="relative flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 min-w-50 w-full md:w-auto">
               <Store size={16} className="text-primary shrink-0" />
               <select
@@ -1491,24 +1667,24 @@ export default function Finance() {
               </select>
             </div>
           )}
-          {(activeFinanceTab === 'receivables' || activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_loja') && (
+          {(activeFinanceTab === 'receivables' || activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'despesas_financeira') && (
             <div className="flex flex-wrap items-center gap-2">
-              {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'receivables') && (
+              {activeFinanceTab === 'despesas_financeira' && (
                 <button
                   onClick={() => {
-                    setTransferAmountInput((cashierSummary?.financeira?.balance || 0).toString());
-                    setIsTransferModalOpen(true);
+                    setEditingTx(null);
+                    setTxFormData({ type: 'out', amount: '', description: '', paymentMethod: 'pix' });
+                    setIsTxModalOpen(true);
                   }}
-                  disabled={(cashierSummary?.financeira?.balance || 0) <= 0}
-                  className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed w-full md:w-auto"
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto font-display"
                 >
-                  <DollarSign size={16} />
-                  Repasse Caixa Loja
+                  <Plus size={16} />
+                  Nova Despesa / Lançamento
                 </button>
               )}
               <button
                 onClick={handleExportCSV}
-                className="flex items-center justify-center gap-2 px-5 py-3.5 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto"
+                className="flex items-center justify-center gap-2 px-5 py-3.5 bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer w-full md:w-auto font-display"
               >
                 <Download size={16} />
                 Exportar CSV
@@ -1519,14 +1695,182 @@ export default function Finance() {
       </div>
 
       {/* RENDER CONTEÚDO */}
-      {activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_loja' || activeFinanceTab === 'receivables' || !isAdmin ? (
-        <>
+      {activeFinanceTab === 'despesas_financeira' ? (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/5 border border-white/10 p-6 rounded-3xl">
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Lançamentos & Despesas da Financeira</h3>
+              <p className="text-[10px] text-zinc-400 font-mono">Registro de retiradas, custos operacionais e tarifas da financeira</p>
+            </div>
 
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {/* Filtro de Tipo */}
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
+                {[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'in', label: 'Entradas' },
+                  { id: 'out', label: 'Saídas/Despesas' }
+                ].map(ft => (
+                  <button
+                    key={ft.id}
+                    type="button"
+                    onClick={() => setTxTypeFilter(ft.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${txTypeFilter === ft.id
+                      ? 'bg-primary text-black font-bold'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    {ft.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Busca por Descrição */}
+              <div className="relative flex-1 md:w-56">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar lançamento..."
+                  value={txSearchTerm}
+                  onChange={(e) => setTxSearchTerm(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-3 py-2 text-xs text-white outline-none focus:border-primary font-mono"
+                />
+              </div>
+
+              <span className="text-xs font-mono font-bold text-zinc-300 shrink-0">
+                Total: {financeiraTxs.filter(tx => {
+                  const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
+                  const isInflow = tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada';
+                  const isOutflow = tx.type === 'out' || tx.type === 'outflow' || tx.type === 'sangria' || tx.type === 'despesa' || tx.type === 'saida';
+                  const matchType = txTypeFilter === 'all' || (txTypeFilter === 'in' && isInflow) || (txTypeFilter === 'out' && isOutflow);
+                  return matchSearch && matchType;
+                }).length}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-white/2 border border-white/10 rounded-3xl overflow-hidden">
+            {isLoadingTxs ? (
+              <div className="p-12 text-center text-zinc-400 text-xs flex items-center justify-center gap-2">
+                <Loader2 className="animate-spin" size={18} /> Carregando lançamentos...
+              </div>
+            ) : financeiraTxs.filter(tx => {
+              const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
+              const isInflow = tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada';
+              const isOutflow = tx.type === 'out' || tx.type === 'outflow' || tx.type === 'sangria' || tx.type === 'despesa' || tx.type === 'saida';
+              const matchType = txTypeFilter === 'all' || (txTypeFilter === 'in' && isInflow) || (txTypeFilter === 'out' && isOutflow);
+              return matchSearch && matchType;
+            }).length === 0 ? (
+              <div className="p-12 text-center text-zinc-500 text-xs font-mono uppercase">
+                Nenhum lançamento ou despesa localizado com os filtros aplicados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                      <th className="p-4">Data/Hora</th>
+                      <th className="p-4">Tipo</th>
+                      <th className="p-4">Descrição</th>
+                      <th className="p-4">Método</th>
+                      <th className="p-4 text-right">Valor (R$)</th>
+                      <th className="p-4 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-xs font-sans">
+                    {financeiraTxs.filter(tx => {
+                      const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
+                      const isInflow = tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada';
+                      const isOutflow = tx.type === 'out' || tx.type === 'outflow' || tx.type === 'sangria' || tx.type === 'despesa' || tx.type === 'saida';
+                      const matchType = txTypeFilter === 'all' || (txTypeFilter === 'in' && isInflow) || (txTypeFilter === 'out' && isOutflow);
+                      return matchSearch && matchType;
+                    }).map((tx) => (
+                      <tr key={tx.id} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4 font-mono text-zinc-400">
+                          {new Date(tx.created_at).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="p-4">
+                          {(tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada') ? (
+                            <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              🟢 Entrada
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              🔴 Saída / Despesa
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 font-bold text-white">
+                          {tx.description}
+                        </td>
+                        <td className="p-4 text-zinc-300 uppercase text-[10px] font-mono">
+                          {tx.payment_method || 'PIX'}
+                        </td>
+                        <td className="p-4 text-right font-mono font-black text-white">
+                          R$ {Number(tx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingTx(tx);
+                                setTxFormData({
+                                  type: tx.type || 'out',
+                                  amount: String(tx.amount),
+                                  description: tx.description || '',
+                                  paymentMethod: tx.payment_method || 'pix'
+                                });
+                                setIsTxModalOpen(true);
+                              }}
+                              className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all cursor-pointer"
+                              title="Editar"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTx(tx.id)}
+                              className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 transition-all cursor-pointer"
+                              title="Excluir"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activeFinanceTab === 'caixa_financeira' ? (
+        <FinanceiraCashier
+          cashierSummary={cashierSummary}
+          cashierTransfers={cashierTransfers}
+          relevantInstallments={relevantInstallments}
+          isLoadingCashier={isLoadingCashier}
+          fetchCashierData={fetchCashierData}
+          showNotification={showNotification}
+          selectedUnitId={selectedUnitId}
+        />
+      ) : activeFinanceTab === 'caixa_loja' ? (
+        <StoreCrediarioCashier
+          cashierSummary={cashierSummary}
+          cashierTransfers={cashierTransfers}
+          relevantInstallments={relevantInstallments}
+          isLoadingCashier={isLoadingCashier}
+          fetchCashierData={fetchCashierData}
+          showNotification={showNotification}
+          selectedUnitId={selectedUnitId}
+        />
+      ) : activeFinanceTab === 'receivables' || !isAdmin ? (
+        <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             {[
               { id: 'all', label: 'Total a Receber', value: `R$ ${totalReceivable.toLocaleString('pt-BR')}`, icon: ArrowUpRight, color: 'text-primary', activeBorder: 'border-primary/50 shadow-primary/5', activeBar: 'bg-primary' },
-              { id: 'paid', label: 'Recebido (Total)', value: `R$ ${totalPaid.toLocaleString('pt-BR')}`, icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
+              { id: 'paid', label: dateFilter === 'all' ? 'Recebido (Geral)' : 'Recebido (No Período)', value: `R$ ${totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: CheckCircle2, color: 'text-success', activeBorder: 'border-success/50 shadow-success/5', activeBar: 'bg-success' },
               { id: 'overdue', label: 'Em Atraso', value: `R$ ${totalOverdue.toLocaleString('pt-BR')}`, icon: AlertCircle, color: 'text-error', activeBorder: 'border-error/50 shadow-error/5', activeBar: 'bg-error' },
               { id: 'blocked', label: 'Bloqueados', value: dateFilteredInstallments.filter(i => i.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error', activeBorder: 'border-red-500/50 shadow-red-500/5', activeBar: 'bg-red-500' },
             ].map((stat, idx) => {
@@ -1769,7 +2113,22 @@ export default function Finance() {
                                             Parcela {inst.number} de {inst.total}
                                           </td>
                                           <td className="py-4 text-xs font-mono text-on-surface-variant">
-                                            {new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                            <div className="flex items-center gap-1.5 group">
+                                              <span>{new Date(inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                                              {inst.status !== 'paid' && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setDueDateModalItem(inst);
+                                                    setNewDueDateInput(inst.due_date);
+                                                  }}
+                                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-amber-400 transition-all cursor-pointer"
+                                                  title="Alterar Data de Vencimento"
+                                                >
+                                                  <Pencil size={11} />
+                                                </button>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="py-4">
                                             {inst.status === 'paid' ? (
@@ -2043,11 +2402,16 @@ export default function Finance() {
             </div>
 
             <div className="xl:col-span-4 space-y-6">
-              {/* Widget de Relatório Mensal de Cartões */}
+              {/* Widget de Relatório Trimestral de Cartões */}
               <div className="bg-white/2 border border-white/5 rounded-[40px] p-6 space-y-4 animate-in fade-in duration-300">
-                <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-white/5 pb-3">
-                  Relatório Mensal de Cartões
-                </h3>
+                <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest">
+                    Relatório Trimestral de Cartões
+                  </h3>
+                  <span className="text-[9px] font-black uppercase text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                    Trimestre Dinâmico
+                  </span>
+                </div>
                 <div className="overflow-x-auto max-h-87.5 pr-2 custom-scrollbar">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
@@ -2059,28 +2423,34 @@ export default function Finance() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {monthlyReport.map((item, idx) => {
-                        const isCurrentMonth = item.month === new Date().getMonth() + 1 && item.year === new Date().getFullYear();
-                        return (
-                          <tr key={idx} className={cn("hover:bg-white/5 transition-all", isCurrentMonth && "bg-white/5 font-bold")}>
-                            <td className="py-2.5 font-bold text-white uppercase flex items-center gap-1">
-                              {item.monthLabel}
-                              {isCurrentMonth && (
-                                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[7px] font-black uppercase px-1 py-0.2 rounded scale-90">Atual</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 text-right font-mono text-zinc-400">
-                              R$ {item.fixedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2.5 text-right font-mono text-emerald-400">
-                              R$ {item.paidValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="py-2.5 text-right font-mono text-error">
-                              R$ {item.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {monthlyReport
+                        .filter(item => {
+                          const itemIndex = (item.year * 12) + (item.month - 1);
+                          const selectedIndex = (selectedYear * 12) + (selectedMonth - 1);
+                          return itemIndex >= selectedIndex && itemIndex < selectedIndex + 3;
+                        })
+                        .map((item, idx) => {
+                          const isSelectedMonth = item.month === selectedMonth && item.year === selectedYear;
+                          return (
+                            <tr key={idx} className={cn("hover:bg-white/5 transition-all", isSelectedMonth && "bg-white/5 font-bold")}>
+                              <td className="py-2.5 font-bold text-white uppercase flex items-center gap-1">
+                                {item.monthLabel}
+                                {isSelectedMonth && (
+                                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[7px] font-black uppercase px-1 py-0.2 rounded scale-90">Atual</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 text-right font-mono text-zinc-400">
+                                R$ {item.fixedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2.5 text-right font-mono text-emerald-400">
+                                R$ {item.paidValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2.5 text-right font-mono text-error">
+                                R$ {item.remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -2202,6 +2572,124 @@ export default function Finance() {
           </div>
         </div>
       )}
+
+      {/* Modal CRUD de Despesas / Lançamentos da Financeira */}
+      <AnimatePresence>
+        {isTxModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsTxModalOpen(false)}>
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-4xl w-full max-w-md p-6 shadow-2xl space-y-6 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center pb-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-primary/10 border border-primary/20 rounded-2xl text-primary">
+                    <Plus size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                      {editingTx ? 'Editar Lançamento Financeira' : 'Nova Despesa / Lançamento'}
+                    </h3>
+                    <p className="text-[10px] text-zinc-400 font-mono">
+                      Caixa da Financeira MDR
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTxModalOpen(false)}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-white cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveTx} className="space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-zinc-400 uppercase tracking-widest font-black">Tipo do Lançamento</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTxFormData(prev => ({ ...prev, type: 'out' }))}
+                      className={cn(
+                        "py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer",
+                        txFormData.type === 'out'
+                          ? "bg-red-500/20 text-red-400 border-red-500/40"
+                          : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                      )}
+                    >
+                      🔴 Saída / Despesa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTxFormData(prev => ({ ...prev, type: 'in' }))}
+                      className={cn(
+                        "py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all cursor-pointer",
+                        txFormData.type === 'in'
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                          : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                      )}
+                    >
+                      🟢 Entrada
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-zinc-400 uppercase tracking-widest font-black">Valor (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={txFormData.amount}
+                    onChange={(e) => setTxFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary font-mono font-black"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-zinc-400 uppercase tracking-widest font-black">Descrição / Motivo</label>
+                  <input
+                    type="text"
+                    required
+                    value={txFormData.description}
+                    onChange={(e) => setTxFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-primary font-sans"
+                    placeholder="Ex: Tarifa de transferência bancária Asaas"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-zinc-400 uppercase tracking-widest font-black">Método de Pagamento</label>
+                  <select
+                    value={txFormData.paymentMethod}
+                    onChange={(e) => setTxFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-primary font-sans cursor-pointer"
+                  >
+                    <option value="pix" className="bg-[#0f0f1a]">PIX</option>
+                    <option value="transfer" className="bg-[#0f0f1a]">Transferência / Ted</option>
+                    <option value="money" className="bg-[#0f0f1a]">Dinheiro</option>
+                    <option value="card" className="bg-[#0f0f1a]">Cartão de Crédito/Débito</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-primary text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20 cursor-pointer"
+                >
+                  {editingTx ? 'Salvar Alterações' : 'Confirmar Lançamento'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isBillModalOpen && (
@@ -2340,95 +2828,71 @@ export default function Finance() {
         )}
       </AnimatePresence>
 
-      {/* Modal de Repasse (Financeira -> Loja) */}
+      {/* Alterar Vencimento Modal */}
       <AnimatePresence>
-        {isTransferModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setIsTransferModalOpen(false)}>
+        {dueDateModalItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDueDateModalItem(null)}>
             <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative bg-[#0f1f18] border border-emerald-500/30 rounded-4xl w-full max-w-md p-6 shadow-2xl space-y-6 text-left"
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-[#0f0f1a] border border-white/10 rounded-3xl w-full max-w-md p-6 overflow-hidden shadow-2xl space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center pb-4 border-b border-emerald-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
-                    <DollarSign size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                      Repasse para Caixa Loja
-                    </h3>
-                    <p className="text-[10px] text-emerald-400 font-mono font-black uppercase tracking-widest">
-                      Transferência de saldo arrecadado
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div>
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                    <Calendar size={16} className="text-primary" /> Alterar Vencimento
+                  </h3>
+                  <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-widest opacity-60 mt-1">
+                    {dueDateModalItem.customer_name} — Parcela {dueDateModalItem.number}/{dueDateModalItem.total}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsTransferModalOpen(false)}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-white cursor-pointer"
-                >
+                <button onClick={() => setDueDateModalItem(null)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-white cursor-pointer">
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="bg-emerald-500/10 p-4 rounded-2xl border border-emerald-500/20 space-y-1">
-                <span className="text-[9px] text-emerald-300 font-black uppercase tracking-widest block">Saldo Disponível na Financeira</span>
-                <span className="text-xl font-black text-emerald-400 font-mono">
-                  R$ {(cashierSummary?.financeira?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant block mb-1">
+                    Data de Vencimento Atual
+                  </label>
+                  <div className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl font-mono text-xs text-white font-bold">
+                    {new Date(dueDateModalItem.due_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-black uppercase tracking-widest text-primary block mb-1">
+                    Nova Data de Vencimento
+                  </label>
+                  <input
+                    type="date"
+                    value={newDueDateInput}
+                    onChange={(e) => setNewDueDateInput(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 focus:border-primary rounded-xl font-mono text-sm text-white focus:outline-none transition-all"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">
-                    Valor do Repasse (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max={cashierSummary?.financeira?.balance || 0}
-                    value={transferAmountInput}
-                    onChange={(e) => setTransferAmountInput(e.target.value)}
-                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-400 font-mono font-black"
-                    placeholder="R$ 0,00"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">
-                    Observação / Descrição
-                  </label>
-                  <input
-                    type="text"
-                    value={transferDescInput}
-                    onChange={(e) => setTransferDescInput(e.target.value)}
-                    className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-emerald-400 font-sans"
-                    placeholder="Repasse de valores para o Caixa Loja"
-                  />
-                </div>
-
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
                 <button
                   type="button"
-                  disabled={isSubmittingTransfer || !Number(transferAmountInput) || Number(transferAmountInput) <= 0}
-                  onClick={handleExecuteTransfer}
-                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                  onClick={() => setDueDateModalItem(null)}
+                  className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer border border-white/10"
                 >
-                  {isSubmittingTransfer ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Processando Repasse...
-                    </>
-                  ) : (
-                    <>
-                      <DollarSign size={16} />
-                      Confirmar Repasse de R$ {Number(transferAmountInput || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </>
-                  )}
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDueDate}
+                  disabled={isUpdatingDueDate || !newDueDateInput}
+                  className="px-5 py-2.5 bg-primary hover:bg-primary-hover text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isUpdatingDueDate ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Salvar Nova Data
                 </button>
               </div>
             </motion.div>
@@ -2468,3 +2932,4 @@ export default function Finance() {
     </div>
   );
 }
+

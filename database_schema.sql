@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS devices (
     sale_price DECIMAL(12, 2) NOT NULL,
     stock_quantity INTEGER DEFAULT 1,
     status TEXT DEFAULT 'available' CHECK (status IN ('available', 'sold', 'reserved', 'in_repair')),
+    import_batch_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -1203,10 +1203,7 @@ export default function Reports() {
       <div className="flex p-1 bg-white/2 rounded-3xl mb-8 gap-1 border border-white/5 max-w-4xl print:hidden overflow-x-auto scrollbar-none">
         {[
           { id: 'overview', label: 'Visão Geral', icon: BarChart2 },
-          { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: DollarSign },
-          { id: 'lucro_presumido', label: 'Lucro Presumido', icon: Calculator },
           { id: 'laboratorio', label: 'Laboratório (Assistência)', icon: Wrench },
-          { id: 'liquidacoes', label: 'Liquidações & Descontos', icon: Percent },
           { id: 'auditoria', label: 'Auditoria de Estoque', icon: CheckCircle2 },
           { id: 'controle_cartoes', label: 'Controle de Cartões', icon: CreditCard },
           ...(profile?.role === 'admin' ? [{ id: 'metas', label: 'Desempenho & Metas', icon: Award }] : [])
@@ -1226,7 +1223,7 @@ export default function Reports() {
       </div>
 
       {/* GLOBAL PERIOD & BRAND FILTERS (HIDDEN ON PRINT) */}
-      {['overview', 'fluxo_caixa', 'lucro_presumido', 'laboratorio', 'liquidacoes'].includes(activeTab) && (
+      {['overview', 'laboratorio'].includes(activeTab) && (
         <div className="bg-white/2 border border-white/5 rounded-3xl p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 print:hidden">
           <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
             {/* Period Selector */}
