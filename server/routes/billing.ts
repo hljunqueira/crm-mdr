@@ -42,18 +42,6 @@ export async function sendWhatsAppMessageWithFallback(payload: {
 
     if (evoRes.ok) {
       console.log(`[Messaging] Sucesso! Mensagem entregue via Evolution API (${instance}) para ${targetPhone}`);
-      
-      // Notificar n8n em segundo plano se configurado
-      const n8nWebhookUrl = process.env.N8N_BILLING_WEBHOOK_URL || `${process.env.N8N_API_URL || 'https://n8n.mdrinformaticaecelulares.com.br'}/webhook/cobranca-crediario`;
-      fetch(n8nWebhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-N8N-API-KEY": process.env.N8N_API_KEY || ""
-        },
-        body: JSON.stringify({ ...payload, targetPhone })
-      }).catch(() => {});
-
       return { success: true, channel: 'evolution' };
     }
 
