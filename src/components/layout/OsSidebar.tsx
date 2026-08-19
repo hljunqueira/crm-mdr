@@ -32,7 +32,7 @@ export default function OsSidebar({
   userRole
 }: OsSidebarProps) {
   return (
-    <div className="bg-white/[0.02] border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
+    <div className="bg-white/2 border border-outline-variant/30 rounded-[40px] p-6 h-[75vh] flex flex-col gap-4">
       <div className="flex justify-between items-center">
         <h3 className="text-xs font-black text-primary uppercase tracking-widest flex items-center gap-2">
           <Wrench size={16} /> Fila de Serviços ({filteredOs.length})
@@ -101,7 +101,7 @@ export default function OsSidebar({
           <div className="flex flex-col items-center justify-center h-48 opacity-40 text-center gap-2">
             <CheckCircle2 size={32} className="text-success" />
             <p className="text-[10px] font-black uppercase tracking-widest text-on-surface">Tudo Organizado!</p>
-            <p className="text-[9px] text-on-surface-variant max-w-[200px]">Nenhum conserto nesta categoria precisando de atenção.</p>
+            <p className="text-[9px] text-on-surface-variant max-w-50">Nenhum conserto nesta categoria precisando de atenção.</p>
           </div>
         ) : (
           filteredOs.map(os => {
@@ -117,14 +117,14 @@ export default function OsSidebar({
                   "w-full text-left p-4 rounded-3xl border transition-all flex flex-col gap-2 relative",
                   isSelected 
                     ? 'bg-primary-container border-primary/40 text-on-primary-container shadow-lg' 
-                    : 'bg-white/[0.01] border-white/5 text-on-surface hover:bg-white/[0.03]'
+                    : 'bg-white/1 border-white/5 text-on-surface hover:bg-white/3'
                 )}
               >
                 <div className="flex justify-between items-start w-full">
                   <div className="flex flex-col min-w-0 flex-1">
                     <span className="text-[9px] font-black font-mono leading-none tracking-widest opacity-60">OS #{numberStr}</span>
-                    <span className="text-xs font-black uppercase truncate mt-1 max-w-[120px]">{os.customers?.name}</span>
-                    <span className="text-[9.5px] font-medium text-on-surface-variant mt-0.5 truncate max-w-[120px] block">
+                    <span className="text-xs font-black uppercase truncate mt-1 max-w-30">{os.customers?.name}</span>
+                    <span className="text-[9.5px] font-medium text-on-surface-variant mt-0.5 truncate max-w-30 block">
                       Téc: {os.profiles?.full_name || 'Não designado'}
                     </span>
                   </div>
@@ -137,7 +137,7 @@ export default function OsSidebar({
                         updateServiceOrder(os.id, { status: e.target.value as any });
                       }}
                       className={cn(
-                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all max-w-[110px] truncate",
+                        "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border bg-[#121214] text-center cursor-pointer outline-none hover:scale-105 active:scale-95 transition-all max-w-27.5 truncate",
                         statusInfo.color
                       )}
                     >
@@ -175,7 +175,7 @@ export default function OsSidebar({
                 </div>
 
                 <div className="flex justify-between items-center text-[10px] font-medium border-t border-white/5 pt-2">
-                  <span className="truncate max-w-[120px] opacity-75">
+                  <span className="truncate max-w-30 opacity-75">
                     {os.device_brand === '-' && os.device_model === '-'
                       ? (os.device_category === 'notebook' ? 'Notebook' : 'Computador PC')
                       : `${os.device_brand} ${os.device_model}`}

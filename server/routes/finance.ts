@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import crypto from "crypto";
-import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix, deleteAsaasPayment } from "../services/asaasService.js";
+import { getOrCreateAsaasCustomer, createAsaasPayment, getAsaasPaymentBarcode, getAsaasPaymentPix, deleteAsaasPayment, updateAsaasPayment } from "../services/asaasService.js";
 import { processScpInstallmentPayout } from "./scp_payout_trigger.js";
 import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 import { updateCustomerStatus } from "../utils/customerStatus.js";
@@ -335,6 +335,15 @@ router.patch("/installments/:id", async (req, res) => {
       updatePayload.interest_value = 0;
     }
 
+    // Se a data de vencimento foi alterada para hoje ou data futura e não está paga, mudar status para pending
+    if (req.body.due_date && current.status !== 'paid' && !status) {
+      const cleanDueDate = req.body.due_date.split('T')[0];
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (cleanDueDate >= todayStr) {
+        updatePayload.status = 'pending';
+      }
+    }
+
     const { data, error } = await supabase
       .from('installments')
       .update(updatePayload)
@@ -343,6 +352,16 @@ router.patch("/installments/:id", async (req, res) => {
       .single();
 
     if (error) return res.status(404).json({ error: error.message });
+
+    // Sincronizar alteração de vencimento na API do Asaas se a cobrança existir
+    if (req.body.due_date) {
+      const asaasPaymentId = current.asaas_payment_id || current.asaas_id;
+      if (asaasPaymentId) {
+        updateAsaasPayment(asaasPaymentId, { dueDate: req.body.due_date }).catch(err => {
+          console.warn(`[Finance Route] Erro ao sincronizar novo vencimento no Asaas (${asaasPaymentId}):`, err);
+        });
+      }
+    }
 
     if (status === 'paid') {
       const { data: existingTx } = await supabase
@@ -359,23 +378,27 @@ router.patch("/installments/:id", async (req, res) => {
 
         const originType = data.origin_type || data.sales?.origin_type || 'CREDIARIO_LOJA';
         const cashierType = originType === 'FINANCIAMENTO_CELULAR' ? 'FINANCEIRA' : 'LOJA';
+        const isFinanceira = cashierType === 'FINANCEIRA';
 
         await supabase
           .from('cash_transactions')
           .insert({
             unit_id: unitId,
-            shift_id: activeShift?.id || null,
+            shift_id: isFinanceira ? null : (activeShift?.id || null), // Financeira não entra no turno diário da loja física
             type: 'inflow',
             category: 'installment',
             amount,
             payment_method: pm,
             cashier_type: cashierType,
-            description: `Recebimento de parcela #${data.installment_number} de ${customerName} (${cashierType === 'FINANCEIRA' ? 'Financeira' : 'Loja'})`,
+            description: `Recebimento de parcela #${data.installment_number} de ${customerName} (${isFinanceira ? 'Financeira' : 'Loja'})`,
             installment_id: data.id,
-            created_by: created_by || activeShift?.opened_by || data.sales?.created_by || '00000000-0000-0000-0000-000000000000'
+            created_by: isFinanceira
+              ? (created_by || data.sales?.created_by || '00000000-0000-0000-0000-000000000000')
+              : (created_by || activeShift?.opened_by || data.sales?.created_by || '00000000-0000-0000-0000-000000000000')
           });
 
-        if (activeShift) {
+        // Se for recebimento da LOJA física e o caixa estiver aberto, atualizar saldo esperado do turno
+        if (activeShift && !isFinanceira) {
           const isCash = pm === 'money';
           const updateShiftPayload: Record<string, any> = {};
           if (isCash) {
@@ -458,6 +481,15 @@ router.patch("/installments/:id", async (req, res) => {
     await db.update(installments).set(updateDataLocal).where(eq(installments.id, req.params.id));
 
     const [updatedInst] = await db.select().from(installments).where(eq(installments.id, req.params.id)).limit(1);
+
+    if (req.body.due_date) {
+      const asaasPaymentId = (current as any).asaasPaymentId || (current as any).asaasId;
+      if (asaasPaymentId) {
+        updateAsaasPayment(asaasPaymentId, { dueDate: req.body.due_date }).catch(err => {
+          console.warn(`[Finance SQLite Route] Erro ao sincronizar novo vencimento no Asaas (${asaasPaymentId}):`, err);
+        });
+      }
+    }
 
     const pgPayload = mapLocalToCloud('installments', updatedInst);
 
@@ -777,7 +809,7 @@ router.get("/transactions", async (req, res) => {
       .from('cash_transactions')
       .select('*, created_by:profiles!cash_transactions_created_by_fkey(full_name)');
 
-    if (unit_id && unit_id !== 'all') {
+    if (unit_id && unit_id !== 'all' && unit_id !== 'undefined' && unit_id !== 'null') {
       query = query.eq('unit_id', unit_id);
     }
 

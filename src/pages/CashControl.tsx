@@ -65,10 +65,21 @@ export default function CashControl() {
     }
   }, [selectedUnitId, fetchActiveShift, fetchTransactions, fetchShiftHistory]);
 
+  const [shiftTxChannelFilter, setShiftTxChannelFilter] = useState<'all' | 'money' | 'digital'>('all');
+
   const currentShiftTransactions = useMemo(() => {
     if (!activeShift) return [];
-    return transactions.filter(t => t.shift_id === activeShift.id);
-  }, [transactions, activeShift]);
+    // O Turno Diário é EXCLUSIVAMENTE da LOJA FÍSICA. Transações de Financeira pertencem ao Caixa da Financeira!
+    const shiftTxs = transactions.filter(t => t.shift_id === activeShift.id && t.cashier_type !== 'FINANCEIRA');
+    
+    if (shiftTxChannelFilter === 'money') {
+      return shiftTxs.filter(t => t.payment_method === 'money' || t.category === 'suprimento' || t.category === 'sangria');
+    } else if (shiftTxChannelFilter === 'digital') {
+      return shiftTxs.filter(t => t.payment_method !== 'money' && t.category !== 'suprimento' && t.category !== 'sangria');
+    }
+
+    return shiftTxs;
+  }, [transactions, activeShift, shiftTxChannelFilter]);
 
   const handleOpenCashShift = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -630,17 +641,43 @@ export default function CashControl() {
                 </button>
               </form>
 
-              {/* Movimentações do Turno */}
+              {/* Movimentações do Turno com Filtro por Canal */}
               <div className="lg:col-span-3 border-t border-white/5 pt-6 space-y-4">
-                <h4 className="text-[10px] font-black uppercase text-primary tracking-widest pl-1">
-                  Movimentações deste Turno
-                </h4>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <h4 className="text-[10px] font-black uppercase text-primary tracking-widest pl-1">
+                    Movimentações deste Turno ({currentShiftTransactions.length})
+                  </h4>
+
+                  {/* Seletor de Tipo de Movimentação da Loja */}
+                  <div className="flex flex-wrap items-center gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/10">
+                    {[
+                      { id: 'all', label: 'Todas da Loja' },
+                      { id: 'money', label: '💵 Dinheiro (Espécie)' },
+                      { id: 'digital', label: '💳 PIX & Cartão Loja' },
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setShiftTxChannelFilter(f.id as any)}
+                        className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          shiftTxChannelFilter === f.id
+                            ? 'bg-primary text-black font-bold shadow-md'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-white/5 text-[9px] font-black text-on-surface-variant uppercase tracking-[0.2em] pb-3">
                         <th className="pb-3 pl-4">Data/Hora</th>
                         <th className="pb-3">Tipo</th>
+                        <th className="pb-3">Origem / Canal</th>
                         <th className="pb-3">Categoria</th>
                         <th className="pb-3">Descrição</th>
                         <th className="pb-3">Meio Pagto</th>
@@ -650,42 +687,61 @@ export default function CashControl() {
                     <tbody className="divide-y divide-white/5">
                       {currentShiftTransactions.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-6 text-on-surface-variant/60 text-[9px] uppercase font-black tracking-widest">
-                            Nenhuma movimentação registrada neste turno.
+                          <td colSpan={7} className="text-center py-6 text-on-surface-variant/60 text-[9px] uppercase font-black tracking-widest">
+                            Nenhuma movimentação para o canal selecionado neste turno.
                           </td>
                         </tr>
                       ) : (
-                        currentShiftTransactions.map((tx) => (
-                          <tr key={tx.id} className="hover:bg-white/1 transition-colors">
-                            <td className="py-3 pl-4 text-[9px] font-mono text-on-surface-variant">
-                              {new Date(tx.created_at).toLocaleTimeString('pt-BR')}
-                            </td>
-                            <td className="py-3">
-                              <span className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
-                                {tx.type === 'inflow' ? '+' : '-'} {tx.type === 'inflow' ? 'Entrada' : 'Saída'}
-                              </span>
-                            </td>
-                            <td className="py-3 text-[10px] font-bold text-white uppercase">
-                              {tx.category === 'installment' ? 'Contrato' :
-                               tx.category === 'sale' ? 'Venda PDV' :
-                               tx.category === 'suprimento' ? 'Suprimento' :
-                               tx.category === 'sangria' ? 'Sangria' :
-                               tx.category === 'despesa_luz' ? 'Despesa Luz' :
-                               tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
-                            </td>
-                            <td className="py-3 text-[10px] text-on-surface-variant max-w-50 truncate" title={tx.description}>
-                              {tx.description || '—'}
-                            </td>
-                            <td className="py-3 text-[9px] font-black uppercase text-on-surface-variant">
-                              {tx.payment_method === 'pix' ? 'PIX' :
-                               tx.payment_method === 'money' ? 'Dinheiro' :
-                               tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
-                            </td>
-                            <td className={`py-3 text-right pr-4 font-mono font-black text-[10px] ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
-                              R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                          </tr>
-                        ))
+                        currentShiftTransactions.map((tx) => {
+                          const isAsaas = (tx.description || '').toLowerCase().includes('asaas');
+                          const isFinanc = tx.cashier_type === 'FINANCEIRA' && !isAsaas;
+                          return (
+                            <tr key={tx.id} className="hover:bg-white/1 transition-colors">
+                              <td className="py-3 pl-4 text-[9px] font-mono text-on-surface-variant">
+                                {new Date(tx.created_at).toLocaleTimeString('pt-BR')}
+                              </td>
+                              <td className="py-3">
+                                <span className={`inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-wider ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
+                                  {tx.type === 'inflow' ? '+' : '-'} {tx.type === 'inflow' ? 'Entrada' : 'Saída'}
+                                </span>
+                              </td>
+                              <td className="py-3">
+                                {isAsaas ? (
+                                  <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono">
+                                    🌐 Asaas Gateway
+                                  </span>
+                                ) : isFinanc ? (
+                                  <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
+                                    📱 Financeira
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                                    🏬 Loja Gaveta
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 text-[10px] font-bold text-white uppercase">
+                                {tx.category === 'installment' ? 'Contrato' :
+                                 tx.category === 'sale' ? 'Venda PDV' :
+                                 tx.category === 'suprimento' ? 'Suprimento' :
+                                 tx.category === 'sangria' ? 'Sangria' :
+                                 tx.category === 'despesa_luz' ? 'Despesa Luz' :
+                                 tx.category === 'despesa_aluguel' ? 'Despesa Aluguel' : 'Outros'}
+                              </td>
+                              <td className="py-3 text-[10px] text-on-surface-variant max-w-50 truncate" title={tx.description}>
+                                {tx.description || '—'}
+                              </td>
+                              <td className="py-3 text-[9px] font-black uppercase text-on-surface-variant">
+                                {tx.payment_method === 'pix' ? 'PIX' :
+                                 tx.payment_method === 'money' ? 'Dinheiro (Espécie)' :
+                                 tx.payment_method === 'card' ? 'Cartão' : 'Conta/Banco'}
+                              </td>
+                              <td className={`py-3 text-right pr-4 font-mono font-black text-[10px] ${tx.type === 'inflow' ? 'text-green-400' : 'text-red-400'}`}>
+                                R$ {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

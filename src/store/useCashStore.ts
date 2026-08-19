@@ -27,6 +27,7 @@ export interface CashTransaction {
   category: 'installment' | 'sale' | 'suprimento' | 'sangria' | 'despesa_luz' | 'despesa_aluguel' | 'outros';
   amount: number;
   payment_method: 'pix' | 'money' | 'card' | 'bank';
+  cashier_type?: 'LOJA' | 'FINANCEIRA';
   description?: string;
   installment_id?: string;
   created_at: string;
@@ -42,7 +43,7 @@ interface CashState {
   fetchActiveShift: (unitId: string) => Promise<CashShift | null>;
   openShift: (unitId: string, openedBy: string, openingBalance: number) => Promise<void>;
   closeShift: (shiftId: string, closedBy: string, closingCash: number, notes?: string) => Promise<void>;
-  fetchTransactions: (unitId: string) => Promise<void>;
+  fetchTransactions: (unitId?: string) => Promise<void>;
   addTransaction: (payload: {
     unit_id: string;
     type: 'inflow' | 'outflow';
@@ -117,7 +118,10 @@ export const useCashStore = create<CashState>()((set, get) => ({
   fetchTransactions: async (unitId) => {
     set({ isLoading: true });
     try {
-      const data = await api.get(`/finance/transactions?unit_id=${unitId}`);
+      const url = unitId && unitId !== 'all' && unitId !== 'undefined' && unitId !== 'null'
+        ? `/finance/transactions?unit_id=${unitId}`
+        : '/finance/transactions';
+      const data = await api.get(url);
       set({ transactions: data || [] });
     } catch (error) {
       console.error('Error fetching transactions:', error);

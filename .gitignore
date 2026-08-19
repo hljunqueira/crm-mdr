@@ -12,3 +12,4 @@ deploy_package.tar.gz
 .env*
 !.env.example
 docs/*.json
+scratch/

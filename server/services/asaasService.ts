@@ -226,6 +226,48 @@ export async function deleteAsaasPayment(paymentId: string): Promise<void> {
   }
 }
 
+export async function updateAsaasPayment(paymentId: string, data: { dueDate?: string; value?: number; description?: string }): Promise<boolean> {
+  if (!ASAAS_API_KEY) {
+    console.warn('[Asaas Update] ASAAS_API_KEY não configurada. Ignorando atualização externa.');
+    return false;
+  }
+
+  const payload: any = {};
+  if (data.dueDate) {
+    // Sanitiza data para formato YYYY-MM-DD
+    payload.dueDate = data.dueDate.split('T')[0];
+  }
+  if (data.value !== undefined) {
+    payload.value = Number(data.value);
+  }
+  if (data.description) {
+    payload.description = data.description;
+  }
+
+  try {
+    const res = await fetch(`${ASAAS_URL}/payments/${paymentId}`, {
+      method: 'POST', // API Asaas utiliza POST /v3/payments/{id} para update
+      headers: {
+        'access_token': ASAAS_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errorData: any = await res.json().catch(() => ({}));
+      console.warn(`[Asaas Update Warning] Falha ao atualizar cobrança ${paymentId} no Asaas:`, errorData.errors?.[0]?.description || JSON.stringify(errorData));
+      return false;
+    }
+
+    console.log(`[Asaas Update Success] Cobrança ${paymentId} atualizada no Asaas com sucesso (Vencimento: ${payload.dueDate || 'inalterado'}).`);
+    return true;
+  } catch (err: any) {
+    console.error(`[Asaas Update Error] Exceção ao atualizar cobrança ${paymentId}:`, err.message);
+    return false;
+  }
+}
+
 export async function checkAndReactivateAsaasWebhook(): Promise<void> {
   if (!ASAAS_API_KEY) return;
   try {

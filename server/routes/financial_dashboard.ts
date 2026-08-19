@@ -161,27 +161,7 @@ router.get("/forecasts", async (req, res) => {
       return res.json(forecast);
     }
 
-    // Fallback: search for latest month/year with data
-    const { data: fallback, error: fbError } = await supabase
-      .from("monthly_financial_forecasts")
-      .select("*")
-      .order("year", { ascending: false })
-      .order("month", { ascending: false })
-      .limit(1);
-
-    if (fbError) throw fbError;
-
-    if (fallback && fallback.length > 0) {
-      // Return fallback data but keep the current month/year fields for context
-      return res.json({
-        ...fallback[0],
-        id: undefined, // Don't return the ID of the fallback so frontend knows it's not saved for the current month yet
-        month,
-        year
-      });
-    }
-
-    // Default template if absolutely no data exists in table
+    // Default limpo para o mês/ano solicitado (sem copiar valores de outros meses)
     res.json({
       month,
       year,

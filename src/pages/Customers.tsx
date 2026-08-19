@@ -122,7 +122,7 @@ export default function Customers() {
           { label: 'Inadimplentes', value: customers.filter(c => c.status === 'overdue').length.toString(), icon: ShieldAlert, color: 'text-error' },
           { label: 'Bloqueados', value: customers.filter(c => c.status === 'blocked').length.toString(), icon: ShieldAlert, color: 'text-error' },
         ].map((stat, idx) => (
-          <div key={idx} className="bg-white/[0.02] p-6 rounded-[32px] border border-outline-variant/30">
+          <div key={idx} className="bg-white/2 p-6 rounded-4xl border border-outline-variant/30">
             <div className="flex items-center justify-between mb-4">
               <div className={`w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center ${stat.color} border border-white/10`}>
                 <stat.icon size={24} />
@@ -134,7 +134,7 @@ export default function Customers() {
         ))}
       </div>
 
-      <div className="bg-white/[0.02] rounded-[40px] border border-outline-variant/30 overflow-hidden">
+      <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
         <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
           <div className="relative flex-1 group">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
@@ -192,7 +192,7 @@ export default function Customers() {
                 {filteredCustomers.map((customer) => (
                   <tr 
                     key={customer.id}
-                    className="hover:bg-white/[0.02] transition-colors group animate-in fade-in duration-300"
+                    className="hover:bg-white/2 transition-colors group animate-in fade-in duration-300"
                   >
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
@@ -213,7 +213,7 @@ export default function Customers() {
                         </div>
                         {(customer.address || customer.city) && (
                           <div className="flex items-center gap-2 text-[10px] text-on-surface-variant font-display opacity-60 max-w-xs truncate">
-                            <MapPin size={12} className="flex-shrink-0 text-white opacity-40" />
+                            <MapPin size={12} className="shrink-0 text-white opacity-40" />
                             <span>
                               {customer.address}
                               {customer.address_number ? `, ${customer.address_number}` : ''}

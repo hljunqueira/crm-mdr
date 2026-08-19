@@ -196,7 +196,7 @@ export default function Landing() {
       <div className="fixed inset-0 tech-grid-pattern opacity-5 pointer-events-none z-0"></div>
 
       {/* Navigation */}
-      <nav className="h-20 px-8 flex items-center justify-between border-b border-outline-variant/30 backdrop-blur-xl sticky top-0 z-[100]">
+      <nav className="h-20 px-8 flex items-center justify-between border-b border-outline-variant/30 backdrop-blur-xl sticky top-0 z-100">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -309,7 +309,7 @@ export default function Landing() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-x-0 top-20 bg-[#0c0c0e]/95 backdrop-blur-2xl z-[90] flex flex-col p-6 space-y-6 md:hidden border-b border-white/10 shadow-2xl"
+            className="fixed inset-x-0 top-20 bg-[#0c0c0e]/95 backdrop-blur-2xl z-90 flex flex-col p-6 space-y-6 md:hidden border-b border-white/10 shadow-2xl"
           >
             <div className="flex flex-col gap-4">
               <a
@@ -363,8 +363,8 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section id="inicio" className="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 md:px-8 overflow-hidden">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-logo-blue/5 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-logo-green/3 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
+        <div className="absolute top-0 right-0 w-200 h-200 bg-logo-blue/5 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
+        <div className="absolute bottom-0 left-0 w-150 h-150 bg-logo-green/3 blur-[180px] -z-10 rounded-full animate-pulse-slow"></div>
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10">
           <div className="space-y-10">
 
@@ -375,7 +375,7 @@ export default function Landing() {
               className="text-5xl sm:text-6xl md:text-8xl font-display font-black tracking-tighter leading-[0.9] uppercase"
             >
               <span className="whitespace-nowrap text-white">Assistência &</span> <br />
-              <span className="bg-gradient-to-r from-logo-blue to-logo-green bg-clip-text text-transparent italic pr-2">Vendas</span>
+              <span className="bg-linear-to-r from-logo-blue to-logo-green bg-clip-text text-transparent italic pr-2">Vendas</span>
             </motion.h1>
 
             <motion.p
@@ -438,7 +438,7 @@ export default function Landing() {
             transition={{ duration: 1, ease: 'easeOut' }}
             className="relative"
           >
-            <div className="relative flex items-center justify-center h-[600px]" style={{ perspective: 1200 }}>
+            <div className="relative flex items-center justify-center h-150" style={{ perspective: 1200 }}>
               {/* Dynamic Showcase Item */}
               {showcaseDevices.length > 0 ? (
                 <AnimatePresence mode="wait">
@@ -449,10 +449,10 @@ export default function Landing() {
                     exit={{ opacity: 0, rotateY: 90, scale: 0.8 }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
                     whileHover={{ scale: 1.03 }}
-                    className="relative w-full max-w-[380px] aspect-[9/16] glass-card border border-white/10 rounded-[56px] p-6 shadow-[0_32px_80px_rgba(0,0,0,0.6)] flex flex-col justify-between overflow-hidden bg-white/[0.01]"
+                    className="relative w-full max-w-95 aspect-9/16 glass-card border border-white/10 rounded-[56px] p-6 shadow-[0_32px_80px_rgba(0,0,0,0.6)] flex flex-col justify-between overflow-hidden bg-white/1"
                   >
                     {/* Glowing rotating card aura */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
+                    <div className="absolute inset-0 bg-linear-to-tr from-primary/10 via-transparent to-purple-500/10 pointer-events-none" />
                     
 
 
@@ -468,11 +468,11 @@ export default function Landing() {
                           ease: "linear"
                         }}
                         style={{ transformStyle: "preserve-3d" }}
-                        className="w-[260px] h-[410px] relative cursor-pointer"
+                        className="w-65 h-102.5 relative cursor-pointer"
                       >
                         {/* Front Face */}
                         <div 
-                          className="absolute inset-0 rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-[#09090b]"
+                          className="absolute inset-0 rounded-4xl overflow-hidden border border-white/10 shadow-2xl bg-[#09090b]"
                           style={{ backfaceVisibility: "hidden" }}
                         >
                           <img 
@@ -481,12 +481,12 @@ export default function Landing() {
                             className="w-full h-full object-cover select-none pointer-events-none"
                           />
                           {/* Glossy Reflection overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/0 pointer-events-none" />
+                          <div className="absolute inset-0 bg-linear-to-tr from-white/0 via-white/5 to-white/0 pointer-events-none" />
                         </div>
                         
                         {/* Back Face (spinning effect backface illustration) */}
                         <div 
-                          className="absolute inset-0 rounded-[32px] overflow-hidden border border-white/10 shadow-2xl bg-gradient-to-b from-[#121214] to-[#09090b] flex flex-col items-center justify-center p-6"
+                          className="absolute inset-0 rounded-4xl overflow-hidden border border-white/10 shadow-2xl bg-linear-to-b from-[#121214] to-[#09090b] flex flex-col items-center justify-center p-6"
                           style={{ 
                             backfaceVisibility: "hidden",
                             transform: "rotateY(180deg)" 
@@ -554,7 +554,7 @@ export default function Landing() {
                 key={i}
                 whileHover={{ y: -5 }}
                 className={cn(
-                  "glass-card p-10 border border-outline-variant/30 rounded-[32px] transition-all group flex flex-col items-start",
+                  "glass-card p-10 border border-outline-variant/30 rounded-4xl transition-all group flex flex-col items-start",
                   service.title === 'Vendas de Celulares' && "hover:border-logo-blue/30",
                   service.title === 'Celulares & Tablets' && "hover:border-logo-green/30",
                   service.title === 'Telas & Displays' && "hover:border-logo-yellow/30",
@@ -583,7 +583,7 @@ export default function Landing() {
 
       {/* Service Detail Modal */}
       {selectedService && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-surface/90 backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-6 bg-surface/90 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="relative glass-card w-full max-w-4xl border border-outline-variant/40 rounded-[48px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
             <button 
               onClick={() => setSelectedService(null)}
@@ -632,7 +632,7 @@ export default function Landing() {
 
       {/* WhatsApp Contact Modal - Número geral (sem vendas por unidade por enquanto) */}
       {showWhatsappModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-300 flex items-center justify-center p-6 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-300">
           <div className="relative glass-card w-full max-w-lg border border-outline-variant/40 rounded-[48px] p-10 md:p-14 space-y-8 shadow-2xl animate-in zoom-in-95 duration-300">
             <button 
               onClick={() => setShowWhatsappModal(false)}
@@ -723,7 +723,7 @@ export default function Landing() {
                   onClick={() => setSelectedUnitImage(unit.img)}
                 >
                   <img src={unit.img} alt={unit.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
+                  <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white">
                       <Zap size={24} />
@@ -768,7 +768,7 @@ export default function Landing() {
 
       {/* Unit Image Modal */}
       {selectedUnitImage && (
-        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-400 flex items-center justify-center p-6 bg-surface/95 backdrop-blur-2xl animate-in fade-in duration-300">
           <div className="relative w-full max-w-5xl h-full max-h-[80vh] flex flex-col items-center justify-center animate-in zoom-in-95 duration-300">
             <button 
               onClick={() => setSelectedUnitImage(null)}
@@ -904,7 +904,7 @@ export default function Landing() {
 
                 <button 
                   type="submit"
-                  className="w-full py-6 bg-primary text-on-primary rounded-[24px] font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-xl"
+                  className="w-full py-6 bg-primary text-on-primary rounded-3xl font-display font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(75,226,119,0.3)] hover:scale-[1.02] active:scale-95 transition-all text-xl"
                 >
                   Enviar Solicitação
                 </button>
@@ -976,7 +976,7 @@ export default function Landing() {
       </footer>
 
       {/* Floating WhatsApp Buttons */}
-      <div className="fixed bottom-10 right-10 z-[150] flex flex-col gap-6 items-end">
+      <div className="fixed bottom-10 right-10 z-150 flex flex-col gap-6 items-end">
         {/* Arroio do Silva */}
         <div className="flex items-center gap-4 group">
           <div className="px-5 py-2.5 bg-surface-container-highest/90 backdrop-blur-md border border-outline-variant/30 rounded-2xl shadow-2xl transition-all">

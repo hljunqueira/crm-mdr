@@ -113,7 +113,7 @@ services:
 
   # --- Chatwoot Web ---
   chatwoot-web:
-    image: chatwoot/chatwoot:v4.12.1
+    image: chatwoot/chatwoot:v4.16.2
     restart: always
     entrypoint: docker/entrypoints/rails.sh
     command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
@@ -147,7 +147,7 @@ services:
 
   # --- Chatwoot Worker ---
   chatwoot-worker:
-    image: chatwoot/chatwoot:v4.12.1
+    image: chatwoot/chatwoot:v4.16.2
     restart: always
     command: bundle exec sidekiq -C config/sidekiq.yml
     environment:

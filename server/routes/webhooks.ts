@@ -313,13 +313,28 @@ router.post('/asaas', async (req, res) => {
         return res.status(200).send('Already processed');
       }
 
+      // Identificar método real de pagamento do Asaas (BOLETO, PIX, CREDIT_CARD, etc)
+      let instPaymentMethod = 'pix';
+      let txPaymentMethod = 'pix';
+      const billingTypeUpper = (payment.billingType || '').toUpperCase();
+      if (billingTypeUpper === 'BOLETO') {
+        instPaymentMethod = 'transfer';
+        txPaymentMethod = 'bank';
+      } else if (billingTypeUpper === 'PIX') {
+        instPaymentMethod = 'pix';
+        txPaymentMethod = 'pix';
+      } else if (billingTypeUpper.includes('CARD')) {
+        instPaymentMethod = 'card';
+        txPaymentMethod = 'card';
+      }
+
       // Dar baixa na parcela no BD
       const { data: updatedInst, error: updateErr } = await supabase
         .from('installments')
         .update({
           status: 'paid',
           payment_date: new Date().toISOString(),
-          payment_method: 'pix', // Recebimento digital Asaas entra como pix/digital
+          payment_method: instPaymentMethod,
           value: Number(payment.value)
         })
         .eq('id', installment.id)
@@ -354,24 +369,27 @@ router.post('/asaas', async (req, res) => {
 
         const originType = updatedInst.origin_type || updatedInst.sales?.origin_type || 'CREDIARIO_LOJA';
         const cashierType = originType === 'FINANCIAMENTO_CELULAR' ? 'FINANCEIRA' : 'LOJA';
+        const isFinanceira = cashierType === 'FINANCEIRA';
 
         await supabase
           .from('cash_transactions')
           .insert({
             unit_id: unitId,
-            shift_id: activeShift?.id || null, // null se o caixa estiver fechado
+            shift_id: isFinanceira ? null : (activeShift?.id || null), // Financeira digital não vincula ao turno físico da loja
             type: 'inflow',
             category: 'installment',
             amount: Number(payment.value),
-            payment_method: 'pix',
+            payment_method: txPaymentMethod,
             cashier_type: cashierType,
-            description: `Recebimento Asaas (Webhook): Parcela #${updatedInst.installment_number} de ${customerName} (${cashierType === 'FINANCEIRA' ? 'Financeira' : 'Loja'})`,
+            description: `Recebimento Asaas (Webhook): Parcela #${updatedInst.installment_number} de ${customerName} (${isFinanceira ? 'Financeira' : 'Loja'})`,
             installment_id: updatedInst.id,
-            created_by: activeShift?.opened_by || updatedInst.sales?.created_by || '00000000-0000-0000-0000-000000000000'
+            created_by: isFinanceira 
+              ? (updatedInst.sales?.created_by || '00000000-0000-0000-0000-000000000000') 
+              : (activeShift?.opened_by || updatedInst.sales?.created_by || '00000000-0000-0000-0000-000000000000')
           });
 
-        // Se o caixa estiver aberto, atualizar saldo esperado digital
-        if (activeShift) {
+        // Se o caixa da loja estiver aberto E o recebimento for da LOJA física, atualizar saldo esperado digital
+        if (activeShift && !isFinanceira) {
           const updatePayload = {
             expected_digital: Number(activeShift.expected_digital || 0) + Number(payment.value)
           };
@@ -382,7 +400,7 @@ router.post('/asaas', async (req, res) => {
         }
       }
 
-      console.log(`[Asaas Webhook] Parcela #${installment.installment_number} de ${installment.sales?.customers?.name || 'Cliente'} baixada com sucesso.`);
+      console.log(`[Asaas Webhook] Parcela #${installment.installment_number} (${billingTypeUpper || 'DIGITAL'}) de ${installment.sales?.customers?.name || 'Cliente'} baixada com sucesso.`);
 
       if (updatedInst.sales?.customer_id) {
         await updateCustomerStatus(updatedInst.sales.customer_id);

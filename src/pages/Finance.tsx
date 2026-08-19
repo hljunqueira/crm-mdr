@@ -6,11 +6,15 @@ import {
   ArrowDownRight, Smartphone, ShieldAlert, MessageSquare,
   FileText, Plus, Loader2, ChevronDown, ChevronUp, QrCode,
   X, Copy, Check, Printer, Send, RotateCcw, Lock, Unlock, AlertTriangle, Eye, EyeOff,
-  Store, Save, History, Pencil, Trash2, Edit
+  Store, Save, History, Pencil, Trash2, Edit, ArrowUpDown, Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useFinanceStore, Installment } from '../store/useFinanceStore';
 import { useFinancialDashboardStore } from '../store/useFinancialDashboardStore';
+import FinanceiraCashier from './cashier/FinanceiraCashier';
+import StoreCrediarioCashier from './cashier/StoreCrediarioCashier';
+import FinanceiraProfitReport from '../components/finance/FinanceiraProfitReport';
+import AsaasCashierReport from '../components/finance/AsaasCashierReport';
 import { useUnitStore } from '../store/useUnitStore';
 import { useUI } from '../context/UIContext';
 import { useAuthStore } from '../store/useAuthStore';
@@ -18,8 +22,6 @@ import { usePermissionStore } from '../store/usePermissionStore';
 import { useCashStore, CashShift, CashTransaction } from '../store/useCashStore';
 import { formatCPF, formatPhone, printElement, cn } from '../lib/utils';
 import PixBoletoPrint from '../components/finance/PixBoletoPrint';
-import FinanceiraCashier from './cashier/FinanceiraCashier';
-import StoreCrediarioCashier from './cashier/StoreCrediarioCashier';
 
 // PIX defaults — overridden by unit settings
 const DEFAULT_PIX_KEY = '00020126360014BR.GOV.BCB.PIX0114+55489990358545204000053039865802BR5901N6001C62160512MaykondaRosa6304AC2B';
@@ -309,6 +311,11 @@ interface CustomerGroup {
   status: 'paid' | 'pending' | 'overdue' | 'blocked';
   paidCount: number;
   totalCount: number;
+  nextDueDate?: string | null;
+  nextDueValue?: number;
+  earliestUnpaidDueDate?: string | null;
+  earliestOverdueDate?: string | null;
+  maxDaysLate?: number;
 }
 
 function PaymentConfirmationContent({
@@ -619,14 +626,14 @@ function BatchPaymentConfirmationContent({
 export default function Finance() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards' | 'despesas_financeira') || 'caixa_financeira';
+  const initialTab = (searchParams.get('tab') as 'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_asaas' | 'caixa_loja' | 'payable_cards' | 'despesas_financeira' | 'lucro_presumido_financeira') || 'caixa_financeira';
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_loja' | 'payable_cards' | 'despesas_financeira'>(initialTab);
+  const [activeFinanceTab, setActiveFinanceTab] = useState<'receivables' | 'caixas' | 'caixa_financeira' | 'caixa_asaas' | 'caixa_loja' | 'payable_cards' | 'despesas_financeira' | 'lucro_presumido_financeira'>(initialTab);
   const [cashTypeFilter, setCashTypeFilter] = useState<'all' | 'CREDIARIO_LOJA' | 'FINANCIAMENTO_CELULAR'>('all');
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'receivables' || tabParam === 'caixas' || tabParam === 'caixa_financeira' || tabParam === 'caixa_loja' || tabParam === 'payable_cards' || tabParam === 'despesas_financeira') {
+    if (tabParam === 'receivables' || tabParam === 'caixas' || tabParam === 'caixa_financeira' || tabParam === 'caixa_asaas' || tabParam === 'caixa_loja' || tabParam === 'payable_cards' || tabParam === 'despesas_financeira' || tabParam === 'lucro_presumido_financeira') {
       setActiveFinanceTab(tabParam as any);
     } else {
       setActiveFinanceTab('caixa_financeira');
@@ -878,7 +885,7 @@ export default function Finance() {
         description: '',
         start_month: selectedMonth,
         start_year: selectedYear,
-        total_installments: 12,
+        total_installments: 1,
         value: 0,
         category: 'store'
       });
@@ -937,7 +944,8 @@ export default function Finance() {
   const [sendingWa, setSendingWa] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue' | 'blocked'>('all');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'overdue' | 'today' | 'week' | 'month' | 'next_month' | 'custom'>('all');
+  const [sortOrder, setSortOrder] = useState<'due_asc' | 'due_desc' | 'name_asc' | 'overdue_desc' | 'value_desc'>('due_asc');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [selectedInstIds, setSelectedInstIds] = useState<string[]>([]);
@@ -1059,7 +1067,7 @@ export default function Finance() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isPastDue = dueDate < today;
-    const isLate = inst.status === 'overdue' || inst.status === 'blocked' || (inst.status === 'pending' && isPastDue);
+    const isLate = inst.status === 'blocked' || ((inst.status === 'overdue' || inst.status === 'pending') && isPastDue);
     if (!isLate) {
       return { multa: 0, juros: 0, total: inst.value, daysLate: 0, isLate: false };
     }
@@ -1148,10 +1156,47 @@ export default function Finance() {
     });
 
     return Object.values(groups).map(group => {
-      group.installments.sort((a, b) => a.number - b.number);
+      group.installments.sort((a, b) => {
+        const dateA = a.due_date || '';
+        const dateB = b.due_date || '';
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        return (a.number || 0) - (b.number || 0);
+      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const unpaidInsts = group.installments.filter(i => i.status !== 'paid');
+      const overdueInsts = unpaidInsts.filter(i => {
+        const d = new Date(i.due_date + 'T12:00:00');
+        return i.status === 'blocked' || i.status === 'overdue' || d < today;
+      });
+
+      let earliestUnpaidDueDate: string | null = null;
+      let earliestOverdueDate: string | null = null;
+      let nextDueDate: string | null = null;
+      let nextDueValue = 0;
+      let maxDaysLate = 0;
+
+      if (unpaidInsts.length > 0) {
+        earliestUnpaidDueDate = unpaidInsts[0].due_date;
+        nextDueDate = unpaidInsts[0].due_date;
+        nextDueValue = unpaidInsts[0].value;
+      } else if (group.installments.length > 0) {
+        const lastPaid = group.installments[group.installments.length - 1];
+        nextDueDate = (lastPaid as any).paid_at || lastPaid.due_date;
+        nextDueValue = lastPaid.value;
+      }
+
+      if (overdueInsts.length > 0) {
+        earliestOverdueDate = overdueInsts[0].due_date;
+        const oldestOverdue = new Date(overdueInsts[0].due_date + 'T12:00:00');
+        const diffMs = today.getTime() - oldestOverdue.getTime();
+        maxDaysLate = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+      }
 
       const hasBlocked = group.installments.some(i => i.status === 'blocked');
-      const hasOverdue = group.installments.some(i => i.status === 'overdue');
+      const hasOverdue = overdueInsts.length > 0 || group.installments.some(i => i.status === 'overdue');
       const allPaid = group.installments.every(i => i.status === 'paid');
 
       if (hasBlocked) {
@@ -1163,6 +1208,12 @@ export default function Finance() {
       } else {
         group.status = 'pending';
       }
+
+      group.nextDueDate = nextDueDate;
+      group.nextDueValue = nextDueValue;
+      group.earliestOverdueDate = earliestOverdueDate;
+      group.earliestUnpaidDueDate = earliestUnpaidDueDate;
+      group.maxDaysLate = maxDaysLate;
 
       return group;
     });
@@ -1184,6 +1235,10 @@ export default function Finance() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      if (dateFilter === 'overdue') {
+        return inst.status !== 'paid' && (inst.status === 'overdue' || inst.status === 'blocked' || dateObj < today);
+      }
+
       if (dateFilter === 'today') {
         return dateObj.getFullYear() === today.getFullYear() &&
           dateObj.getMonth() === today.getMonth() &&
@@ -1203,6 +1258,11 @@ export default function Finance() {
         return dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear;
       }
 
+      if (dateFilter === 'next_month') {
+        const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        return dateObj.getMonth() === nextMonthDate.getMonth() && dateObj.getFullYear() === nextMonthDate.getFullYear();
+      }
+
       if (dateFilter === 'custom') {
         if (!customStartDate && !customEndDate) return true;
         const dueMs = dateObj.getTime();
@@ -1214,7 +1274,7 @@ export default function Finance() {
       return true;
     };
 
-    return customerGroups.map(group => {
+    const list = customerGroups.map(group => {
       const matchingInstallments = group.installments.filter(inst => {
         const matchesDate = matchesDateFilter(inst);
 
@@ -1239,11 +1299,41 @@ export default function Finance() {
         displayedInstallments: matchingInstallments
       };
     }).filter(group => {
-      const matchesSearch = group.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+      const q = searchTerm.toLowerCase().trim();
+      const matchesSearch = !q || group.customerName.toLowerCase().includes(q) ||
+        (group.customerId && group.customerId.toLowerCase().includes(q)) ||
+        group.installments.some(i => (i as any).sales?.customers?.cpf?.includes(q) || (i as any).sales?.device_model_manual?.toLowerCase().includes(q));
+
       const hasMatchingInstallments = group.displayedInstallments.length > 0;
       return matchesSearch && hasMatchingInstallments;
     });
-  }, [customerGroups, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate, effectiveCashTypeFilter]);
+
+    // Sort customerGroups based on sortOrder
+    return list.sort((a, b) => {
+      if (sortOrder === 'due_asc') {
+        // Unpaid & overdue contracts first, sorted by earliest due date ascending (most urgent / past due first)
+        const aDate = a.earliestUnpaidDueDate || (a.status === 'paid' ? '9999-12-31' : a.nextDueDate) || '9999-12-31';
+        const bDate = b.earliestUnpaidDueDate || (b.status === 'paid' ? '9999-12-31' : b.nextDueDate) || '9999-12-31';
+        if (aDate !== bDate) return aDate.localeCompare(bDate);
+        return (b.totalOverdue || 0) - (a.totalOverdue || 0);
+      }
+      if (sortOrder === 'due_desc') {
+        const aDate = a.nextDueDate || '0000-00-00';
+        const bDate = b.nextDueDate || '0000-00-00';
+        return bDate.localeCompare(aDate);
+      }
+      if (sortOrder === 'name_asc') {
+        return a.customerName.localeCompare(b.customerName, 'pt-BR');
+      }
+      if (sortOrder === 'overdue_desc') {
+        return (b.totalOverdue || 0) - (a.totalOverdue || 0);
+      }
+      if (sortOrder === 'value_desc') {
+        return (b.totalValue || 0) - (a.totalValue || 0);
+      }
+      return 0;
+    });
+  }, [customerGroups, searchTerm, statusFilter, dateFilter, customStartDate, customEndDate, effectiveCashTypeFilter, sortOrder]);
 
   const handleExportCSV = () => {
     const filteredInstallments = filteredGroups.flatMap(group => group.displayedInstallments);
@@ -1591,11 +1681,12 @@ export default function Finance() {
       {activeFinanceTab !== 'caixa_loja' && (
         <div className="mb-8 border-b border-white/10 pb-4 flex flex-wrap items-center gap-2">
           {[
-            { id: 'caixa_financeira', label: '🏦 Caixa Financiamento Celular', desc: 'Gestão de Caixa & Repasses da Financeira' },
+            { id: 'caixa_financeira', label: '🏦 Caixa Financeira', desc: 'Gestão de Caixa, Asaas & Repasses' },
             { id: 'receivables', label: '📱 Recebíveis de Financiamento (MDM)', desc: 'Carteira de Contratos & Aparelhos Financiados' },
-            { id: 'despesas_financeira', label: '💸 Lançamentos & Despesas Financeira', desc: 'Custos Operacionais & Despesas da Financeira' },
+            { id: 'lucro_presumido_financeira', label: '📊 Lucro Presumido Financeira', desc: 'Financiamento Celular & Payback' },
           ].map(tab => {
-            const isActive = activeFinanceTab === tab.id;
+            const isActive = activeFinanceTab === tab.id || 
+              (tab.id === 'caixa_financeira' && (activeFinanceTab === 'caixa_asaas' || activeFinanceTab === 'despesas_financeira'));
             return (
               <button
                 key={tab.id}
@@ -1621,25 +1712,25 @@ export default function Finance() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
           <h1 className="text-3xl font-black text-on-surface uppercase tracking-tight">
-            {activeFinanceTab === 'caixa_financeira'
-              ? 'Caixa Financiamento Celular'
+            {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_asaas' || activeFinanceTab === 'despesas_financeira')
+              ? 'Caixa Financeira'
               : activeFinanceTab === 'caixa_loja'
                 ? 'Caixa Crediário Loja'
-                : activeFinanceTab === 'despesas_financeira'
-                  ? 'Lançamentos & Despesas da Financeira'
-                  : activeFinanceTab === 'receivables'
-                    ? 'Recebíveis de Financiamento (MDM)'
+                : activeFinanceTab === 'receivables'
+                  ? 'Recebíveis de Financiamento (MDM)'
+                  : activeFinanceTab === 'lucro_presumido_financeira'
+                    ? 'Lucro Presumido Financeira'
                     : 'Contas a Pagar (Cartões)'}
           </h1>
           <p className="text-on-surface-variant font-display uppercase tracking-widest text-[10px] opacity-60 mt-1">
-            {activeFinanceTab === 'caixa_financeira'
-              ? 'Gestão de Recebimentos de Contratos de Aparelhos e MDM'
+            {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_asaas' || activeFinanceTab === 'despesas_financeira')
+              ? 'Gestão de Caixa, Recebimentos Asaas, Repasses e Despesas Operacionais'
               : activeFinanceTab === 'caixa_loja'
                 ? 'Gestão de Entradas, Repasses e Crediário Próprio da Loja Física'
-                : activeFinanceTab === 'despesas_financeira'
-                  ? 'Lançamentos Manuais de Entradas, Saídas e Custos Operacionais da Financeira'
-                  : activeFinanceTab === 'receivables'
-                    ? 'Gestão de Carteira Globais de Parcelas de Celulares'
+                : activeFinanceTab === 'receivables'
+                  ? 'Gestão de Carteira Globais de Parcelas de Celulares'
+                  : activeFinanceTab === 'lucro_presumido_financeira'
+                    ? 'Rentabilidade Realizada das Parcelas Pagas e Payback da Carteira'
                     : 'Mensal Fixo de Cartões de Crédito e Custos'}
           </p>
         </div>
@@ -1695,156 +1786,7 @@ export default function Finance() {
       </div>
 
       {/* RENDER CONTEÚDO */}
-      {activeFinanceTab === 'despesas_financeira' ? (
-        <div className="space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/5 border border-white/10 p-6 rounded-3xl">
-            <div>
-              <h3 className="text-sm font-black text-white uppercase tracking-wider">Histórico de Lançamentos & Despesas da Financeira</h3>
-              <p className="text-[10px] text-zinc-400 font-mono">Registro de retiradas, custos operacionais e tarifas da financeira</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-              {/* Filtro de Tipo */}
-              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
-                {[
-                  { id: 'all', label: 'Todos' },
-                  { id: 'in', label: 'Entradas' },
-                  { id: 'out', label: 'Saídas/Despesas' }
-                ].map(ft => (
-                  <button
-                    key={ft.id}
-                    type="button"
-                    onClick={() => setTxTypeFilter(ft.id as any)}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${txTypeFilter === ft.id
-                      ? 'bg-primary text-black font-bold'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    {ft.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Busca por Descrição */}
-              <div className="relative flex-1 md:w-56">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar lançamento..."
-                  value={txSearchTerm}
-                  onChange={(e) => setTxSearchTerm(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-3 py-2 text-xs text-white outline-none focus:border-primary font-mono"
-                />
-              </div>
-
-              <span className="text-xs font-mono font-bold text-zinc-300 shrink-0">
-                Total: {financeiraTxs.filter(tx => {
-                  const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
-                  const isInflow = tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada';
-                  const isOutflow = tx.type === 'out' || tx.type === 'outflow' || tx.type === 'sangria' || tx.type === 'despesa' || tx.type === 'saida';
-                  const matchType = txTypeFilter === 'all' || (txTypeFilter === 'in' && isInflow) || (txTypeFilter === 'out' && isOutflow);
-                  return matchSearch && matchType;
-                }).length}
-              </span>
-            </div>
-          </div>
-
-          <div className="bg-white/2 border border-white/10 rounded-3xl overflow-hidden">
-            {isLoadingTxs ? (
-              <div className="p-12 text-center text-zinc-400 text-xs flex items-center justify-center gap-2">
-                <Loader2 className="animate-spin" size={18} /> Carregando lançamentos...
-              </div>
-            ) : financeiraTxs.filter(tx => {
-              const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
-              const isInflow = tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada';
-              const isOutflow = tx.type === 'out' || tx.type === 'outflow' || tx.type === 'sangria' || tx.type === 'despesa' || tx.type === 'saida';
-              const matchType = txTypeFilter === 'all' || (txTypeFilter === 'in' && isInflow) || (txTypeFilter === 'out' && isOutflow);
-              return matchSearch && matchType;
-            }).length === 0 ? (
-              <div className="p-12 text-center text-zinc-500 text-xs font-mono uppercase">
-                Nenhum lançamento ou despesa localizado com os filtros aplicados.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/10 bg-white/5 text-[9px] font-black uppercase tracking-widest text-zinc-400">
-                      <th className="p-4">Data/Hora</th>
-                      <th className="p-4">Tipo</th>
-                      <th className="p-4">Descrição</th>
-                      <th className="p-4">Método</th>
-                      <th className="p-4 text-right">Valor (R$)</th>
-                      <th className="p-4 text-center">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-xs font-sans">
-                    {financeiraTxs.filter(tx => {
-                      const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
-                      const isInflow = tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada';
-                      const isOutflow = tx.type === 'out' || tx.type === 'outflow' || tx.type === 'sangria' || tx.type === 'despesa' || tx.type === 'saida';
-                      const matchType = txTypeFilter === 'all' || (txTypeFilter === 'in' && isInflow) || (txTypeFilter === 'out' && isOutflow);
-                      return matchSearch && matchType;
-                    }).map((tx) => (
-                      <tr key={tx.id} className="hover:bg-white/5 transition-colors">
-                        <td className="p-4 font-mono text-zinc-400">
-                          {new Date(tx.created_at).toLocaleString('pt-BR')}
-                        </td>
-                        <td className="p-4">
-                          {(tx.type === 'in' || tx.type === 'inflow' || tx.type === 'suprimento' || tx.type === 'entrada') ? (
-                            <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                              🟢 Entrada
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                              🔴 Saída / Despesa
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 font-bold text-white">
-                          {tx.description}
-                        </td>
-                        <td className="p-4 text-zinc-300 uppercase text-[10px] font-mono">
-                          {tx.payment_method || 'PIX'}
-                        </td>
-                        <td className="p-4 text-right font-mono font-black text-white">
-                          R$ {Number(tx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => {
-                                setEditingTx(tx);
-                                setTxFormData({
-                                  type: tx.type || 'out',
-                                  amount: String(tx.amount),
-                                  description: tx.description || '',
-                                  paymentMethod: tx.payment_method || 'pix'
-                                });
-                                setIsTxModalOpen(true);
-                              }}
-                              className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all cursor-pointer"
-                              title="Editar"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteTx(tx.id)}
-                              className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 transition-all cursor-pointer"
-                              title="Excluir"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : activeFinanceTab === 'caixa_financeira' ? (
+      {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_asaas' || activeFinanceTab === 'despesas_financeira') ? (
         <FinanceiraCashier
           cashierSummary={cashierSummary}
           cashierTransfers={cashierTransfers}
@@ -1853,7 +1795,10 @@ export default function Finance() {
           fetchCashierData={fetchCashierData}
           showNotification={showNotification}
           selectedUnitId={selectedUnitId}
+          initialSubTab={activeFinanceTab === 'caixa_asaas' ? 'asaas' : activeFinanceTab === 'despesas_financeira' ? 'despesas' : 'saldo'}
         />
+      ) : activeFinanceTab === 'lucro_presumido_financeira' ? (
+        <FinanceiraProfitReport selectedUnitId={selectedUnitId} />
       ) : activeFinanceTab === 'caixa_loja' ? (
         <StoreCrediarioCashier
           cashierSummary={cashierSummary}
@@ -1894,27 +1839,36 @@ export default function Finance() {
             })}
           </div>
 
-          {/* Search Input and Cards List Container */}
+          {/* Search Input, Period and Sorting Filter Bar */}
           <div className="bg-white/2 rounded-[40px] border border-outline-variant/30 overflow-hidden">
-            <div className="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row md:items-center gap-4">
+            <div className="p-6 border-b border-outline-variant/30 flex flex-col lg:flex-row lg:items-center gap-4">
               <div className="relative flex-1 group">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-white transition-colors" />
                 <input
                   type="text"
-                  placeholder="Buscar por cliente..."
+                  placeholder="Buscar por cliente, CPF, aparelho ou nota..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-6 py-4 text-sm focus:border-white outline-none transition-all font-display"
+                  className="w-full bg-white/5 border border-outline-variant/30 rounded-2xl pl-12 pr-10 py-3.5 text-sm text-white placeholder:text-zinc-500 focus:border-white outline-none transition-all font-sans"
                 />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-1"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
 
               {/* Period Filter Dropdown */}
-              <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-55">
-                <Calendar size={16} className="text-on-surface-variant shrink-0" />
+              <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-50">
+                <Calendar size={16} className="text-primary shrink-0" />
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as any)}
-                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-8 font-display font-black uppercase tracking-wider"
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
                   style={{
                     backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
                     backgroundRepeat: 'no-repeat',
@@ -1922,10 +1876,33 @@ export default function Finance() {
                   }}
                 >
                   <option value="all" className="bg-[#0f0f1a] text-white">Todos os Períodos</option>
-                  <option value="today" className="bg-[#0f0f1a] text-white">Vencendo Hoje</option>
-                  <option value="week" className="bg-[#0f0f1a] text-white">Vencendo nesta Semana</option>
-                  <option value="month" className="bg-[#0f0f1a] text-white">Vencendo neste Mês</option>
-                  <option value="custom" className="bg-[#0f0f1a] text-white">Período Personalizado</option>
+                  <option value="overdue" className="bg-[#0f0f1a] text-red-400">🔴 Em Atraso (Vencidos)</option>
+                  <option value="today" className="bg-[#0f0f1a] text-amber-400">🟡 Vencendo Hoje</option>
+                  <option value="week" className="bg-[#0f0f1a] text-white">🗓️ Vencendo nesta Semana</option>
+                  <option value="month" className="bg-[#0f0f1a] text-white">📅 Vencendo neste Mês</option>
+                  <option value="next_month" className="bg-[#0f0f1a] text-white">📆 Vencendo no Próximo Mês</option>
+                  <option value="custom" className="bg-[#0f0f1a] text-white">⚙️ Período Personalizado</option>
+                </select>
+              </div>
+
+              {/* Sort Order Dropdown */}
+              <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-3 min-w-55">
+                <ArrowUpDown size={16} className="text-primary shrink-0" />
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as any)}
+                  className="bg-transparent text-xs text-white outline-none w-full cursor-pointer appearance-none pr-6 font-display font-black uppercase tracking-wider"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right center',
+                  }}
+                >
+                  <option value="due_asc" className="bg-[#0f0f1a] text-white">📅 Vencimento (Mais urgentes 1º)</option>
+                  <option value="due_desc" className="bg-[#0f0f1a] text-white">📅 Vencimento (Mais futuros 1º)</option>
+                  <option value="name_asc" className="bg-[#0f0f1a] text-white">👤 Nome do Cliente (A-Z)</option>
+                  <option value="overdue_desc" className="bg-[#0f0f1a] text-white">⚠️ Maior Valor em Atraso</option>
+                  <option value="value_desc" className="bg-[#0f0f1a] text-white">💰 Maior Valor de Contrato</option>
                 </select>
               </div>
 
@@ -1952,9 +1929,9 @@ export default function Finance() {
               {filteredGroups.length === 0 ? (
                 <div className="text-center py-20">
                   <AlertCircle className="mx-auto text-on-surface-variant opacity-40 mb-4 animate-bounce" size={40} />
-                  <h3 className="text-base font-black uppercase tracking-wider text-white">Nenhum recebível</h3>
+                  <h3 className="text-base font-black uppercase tracking-wider text-white">Nenhum recebível encontrado</h3>
                   <p className="text-xs text-on-surface-variant max-w-xs mx-auto mt-2 leading-relaxed">
-                    Não encontramos parcelas ou contratos correspondentes aos filtros selecionados para esta filial.
+                    Não encontramos parcelas ou contratos correspondentes aos filtros selecionados.
                   </p>
                 </div>
               ) : (
@@ -1966,14 +1943,14 @@ export default function Finance() {
                     <div key={group.id} className="bg-white/1 hover:bg-white/2 border border-white/5 rounded-3xl overflow-hidden transition-all duration-300">
                       <div
                         onClick={() => toggleExpand(group.id)}
-                        className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                        className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant font-display font-black text-sm uppercase">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-on-surface-variant font-display font-black text-sm uppercase shrink-0">
                             {group.customerName.charAt(0)}
                           </div>
-                          <div>
-                            <h4 className="font-bold text-sm uppercase text-white leading-none">{group.customerName}</h4>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-sm uppercase text-white leading-tight truncate">{group.customerName}</h4>
                             <div className="flex flex-wrap items-center gap-2 mt-2">
                               <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${group.status === 'paid'
                                 ? 'bg-success/10 border-success/20 text-success'
@@ -1992,18 +1969,54 @@ export default function Finance() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between md:justify-end gap-6">
-                          <div className="text-right">
-                            <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Total Geral de Contrato</p>
-                            <p className="text-sm font-black text-white font-mono">R$ {group.totalValue.toLocaleString('pt-BR')}</p>
+                        <div className="flex flex-wrap items-center justify-between lg:justify-end gap-5">
+                          {/* Próximo Vencimento */}
+                          <div className="text-left lg:text-right">
+                            <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-black mb-1">
+                              {group.status === 'paid' ? 'Status' : group.status === 'overdue' || group.earliestOverdueDate ? 'Vencido Em' : 'Próx. Vencimento'}
+                            </p>
+                            {group.status === 'paid' ? (
+                              <p className="text-xs font-black text-success uppercase">Quitado</p>
+                            ) : group.earliestOverdueDate ? (
+                              <p className="text-xs font-black text-error font-mono flex items-center lg:justify-end gap-1">
+                                <AlertTriangle size={12} className="animate-pulse" />
+                                {new Date(group.earliestOverdueDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                {group.maxDaysLate ? ` (+${group.maxDaysLate}d)` : ''}
+                              </p>
+                            ) : group.nextDueDate ? (
+                              <p className="text-xs font-black text-amber-400 font-mono">
+                                {new Date(group.nextDueDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                              </p>
+                            ) : (
+                              <p className="text-xs font-mono text-zinc-500">-</p>
+                            )}
                           </div>
-                          <div className="text-right">
+
+                          {/* Próxima Parcela */}
+                          {group.status !== 'paid' && (
+                            <div className="text-left lg:text-right">
+                              <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-black mb-1">Próx. Parcela</p>
+                              <p className="text-xs font-black text-white font-mono">
+                                R$ {Number(group.nextDueValue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Total de Contrato */}
+                          <div className="text-left lg:text-right">
+                            <p className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black mb-1">Total Contrato</p>
+                            <p className="text-xs font-black text-white font-mono">R$ {group.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          </div>
+
+                          {/* Valor Vencido */}
+                          <div className="text-left lg:text-right">
                             <p className="text-[9px] text-error uppercase tracking-widest font-black mb-1">Valor Vencido</p>
-                            <p className="text-sm font-black text-error font-mono">
-                              {group.totalOverdue > 0 ? `R$ ${group.totalOverdue.toLocaleString('pt-BR')}` : 'R$ 0,00'}
+                            <p className="text-xs font-black text-error font-mono">
+                              {group.totalOverdue > 0 ? `R$ ${group.totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00'}
                             </p>
                           </div>
-                          <div className="p-1 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-on-surface-variant hover:text-white">
+
+                          <div className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/10 text-on-surface-variant hover:text-white">
                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </div>
                         </div>
@@ -2673,6 +2686,7 @@ export default function Finance() {
                     className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-primary font-sans cursor-pointer"
                   >
                     <option value="pix" className="bg-[#0f0f1a]">PIX</option>
+                    <option value="bank" className="bg-[#0f0f1a]">Boleto Bancário</option>
                     <option value="transfer" className="bg-[#0f0f1a]">Transferência / Ted</option>
                     <option value="money" className="bg-[#0f0f1a]">Dinheiro</option>
                     <option value="card" className="bg-[#0f0f1a]">Cartão de Crédito/Débito</option>
@@ -2756,6 +2770,35 @@ export default function Finance() {
                   />
                 </div>
 
+                {/* SELETOR RÁPIDO DE PARCELAS / RECORRÊNCIA */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Tipo de Lançamento / Parcelamento</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { count: 1, label: '📌 1x (Avulso)' },
+                      { count: 2, label: '2x' },
+                      { count: 3, label: '3x' },
+                      { count: 6, label: '6x' },
+                      { count: 10, label: '10x' },
+                      { count: 12, label: '🔁 12x (Fixo/Ano)' }
+                    ].map(p => (
+                      <button
+                        key={p.count}
+                        type="button"
+                        onClick={() => setBillFormData(prev => ({ ...prev, total_installments: p.count }))}
+                        className={cn(
+                          "px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all border cursor-pointer",
+                          billFormData.total_installments === p.count
+                            ? "bg-primary text-black border-primary font-bold shadow-md"
+                            : "bg-white/5 text-zinc-400 border-white/10 hover:text-white"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[9px] text-on-surface-variant uppercase tracking-widest font-black opacity-70">Mês Início</label>
@@ -2775,7 +2818,7 @@ export default function Finance() {
                     <input
                       type="number"
                       required
-                      min="2026"
+                      min="2024"
                       value={billFormData.start_year}
                       onChange={(e) => setBillFormData(prev => ({ ...prev, start_year: Number(e.target.value) }))}
                       className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
@@ -2793,6 +2836,19 @@ export default function Finance() {
                       className="bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-white font-mono"
                     />
                   </div>
+                </div>
+
+                {/* RESUMO DO IMPACTO NOS MESES */}
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[10px] space-y-1">
+                  {billFormData.total_installments === 1 ? (
+                    <p className="text-emerald-400 font-bold">
+                      ✓ Esta conta vencerá <strong>apenas no mês {billFormData.start_month}/{billFormData.start_year}</strong> (não afetará os outros meses).
+                    </p>
+                  ) : (
+                    <p className="text-blue-400 font-bold">
+                      ℹ️ Esta conta será dividida em <strong>{billFormData.total_installments} parcelas mensais</strong> de R$ {Number(billFormData.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (Total: R$ {(Number(billFormData.value || 0) * billFormData.total_installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">

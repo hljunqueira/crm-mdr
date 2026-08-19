@@ -10,6 +10,7 @@ export interface Sale {
   customer_id: string;
   customer_name?: string;
   device_model: string;
+  device_model_manual?: string;
   imei: string;
   total_value: number;
   down_payment: number;
@@ -84,7 +85,12 @@ export const useSaleStore = create<SaleState>()((set) => ({
         trade_in_sale_price_estimate: Number(s.trade_in_sale_price_estimate) || 0,
         device_cost_price: Number(s.devices?.cost_price) || 0,
         device_sale_price: Number(s.devices?.sale_price) || 0,
-        origin_type: s.origin_type || (s.device_id || s.device_model_manual ? 'FINANCIAMENTO_CELULAR' : 'CREDIARIO_LOJA'),
+        origin_type: s.origin_type || (
+          !['diverso', 'diversos', 'cabo', 'capa', 'pelicula', 'película', 'assistencia', 'assistência', 'carregador', 'fone', 'fonte', 'reparo', 'suporte', 'chip', 'tela', 'placa', 'acessorio', 'acessório', 'servico', 'serviço'].some(w => (s.device_model_manual || '').toLowerCase().includes(w)) &&
+          (s.device_id || (s.device_model_manual && s.imei_manual && s.imei_manual !== 'N/A' && s.imei_manual !== '0000000'))
+            ? 'FINANCIAMENTO_CELULAR'
+            : 'CREDIARIO_LOJA'
+        ),
         created_at: s.created_at
       }));
 

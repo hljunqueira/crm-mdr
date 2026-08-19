@@ -32,6 +32,7 @@ import { useCashStore, CashTransaction } from '../../store/useCashStore';
 import { PixBoletoModal } from '../Finance';
 import { useUnitStore } from '../../store/useUnitStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import StoreProfitReport from '../../components/finance/StoreProfitReport';
 
 interface StoreCrediarioCashierProps {
   cashierSummary: any;
@@ -76,8 +77,8 @@ export default function StoreCrediarioCashier({
   const { units, unit } = useUnitStore();
   const { profile } = useAuthStore();
 
-  // Sub-aba do Caixa Crediário Loja: gestao | recebiveis | despesas
-  const [activeSubTab, setActiveSubTab] = useState<'gestao' | 'recebiveis' | 'despesas'>('gestao');
+  // Sub-aba do Caixa Crediário Loja: gestao | recebiveis | despesas | lucro_presumido
+  const [activeSubTab, setActiveSubTab] = useState<'gestao' | 'recebiveis' | 'despesas' | 'lucro_presumido'>('gestao');
 
   // Filtros de Recebíveis do Crediário Loja
   const [searchTerm, setSearchTerm] = useState('');
@@ -231,13 +232,19 @@ export default function StoreCrediarioCashier({
   // Lançamentos e Saldo Atual em Caixa da Loja Física
   const despesasInflowTotal = useMemo(() => {
     return (transactions || [])
-      .filter((t: any) => (t.type === 'inflow' || t.type === 'suprimento' || t.type === 'entrada') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod))
+      .filter((t: any) => {
+        if (t.cashier_type === 'FINANCEIRA' || (t.description || '').toLowerCase().includes('financeira') || (t.description || '').toLowerCase().includes('asaas')) return false;
+        return (t.type === 'inflow' || t.type === 'suprimento' || t.type === 'entrada') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod);
+      })
       .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
   }, [transactions, selectedPeriod]);
 
   const despesasOutflowTotal = useMemo(() => {
     return (transactions || [])
-      .filter((t: any) => (t.type === 'outflow' || t.type === 'sangria' || t.type === 'despesa' || t.type === 'saida') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod))
+      .filter((t: any) => {
+        if (t.cashier_type === 'FINANCEIRA' || (t.description || '').toLowerCase().includes('financeira') || (t.description || '').toLowerCase().includes('asaas')) return false;
+        return (t.type === 'outflow' || t.type === 'sangria' || t.type === 'despesa' || t.type === 'saida') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod);
+      })
       .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
   }, [transactions, selectedPeriod]);
 
@@ -405,7 +412,8 @@ export default function StoreCrediarioCashier({
           {[
             { id: 'gestao', label: '🏬 Gestão & Saldos do Caixa', desc: 'Resumo de Entradas e Repasses' },
             { id: 'recebiveis', label: '🛍️ Recebíveis Crediário Loja', desc: 'Carteira Exclusiva do Crediário Próprio' },
-            { id: 'despesas', label: '💸 Lançamentos & Despesas Loja', desc: 'Custos e Saídas da Loja Física' }
+            { id: 'despesas', label: '💸 Lançamentos & Despesas Loja', desc: 'Custos e Saídas da Loja Física' },
+            { id: 'lucro_presumido', label: '📊 Lucro Presumido Loja', desc: 'Vendas Balcão, Estoque & Serviços' }
           ].map(st => (
             <button
               key={st.id}
@@ -893,6 +901,7 @@ export default function StoreCrediarioCashier({
 
               <span className="text-xs font-mono font-bold text-zinc-300 shrink-0">
                 Total: {(transactions || []).filter(tx => {
+                  if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
                   const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
                   const matchType = txTypeFilter === 'all' || tx.type === txTypeFilter;
                   return matchSearch && matchType;
@@ -903,6 +912,7 @@ export default function StoreCrediarioCashier({
 
           <div className="bg-white/2 border border-white/10 rounded-3xl overflow-hidden">
             {(transactions || []).filter(tx => {
+              if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
               const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
               const matchType = txTypeFilter === 'all' || tx.type === txTypeFilter;
               return matchSearch && matchType;
@@ -926,6 +936,7 @@ export default function StoreCrediarioCashier({
                   </thead>
                   <tbody className="divide-y divide-white/5 text-xs font-mono">
                     {(transactions || []).filter(tx => {
+                      if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
                       const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
                       const matchType = txTypeFilter === 'all' || tx.type === txTypeFilter;
                       return matchSearch && matchType;
@@ -951,8 +962,11 @@ export default function StoreCrediarioCashier({
                         <td className="p-4 font-bold text-white">
                           {tx.description || '-'}
                         </td>
-                        <td className="p-4 text-zinc-400 uppercase text-[10px]">
-                          {tx.payment_method}
+                        <td className="p-4 text-zinc-300 font-bold uppercase text-[10px]">
+                          {(tx.payment_method as string) === 'money' ? 'DINHEIRO' :
+                           (tx.payment_method as string) === 'bank' || (tx.payment_method as string) === 'transfer' || (tx.payment_method as string) === 'boleto' ? 'BOLETO / TRANSF.' :
+                           (tx.payment_method as string) === 'card' ? 'CARTÃO' :
+                           String(tx.payment_method || 'PIX').toUpperCase()}
                         </td>
                         <td className="p-4 text-right font-black text-white text-sm">
                           R$ {Number(tx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -974,6 +988,11 @@ export default function StoreCrediarioCashier({
             )}
           </div>
         </div>
+      )}
+
+      {/* CONTEÚDO DA SUB-ABA 4: LUCRO PRESUMIDO DA LOJA (VENDAS, ESTOQUE & SERVIÇOS) */}
+      {activeSubTab === 'lucro_presumido' && (
+        <StoreProfitReport selectedUnitId={selectedUnitId} />
       )}
 
       {/* MODAL DE NOVA DESPESA / LANÇAMENTO LOJA */}

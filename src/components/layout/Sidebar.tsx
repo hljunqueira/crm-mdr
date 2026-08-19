@@ -58,11 +58,10 @@ export default function Sidebar() {
   const menuGroups = [
     {
       title: 'Painel & Resultados',
-      subtitle: 'Métricas e Analytics',
+      subtitle: 'Visão Geral da Loja',
       icon: LayoutDashboard,
       items: [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { name: 'Relatórios', icon: TrendingUp, path: '/reports' },
+        { name: 'Dashboard', displayName: 'Visão Geral da Loja', icon: LayoutDashboard, path: '/dashboard' },
       ]
     },
     {
@@ -127,6 +126,7 @@ export default function Sidebar() {
         { name: 'Turno e Caixa Diário', displayName: 'Turno & Caixa Diário', icon: Store, path: '/cash-control' },
         { name: 'Controle de Caixa', displayName: 'Caixa Crediário Loja', icon: DollarSign, path: '/finance?tab=caixa_loja' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
+        { name: 'Relatórios', displayName: 'Relatórios Financeiros', icon: TrendingUp, path: '/reports' },
         ...(profile?.role === 'admin' ? [
           { name: 'Comissões & Vales', displayName: 'Comissões & Vales', icon: DollarSign, path: '/commissions' }
         ] : []),
