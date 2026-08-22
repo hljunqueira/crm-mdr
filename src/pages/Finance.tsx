@@ -959,12 +959,10 @@ export default function Finance() {
   }, [fetchAllUnits, fetchUserPermissions]);
 
   useEffect(() => {
-    if (profile?.unit_id) {
+    if (!isAdmin && profile?.unit_id) {
       setSelectedUnitId(profile.unit_id);
-    } else if (units.length > 0 && !selectedUnitId) {
-      setSelectedUnitId(units[0].id);
     }
-  }, [profile, units, selectedUnitId]);
+  }, [profile?.unit_id, isAdmin]);
 
   useEffect(() => {
     if (selectedUnitId) {
@@ -1715,7 +1713,7 @@ export default function Finance() {
             {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_asaas' || activeFinanceTab === 'despesas_financeira')
               ? 'Caixa Financeira'
               : activeFinanceTab === 'caixa_loja'
-                ? 'Caixa Crediário Loja'
+                ? 'Caixa Loja'
                 : activeFinanceTab === 'receivables'
                   ? 'Recebíveis de Financiamento (MDM)'
                   : activeFinanceTab === 'lucro_presumido_financeira'
@@ -1726,7 +1724,7 @@ export default function Finance() {
             {(activeFinanceTab === 'caixa_financeira' || activeFinanceTab === 'caixa_asaas' || activeFinanceTab === 'despesas_financeira')
               ? 'Gestão de Caixa, Recebimentos Asaas, Repasses e Despesas Operacionais'
               : activeFinanceTab === 'caixa_loja'
-                ? 'Gestão de Entradas, Repasses e Crediário Próprio da Loja Física'
+                ? 'Gestão de Entradas, Repasses, Vendas e Despesas da Loja Física'
                 : activeFinanceTab === 'receivables'
                   ? 'Gestão de Carteira Globais de Parcelas de Celulares'
                   : activeFinanceTab === 'lucro_presumido_financeira'

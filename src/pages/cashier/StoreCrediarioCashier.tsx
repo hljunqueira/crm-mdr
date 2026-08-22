@@ -107,7 +107,59 @@ export default function StoreCrediarioCashier({
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [txSearchTerm, setTxSearchTerm] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
+  const [txCategoryFilter, setTxCategoryFilter] = useState<string>('all');
+  const [txPaymentMethodFilter, setTxPaymentMethodFilter] = useState<string>('all');
   const [isSubmittingTx, setIsSubmittingTx] = useState(false);
+
+  const formatBRL = (val: number | string | undefined | null) => {
+    const num = Number(val) || 0;
+    const sanitized = Math.abs(num) < 0.001 ? 0 : num;
+    return sanitized.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // Drag & Drop State para as Sub-Abas do Caixa Loja
+  const [tabsOrder, setTabsOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('crm_caixa_loja_tabs_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === 4) return parsed;
+      }
+    } catch (_) {}
+    return ['gestao', 'recebiveis', 'despesas', 'lucro_presumido'];
+  });
+
+  const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+
+  const handleTabDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedTabId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleTabDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleTabDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedTabId || draggedTabId === targetId) return;
+
+    const newOrder = [...tabsOrder];
+    const sourceIndex = newOrder.indexOf(draggedTabId);
+    const targetIndex = newOrder.indexOf(targetId);
+
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      newOrder.splice(sourceIndex, 1);
+      newOrder.splice(targetIndex, 0, draggedTabId);
+      setTabsOrder(newOrder);
+      try {
+        localStorage.setItem('crm_caixa_loja_tabs_order', JSON.stringify(newOrder));
+      } catch (_) {}
+    }
+    setDraggedTabId(null);
+  };
 
   const [txFormData, setTxFormData] = useState({
     type: 'outflow' as 'inflow' | 'outflow',
@@ -161,11 +213,14 @@ export default function StoreCrediarioCashier({
     return true;
   };
 
-  // Listas filtradas por Período
+  // Listas filtradas por Período e por Loja/Unidade
   const filteredFinancList = useMemo(() => {
     const rawList = cashierSummary?.loja?.financDownPaymentsList || [];
-    return rawList.filter((item: any) => matchesPeriodFilter(item.date, selectedPeriod));
-  }, [cashierSummary, selectedPeriod]);
+    return rawList.filter((item: any) => {
+      if (selectedUnitId && selectedUnitId !== 'all' && item.storeId && String(item.storeId) !== String(selectedUnitId)) return false;
+      return matchesPeriodFilter(item.date, selectedPeriod);
+    });
+  }, [cashierSummary, selectedPeriod, selectedUnitId]);
 
   const totalFinancPeriod = useMemo(() => {
     return filteredFinancList.reduce((acc: number, item: any) => acc + Number(item.downPayment || 0), 0);
@@ -173,8 +228,11 @@ export default function StoreCrediarioCashier({
 
   const filteredOutrasList = useMemo(() => {
     const rawList = cashierSummary?.loja?.outrasDownPaymentsList || [];
-    return rawList.filter((item: any) => matchesPeriodFilter(item.date, selectedPeriod));
-  }, [cashierSummary, selectedPeriod]);
+    return rawList.filter((item: any) => {
+      if (selectedUnitId && selectedUnitId !== 'all' && item.storeId && String(item.storeId) !== String(selectedUnitId)) return false;
+      return matchesPeriodFilter(item.date, selectedPeriod);
+    });
+  }, [cashierSummary, selectedPeriod, selectedUnitId]);
 
   const totalOutrasPeriod = useMemo(() => {
     return filteredOutrasList.reduce((acc: number, item: any) => acc + Number(item.downPayment || 0), 0);
@@ -182,21 +240,27 @@ export default function StoreCrediarioCashier({
 
   const filteredTransfersList = useMemo(() => {
     const rawList = cashierTransfers || [];
-    return rawList.filter((item: any) => matchesPeriodFilter(item.created_at, selectedPeriod));
-  }, [cashierTransfers, selectedPeriod]);
+    return rawList.filter((item: any) => {
+      if (selectedUnitId && selectedUnitId !== 'all' && item.store_id && String(item.store_id) !== String(selectedUnitId)) return false;
+      return matchesPeriodFilter(item.created_at, selectedPeriod);
+    });
+  }, [cashierTransfers, selectedPeriod, selectedUnitId]);
 
   const totalRepassesPeriod = useMemo(() => {
     return filteredTransfersList.reduce((acc: number, item: any) => acc + Number(item.amount || 0), 0);
   }, [filteredTransfersList]);
 
   // Totais do Dashboard Principal
-  const totalDownPayments = cashierSummary?.loja?.totalDownPayments || cashierSummary?.loja?.entradasAcumuladas || 0;
+  const totalDownPayments = totalFinancPeriod + totalOutrasPeriod;
   const totalRepassesRecebidos = totalRepassesPeriod;
 
   // REGRA ESTRITA: Exclusivamente parcelas do Crediário Próprio da Loja (exclui celulares MDM, exclui à vista, exclui cliente balcão)
   const storeCrediarioInstallments = useMemo(() => {
     return (relevantInstallments || []).filter(i => {
       const sale = (i as any).sales;
+      const storeId = sale?.store_id || i.unit_id;
+      if (selectedUnitId && selectedUnitId !== 'all' && storeId && String(storeId) !== String(selectedUnitId)) return false;
+
       const effectiveOrigin = sale?.origin_type || i.origin_type || 'CREDIARIO_LOJA';
       if (effectiveOrigin === 'FINANCIAMENTO_CELULAR') return false;
 
@@ -208,9 +272,9 @@ export default function StoreCrediarioCashier({
 
       return true;
     });
-  }, [relevantInstallments]);
+  }, [relevantInstallments, selectedUnitId]);
 
-  // Métricas do Crediário Loja (Filtradas por Período)
+  // Métricas do Crediário Loja (Filtradas por Período e Loja)
   const totalCrediarioReceber = useMemo(() => {
     return storeCrediarioInstallments
       .filter(i => i.status !== 'paid' && i.status !== 'pago')
@@ -229,28 +293,41 @@ export default function StoreCrediarioCashier({
       .reduce((acc, curr) => acc + Number(curr.value || 0), 0);
   }, [storeCrediarioInstallments]);
 
-  // Lançamentos e Saldo Atual em Caixa da Loja Física
-  const despesasInflowTotal = useMemo(() => {
+  // Lançamentos e Saldo Atual em Caixa da Loja Física (Filtrados por Loja e Período)
+  // Suprimentos manuais de reforço de caixa (excluindo vendas e parcelas que já são computadas separadamente)
+  const manualSuprimentosTotal = useMemo(() => {
     return (transactions || [])
       .filter((t: any) => {
-        if (t.cashier_type === 'FINANCEIRA' || (t.description || '').toLowerCase().includes('financeira') || (t.description || '').toLowerCase().includes('asaas')) return false;
-        return (t.type === 'inflow' || t.type === 'suprimento' || t.type === 'entrada') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod);
+        if (t.cashier_type === 'FINANCEIRA' || (t.description || '').toLowerCase().includes('financeira') || (t.description || '').toLowerCase().includes('asaas') || (t.description || '').toLowerCase().includes('[repasse')) return false;
+        if (selectedUnitId && selectedUnitId !== 'all' && t.unit_id && String(t.unit_id) !== String(selectedUnitId)) return false;
+        const isInflow = (t.type as string) === 'inflow' || (t.type as string) === 'suprimento' || (t.type as string) === 'entrada';
+        const isManual = !t.sale_id && !t.installment_id && t.category !== 'sale' && t.category !== 'installment';
+        return isInflow && isManual && matchesPeriodFilter(t.created_at || t.date, selectedPeriod);
       })
       .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
-  }, [transactions, selectedPeriod]);
+  }, [transactions, selectedPeriod, selectedUnitId]);
 
   const despesasOutflowTotal = useMemo(() => {
     return (transactions || [])
       .filter((t: any) => {
-        if (t.cashier_type === 'FINANCEIRA' || (t.description || '').toLowerCase().includes('financeira') || (t.description || '').toLowerCase().includes('asaas')) return false;
-        return (t.type === 'outflow' || t.type === 'sangria' || t.type === 'despesa' || t.type === 'saida') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod);
+        if (t.cashier_type === 'FINANCEIRA' || (t.description || '').toLowerCase().includes('financeira') || (t.description || '').toLowerCase().includes('asaas') || (t.description || '').toLowerCase().includes('[repasse')) return false;
+        if (selectedUnitId && selectedUnitId !== 'all' && t.unit_id && String(t.unit_id) !== String(selectedUnitId)) return false;
+        return ((t.type as string) === 'outflow' || (t.type as string) === 'sangria' || (t.type as string) === 'despesa' || (t.type as string) === 'saida') && matchesPeriodFilter(t.created_at || t.date, selectedPeriod);
       })
       .reduce((acc: number, t: any) => acc + Number(t.amount || 0), 0);
-  }, [transactions, selectedPeriod]);
+  }, [transactions, selectedPeriod, selectedUnitId]);
+
+  // Total Geral de Entradas da Loja no Período (Financiamentos + Vendas Balcão + Crediário Loja + Repasses + Suprimentos Manuais)
+  const totalEntradasCaixaLoja = useMemo(() => {
+    return totalFinancPeriod + totalOutrasPeriod + totalCrediarioPago + totalRepassesPeriod + manualSuprimentosTotal;
+  }, [totalFinancPeriod, totalOutrasPeriod, totalCrediarioPago, totalRepassesPeriod, manualSuprimentosTotal]);
 
   const saldoCaixaAtual = useMemo(() => {
-    return totalDownPayments + totalRepassesRecebidos + despesasInflowTotal - despesasOutflowTotal;
-  }, [totalDownPayments, totalRepassesRecebidos, despesasInflowTotal, despesasOutflowTotal]);
+    const saldo = totalEntradasCaixaLoja - despesasOutflowTotal;
+    // O saldo físico em caixa/gaveta nunca pode ser negativo (gaveta física não possui cédulas negativas; se zerou em sangria/acerto, o saldo restante é 0)
+    if (saldo <= 0 || Math.abs(saldo) < 0.001) return 0;
+    return saldo;
+  }, [totalEntradasCaixaLoja, despesasOutflowTotal]);
 
   // Parcelas filtradas por busca e status
   const filteredInstallments = useMemo(() => {
@@ -403,32 +480,116 @@ export default function StoreCrediarioCashier({
     }
   };
 
+  const tabsConfig: Record<string, { id: string; label: string; desc: string }> = {
+    gestao: { id: 'gestao', label: '🏬 Gestão & Saldos do Caixa', desc: 'Resumo de Entradas e Repasses' },
+    recebiveis: { id: 'recebiveis', label: '🛍️ Recebíveis Crediário Loja', desc: 'Carteira Exclusiva do Crediário Próprio' },
+    despesas: { id: 'despesas', label: '💸 Lançamentos & Despesas Loja', desc: 'Custos e Saídas da Loja Física' },
+    lucro_presumido: { id: 'lucro_presumido', label: '📊 Lucro Presumido Loja', desc: 'Vendas Balcão, Estoque & Serviços' }
+  };
+
+  const filteredStoreTxs = useMemo(() => {
+    return (transactions || []).filter(tx => {
+      if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
+      if (selectedUnitId && selectedUnitId !== 'all' && tx.unit_id && String(tx.unit_id) !== String(selectedUnitId)) return false;
+
+      const matchPeriod = matchesPeriodFilter(tx.created_at || (tx as any).date, selectedPeriod);
+      if (!matchPeriod) return false;
+
+      const isInflow = (tx.type as string) === 'inflow' || (tx.type as string) === 'suprimento' || (tx.type as string) === 'entrada';
+      const isOutflow = (tx.type as string) === 'outflow' || (tx.type as string) === 'sangria' || (tx.type as string) === 'despesa' || (tx.type as string) === 'saida';
+      const matchType = txTypeFilter === 'all' || (txTypeFilter === 'inflow' && isInflow) || (txTypeFilter === 'outflow' && isOutflow);
+      if (!matchType) return false;
+
+      const matchCat = txCategoryFilter === 'all' || tx.category === txCategoryFilter;
+      if (!matchCat) return false;
+
+      const matchMethod = txPaymentMethodFilter === 'all' || tx.payment_method === txPaymentMethodFilter;
+      if (!matchMethod) return false;
+
+      const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
+      return matchSearch;
+    });
+  }, [transactions, selectedPeriod, txTypeFilter, txCategoryFilter, txPaymentMethodFilter, txSearchTerm, selectedUnitId]);
+
+  const renderPeriodFilter = () => (
+    <div className="flex flex-wrap items-center justify-between gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 shadow-lg">
+      <div className="flex items-center gap-2">
+        <Calendar size={18} className="text-primary" />
+        <span className="text-xs font-black uppercase text-white tracking-wider">Período do Caixa:</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { id: 'current_month', label: 'Mês Atual' },
+          { id: 'last_month', label: 'Mês Passado' },
+          { id: 'last_3_months', label: 'Últimos 3 Meses' },
+          { id: 'current_year', label: 'Ano Atual' },
+          { id: 'all', label: 'Todos (Geral)' }
+        ].map(p => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => setSelectedPeriod(p.id)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer border ${
+              selectedPeriod === p.id
+                ? 'bg-primary text-black border-primary font-black shadow-md'
+                : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+
+        <select
+          value={selectedPeriod.includes('-') ? selectedPeriod : ''}
+          onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
+          className="px-3 py-1.5 bg-[#181824] text-white text-xs font-bold rounded-xl border border-white/20 outline-none focus:border-primary cursor-pointer"
+        >
+          <option value="" disabled>Selecionar Mês...</option>
+          <option value="2026-08">Agosto / 2026</option>
+          <option value="2026-07">Julho / 2026</option>
+          <option value="2026-06">Junho / 2026</option>
+          <option value="2026-05">Maio / 2026</option>
+          <option value="2026-04">Abril / 2026</option>
+          <option value="2026-03">Março / 2026</option>
+          <option value="2026-02">Fevereiro / 2026</option>
+          <option value="2026-01">Janeiro / 2026</option>
+        </select>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
 
-      {/* ABAS INTERNAS DO CREDIÁRIO LOJA */}
+      {/* ABAS INTERNAS DO CAIXA LOJA COM DRAG & DROP */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
-        <div className="flex items-center gap-2">
-          {[
-            { id: 'gestao', label: '🏬 Gestão & Saldos do Caixa', desc: 'Resumo de Entradas e Repasses' },
-            { id: 'recebiveis', label: '🛍️ Recebíveis Crediário Loja', desc: 'Carteira Exclusiva do Crediário Próprio' },
-            { id: 'despesas', label: '💸 Lançamentos & Despesas Loja', desc: 'Custos e Saídas da Loja Física' },
-            { id: 'lucro_presumido', label: '📊 Lucro Presumido Loja', desc: 'Vendas Balcão, Estoque & Serviços' }
-          ].map(st => (
-            <button
-              key={st.id}
-              type="button"
-              onClick={() => setActiveSubTab(st.id as any)}
-              className={`px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex flex-col items-start gap-0.5 border cursor-pointer ${
-                activeSubTab === st.id
-                  ? 'bg-[#161625] text-white border-primary shadow-lg shadow-primary/20 scale-[1.02] border-2 font-bold'
-                  : 'bg-white/5 text-zinc-400 border-white/5 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <span>{st.label}</span>
-              <span className="text-[8px] font-mono tracking-normal opacity-70">{st.desc}</span>
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {tabsOrder.map(tabKey => {
+            const st = tabsConfig[tabKey];
+            if (!st) return null;
+            return (
+              <button
+                key={st.id}
+                type="button"
+                draggable
+                onDragStart={(e) => handleTabDragStart(e, st.id)}
+                onDragOver={handleTabDragOver}
+                onDrop={(e) => handleTabDrop(e, st.id)}
+                onDragEnd={() => setDraggedTabId(null)}
+                onClick={() => setActiveSubTab(st.id as any)}
+                className={`px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex flex-col items-start gap-0.5 border cursor-grab active:cursor-grabbing select-none ${
+                  draggedTabId === st.id ? 'opacity-40 scale-95 border-dashed border-primary' : ''
+                } ${
+                  activeSubTab === st.id
+                    ? 'bg-[#161625] text-white border-primary shadow-lg shadow-primary/20 scale-[1.02] border-2 font-bold'
+                    : 'bg-white/5 text-zinc-400 border-white/5 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <span>{st.label}</span>
+                <span className="text-[8px] font-mono tracking-normal opacity-70">{st.desc}</span>
+              </button>
+            );
+          })}
         </div>
 
         {activeSubTab === 'despesas' && (
@@ -446,50 +607,7 @@ export default function StoreCrediarioCashier({
       {activeSubTab === 'gestao' && (
         <div className="space-y-8">
           {/* BARRA DE FILTRO DE PERÍODO (MÊS / ANO) */}
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 shadow-lg">
-            <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-primary" />
-              <span className="text-xs font-black uppercase text-white tracking-wider">Período do Caixa:</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { id: 'current_month', label: 'Mês Atual' },
-                { id: 'last_month', label: 'Mês Passado' },
-                { id: 'last_3_months', label: 'Últimos 3 Meses' },
-                { id: 'current_year', label: 'Ano Atual' },
-                { id: 'all', label: 'Todos (Geral)' }
-              ].map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedPeriod(p.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer border ${
-                    selectedPeriod === p.id
-                      ? 'bg-primary text-black border-primary font-black shadow-md'
-                      : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-
-              <select
-                value={selectedPeriod.includes('-') ? selectedPeriod : ''}
-                onChange={(e) => e.target.value && setSelectedPeriod(e.target.value)}
-                className="px-3 py-1.5 bg-[#181824] text-white text-xs font-bold rounded-xl border border-white/20 outline-none focus:border-primary cursor-pointer"
-              >
-                <option value="" disabled>Selecionar Mês...</option>
-                <option value="2026-08">Agosto / 2026</option>
-                <option value="2026-07">Julho / 2026</option>
-                <option value="2026-06">Junho / 2026</option>
-                <option value="2026-05">Maio / 2026</option>
-                <option value="2026-04">Abril / 2026</option>
-                <option value="2026-03">Março / 2026</option>
-                <option value="2026-02">Fevereiro / 2026</option>
-                <option value="2026-01">Janeiro / 2026</option>
-              </select>
-            </div>
-          </div>
+          {renderPeriodFilter()}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-linear-to-br from-blue-500/10 to-blue-900/10 p-6 rounded-3xl border border-blue-500/30">
@@ -504,7 +622,7 @@ export default function StoreCrediarioCashier({
                 </button>
               </div>
               <h3 className="text-2xl font-black text-white font-mono">
-                R$ {Number(totalFinancPeriod).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(totalFinancPeriod)}
               </h3>
               <p className="text-[10px] text-blue-400/80 mt-2 font-mono">
                 Entradas de celulares financiados recebidas no período
@@ -523,7 +641,7 @@ export default function StoreCrediarioCashier({
                 </button>
               </div>
               <h3 className="text-2xl font-black text-white font-mono">
-                R$ {Number(totalOutrasPeriod).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(totalOutrasPeriod)}
               </h3>
               <p className="text-[10px] text-purple-400/80 mt-2 font-mono">
                 Recebimentos de acessórios, peças e balcão no período
@@ -538,7 +656,7 @@ export default function StoreCrediarioCashier({
                 </div>
               </div>
               <h3 className="text-2xl font-black text-white font-mono">
-                R$ {Number(totalRepassesPeriod).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(totalRepassesPeriod)}
               </h3>
               <p className="text-[10px] text-emerald-400/80 mt-2 font-mono">
                 Saldo repassado da Financeira p/ Loja no período
@@ -553,7 +671,7 @@ export default function StoreCrediarioCashier({
                 </div>
               </div>
               <h3 className="text-2xl font-black text-white font-mono">
-                R$ {Number(totalCrediarioPago).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(totalCrediarioPago)}
               </h3>
               <p className="text-[10px] text-zinc-400 mt-2 font-mono">
                 Parcelas pagas no carnê do crediário no período
@@ -595,16 +713,16 @@ export default function StoreCrediarioCashier({
                           {new Date(t.created_at).toLocaleString('pt-BR')}
                         </td>
                         <td className="py-3 px-4 font-bold text-emerald-400">
-                          FINANCEIRA MDR
+                          Financeira MDR
                         </td>
-                        <td className="py-3 px-4 text-zinc-300">
-                          {t.units?.name || 'Caixa Loja Física'}
+                        <td className="py-3 px-4 text-white font-bold">
+                          {t.units?.name || unit?.name || 'Caixa Loja Física'}
                         </td>
                         <td className="py-3 px-4 font-black text-emerald-400 text-sm">
-                          + R$ {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {formatBRL(t.amount)}
                         </td>
                         <td className="py-3 px-4 text-zinc-400">
-                          {t.notes || 'Repasse de Saldo Liberado em Lote'}
+                          {t.notes || 'Repasse de Contratos Financiamento Celular'}
                         </td>
                       </tr>
                     ))}
@@ -618,79 +736,67 @@ export default function StoreCrediarioCashier({
 
       {/* CONTEÚDO DA SUB-ABA 2: RECEBÍVEIS CREDIÁRIO LOJA */}
       {activeSubTab === 'recebiveis' && (
-        <div className="space-y-8">
-          {/* CARDS DE RESUMO DOS RECEBÍVEIS DO CREDIÁRIO LOJA */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total a Receber (Crediário Loja)</span>
-                <ArrowUpRight size={18} className="text-primary" />
-              </div>
-              <h3 className="text-2xl font-black text-white font-mono">
-                R$ {totalCrediarioReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white/5 border border-white/10 p-5 rounded-3xl">
+              <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block mb-2">⏳ Total a Receber (Geral)</span>
+              <h3 className="text-2xl font-black font-mono text-white">
+                R$ {formatBRL(totalCrediarioReceber)}
               </h3>
-              <p className="text-[10px] text-zinc-400 mt-1 font-mono">Saldo pendente em haver das parcelas da loja</p>
+              <p className="text-[10px] text-zinc-400 font-mono mt-1">Parcelas futuras em aberto</p>
             </div>
-
-            <div className="bg-emerald-500/10 p-6 rounded-3xl border border-emerald-500/20">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Recebido (Total Crediário Loja)</span>
-                <CheckCircle2 size={18} className="text-emerald-400" />
-              </div>
-              <h3 className="text-2xl font-black text-emerald-400 font-mono">
-                R$ {totalCrediarioPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-3xl">
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-2">🟢 Total Recebido (No Período)</span>
+              <h3 className="text-2xl font-black font-mono text-emerald-400">
+                R$ {formatBRL(totalCrediarioPago)}
               </h3>
-              <p className="text-[10px] text-emerald-400/80 mt-1 font-mono">Total arrecadado no crediário próprio</p>
+              <p className="text-[10px] text-emerald-400/80 font-mono mt-1">Parcelas liquidadas no caixa da loja</p>
             </div>
-
-            <div className="bg-red-500/10 p-6 rounded-3xl border border-red-500/20">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Em Atraso</span>
-                <AlertCircle size={18} className="text-red-400" />
-              </div>
-              <h3 className="text-2xl font-black text-red-400 font-mono">
-                R$ {totalCrediarioEmAtraso.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="bg-rose-500/10 border border-rose-500/20 p-5 rounded-3xl">
+              <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest block mb-2">🔴 Em Atraso (Inadimplência)</span>
+              <h3 className="text-2xl font-black font-mono text-rose-400">
+                R$ {formatBRL(totalCrediarioEmAtraso)}
               </h3>
-              <p className="text-[10px] text-red-400/80 mt-1 font-mono">Parcelas vencidas do crediário loja</p>
+              <p className="text-[10px] text-rose-400/80 font-mono mt-1">Parcelas vencidas do crediário próprio</p>
             </div>
           </div>
 
-          {/* LISTA SANFONA DE PARCELAS */}
-          <div className="bg-white/5 rounded-3xl border border-white/10 p-6 space-y-6">
+          {/* Lista Sanfona de Vendas do Crediário */}
+          <div className="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h3 className="text-lg font-black text-white uppercase tracking-wider">Recebíveis do Crediário da Loja Física</h3>
-                <p className="text-xs text-zinc-400">Gestão de parcelas de peças, acessórios e trocas de tela com comprovante simples (Cupom 80mm / A4)</p>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Carteira de Clientes do Crediário Loja</h3>
+                <p className="text-[10px] text-zinc-400 font-mono">Agrupado por Venda com Controle Individual de Parcelas</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
                   {[
-                    { id: 'all', label: 'Todas' },
-                    { id: 'pending', label: 'Pendentes' },
-                    { id: 'paid', label: 'Pagas' },
-                    { id: 'overdue', label: 'Em Atraso' }
-                  ].map(st => (
+                    { id: 'all', label: 'Todos' },
+                    { id: 'pending', label: 'Em Aberto' },
+                    { id: 'paid', label: 'Pagos' },
+                    { id: 'overdue', label: 'Vencidos' }
+                  ].map(ft => (
                     <button
-                      key={st.id}
+                      key={ft.id}
                       type="button"
-                      onClick={() => setStatusFilter(st.id as any)}
+                      onClick={() => setStatusFilter(ft.id as any)}
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
-                        statusFilter === st.id
+                        statusFilter === ft.id
                           ? 'bg-primary text-black font-bold'
                           : 'text-zinc-400 hover:text-white'
                       }`}
                     >
-                      {st.label}
+                      {ft.label}
                     </button>
                   ))}
                 </div>
 
-                <div className="relative flex-1 md:w-60">
+                <div className="relative flex-1 md:w-64">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input
                     type="text"
-                    placeholder="Buscar cliente..."
+                    placeholder="Buscar cliente ou aparelho..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl pl-9 pr-3 py-2 text-xs text-white outline-none focus:border-primary font-mono"
@@ -700,110 +806,120 @@ export default function StoreCrediarioCashier({
             </div>
 
             {saleGroups.length === 0 ? (
-              <div className="p-12 text-center text-zinc-500 text-sm font-mono uppercase tracking-wider">
-                Nenhum recebível do crediário loja localizado para o filtro selecionado.
+              <div className="p-12 text-center text-zinc-500 text-xs font-mono uppercase">
+                Nenhum contrato de crediário localizado com os filtros aplicados.
               </div>
             ) : (
-              <div className="space-y-4">
-                {saleGroups.map((group: any) => {
-                  const isExpanded = expandedGroupId === group.saleId || saleGroups.length <= 3;
+              <div className="space-y-3">
+                {saleGroups.map(group => {
+                  const isExpanded = expandedGroupId === group.saleId;
+                  const totalGroup = group.installments.reduce((a: number, b: any) => a + Number(b.value || 0), 0);
+                  const paidGroup = group.installments.filter((i: any) => i.status === 'paid' || i.status === 'pago').reduce((a: number, b: any) => a + Number(b.value || 0), 0);
+                  const progressPct = totalGroup > 0 ? (paidGroup / totalGroup) * 100 : 0;
+
                   return (
-                    <div key={group.saleId} className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-white/10 pb-3 gap-2">
-                        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpandedGroupId(prev => prev === group.saleId ? null : group.saleId)}>
-                          {isExpanded ? <ChevronUp size={18} className="text-primary" /> : <ChevronDown size={18} className="text-zinc-400" />}
+                    <div key={group.saleId} className="border border-white/10 rounded-2xl bg-white/2 overflow-hidden">
+                      <div
+                        onClick={() => setExpandedGroupId(isExpanded ? null : group.saleId)}
+                        className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-white/5 transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-white/5 rounded-xl border border-white/10 text-primary">
+                            <Store size={18} />
+                          </div>
                           <div>
-                            <h4 className="font-black text-sm text-white uppercase">{group.customerName}</h4>
-                            <p className="text-xs text-zinc-400 font-mono">Item / Serviço: {group.deviceModel}</p>
+                            <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                              {group.customerName}
+                              <span className="text-[9px] font-mono text-zinc-400 font-normal">CPF: {group.customerCpf || 'N/I'}</span>
+                            </h4>
+                            <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                              {group.deviceModel} • {group.installments.length} Parcelas
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+
+                        <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+                          <div className="text-right">
+                            <span className="text-[9px] text-zinc-400 uppercase font-black tracking-wider block">Quitado / Total</span>
+                            <span className="text-xs font-black text-white font-mono">
+                              R$ {formatBRL(paidGroup)} / R$ {formatBRL(totalGroup)}
+                            </span>
+                          </div>
+
+                          <div className="w-20 bg-white/10 rounded-full h-1.5 overflow-hidden">
+                            <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+                          </div>
+
                           <button
                             type="button"
-                            onClick={() => setPrintModalSale(group)}
-                            className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-400 font-black text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all"
+                            className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 text-zinc-400"
                           >
-                            <Printer size={14} />
-                            Imprimir Comprovante (80mm / A4)
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </button>
                         </div>
                       </div>
 
                       {isExpanded && (
-                        <div className="overflow-x-auto">
+                        <div className="border-t border-white/10 bg-black/20 p-4">
                           <table className="w-full text-left border-collapse">
                             <thead>
-                              <tr className="text-[9px] font-black uppercase text-zinc-400 tracking-wider border-b border-white/5">
-                                <th className="py-2 px-3">Parcela</th>
-                                <th className="py-2 px-3">Vencimento</th>
-                                <th className="py-2 px-3">Valor</th>
-                                <th className="py-2 px-3">Status</th>
-                                <th className="py-2 px-3 text-right">Ações</th>
+                              <tr className="text-[9px] font-black uppercase text-zinc-400 tracking-wider border-b border-white/10">
+                                <th className="pb-2">Nº Parcela</th>
+                                <th className="pb-2">Vencimento</th>
+                                <th className="pb-2">Valor</th>
+                                <th className="pb-2">Status</th>
+                                <th className="pb-2 text-right">Ações</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-white/5 text-xs font-mono">
                               {group.installments.map((inst: any) => {
                                 const isPaid = inst.status === 'paid' || inst.status === 'pago';
                                 return (
-                                  <tr key={inst.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="py-2.5 px-3 text-white font-bold">
-                                      PARCELA {inst.number || inst.installment_number || 1}/{inst.total || inst.total_installments || 1}
+                                  <tr key={inst.id} className="hover:bg-white/5">
+                                    <td className="py-2.5 text-zinc-300 font-bold">
+                                      Parcela {inst.number || inst.installment_number}
                                     </td>
-                                    <td className="py-2.5 px-3 text-zinc-300">
-                                      {inst.due_date ? new Date(inst.due_date.includes('T') ? inst.due_date : inst.due_date + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                                    <td className="py-2.5 text-zinc-400">
+                                      {inst.due_date ? new Date(inst.due_date).toLocaleDateString('pt-BR') : '-'}
                                     </td>
-                                    <td className="py-2.5 px-3 font-black text-white">
-                                      R$ {Number(inst.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    <td className="py-2.5 font-black text-white">
+                                      R$ {formatBRL(inst.value)}
                                     </td>
-                                    <td className="py-2.5 px-3">
+                                    <td className="py-2.5">
                                       {isPaid ? (
-                                        <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-[10px] uppercase">
-                                          <CheckCircle2 size={12} /> PAGO
+                                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[9px] font-black uppercase">
+                                          Pago
+                                        </span>
+                                      ) : inst.status === 'overdue' ? (
+                                        <span className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-[9px] font-black uppercase">
+                                          Vencido
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 text-amber-400 font-bold text-[10px] uppercase">
-                                          <AlertCircle size={12} /> PENDENTE
+                                        <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-[9px] font-black uppercase">
+                                          A Vencer
                                         </span>
                                       )}
                                     </td>
-                                    <td className="py-2.5 px-3 text-right space-x-2">
-                                      {!isPaid ? (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => setPixModalItem(inst)}
-                                            className="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-white font-bold text-[10px] uppercase tracking-wider rounded-lg border border-white/10 transition-all cursor-pointer inline-flex items-center gap-1"
-                                            title="Gerar PIX / Boleto"
-                                          >
-                                            <QrCode size={12} /> PIX / QR
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleWhatsAppWarning(inst)}
-                                            disabled={sendingWa === inst.id}
-                                            className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold text-[10px] uppercase tracking-wider rounded-lg border border-emerald-500/20 transition-all cursor-pointer inline-flex items-center gap-1"
-                                            title="Enviar Cobrança WhatsApp"
-                                          >
-                                            <MessageCircle size={12} /> {sendingWa === inst.id ? 'Enviando...' : 'Cobrar'}
-                                          </button>
+                                    <td className="py-2.5 text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                        {!isPaid ? (
                                           <button
                                             type="button"
                                             onClick={() => setPayModalItem(inst)}
-                                            className="px-3 py-1 bg-emerald-500 text-black font-black text-[10px] uppercase tracking-wider rounded-lg hover:bg-emerald-400 transition-all cursor-pointer"
+                                            className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-[9px] font-black uppercase transition-all cursor-pointer flex items-center gap-1"
                                           >
-                                            Dar Baixa
+                                            <CheckCircle2 size={12} /> Baixar
                                           </button>
-                                        </>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRevertPay(inst.id)}
-                                          className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-[10px] uppercase tracking-wider rounded-lg border border-red-500/20 transition-all cursor-pointer inline-flex items-center gap-1"
-                                          title="Estornar Pagamento"
-                                        >
-                                          <RotateCcw size={12} /> Estornar
-                                        </button>
-                                      )}
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRevertPay(inst)}
+                                            className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[9px] font-black uppercase transition-all cursor-pointer flex items-center gap-1"
+                                          >
+                                            <RotateCcw size={12} /> Estornar
+                                          </button>
+                                        )}
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -824,6 +940,9 @@ export default function StoreCrediarioCashier({
       {/* CONTEÚDO DA SUB-ABA 3: LANÇAMENTOS & DESPESAS DA LOJA */}
       {activeSubTab === 'despesas' && (
         <div className="space-y-6">
+          {/* BARRA DE FILTRO DE PERÍODO (MÊS / ANO) */}
+          {renderPeriodFilter()}
+
           {/* Dashboard de Lançamentos e Saldo em Caixa */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-3xl relative overflow-hidden">
@@ -832,7 +951,7 @@ export default function StoreCrediarioCashier({
                 <DollarSign size={18} className="text-emerald-400" />
               </div>
               <h3 className="text-2xl font-black font-mono text-emerald-400">
-                R$ {saldoCaixaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(saldoCaixaAtual)}
               </h3>
               <p className="text-[10px] text-emerald-400/80 font-mono mt-1">Saldo físico estimado do caixa da loja</p>
             </div>
@@ -843,9 +962,9 @@ export default function StoreCrediarioCashier({
                 <ArrowUpRight size={18} className="text-emerald-400" />
               </div>
               <h3 className="text-2xl font-black font-mono text-white">
-                R$ {despesasInflowTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(totalEntradasCaixaLoja)}
               </h3>
-              <p className="text-[10px] text-zinc-400 font-mono mt-1">Suprimentos e reforços no período</p>
+              <p className="text-[10px] text-zinc-400 font-mono mt-1">Entradas, vendas e reforços no período</p>
             </div>
 
             <div className="bg-white/5 border border-white/10 p-5 rounded-3xl relative overflow-hidden">
@@ -854,7 +973,7 @@ export default function StoreCrediarioCashier({
                 <ArrowDownRight size={18} className="text-rose-400" />
               </div>
               <h3 className="text-2xl font-black font-mono text-rose-400">
-                R$ {despesasOutflowTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {formatBRL(despesasOutflowTotal)}
               </h3>
               <p className="text-[10px] text-rose-400/80 font-mono mt-1">Sangrias e despesas pagas no período</p>
             </div>
@@ -867,11 +986,12 @@ export default function StoreCrediarioCashier({
             </div>
 
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {/* Filtro Tipo */}
               <div className="flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/10">
                 {[
                   { id: 'all', label: 'Todos' },
-                  { id: 'inflow', label: 'Entradas/Suprimentos' },
-                  { id: 'outflow', label: 'Saídas/Despesas' }
+                  { id: 'inflow', label: 'Entradas' },
+                  { id: 'outflow', label: 'Saídas' }
                 ].map(ft => (
                   <button
                     key={ft.id}
@@ -888,6 +1008,37 @@ export default function StoreCrediarioCashier({
                 ))}
               </div>
 
+              {/* Filtro Categoria */}
+              <select
+                value={txCategoryFilter}
+                onChange={(e) => setTxCategoryFilter(e.target.value)}
+                className="bg-[#181824] text-white text-xs font-bold px-3 py-2 rounded-xl border border-white/10 outline-none focus:border-primary cursor-pointer"
+              >
+                <option value="all">Todas as Categorias</option>
+                <option value="despesa_luz">Conta de Luz</option>
+                <option value="despesa_aluguel">Aluguel</option>
+                <option value="despesa_internet">Internet / Telefone</option>
+                <option value="despesa_funcionarios">Salários / Vales</option>
+                <option value="despesa_limpeza">Limpeza / Materiais</option>
+                <option value="despesa_marketing">Marketing / Anúncios</option>
+                <option value="sangria">Sangria de Caixa</option>
+                <option value="suprimento">Suprimento de Caixa</option>
+                <option value="despesa_outros">Outras Despesas</option>
+              </select>
+
+              {/* Filtro Método */}
+              <select
+                value={txPaymentMethodFilter}
+                onChange={(e) => setTxPaymentMethodFilter(e.target.value)}
+                className="bg-[#181824] text-white text-xs font-bold px-3 py-2 rounded-xl border border-white/10 outline-none focus:border-primary cursor-pointer"
+              >
+                <option value="all">Todos os Métodos</option>
+                <option value="money">Dinheiro</option>
+                <option value="pix">PIX</option>
+                <option value="card">Cartão</option>
+              </select>
+
+              {/* Busca */}
               <div className="relative flex-1 md:w-56">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                 <input
@@ -900,23 +1051,13 @@ export default function StoreCrediarioCashier({
               </div>
 
               <span className="text-xs font-mono font-bold text-zinc-300 shrink-0">
-                Total: {(transactions || []).filter(tx => {
-                  if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
-                  const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
-                  const matchType = txTypeFilter === 'all' || tx.type === txTypeFilter;
-                  return matchSearch && matchType;
-                }).length}
+                Total: {filteredStoreTxs.length}
               </span>
             </div>
           </div>
 
           <div className="bg-white/2 border border-white/10 rounded-3xl overflow-hidden">
-            {(transactions || []).filter(tx => {
-              if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
-              const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
-              const matchType = txTypeFilter === 'all' || tx.type === txTypeFilter;
-              return matchSearch && matchType;
-            }).length === 0 ? (
+            {filteredStoreTxs.length === 0 ? (
               <div className="p-12 text-center text-zinc-500 text-xs font-mono uppercase">
                 Nenhum lançamento ou despesa registrado no caixa da loja para os filtros aplicados.
               </div>
@@ -935,12 +1076,7 @@ export default function StoreCrediarioCashier({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 text-xs font-mono">
-                    {(transactions || []).filter(tx => {
-                      if (tx.cashier_type === 'FINANCEIRA' || (tx.description || '').toLowerCase().includes('financeira') || (tx.description || '').toLowerCase().includes('asaas')) return false;
-                      const matchSearch = (tx.description || '').toLowerCase().includes(txSearchTerm.toLowerCase());
-                      const matchType = txTypeFilter === 'all' || tx.type === txTypeFilter;
-                      return matchSearch && matchType;
-                    }).map((tx) => (
+                    {filteredStoreTxs.map((tx) => (
                       <tr key={tx.id} className="hover:bg-white/5 transition-colors">
                         <td className="p-4 text-zinc-400">
                           {new Date(tx.created_at).toLocaleString('pt-BR')}
@@ -969,7 +1105,7 @@ export default function StoreCrediarioCashier({
                            String(tx.payment_method || 'PIX').toUpperCase()}
                         </td>
                         <td className="p-4 text-right font-black text-white text-sm">
-                          R$ {Number(tx.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          R$ {formatBRL(tx.amount)}
                         </td>
                         <td className="p-4 text-center">
                           <button

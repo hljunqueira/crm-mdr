@@ -110,7 +110,7 @@ export default function Sidebar() {
       items: [
         { name: 'Análise de Crédito', icon: ShieldCheck, path: '/credit-analysis' },
         { name: 'Controle de Bloqueio', displayName: 'Bloqueio de Celulares (MDM)', icon: ShieldCheck, path: '/device-locks' },
-        { name: 'Caixa Financeira', displayName: 'Caixa Financiamento Celular', icon: Store, path: '/finance?tab=caixa_financeira' },
+        { name: 'Caixa Financeira', displayName: 'Caixa', icon: Store, path: '/finance?tab=caixa_financeira' },
         { name: 'Controle de Cartões', displayName: 'Contas a Pagar (Cartões)', icon: CreditCard, path: '/finance?tab=payable_cards' },
         ...(profile?.role === 'admin' ? [
           { name: 'Investimentos SCP', displayName: 'Financeira do Investidor (SCP)', icon: TrendingUp, path: '/scp' },
@@ -123,8 +123,8 @@ export default function Sidebar() {
       subtitle: 'Controle e Emissão',
       icon: CreditCard,
       items: [
-        { name: 'Turno e Caixa Diário', displayName: 'Turno & Caixa Diário', icon: Store, path: '/cash-control' },
-        { name: 'Controle de Caixa', displayName: 'Caixa Crediário Loja', icon: DollarSign, path: '/finance?tab=caixa_loja' },
+        { name: 'Turno e Caixa Diário', displayName: 'Caixa Diário', icon: Store, path: '/cash-control' },
+        { name: 'Controle de Caixa', displayName: 'Caixa Loja', icon: DollarSign, path: '/finance?tab=caixa_loja' },
         { name: 'Fiscal (NFe/NFSe)', icon: FileText, path: '/fiscal' },
         { name: 'Relatórios', displayName: 'Relatórios Financeiros', icon: TrendingUp, path: '/reports' },
         ...(profile?.role === 'admin' ? [

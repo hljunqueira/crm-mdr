@@ -160,7 +160,8 @@ cashierRouter.get('/summary', async (req, res) => {
           deviceModel: sale.device_model_manual || 'Aparelho / Produto',
           downPayment: down,
           date: sale.created_at,
-          originType: sale.origin_type
+          originType: sale.origin_type,
+          storeId: sale.store_id
         };
 
         if (isFinanc) {
@@ -208,8 +209,9 @@ cashierRouter.get('/summary', async (req, res) => {
       .filter((t: any) => t.cashier_type === 'FINANCEIRA' && (t.type === 'out' || t.type === 'outflow') && !(t.description || '').includes('[REPASSE'))
       .reduce((acc: number, t: any) => acc + (Number(t.amount) || 0), 0);
 
-    const totalFinanceiraArrecadado = totalFinanceiraInstallments + extraFinanceiraIn - extraFinanceiraOut;
-    const saldoDisponivelReal = Math.max(0, disponivelD0 - totalTransferred);
+    const totalFinanceiraArrecadado = totalFinanceiraInstallments + extraFinanceiraIn;
+    const totalFinanceiraDespesas = extraFinanceiraOut;
+    const saldoDisponivelReal = Math.max(0, (disponivelD0 + extraFinanceiraIn) - totalTransferred - extraFinanceiraOut);
 
     const extraLojaIn = (cashTxs || [])
       .filter((t: any) => (t.cashier_type === 'LOJA' || !t.cashier_type) && (t.type === 'in' || t.type === 'inflow') && !t.sale_id && !t.installment_id && !(t.description || '').includes('[REPASSE'))
@@ -226,6 +228,7 @@ cashierRouter.get('/summary', async (req, res) => {
       success: true,
       financeira: {
         totalArrecadado: totalFinanceiraArrecadado,
+        totalDespesas: totalFinanceiraDespesas,
         disponivelD0: disponivelD0,
         liquidandoD2: liquidandoD2,
         saldoDisponivelReal: saldoDisponivelReal,

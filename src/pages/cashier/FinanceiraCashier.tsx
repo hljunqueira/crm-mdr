@@ -143,16 +143,73 @@ export default function FinanceiraCashier({
     })
     .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
 
+  const formatBRL = (val: number | string | undefined | null) => {
+    const num = Number(val) || 0;
+    const sanitized = Math.abs(num) < 0.001 ? 0 : num;
+    return sanitized.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   const modalItems = cashierSummary?.pendingRepasseItems || [];
   const totalArrecadadoCalculado = modalItems.reduce((acc: number, item: any) => acc + Number(item.value || 0), 0);
   const displayArrecadado = cashierSummary?.financeira?.totalArrecadado || totalPaid || totalArrecadadoCalculado;
 
   // Saldo real em caixa da financeira = Total Arrecadado + Entradas Manuais - Repasses às Lojas - Despesas
-  const saldoCalculado = Math.max(0, displayArrecadado + totalInflows - totalTransferred - totalExpenses);
-  const availableAmt = cashierSummary?.financeira?.saldoDisponivelReal || saldoCalculado;
+  const totalGrossInflows = displayArrecadado + totalInflows;
+  const saldoCalculado = Math.max(0, totalGrossInflows - totalTransferred - totalExpenses);
+  const availableAmt = cashierSummary?.financeira?.saldoDisponivelReal !== undefined 
+    ? cashierSummary.financeira.saldoDisponivelReal 
+    : saldoCalculado;
 
   const displayLiberadoD0 = cashierSummary?.financeira?.disponivelD0 || availableAmt;
   const displayLiquidandoD2 = cashierSummary?.financeira?.liquidandoD2 || 0;
+
+  // Drag & Drop State para os Cards da Financeira
+  const defaultCards = ['saldo', 'repasses', 'despesas'];
+  const [cardOrder, setCardOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('crm_caixa_financeira_cards_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(k => defaultCards.includes(k));
+          if (filtered.length === defaultCards.length) return filtered;
+        }
+      }
+    } catch (_) {}
+    return defaultCards;
+  });
+
+  const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
+
+  const handleCardDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedCardId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleCardDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleCardDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedCardId || draggedCardId === targetId) return;
+
+    const newOrder = [...cardOrder];
+    const sourceIndex = newOrder.indexOf(draggedCardId);
+    const targetIndex = newOrder.indexOf(targetId);
+
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      newOrder.splice(sourceIndex, 1);
+      newOrder.splice(targetIndex, 0, draggedCardId);
+      setCardOrder(newOrder);
+      try {
+        localStorage.setItem('crm_caixa_financeira_cards_order', JSON.stringify(newOrder));
+      } catch (_) {}
+    }
+    setDraggedCardId(null);
+  };
 
   const handleOpenModal = () => {
     setTransferAmountInput('0');
@@ -221,7 +278,7 @@ export default function FinanceiraCashier({
       const storeObj = units.find((u: any) => u.id === destStoreId);
       const storeName = storeObj ? storeObj.name : 'Caixa Loja';
 
-      showNotification('success', 'Repasse Concluído!', `R$ ${amt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} repassados para o caixa da loja ${storeName}.`);
+      showNotification('success', 'Repasse Concluído!', `R$ ${formatBRL(amt)} repassados para o caixa da loja ${storeName}.`);
       setIsTransferModalOpen(false);
       setTransferNotesInput('');
       fetchCashierData();
@@ -336,105 +393,116 @@ export default function FinanceiraCashier({
     return matchSearch && matchType;
   });
 
+  const cardsMap: Record<string, React.ReactNode> = {
+    saldo: (
+      <div 
+        key="saldo"
+        draggable
+        onDragStart={(e) => handleCardDragStart(e, 'saldo')}
+        onDragOver={handleCardDragOver}
+        onDrop={(e) => handleCardDrop(e, 'saldo')}
+        onDragEnd={() => setDraggedCardId(null)}
+        onClick={() => setActiveSubTab('saldo')}
+        className={`p-6 rounded-3xl border transition-all cursor-grab active:cursor-grabbing relative overflow-hidden select-none ${
+          draggedCardId === 'saldo' ? 'opacity-40 scale-95 border-dashed border-emerald-400' : ''
+        } ${
+          activeSubTab === 'saldo'
+            ? 'bg-emerald-500/15 border-emerald-500 shadow-lg shadow-emerald-500/10 scale-[1.02] ring-2 ring-emerald-500/20'
+            : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
+        }`}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+            🟢 Saldo Líquido em Caixa
+          </span>
+          <div className="p-2.5 bg-emerald-500/20 rounded-2xl text-emerald-400">
+            <DollarSign size={20} />
+          </div>
+        </div>
+        <h3 className="text-3xl font-black text-white font-mono tracking-tight">
+          R$ {formatBRL(saldoCalculado)}
+        </h3>
+        <p className="text-[10px] text-emerald-300/80 mt-2 font-mono flex items-center justify-between">
+          <span>Saldo disponível real</span>
+          <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'saldo' ? '● Selecionado' : 'Visão Geral →'}</span>
+        </p>
+      </div>
+    ),
+    repasses: (
+      <div 
+        key="repasses"
+        draggable
+        onDragStart={(e) => handleCardDragStart(e, 'repasses')}
+        onDragOver={handleCardDragOver}
+        onDrop={(e) => handleCardDrop(e, 'repasses')}
+        onDragEnd={() => setDraggedCardId(null)}
+        onClick={() => setActiveSubTab('repasses')}
+        className={`p-6 rounded-3xl border transition-all cursor-grab active:cursor-grabbing relative overflow-hidden select-none ${
+          draggedCardId === 'repasses' ? 'opacity-40 scale-95 border-dashed border-amber-400' : ''
+        } ${
+          activeSubTab === 'repasses'
+            ? 'bg-amber-500/15 border-amber-500 shadow-lg shadow-blue-500/10 scale-[1.02] ring-2 ring-amber-500/20'
+            : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
+        }`}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+            🔄 Repasses Realizados
+          </span>
+          <div className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-400">
+            <Store size={20} />
+          </div>
+        </div>
+        <h3 className="text-3xl font-black text-white font-mono tracking-tight">
+          R$ {formatBRL(totalTransferred)}
+        </h3>
+        <p className="text-[10px] text-amber-300/80 mt-2 font-mono flex items-center justify-between">
+          <span>{cashierTransfers.length} repasses executados</span>
+          <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'repasses' ? '● Selecionado' : 'Gerenciar →'}</span>
+        </p>
+      </div>
+    ),
+    despesas: (
+      <div 
+        key="despesas"
+        draggable
+        onDragStart={(e) => handleCardDragStart(e, 'despesas')}
+        onDragOver={handleCardDragOver}
+        onDrop={(e) => handleCardDrop(e, 'despesas')}
+        onDragEnd={() => setDraggedCardId(null)}
+        onClick={() => setActiveSubTab('despesas')}
+        className={`p-6 rounded-3xl border transition-all cursor-grab active:cursor-grabbing relative overflow-hidden select-none ${
+          draggedCardId === 'despesas' ? 'opacity-40 scale-95 border-dashed border-red-400' : ''
+        } ${
+          activeSubTab === 'despesas'
+            ? 'bg-red-500/15 border-red-500 shadow-lg shadow-red-500/10 scale-[1.02] ring-2 ring-red-500/20'
+            : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
+        }`}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-1.5">
+            💸 Despesas Operacionais
+          </span>
+          <div className="p-2.5 bg-red-500/10 rounded-2xl text-red-400">
+            <ArrowUpRight size={20} />
+          </div>
+        </div>
+        <h3 className="text-3xl font-black text-white font-mono tracking-tight">
+          R$ {formatBRL(totalExpenses)}
+        </h3>
+        <p className="text-[10px] text-red-300/80 mt-2 font-mono flex items-center justify-between">
+          <span>Custos MDM e saídas</span>
+          <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'despesas' ? '● Selecionado' : 'Lançar/Ver →'}</span>
+        </p>
+      </div>
+    )
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* 4 CARDS PRINCIPAIS INTERATIVOS (ATUAM COMO SELETORES DIRETOS DE VISÃO) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Card 1: Saldo Disponível (Clique para abrir Painel Geral de Saldo) */}
-        <div 
-          onClick={() => setActiveSubTab('saldo')}
-          className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden ${
-            activeSubTab === 'saldo'
-              ? 'bg-emerald-500/15 border-emerald-500 shadow-lg shadow-emerald-500/10 scale-[1.02] ring-2 ring-emerald-500/20'
-              : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
-          }`}
-        >
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">🟢 Saldo em Caixa Financeira</span>
-            <div className="p-2.5 bg-emerald-500/20 rounded-2xl text-emerald-400">
-              <DollarSign size={20} />
-            </div>
-          </div>
-          <h3 className="text-3xl font-black text-white font-mono tracking-tight">
-            R$ {Number(availableAmt).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <p className="text-[10px] text-emerald-300/80 mt-2 font-mono flex items-center justify-between">
-            <span>Saldo líquido disponível</span>
-            <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'saldo' ? '● Selecionado' : 'Visão Geral →'}</span>
-          </p>
-        </div>
-
-        {/* Card 2: Total Arrecadado Asaas (Clique para abrir Extrato Asaas) */}
-        <div 
-          onClick={() => setActiveSubTab('asaas')}
-          className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden ${
-            activeSubTab === 'asaas'
-              ? 'bg-blue-500/15 border-blue-500 shadow-lg shadow-blue-500/10 scale-[1.02] ring-2 ring-blue-500/20'
-              : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
-          }`}
-        >
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">📥 Total Recebido (Asaas)</span>
-            <div className="p-2.5 bg-blue-500/10 rounded-2xl text-blue-400">
-              <CreditCard size={20} />
-            </div>
-          </div>
-          <h3 className="text-3xl font-black text-white font-mono tracking-tight">
-            R$ {Number(displayArrecadado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <p className="text-[10px] text-blue-300/80 mt-2 font-mono flex items-center justify-between">
-            <span>Parcelas liquidadas Asaas</span>
-            <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'asaas' ? '● Selecionado' : 'Ver Extrato →'}</span>
-          </p>
-        </div>
-
-        {/* Card 3: Repasses para as Lojas (Clique para abrir Repasses) */}
-        <div 
-          onClick={() => setActiveSubTab('repasses')}
-          className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden ${
-            activeSubTab === 'repasses'
-              ? 'bg-amber-500/15 border-amber-500 shadow-lg shadow-amber-500/10 scale-[1.02] ring-2 ring-amber-500/20'
-              : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
-          }`}
-        >
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">🔄 Repasses Realizados</span>
-            <div className="p-2.5 bg-amber-500/10 rounded-2xl text-amber-400">
-              <Store size={20} />
-            </div>
-          </div>
-          <h3 className="text-3xl font-black text-white font-mono tracking-tight">
-            R$ {Number(totalTransferred).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <p className="text-[10px] text-amber-300/80 mt-2 font-mono flex items-center justify-between">
-            <span>{cashierTransfers.length} repasses executados</span>
-            <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'repasses' ? '● Selecionado' : 'Gerenciar →'}</span>
-          </p>
-        </div>
-
-        {/* Card 4: Despesas da Financeira (Clique para abrir Despesas) */}
-        <div 
-          onClick={() => setActiveSubTab('despesas')}
-          className={`p-6 rounded-3xl border transition-all cursor-pointer relative overflow-hidden ${
-            activeSubTab === 'despesas'
-              ? 'bg-red-500/15 border-red-500 shadow-lg shadow-red-500/10 scale-[1.02] ring-2 ring-red-500/20'
-              : 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/8'
-          }`}
-        >
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">💸 Despesas Operacionais</span>
-            <div className="p-2.5 bg-red-500/10 rounded-2xl text-red-400">
-              <ArrowUpRight size={20} />
-            </div>
-          </div>
-          <h3 className="text-3xl font-black text-white font-mono tracking-tight">
-            R$ {Number(totalExpenses).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <p className="text-[10px] text-red-300/80 mt-2 font-mono flex items-center justify-between">
-            <span>Custos MDM e saídas</span>
-            <span className="font-bold underline text-[9px] uppercase tracking-wider">{activeSubTab === 'despesas' ? '● Selecionado' : 'Lançar/Ver →'}</span>
-          </p>
-        </div>
+      {/* 3 CARDS PRINCIPAIS INTERATIVOS COM DRAG & DROP */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {cardOrder.filter(k => k in cardsMap).map(cardKey => cardsMap[cardKey])}
       </div>
 
       {/* CONTEÚDO DINÂMICO CONFORME CARD SELECIONADO */}
