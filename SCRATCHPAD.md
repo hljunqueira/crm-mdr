@@ -1,7 +1,8 @@
 # SCRATCHPAD
 
 ## Status Atual
-- **Isolamento de Caixa Geral vs Caixa Diário & Data Retroativa (Imagens 1, 2 e 3)**: ✅ Concluído, Saneado e Validado (`npm run build` OK - 0 erros).
+- **Deploy em Produção (deploy-mdr all)**: 🚀 Concluído com sucesso na VPS (HTTP 200 OK).
+- **Isolamento de Caixa Geral vs Caixa Diário & Data Retroativa (Imagens 1, 2 e 3)**: ✅ Concluído, Saneado e Validado em Produção.
 - **Régua e Bot de Cobrança Automática (Financiamento Celular & Crediário)**: ✅ Corrigido, Testado e Validado (`npm run build` OK - 0 erros).
 - **Mapeamento e Padronização da Unidade Padrão ARROIO**: ✅ Concluído e Validado.
 - **Envio de Nota de Venda via WhatsApp (Evolution API + n8n)**: ✅ Concluído e Validado.
