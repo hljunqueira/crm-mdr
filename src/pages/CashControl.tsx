@@ -50,12 +50,13 @@ export default function CashControl() {
   }, [fetchAllUnits]);
 
   useEffect(() => {
-    if (profile?.unit_id) {
+    if (!isAdmin && profile?.unit_id) {
       setSelectedUnitId(profile.unit_id);
     } else if (units.length > 0 && !selectedUnitId) {
-      setSelectedUnitId(units[0].id);
+      const arroio = units.find(u => u.name && u.name.toUpperCase().includes('ARROIO'));
+      setSelectedUnitId(arroio ? arroio.id : units[0].id);
     }
-  }, [profile, units, selectedUnitId]);
+  }, [profile, units, selectedUnitId, isAdmin]);
 
   useEffect(() => {
     if (selectedUnitId) {
@@ -123,7 +124,9 @@ export default function CashControl() {
         amount: Number(manualTx.amount),
         payment_method: manualTx.payment_method,
         description: manualTx.description,
-        created_by: profile?.id || ''
+        created_by: profile?.id || '',
+        is_shift: true,
+        shift_id: activeShift?.id || null
       });
       showNotification('success', 'Lançamento inserido com sucesso!');
       setIsManualTxOpen(false);

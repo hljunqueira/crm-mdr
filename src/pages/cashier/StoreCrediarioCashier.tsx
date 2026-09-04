@@ -77,8 +77,8 @@ export default function StoreCrediarioCashier({
   const { units, unit } = useUnitStore();
   const { profile } = useAuthStore();
 
-  // Sub-aba do Caixa Crediário Loja: gestao | recebiveis | despesas | lucro_presumido
-  const [activeSubTab, setActiveSubTab] = useState<'gestao' | 'recebiveis' | 'despesas' | 'lucro_presumido'>('gestao');
+  // Sub-aba do Caixa Crediário Loja: despesas | recebiveis | lucro_presumido
+  const [activeSubTab, setActiveSubTab] = useState<'despesas' | 'recebiveis' | 'lucro_presumido'>('despesas');
 
   // Filtros de Recebíveis do Crediário Loja
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,6 +88,7 @@ export default function StoreCrediarioCashier({
   // Modais de Recebimento / QR Code / Impressão
   const [payModalItem, setPayModalItem] = useState<any>(null);
   const [payMethod, setPayMethod] = useState<'money' | 'pix' | 'card'>('pix');
+  const [payDate, setPayDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isSubmittingPay, setIsSubmittingPay] = useState(false);
 
   const [pixModalItem, setPixModalItem] = useState<any>(null);
@@ -118,15 +119,19 @@ export default function StoreCrediarioCashier({
   };
 
   // Drag & Drop State para as Sub-Abas do Caixa Loja
+  const defaultStoreTabs = ['despesas', 'recebiveis', 'lucro_presumido'];
   const [tabsOrder, setTabsOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('crm_caixa_loja_tabs_order');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length === 4) return parsed;
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(k => defaultStoreTabs.includes(k));
+          if (filtered.length === defaultStoreTabs.length) return filtered;
+        }
       }
     } catch (_) {}
-    return ['gestao', 'recebiveis', 'despesas', 'lucro_presumido'];
+    return defaultStoreTabs;
   });
 
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
@@ -163,10 +168,11 @@ export default function StoreCrediarioCashier({
 
   const [txFormData, setTxFormData] = useState({
     type: 'outflow' as 'inflow' | 'outflow',
-    category: 'despesa_luz' as CashTransaction['category'],
+    category: 'outros' as CashTransaction['category'],
     amount: '',
     payment_method: 'money' as CashTransaction['payment_method'],
-    description: ''
+    description: '',
+    date: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
@@ -375,7 +381,7 @@ export default function StoreCrediarioCashier({
     if (!payModalItem) return;
     try {
       setIsSubmittingPay(true);
-      await markAsPaid(payModalItem.id, Number(payModalItem.value), payMethod);
+      await markAsPaid(payModalItem.id, Number(payModalItem.value), payMethod, false, payDate);
       showNotification('success', 'Baixa Efetuada!', `Parcela de R$ ${Number(payModalItem.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} registrada como paga.`);
       setPayModalItem(null);
       fetchCashierData();
@@ -455,11 +461,21 @@ export default function StoreCrediarioCashier({
         amount: numAmount,
         payment_method: txFormData.payment_method,
         description: txFormData.description || 'Lançamento manual no Caixa Loja',
-        created_by: profile?.id || 'admin'
+        created_by: profile?.id || 'admin',
+        date: txFormData.date,
+        is_shift: false,
+        shift_id: null
       });
       showNotification('success', 'Lançamento Registrado!', 'O registro foi adicionado ao caixa da loja.');
       setIsTxModalOpen(false);
-      setTxFormData({ type: 'outflow', category: 'despesa_luz', amount: '', payment_method: 'money', description: '' });
+      setTxFormData({
+        type: 'outflow',
+        category: 'outros',
+        amount: '',
+        payment_method: 'money',
+        description: '',
+        date: new Date().toISOString().split('T')[0]
+      });
       await fetchTransactions(selectedUnitId);
     } catch (err: any) {
       showNotification('error', 'Erro ao salvar lançamento', err.message);
@@ -481,9 +497,8 @@ export default function StoreCrediarioCashier({
   };
 
   const tabsConfig: Record<string, { id: string; label: string; desc: string }> = {
-    gestao: { id: 'gestao', label: '🏬 Gestão & Saldos do Caixa', desc: 'Resumo de Entradas e Repasses' },
-    recebiveis: { id: 'recebiveis', label: '🛍️ Recebíveis Crediário Loja', desc: 'Carteira Exclusiva do Crediário Próprio' },
     despesas: { id: 'despesas', label: '💸 Lançamentos & Despesas Loja', desc: 'Custos e Saídas da Loja Física' },
+    recebiveis: { id: 'recebiveis', label: '🛍️ Recebíveis Crediário Loja', desc: 'Carteira Exclusiva do Crediário Próprio' },
     lucro_presumido: { id: 'lucro_presumido', label: '📊 Lucro Presumido Loja', desc: 'Vendas Balcão, Estoque & Serviços' }
   };
 
@@ -603,138 +618,7 @@ export default function StoreCrediarioCashier({
         )}
       </div>
 
-      {/* CONTEÚDO DA SUB-ABA 1: GESTÃO & SALDOS DO CAIXA LOJA */}
-      {activeSubTab === 'gestao' && (
-        <div className="space-y-8">
-          {/* BARRA DE FILTRO DE PERÍODO (MÊS / ANO) */}
-          {renderPeriodFilter()}
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-linear-to-br from-blue-500/10 to-blue-900/10 p-6 rounded-3xl border border-blue-500/30">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">📱 Entradas de Financiamento</span>
-                <button
-                  type="button"
-                  onClick={() => setIsFinancModalOpen(true)}
-                  className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/40 rounded-xl text-blue-300 text-[10px] font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer border border-blue-500/30"
-                >
-                  <Eye size={12} /> Detalhes ({filteredFinancList.length})
-                </button>
-              </div>
-              <h3 className="text-2xl font-black text-white font-mono">
-                R$ {formatBRL(totalFinancPeriod)}
-              </h3>
-              <p className="text-[10px] text-blue-400/80 mt-2 font-mono">
-                Entradas de celulares financiados recebidas no período
-              </p>
-            </div>
-
-            <div className="bg-linear-to-br from-purple-500/10 to-purple-900/10 p-6 rounded-3xl border border-purple-500/30">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">📦 Vendas à Vista & Balcão</span>
-                <button
-                  type="button"
-                  onClick={() => setIsOutrasModalOpen(true)}
-                  className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/40 rounded-xl text-purple-300 text-[10px] font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer border border-purple-500/30"
-                >
-                  <Eye size={12} /> Detalhes ({filteredOutrasList.length})
-                </button>
-              </div>
-              <h3 className="text-2xl font-black text-white font-mono">
-                R$ {formatBRL(totalOutrasPeriod)}
-              </h3>
-              <p className="text-[10px] text-purple-400/80 mt-2 font-mono">
-                Recebimentos de acessórios, peças e balcão no período
-              </p>
-            </div>
-
-            <div className="bg-linear-to-br from-emerald-500/10 to-emerald-900/10 p-6 rounded-3xl border border-emerald-500/30">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">🏦 Repasses da Financeira</span>
-                <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400">
-                  <ArrowUpRight size={18} />
-                </div>
-              </div>
-              <h3 className="text-2xl font-black text-white font-mono">
-                R$ {formatBRL(totalRepassesPeriod)}
-              </h3>
-              <p className="text-[10px] text-emerald-400/80 mt-2 font-mono">
-                Saldo repassado da Financeira p/ Loja no período
-              </p>
-            </div>
-
-            <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-[10px] font-black text-primary uppercase tracking-widest">🛍️ Crediário Loja Pago</span>
-                <div className="p-2 bg-primary/10 rounded-xl text-primary">
-                  <Store size={18} />
-                </div>
-              </div>
-              <h3 className="text-2xl font-black text-white font-mono">
-                R$ {formatBRL(totalCrediarioPago)}
-              </h3>
-              <p className="text-[10px] text-zinc-400 mt-2 font-mono">
-                Parcelas pagas no carnê do crediário no período
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white/5 rounded-3xl border border-white/10 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-lg font-black text-white uppercase tracking-wider">Histórico de Repasses Recebidos da Financeira</h3>
-                <p className="text-xs text-zinc-400">Transferências de saldo da financeira para o caixa físico das lojas</p>
-              </div>
-              <span className="text-xs font-mono text-zinc-400">
-                {filteredTransfersList.length} repasses registrados no período
-              </span>
-            </div>
-
-            {filteredTransfersList.length === 0 ? (
-              <div className="p-12 text-center text-zinc-500 text-sm font-mono uppercase tracking-wider">
-                Nenhum repasse registrado para este período.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/10 text-[10px] font-black uppercase text-zinc-400 tracking-wider">
-                      <th className="py-3 px-4">Data do Recebimento</th>
-                      <th className="py-3 px-4">Origem</th>
-                      <th className="py-3 px-4">Loja Beneficiada</th>
-                      <th className="py-3 px-4">Valor Creditado</th>
-                      <th className="py-3 px-4">Descrição</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-xs font-mono">
-                    {filteredTransfersList.map((t: any) => (
-                      <tr key={t.id} className="hover:bg-white/5 transition-colors">
-                        <td className="py-3 px-4 text-zinc-300">
-                          {new Date(t.created_at).toLocaleString('pt-BR')}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-emerald-400">
-                          Financeira MDR
-                        </td>
-                        <td className="py-3 px-4 text-white font-bold">
-                          {t.units?.name || unit?.name || 'Caixa Loja Física'}
-                        </td>
-                        <td className="py-3 px-4 font-black text-emerald-400 text-sm">
-                          R$ {formatBRL(t.amount)}
-                        </td>
-                        <td className="py-3 px-4 text-zinc-400">
-                          {t.notes || 'Repasse de Contratos Financiamento Celular'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* CONTEÚDO DA SUB-ABA 2: RECEBÍVEIS CREDIÁRIO LOJA */}
+      {/* CONTEÚDO DA SUB-ABA 1: RECEBÍVEIS CREDIÁRIO LOJA */}
       {activeSubTab === 'recebiveis' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1170,6 +1054,32 @@ export default function StoreCrediarioCashier({
               </div>
 
               <div>
+                <label className="text-[10px] text-zinc-400 uppercase font-black tracking-wider block mb-1">Data da Movimentação (Retroativo / Atual)</label>
+                <input
+                  type="date"
+                  required
+                  value={txFormData.date}
+                  onChange={(e) => setTxFormData(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full bg-[#161625] border border-white/10 rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-primary font-mono cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-zinc-400 uppercase font-black tracking-wider block mb-1">Categoria</label>
+                <select
+                  value={txFormData.category}
+                  onChange={(e) => setTxFormData(prev => ({ ...prev, category: e.target.value as any }))}
+                  className="w-full bg-[#161625] border border-white/10 rounded-2xl px-4 py-3 text-xs text-white outline-none focus:border-primary font-mono uppercase cursor-pointer"
+                >
+                  <option value="outros">Despesa Geral / Outros</option>
+                  <option value="despesa_luz">Conta de Luz</option>
+                  <option value="despesa_aluguel">Aluguel</option>
+                  <option value="sangria">Sangria</option>
+                  <option value="suprimento">Suprimento</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="text-[10px] text-zinc-400 uppercase font-black tracking-wider block mb-1">Valor (R$)</label>
                 <input
                   type="number"
@@ -1414,6 +1324,17 @@ export default function StoreCrediarioCashier({
               <p><span className="text-zinc-400 font-bold uppercase block text-[10px]">Cliente</span> <span className="text-white font-bold uppercase">{payModalItem.customer_name || payModalItem.sales?.customers?.name || 'Cliente Balcão'}</span></p>
               <p><span className="text-zinc-400 font-bold uppercase block text-[10px]">Item / Serviço</span> <span className="text-white">{payModalItem.device_model || payModalItem.sales?.device_model || 'Balcão'}</span></p>
               <p><span className="text-zinc-400 font-bold uppercase block text-[10px]">Valor da Parcela</span> <span className="text-emerald-400 font-black text-base font-mono">R$ {Number(payModalItem.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+            </div>
+
+            <div>
+              <label className="text-xs font-black text-white uppercase tracking-wider block mb-2">Data do Pagamento</label>
+              <input
+                type="date"
+                required
+                value={payDate}
+                onChange={(e) => setPayDate(e.target.value)}
+                className="w-full bg-[#161625] border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-400 font-mono cursor-pointer"
+              />
             </div>
 
             <div>

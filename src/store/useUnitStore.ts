@@ -42,10 +42,17 @@ interface UnitState {
   isLoading: boolean;
   fetchUnit: (id: string) => Promise<void>;
   fetchAllUnits: () => Promise<void>;
+  setUnit: (unit: Unit | null) => void;
+  setSelectedUnitById: (id: string) => void;
   updateUnit: (id: string, updates: Partial<Unit>) => Promise<void>;
 }
 
-export const useUnitStore = create<UnitState>()((set) => ({
+export const getArroioUnit = (units: Unit[]): Unit | undefined => {
+  if (!units || units.length === 0) return undefined;
+  return units.find(u => u.name && u.name.toUpperCase().includes('ARROIO')) || units[0];
+};
+
+export const useUnitStore = create<UnitState>()((set, get) => ({
   unit: null,
   units: [],
   isLoading: false,
@@ -64,11 +71,22 @@ export const useUnitStore = create<UnitState>()((set) => ({
     set({ isLoading: true });
     try {
       const data = await api.get('/units');
-      set({ units: data });
+      const arroio = getArroioUnit(data);
+      set(state => ({
+        units: data,
+        unit: state.unit || arroio || data[0] || null
+      }));
     } catch (error) {
       console.error('Error fetching all units:', error);
     } finally {
       set({ isLoading: false });
+    }
+  },
+  setUnit: (unit) => set({ unit }),
+  setSelectedUnitById: (id) => {
+    const found = get().units.find(u => u.id === id);
+    if (found) {
+      set({ unit: found });
     }
   },
   updateUnit: async (id, updates) => {

@@ -52,6 +52,9 @@ interface CashState {
     payment_method: CashTransaction['payment_method'];
     description: string;
     created_by: string;
+    date?: string;
+    is_shift?: boolean;
+    shift_id?: string | null;
   }) => Promise<void>;
   fetchShiftHistory: (unitId: string) => Promise<void>;
   updateShift: (id: string, payload: { opening_balance?: number; closing_cash?: number; notes?: string }) => Promise<void>;

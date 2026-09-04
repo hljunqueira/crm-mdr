@@ -54,8 +54,11 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
   useEffect(() => {
     if (stores.length === 0) {
       fetchAllUnits().catch(() => { });
+    } else if (!formData.unit_id) {
+      const arroio = stores.find(s => s.name && s.name.toUpperCase().includes('ARROIO'));
+      setFormData(prev => ({ ...prev, unit_id: arroio ? arroio.id : stores[0].id }));
     }
-  }, [stores.length, fetchAllUnits]);
+  }, [stores, fetchAllUnits, formData.unit_id]);
 
   useEffect(() => {
     fetchSuppliers(undefined, false).catch(() => {});
@@ -331,7 +334,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
       </div>
 
       {/* Conteúdo das Abas */}
-      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 min-h-[200px]">
+      <div className="bg-white/1 border border-white/5 rounded-3xl p-5 min-h-50">
         {activeTab === 'info' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in duration-300">
             <div className="space-y-2">
@@ -593,7 +596,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                   onChange={(e) => setFormData({ ...formData, show_on_landing: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
 
@@ -610,7 +613,7 @@ export default function InventoryForm({ item, onSuccess }: InventoryFormProps) {
                     onChange={(e) => setFormData({ ...formData, only_cash_sale: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  <div className="w-9 h-5 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
               </div>
             )}

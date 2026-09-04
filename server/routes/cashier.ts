@@ -212,6 +212,7 @@ cashierRouter.get('/summary', async (req, res) => {
     const totalFinanceiraArrecadado = totalFinanceiraInstallments + extraFinanceiraIn;
     const totalFinanceiraDespesas = extraFinanceiraOut;
     const saldoDisponivelReal = Math.max(0, (disponivelD0 + extraFinanceiraIn) - totalTransferred - extraFinanceiraOut);
+    const saldoLiberadoEfetivoD0 = Math.min(saldoDisponivelReal, Math.max(0, (disponivelD0 + extraFinanceiraIn) - totalTransferred - extraFinanceiraOut));
 
     const extraLojaIn = (cashTxs || [])
       .filter((t: any) => (t.cashier_type === 'LOJA' || !t.cashier_type) && (t.type === 'in' || t.type === 'inflow') && !t.sale_id && !t.installment_id && !(t.description || '').includes('[REPASSE'))
@@ -229,7 +230,7 @@ cashierRouter.get('/summary', async (req, res) => {
       financeira: {
         totalArrecadado: totalFinanceiraArrecadado,
         totalDespesas: totalFinanceiraDespesas,
-        disponivelD0: disponivelD0,
+        disponivelD0: saldoLiberadoEfetivoD0,
         liquidandoD2: liquidandoD2,
         saldoDisponivelReal: saldoDisponivelReal,
         totalRepassado: totalTransferred,

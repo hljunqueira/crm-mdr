@@ -557,11 +557,12 @@ Agradecemos por manter suas parcelas em dia! Qualquer dúvida, estamos à dispos
     }
   }, [profile, fetchUnit, fetchAllUnits]);
 
-  // Ao carregar a lista ou a unidade inicial, seleciona a primeira
+  // Ao carregar a lista ou a unidade inicial, seleciona Arroio por padrão
   useEffect(() => {
     if (!selectedUnitId) {
       if (profile?.role === 'admin' && units.length > 0) {
-        setSelectedUnitId(units[0].id);
+        const arroio = units.find(u => u.name && u.name.toUpperCase().includes('ARROIO'));
+        setSelectedUnitId(arroio ? arroio.id : units[0].id);
       } else if (unit) {
         setSelectedUnitId(unit.id);
       }

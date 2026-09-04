@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Printer, Plus, X, Gift, ShoppingBag, UserCheck, Loader2 } from 'lucide-react';
+import { Smartphone, User, DollarSign, Calendar, Calculator, CheckCircle2, AlertCircle, Layers, Save, FileText, Receipt, Printer, Plus, X, Gift, ShoppingBag, UserCheck, Loader2, MessageSquare } from 'lucide-react';
 import { cn, printElement, formatCPF, formatPhone, validateCPF, validateCNPJ } from '../../lib/utils';
 import { useCustomerStore } from '../../store/useCustomerStore';
 import { useSaleStore, Sale } from '../../store/useSaleStore';
@@ -61,6 +61,7 @@ interface SaleFormProps {
 export default function SaleForm({ onSuccess, onCancel, initialData, prefillFromOs }: SaleFormProps) {
   const { customers, addCustomer, fetchCustomers } = useCustomerStore();
   const { addSale, updateSale } = useSaleStore();
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
 
   useEffect(() => {
     if (prefillFromOs) {
@@ -1564,6 +1565,61 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
     await executeSubmit(selectedSellerId || profile?.id || '');
   };
 
+  const handleSendWhatsAppReceipt = async () => {
+    const custPhone = selectedCustomer?.phone || '';
+    if (!custPhone || !custPhone.trim()) {
+      showNotification('error', 'Sem Telefone', 'O cliente não possui um número de telefone cadastrado para envio.');
+      return;
+    }
+
+    setIsSendingWhatsApp(true);
+    try {
+      const saleId = createdSale?.id;
+      let res;
+      if (saleId && saleId !== 'temp-id') {
+        res = await fetch(`/api/sales/${saleId}/send-receipt-whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customPhone: custPhone })
+        });
+      } else {
+        const unitObj = resolvedUnit as any;
+        res = await fetch(`/api/sales/send-receipt-whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerName: selectedCustomer?.name || 'Cliente',
+            customerPhone: custPhone,
+            deviceModel: formData.device_model || (selectedDevices.length > 0 ? selectedDevices.map(d => d.model).join(', ') : 'Produto / Serviço'),
+            totalValue: finalValue,
+            paymentType: formData.payment_type,
+            paymentMethod: formData.payment_method,
+            saleDate: new Date().toLocaleDateString('pt-BR'),
+            storePhone: unitObj?.phone || '(48) 99903-5854',
+            storeId: unitObj?.id
+          })
+        });
+      }
+
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        showNotification('success', 'Nota Enviada via WhatsApp!', `Comprovante entregue com sucesso para ${selectedCustomer?.name || 'o cliente'}.`);
+      } else {
+        if (json.whatsappUrl) {
+          window.open(json.whatsappUrl, '_blank');
+          showNotification('info', 'WhatsApp Aberto', 'Abrindo conversa no WhatsApp Web.');
+        } else {
+          showNotification('error', 'Falha no Envio', json.error || 'Erro ao enviar via WhatsApp.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao enviar comprovante via WhatsApp:', err);
+      showNotification('error', 'Erro de Conexão', err.message || 'Falha ao comunicar com o servidor.');
+    } finally {
+      setIsSendingWhatsApp(false);
+    }
+  };
+
   if (isSuccess && selectedCustomer) {
     const accessoriesStr = selectedAccessories.length > 0
       ? selectedAccessories.map(a => `${a.model} (${a.type === 'brinde' ? 'Brinde' : `Venda R$${a.price.toFixed(2)}`})`).join(', ')
@@ -1682,10 +1738,29 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
 
           <button
             onClick={() => printElement('sale-receipt')}
-            className="w-full py-4 bg-primary/10 border border-primary/30 text-primary rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/20 transition-all flex items-center justify-center gap-3"
+            className="w-full py-4 bg-primary/10 border border-primary/30 text-primary rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary/20 transition-all flex items-center justify-center gap-3 cursor-pointer"
           >
             <Receipt size={18} />
             Imprimir Nota de Venda
+          </button>
+
+          <button
+            type="button"
+            disabled={isSendingWhatsApp}
+            onClick={handleSendWhatsAppReceipt}
+            className="w-full py-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3 cursor-pointer shadow-lg shadow-emerald-500/5 disabled:opacity-50"
+          >
+            {isSendingWhatsApp ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Enviando WhatsApp...
+              </>
+            ) : (
+              <>
+                <MessageSquare size={18} />
+                Enviar via WhatsApp
+              </>
+            )}
           </button>
 
           <button
@@ -1693,7 +1768,7 @@ export default function SaleForm({ onSuccess, onCancel, initialData, prefillFrom
               onSuccess();
               hideModal();
             }}
-            className="w-full py-4 bg-white/5 border border-white/10 text-on-surface-variant rounded-2xl font-black uppercase tracking-widest text-xs hover:text-white transition-all"
+            className="w-full py-4 bg-white/5 border border-white/10 text-on-surface-variant rounded-2xl font-black uppercase tracking-widest text-xs hover:text-white transition-all cursor-pointer"
           >
             Fechar e Voltar
           </button>

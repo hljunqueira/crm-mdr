@@ -34,7 +34,7 @@ interface FinanceState {
   installments: Installment[];
   isLoading: boolean;
   fetchInstallments: (unitId?: string) => Promise<void>;
-  markAsPaid: (id: string, finalValue?: number, paymentMethod?: 'pix' | 'money' | 'card', bypassShiftValidation?: boolean) => Promise<void>;
+  markAsPaid: (id: string, finalValue?: number, paymentMethod?: 'pix' | 'money' | 'card', bypassShiftValidation?: boolean, paymentDate?: string) => Promise<void>;
   markAsBlocked: (id: string) => Promise<void>;
   revertPayment: (id: string) => Promise<void>;
   addInstallments: (newInstallments: Omit<Installment, 'id'>[]) => Promise<any>;
@@ -90,11 +90,11 @@ export const useFinanceStore = create<FinanceState>()((set) => ({
       set({ isLoading: false });
     }
   },
-  markAsPaid: async (id, finalValue, paymentMethod, bypassShiftValidation) => {
+  markAsPaid: async (id, finalValue, paymentMethod, bypassShiftValidation, paymentDate) => {
     try {
       const payload: Record<string, any> = {
         status: 'paid',
-        payment_date: new Date().toISOString().split('T')[0]
+        payment_date: paymentDate || new Date().toISOString().split('T')[0]
       };
       // If a final value is given (e.g., includes late fees), persist the real amount received
       if (finalValue !== undefined) {

@@ -299,17 +299,23 @@ router.patch("/installments/:id", async (req, res) => {
     const amount = Number(value !== undefined ? value : current.value);
 
     let activeShift: any = null;
-    if (status === 'paid') {
-      const { data: shift } = await supabase
-        .from('cash_shifts')
-        .select('*')
-        .eq('unit_id', unitId)
-        .eq('status', 'open')
-        .maybeSingle();
-      activeShift = shift;
+    const paymentDateStr = (req.body.payment_date || '').split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isRetroactive = Boolean(paymentDateStr && paymentDateStr < todayStr);
 
-      if (!activeShift && !bypassShiftValidation) {
-        return res.status(400).json({ error: 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.' });
+    if (status === 'paid') {
+      if (!isRetroactive) {
+        const { data: shift } = await supabase
+          .from('cash_shifts')
+          .select('*')
+          .eq('unit_id', unitId)
+          .eq('status', 'open')
+          .maybeSingle();
+        activeShift = shift;
+
+        if (!activeShift && !bypassShiftValidation) {
+          return res.status(400).json({ error: 'Caixa fechado. Abra o caixa para receber pagamentos nesta unidade.' });
+        }
       }
     }
 
@@ -380,11 +386,15 @@ router.patch("/installments/:id", async (req, res) => {
         const cashierType = originType === 'FINANCIAMENTO_CELULAR' ? 'FINANCEIRA' : 'LOJA';
         const isFinanceira = cashierType === 'FINANCEIRA';
 
+        const finalTxCreatedAt = isRetroactive
+          ? (paymentDateStr.includes('T') ? paymentDateStr : `${paymentDateStr}T12:00:00.000Z`)
+          : new Date().toISOString();
+
         await supabase
           .from('cash_transactions')
           .insert({
             unit_id: unitId,
-            shift_id: isFinanceira ? null : (activeShift?.id || null), // Financeira não entra no turno diário da loja física
+            shift_id: (isFinanceira || isRetroactive) ? null : (activeShift?.id || null), // Financeira ou retroativo não entra no turno diário da loja física
             type: 'inflow',
             category: 'installment',
             amount,
@@ -392,13 +402,14 @@ router.patch("/installments/:id", async (req, res) => {
             cashier_type: cashierType,
             description: `Recebimento de parcela #${data.installment_number} de ${customerName} (${isFinanceira ? 'Financeira' : 'Loja'})`,
             installment_id: data.id,
+            created_at: finalTxCreatedAt,
             created_by: isFinanceira
               ? (created_by || data.sales?.created_by || '00000000-0000-0000-0000-000000000000')
               : (created_by || activeShift?.opened_by || data.sales?.created_by || '00000000-0000-0000-0000-000000000000')
           });
 
-        // Se for recebimento da LOJA física e o caixa estiver aberto, atualizar saldo esperado do turno
-        if (activeShift && !isFinanceira) {
+        // Se for recebimento da LOJA física, no dia atual e o caixa estiver aberto, atualizar saldo esperado do turno
+        if (activeShift && !isFinanceira && !isRetroactive) {
           const isCash = pm === 'money';
           const updateShiftPayload: Record<string, any> = {};
           if (isCash) {
@@ -855,44 +866,67 @@ router.get("/transactions", async (req, res) => {
 
 // POST /api/finance/transactions
 router.post("/transactions", async (req, res) => {
-  const { unit_id, type, category, amount, payment_method, description, created_by } = req.body;
+  const { unit_id, type, category, amount, payment_method, description, created_by, date, created_at, is_shift, shift_id, cashier_type } = req.body;
   
   if (!unit_id || !type || !category || !amount || !payment_method || !created_by) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
+  const valueNum = Number(amount);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const txDateStr = (date || created_at || '').split('T')[0];
+  const isRetroactive = Boolean(txDateStr && txDateStr < todayStr);
+
+  // A movimentação só pertence ao turno do Caixa Diário se foi explicitamente indicada como turno (is_shift === true)
+  // E NÃO for data retroativa. Lançamentos do Caixa Geral / Caixa Loja ou retroativos têm shift_id nulo e não afetam o turno diário.
+  const isShiftMovement = is_shift === true && !isRetroactive;
+
+  // Garantir timestamp no meio-dia para evitar desvios de fuso horário (ex: UTC-3 Brasil)
+  let finalCreatedAt: string = new Date().toISOString();
+  if (date) {
+    finalCreatedAt = date.includes('T') ? date : `${date}T12:00:00.000Z`;
+  } else if (created_at) {
+    finalCreatedAt = created_at;
+  }
+
+  const effectiveCashierType = cashier_type || 'LOJA';
+
   if (useSupabase(req)) {
-    const { data: activeShift } = await supabase
-      .from('cash_shifts')
-      .select('*')
-      .eq('unit_id', unit_id)
-      .eq('status', 'open')
-      .maybeSingle();
+    let activeShift: any = null;
+    if (isShiftMovement) {
+      const { data: shift } = await supabase
+        .from('cash_shifts')
+        .select('*')
+        .eq('unit_id', unit_id)
+        .eq('status', 'open')
+        .maybeSingle();
+      activeShift = shift;
 
-    if (!activeShift) {
-      return res.status(400).json({ error: "Lançamentos financeiros exigem um caixa aberto nesta unidade." });
+      if (!activeShift) {
+        return res.status(400).json({ error: "Movimentações de turno no Caixa Diário exigem um caixa aberto nesta unidade." });
+      }
     }
-
-    const valueNum = Number(amount);
 
     const { data, error } = await supabase
       .from('cash_transactions')
       .insert({
         unit_id,
-        shift_id: activeShift?.id || null,
+        shift_id: (isShiftMovement && activeShift) ? activeShift.id : (shift_id || null),
         type,
         category,
         amount: valueNum,
         payment_method,
         description,
-        created_by
+        created_by,
+        cashier_type: effectiveCashierType,
+        created_at: finalCreatedAt
       })
       .select()
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
 
-    if (activeShift) {
+    if (isShiftMovement && activeShift) {
       const isCash = payment_method === 'money';
       const isOutflow = type === 'outflow';
       const multiplier = isOutflow ? -1 : 1;
@@ -916,21 +950,26 @@ router.post("/transactions", async (req, res) => {
 
   // SQLite fallback
   try {
-    const [activeShift] = await db.select().from(cashShifts).where(and(eq(cashShifts.storeId, unit_id), eq(cashShifts.status, 'open'))).limit(1);
-    if (!activeShift) {
-      return res.status(400).json({ error: "Lançamentos financeiros exigem um caixa aberto nesta unidade." });
+    let activeShift: any = null;
+    if (isShiftMovement) {
+      const [shift] = await db.select().from(cashShifts).where(and(eq(cashShifts.storeId, unit_id), eq(cashShifts.status, 'open'))).limit(1);
+      activeShift = shift;
+      if (!activeShift) {
+        return res.status(400).json({ error: "Movimentações de turno no Caixa Diário exigem um caixa aberto nesta unidade." });
+      }
     }
 
     const id = crypto.randomUUID();
     const newTx = {
       id,
-      shiftId: activeShift.id,
+      shiftId: (isShiftMovement && activeShift) ? activeShift.id : null,
       type,
-      amount: Number(amount),
+      amount: valueNum,
       description,
       paymentMethod: payment_method,
       syncStatus: 'pending_insert',
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      createdAt: finalCreatedAt
     };
 
     await db.insert(cashTransactions).values(newTx);
@@ -944,10 +983,10 @@ router.post("/transactions", async (req, res) => {
       payment_method: newTx.paymentMethod,
       unit_id,
       category,
-      created_by
+      created_by,
+      cashier_type: effectiveCashierType,
+      created_at: finalCreatedAt
     };
-
-    // syncQueue insert removed (Supabase native mode)
 
     res.status(201).json(pgPayload);
   } catch (err: any) {

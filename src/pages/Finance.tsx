@@ -959,10 +959,19 @@ export default function Finance() {
   }, [fetchAllUnits, fetchUserPermissions]);
 
   useEffect(() => {
-    if (!isAdmin && profile?.unit_id) {
-      setSelectedUnitId(profile.unit_id);
+    if (units.length > 0) {
+      if (!isAdmin && profile?.unit_id) {
+        setSelectedUnitId(profile.unit_id);
+      } else if (selectedUnitId === 'all' || !selectedUnitId) {
+        const arroio = units.find(u => u.name && u.name.toUpperCase().includes('ARROIO'));
+        if (arroio) {
+          setSelectedUnitId(arroio.id);
+        } else if (units[0]) {
+          setSelectedUnitId(units[0].id);
+        }
+      }
     }
-  }, [profile?.unit_id, isAdmin]);
+  }, [units, profile?.unit_id, isAdmin]);
 
   useEffect(() => {
     if (selectedUnitId) {

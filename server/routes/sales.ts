@@ -2,6 +2,8 @@ import { Router } from "express";
 import { supabase } from "../lib/supabase.js";
 import { deleteAsaasPayment } from "../services/asaasService.js";
 import { updateCollaboratorGoalProgress } from "../lib/goalsHelper.js";
+import { sendWhatsAppMessageWithFallback } from "./billing.js";
+import { formatWhatsAppJid } from "../lib/phoneHelper.js";
 
 const router = Router();
 
@@ -1442,6 +1444,168 @@ router.patch("/:id/origin-type", async (req, res) => {
     res.json({ success: true, sale: updatedSale, message: `Modalidade atualizada para ${origin_type === 'CREDIARIO_LOJA' ? 'Crediário Loja' : 'Financeira'}` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+function getSalePaymentLabel(paymentType?: string, paymentMethod?: string): string {
+  if (paymentMethod) {
+    const pm = paymentMethod.toLowerCase();
+    if (pm === 'pix') return 'PIX';
+    if (pm === 'money' || pm === 'dinheiro') return 'Dinheiro';
+    if (pm === 'card' || pm === 'cartao' || pm === 'credito') return 'Cartão de Crédito';
+    if (pm === 'debit' || pm === 'debito') return 'Cartão de Débito';
+    if (pm === 'crediario') return 'Crediário da Loja';
+  }
+  if (paymentType) {
+    const pt = paymentType.toLowerCase();
+    if (pt === 'vista') return 'À Vista (Dinheiro/PIX)';
+    if (pt === 'pix') return 'PIX';
+    if (pt === 'money') return 'Dinheiro';
+    if (pt === 'card') return 'Cartão de Crédito';
+    if (pt === 'debit') return 'Cartão de Débito';
+    if (pt === 'crediario') return 'Crediário Próprio';
+  }
+  return 'À Vista';
+}
+
+// POST /api/sales/:id/send-receipt-whatsapp - Envia nota de venda via WhatsApp (Evolution + n8n)
+router.post("/:id/send-receipt-whatsapp", async (req, res) => {
+  try {
+    const saleId = req.params.id;
+    const { customPhone } = req.body;
+
+    const { data: sale, error: saleErr } = await supabase
+      .from('sales')
+      .select(`
+        *,
+        customer:customers(id, name, phone, cpf),
+        store:stores(id, name, phone, evolution_instance)
+      `)
+      .eq('id', saleId)
+      .single();
+
+    if (saleErr || !sale) {
+      return res.status(404).json({ error: "Venda não encontrada." });
+    }
+
+    const rawCustomer = Array.isArray(sale.customer) ? sale.customer[0] : sale.customer;
+    const rawStore = Array.isArray(sale.store) ? sale.store[0] : sale.store;
+
+    const customerPhone = customPhone || rawCustomer?.phone;
+    if (!customerPhone || !customerPhone.trim()) {
+      return res.status(400).json({ error: "Cliente não possui telefone de WhatsApp cadastrado." });
+    }
+
+    const customerName = (rawCustomer?.name || "Cliente").trim();
+    const deviceModel = sale.device_model_manual || (sale.devices as any)?.model || "Produto / Serviço";
+    const totalVal = Number(sale.total_value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const paymentLabel = getSalePaymentLabel(sale.payment_type, sale.payment_method);
+    
+    let saleDateFormatted = new Date().toLocaleDateString('pt-BR');
+    if (sale.sale_date || sale.created_at) {
+      try {
+        const rawDate = sale.sale_date || sale.created_at;
+        const cleanDate = rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`;
+        saleDateFormatted = new Date(cleanDate).toLocaleDateString('pt-BR');
+      } catch (_) {}
+    }
+
+    const storePhone = rawStore?.phone || '(48) 99903-5854';
+    const instance = rawStore?.evolution_instance || 'whatsapp_mdr_arroio';
+
+    const messageText = `🧾 *MDR INFORMÁTICA & CELULARES*\n` +
+      `*Comprovante / Nota de Venda*\n` +
+      `Olá, *${customerName}*! Agradecemos pela sua preferência. Segue o comprovante da sua compra:\n` +
+      `📱 *Produto / Item:* ${deviceModel}\n` +
+      `💰 *Valor Total:* R$ ${totalVal}\n` +
+      `💳 *Forma de Pagamento:* ${paymentLabel}\n` +
+      `📅 *Data da Compra:* ${saleDateFormatted}\n` +
+      `📞 *Atendimento:* ${storePhone}`;
+
+    const remoteJid = formatWhatsAppJid(customerPhone);
+    const cleanDigits = customerPhone.replace(/\D/g, '');
+    const targetPhone = cleanDigits.startsWith('55') ? cleanDigits : `55${cleanDigits}`;
+
+    const result = await sendWhatsAppMessageWithFallback({
+      instanceName: instance,
+      remoteJid: remoteJid,
+      phone: targetPhone,
+      text: messageText
+    });
+
+    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(messageText)}`;
+
+    return res.json({
+      success: true,
+      message: "Nota de venda enviada com sucesso!",
+      channel: result.channel,
+      whatsappUrl
+    });
+  } catch (err: any) {
+    console.error("[Sales Receipt WhatsApp] Erro:", err);
+    res.status(500).json({ error: err.message || "Erro ao disparar mensagem de nota de venda." });
+  }
+});
+
+// POST /api/sales/send-receipt-whatsapp - Envia nota de venda avulsa/direta com payload
+router.post("/send-receipt-whatsapp", async (req, res) => {
+  try {
+    const { customerName, customerPhone, deviceModel, totalValue, paymentType, paymentMethod, saleDate, storePhone, storeId } = req.body;
+
+    if (!customerPhone || !customerPhone.trim()) {
+      return res.status(400).json({ error: "Telefone do cliente é obrigatório." });
+    }
+
+    let instance = 'whatsapp_mdr_arroio';
+    let resolvedStorePhone = storePhone || '(48) 99903-5854';
+
+    if (storeId) {
+      const { data: st } = await supabase.from('stores').select('phone, evolution_instance').eq('id', storeId).maybeSingle();
+      if (st) {
+        if (st.evolution_instance) instance = st.evolution_instance;
+        if (st.phone && !storePhone) resolvedStorePhone = st.phone;
+      }
+    }
+
+    const cName = (customerName || 'Cliente').trim();
+    const dModel = (deviceModel || 'Produto / Serviço').trim();
+    const tVal = typeof totalValue === 'number' 
+      ? totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : String(totalValue || '0,00');
+    const pLabel = getSalePaymentLabel(paymentType, paymentMethod);
+    const sDate = saleDate || new Date().toLocaleDateString('pt-BR');
+
+    const messageText = `🧾 *MDR INFORMÁTICA & CELULARES*\n` +
+      `*Comprovante / Nota de Venda*\n` +
+      `Olá, *${cName}*! Agradecemos pela sua preferência. Segue o comprovante da sua compra:\n` +
+      `📱 *Produto / Item:* ${dModel}\n` +
+      `💰 *Valor Total:* R$ ${tVal}\n` +
+      `💳 *Forma de Pagamento:* ${pLabel}\n` +
+      `📅 *Data da Compra:* ${sDate}\n` +
+      `📞 *Atendimento:* ${resolvedStorePhone}`;
+
+    const remoteJid = formatWhatsAppJid(customerPhone);
+    const cleanDigits = customerPhone.replace(/\D/g, '');
+    const targetPhone = cleanDigits.startsWith('55') ? cleanDigits : `55${cleanDigits}`;
+
+    const result = await sendWhatsAppMessageWithFallback({
+      instanceName: instance,
+      remoteJid: remoteJid,
+      phone: targetPhone,
+      text: messageText
+    });
+
+    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(messageText)}`;
+
+    return res.json({
+      success: true,
+      message: "Nota de venda enviada via WhatsApp com sucesso!",
+      channel: result.channel,
+      whatsappUrl
+    });
+  } catch (err: any) {
+    console.error("[Sales Direct Receipt WhatsApp] Erro:", err);
+    res.status(500).json({ error: err.message || "Erro ao disparar mensagem de nota de venda." });
   }
 });
 

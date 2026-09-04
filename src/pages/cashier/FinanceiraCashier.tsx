@@ -160,7 +160,10 @@ export default function FinanceiraCashier({
     ? cashierSummary.financeira.saldoDisponivelReal 
     : saldoCalculado;
 
-  const displayLiberadoD0 = cashierSummary?.financeira?.disponivelD0 || availableAmt;
+  const rawLiberadoD0 = cashierSummary?.financeira?.disponivelD0 !== undefined 
+    ? Number(cashierSummary.financeira.disponivelD0) 
+    : availableAmt;
+  const displayLiberadoD0 = Math.min(availableAmt, rawLiberadoD0);
   const displayLiquidandoD2 = cashierSummary?.financeira?.liquidandoD2 || 0;
 
   // Drag & Drop State para os Cards da Financeira

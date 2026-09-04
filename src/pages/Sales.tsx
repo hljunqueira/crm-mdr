@@ -6,7 +6,7 @@ import {
   CheckCircle2, AlertCircle, MoreVertical, Filter,
   DollarSign, Calendar, Layers, ShieldCheck, Tag,
   Package, ArrowRight, Edit, Trash2, TrendingUp,
-  Printer, Loader2, Receipt
+  Printer, Loader2, Receipt, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSaleStore, Sale } from '../store/useSaleStore';
@@ -1049,8 +1049,43 @@ export default function Sales() {
   const { showNotification, showModal, hideModal } = useUI();
   const { hasPermission, fetchUserPermissions } = usePermissionStore();
   const { activeShift, fetchActiveShift } = useCashStore();
+  const [sendingWhatsAppId, setSendingWhatsAppId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const handleSendWhatsAppReceipt = async (sale: Sale) => {
+    const customer = customers.find(c => c.id === sale.customer_id);
+    const phone = customer?.phone || (sale as any).customer_phone || '';
+    if (!phone || !phone.trim()) {
+      showNotification('error', 'Sem Telefone', 'O cliente não possui um número de WhatsApp cadastrado.');
+      return;
+    }
+
+    setSendingWhatsAppId(sale.id);
+    try {
+      const res = await fetch(`/api/sales/${sale.id}/send-receipt-whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customPhone: phone })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        showNotification('success', 'Nota Enviada via WhatsApp!', `Comprovante entregue para ${customer?.name || sale.customer_name || 'o cliente'}.`);
+      } else {
+        if (json.whatsappUrl) {
+          window.open(json.whatsappUrl, '_blank');
+          showNotification('info', 'WhatsApp Aberto', 'Abrindo conversa no WhatsApp Web.');
+        } else {
+          showNotification('error', 'Falha no Envio', json.error || 'Erro ao enviar via WhatsApp.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao enviar comprovante:', err);
+      showNotification('error', 'Erro de Conexão', err.message || 'Falha ao comunicar com o servidor.');
+    } finally {
+      setSendingWhatsAppId(null);
+    }
+  };
 
   useEffect(() => {
     if (location.state?.prefillFromOs) {
@@ -1090,6 +1125,15 @@ export default function Sales() {
       fetchActiveShift(profile.unit_id);
     }
   }, [profile?.unit_id, profile?.role, fetchSales, fetchCustomers, fetchInstallments, fetchAllUnits, fetchActiveShift]);
+
+  useEffect(() => {
+    if (isAdmin && units.length > 0 && selectedUnitId === 'all') {
+      const arroio = units.find(u => u.name && u.name.toUpperCase().includes('ARROIO'));
+      if (arroio) {
+        setSelectedUnitId(arroio.id);
+      }
+    }
+  }, [units, isAdmin, selectedUnitId]);
 
   const salesForMetrics = useMemo(() => {
     return sales.filter(s => {
@@ -1315,7 +1359,7 @@ export default function Sales() {
             <div
               key={idx}
               onClick={() => setStatusFilter(stat.id as any)}
-              className={`bg-white/2 p-6 rounded-[32px] border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
+              className={`bg-white/2 p-6 rounded-4xl border relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:bg-white/4 ${isActive ? stat.activeBorder : 'border-white/5'}`}
             >
               {isActive && (
                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${stat.activeBar}`} />
@@ -1347,7 +1391,7 @@ export default function Sales() {
             />
           </div>
           {/* Filtro por Mês */}
-          <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-[180px] w-full md:w-auto">
+          <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-45 w-full md:w-auto">
             <span className="text-primary shrink-0">📅</span>
             <select
               value={selectedMonth}
@@ -1366,7 +1410,7 @@ export default function Sales() {
             </select>
           </div>
           {isAdmin && units.length > 0 && (
-            <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-[200px] w-full md:w-auto">
+            <div className="relative flex items-center gap-2 bg-white/5 border border-outline-variant/30 rounded-2xl px-4 py-4 min-w-50 w-full md:w-auto">
               <span className="text-primary shrink-0">🏪</span>
               <select
                 value={selectedUnitId}
@@ -1493,6 +1537,18 @@ export default function Sales() {
                             {(sale.payment_type === 'vista' || sale.payment_type === 'debit') ? <Receipt size={16} /> : <Printer size={16} />}
                           </button>
                         )}
+                        <button
+                          onClick={() => handleSendWhatsAppReceipt(sale)}
+                          disabled={sendingWhatsAppId === sale.id}
+                          className="p-2 hover:bg-emerald-500/10 rounded-xl transition-all text-on-surface-variant hover:text-emerald-400 disabled:opacity-50"
+                          title="Enviar Nota via WhatsApp"
+                        >
+                          {sendingWhatsAppId === sale.id ? (
+                            <Loader2 size={16} className="animate-spin text-emerald-400" />
+                          ) : (
+                            <MessageSquare size={16} />
+                          )}
+                        </button>
                         {hasPermission(profile, 'Vendas - Registrar Nova Venda') && (
                           <button
                             onClick={() => handleEditSale(sale)}
